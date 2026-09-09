@@ -7,3 +7,117 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+// ==== ENUMS ====
+
+enum Role {
+  ADMIN
+  PROFESSOR
+  ALUNO
+}
+
+enum Nivel {
+  BASICO
+  INTERMEDIARIO
+  AVANCADO
+}
+
+enum TipoSimulado {
+  DIAGNOSTICO
+  PERSONALIZADO
+}
+
+// ==== MODELS ====
+
+model User {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  senhaHash String
+  role      Role
+  createdAt DateTime @default(now())
+
+  turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
+  turmasComoAluno     Turma[]      @relation("AlunoTurmas")
+  questoesCriadas     Questao[]
+  simulados           Simulado[]
+  metasDiarias        MetaDiaria[]
+}
+
+model Turma {
+  id            String   @id @default(uuid())
+  nome          String
+  codigoConvite String   @unique
+  createdAt     DateTime @default(now())
+
+  professores User[]    @relation("ProfessorTurmas")
+  alunos      User[]    @relation("AlunoTurmas")
+  questoes    Questao[]
+}
+
+model Questao {
+  id                    String   @id @default(uuid())
+  enunciado             String
+  disciplina            String
+  assunto               String
+  nivel                 Nivel
+  fundamentacaoJuridica String
+  publica               Boolean  @default(true)
+  createdAt             DateTime @default(now())
+
+  turmaId String?
+  turma   Turma?  @relation(fields: [turmaId], references: [id])
+
+  autorId String
+  autor   User   @relation(fields: [autorId], references: [id])
+
+  alternativas Alternativa[]
+  respostas    Resposta[]
+}
+
+model Alternativa {
+  id        String  @id @default(uuid())
+  texto     String
+  correta   Boolean
+  questaoId String
+  questao   Questao @relation(fields: [questaoId], references: [id])
+}
+
+model Simulado {
+  id                  String       @id @default(uuid())
+  tipo                TipoSimulado
+  iniciadoEm          DateTime     @default(now())
+  finalizadoEm        DateTime?
+  tempoLimiteSegundos Int?
+
+  alunoId String
+  aluno   User   @relation(fields: [alunoId], references: [id])
+
+  respostas Resposta[]
+}
+
+model Resposta {
+  id                    String   @id @default(uuid())
+  correta               Boolean
+  tempoRespostaSegundos Int?
+  respondidoEm          DateTime @default(now())
+
+  simuladoId String
+  simulado   Simulado @relation(fields: [simuladoId], references: [id])
+
+  questaoId String
+  questao   Questao @relation(fields: [questaoId], references: [id])
+
+  alternativaEscolhidaId String?
+}
+
+model MetaDiaria {
+  id                 String   @id @default(uuid())
+  data               DateTime
+  metaQuestoes       Int
+  questoesResolvidas Int      @default(0)
+  cumprida           Boolean  @default(false)
+
+  alunoId String
+  aluno   User   @relation(fields: [alunoId], references: [id])
+}
