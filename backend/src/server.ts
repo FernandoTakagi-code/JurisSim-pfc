@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import { env } from './config/env';
 import authRoutes from './routes/authRoutes';
+import { authMiddleware, AuthenticatedRequest } from './middlewares/authMiddleware';
+import { roleMiddleware } from './middlewares/roleMiddleware';
 
 const app = express();
 
