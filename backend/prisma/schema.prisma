@@ -38,6 +38,7 @@ model User {
   email     String   @unique
   senhaHash String
   role      Role
+  nivelAtual Nivel? 
   createdAt DateTime @default(now())
 
   turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
@@ -93,6 +94,8 @@ model Simulado {
   iniciadoEm          DateTime     @default(now())
   finalizadoEm        DateTime?
   tempoLimiteSegundos Int?
+  trilhaAdaptativa TrilhaAdaptativa? @relation("TrilhaDoDiagnostico")
+  trilhaOrigem     TrilhaAdaptativa? @relation("TrilhaGerouExercicios")
 
   alunoId String
   aluno   User   @relation(fields: [alunoId], references: [id])
@@ -172,4 +175,20 @@ model MetaDiaria {
 
   alunoId String
   aluno   User   @relation(fields: [alunoId], references: [id])
+}
+
+model TrilhaAdaptativa {
+  id                    String   @id @default(uuid())
+  simuladoId            String   @unique
+  disciplinaPrioritaria String
+  assuntoPrioritario    String?
+  nivelRecomendado      Nivel
+  quantidadeRecomendada Int
+  justificativa         String
+  createdAt             DateTime @default(now())
+
+  simulado         Simulado  @relation("TrilhaDoDiagnostico", fields: [simuladoId], references: [id], onDelete: Cascade)
+
+  simuladoGeradoId String?   @unique
+  simuladoGerado   Simulado? @relation("TrilhaGerouExercicios", fields: [simuladoGeradoId], references: [id])
 }
