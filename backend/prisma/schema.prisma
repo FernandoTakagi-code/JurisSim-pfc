@@ -8,8 +8,6 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ==== ENUMS ====
-
 enum Role {
   ADMIN
   PROFESSOR
@@ -27,7 +25,12 @@ enum TipoSimulado {
   PERSONALIZADO
 }
 
-// ==== MODELS ====
+enum TipoMetricaDiagnostico {
+  DISCIPLINA
+  ASSUNTO
+  NIVEL
+  ASSUNTO_E_NIVEL
+}
 
 model User {
   id        String   @id @default(uuid())
@@ -73,6 +76,7 @@ model Questao {
 
   alternativas Alternativa[]
   respostas    Resposta[]
+  diagnosticos QuestaoSimulado[]
 }
 
 model Alternativa {
@@ -94,6 +98,9 @@ model Simulado {
   aluno   User   @relation(fields: [alunoId], references: [id])
 
   respostas Resposta[]
+  questoes  QuestaoSimulado[]
+  desempenhosDiagnostico DesempenhoDiagnostico[]
+  trilhaAdaptativa TrilhaAdaptativa?
 }
 
 model Resposta {
@@ -109,6 +116,51 @@ model Resposta {
   questao   Questao @relation(fields: [questaoId], references: [id])
 
   alternativaEscolhidaId String?
+  questaoSimuladoId      String? @unique
+  questaoSimulado        QuestaoSimulado? @relation("RespostaDiagnostico", fields: [questaoSimuladoId], references: [id])
+}
+
+model QuestaoSimulado {
+  id        String   @id @default(uuid())
+  posicao   Int
+  simuladoId String
+  questaoId String
+
+  simulado Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
+  questao   Questao  @relation(fields: [questaoId], references: [id], onDelete: Restrict)
+  resposta  Resposta? @relation("RespostaDiagnostico")
+
+  @@unique([simuladoId, questaoId])
+  @@unique([simuladoId, posicao])
+}
+
+model DesempenhoDiagnostico {
+  id              String                  @id @default(uuid())
+  simuladoId      String
+  tipo            TipoMetricaDiagnostico
+  disciplina      String
+  assunto         String?
+  nivel           Nivel?
+  acertos         Int
+  totalQuestoes   Int
+  percentual      Float
+
+  simulado Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
+
+  @@index([simuladoId, tipo])
+}
+
+model TrilhaAdaptativa {
+  id                  String   @id @default(uuid())
+  simuladoId          String   @unique
+  disciplinaPrioritaria String
+  assuntoPrioritario   String?
+  nivelRecomendado     Nivel
+  quantidadeRecomendada Int
+  justificativa        String
+  createdAt            DateTime @default(now())
+
+  simulado Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
 }
 
 model MetaDiaria {

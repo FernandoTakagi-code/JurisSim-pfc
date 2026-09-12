@@ -1,21 +1,27 @@
 import express from 'express';
 import cors from 'cors';
-import { env } from './config/env';
-import authRoutes from './routes/authRoutes';
-import { authMiddleware, AuthenticatedRequest } from './middlewares/authMiddleware';
-import { roleMiddleware } from './middlewares/roleMiddleware';
+import dotenv from 'dotenv';
+import { errorHandler } from './middlewares/error-handler';
+import { diagnosticRoutes } from './routes/diagnostic-routes';
+import { authRoutes } from './routes/auth-routes';
+
+dotenv.config();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-app.use('/auth', authRoutes);
-
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'JurisSim API rodando' });
 });
 
-app.listen(env.PORT, () => {
-  console.log(`Servidor rodando na porta ${env.PORT}`);
+app.use('/diagnostics', diagnosticRoutes);
+app.use('/auth', authRoutes);
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 3333;
+
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
