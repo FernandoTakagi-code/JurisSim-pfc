@@ -35,3 +35,9 @@ export interface AdaptiveResult {
   };
   performances: PerformanceMetric[];
 }
+
+export interface TrailFilter {
+  disciplina: string;
+  assunto: string | null;
+  nivel: Level | null;
+}

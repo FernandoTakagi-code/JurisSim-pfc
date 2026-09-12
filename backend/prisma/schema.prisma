@@ -38,6 +38,7 @@ model User {
   email     String   @unique
   senhaHash String
   role      Role
+  nivelAtual Nivel? 
   createdAt DateTime @default(now())
 
   turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
@@ -86,13 +87,14 @@ model Alternativa {
   questaoId String
   questao   Questao @relation(fields: [questaoId], references: [id])
 }
-
 model Simulado {
   id                  String       @id @default(uuid())
   tipo                TipoSimulado
   iniciadoEm          DateTime     @default(now())
   finalizadoEm        DateTime?
   tempoLimiteSegundos Int?
+  trilhaAdaptativa TrilhaAdaptativa? @relation("TrilhaDoDiagnostico")
+  trilhaOrigem     TrilhaAdaptativa? @relation("TrilhaGerouExercicios")
 
   alunoId String
   aluno   User   @relation(fields: [alunoId], references: [id])
@@ -100,7 +102,6 @@ model Simulado {
   respostas Resposta[]
   questoes  QuestaoSimulado[]
   desempenhosDiagnostico DesempenhoDiagnostico[]
-  trilhaAdaptativa TrilhaAdaptativa?
 }
 
 model Resposta {
@@ -150,19 +151,6 @@ model DesempenhoDiagnostico {
   @@index([simuladoId, tipo])
 }
 
-model TrilhaAdaptativa {
-  id                  String   @id @default(uuid())
-  simuladoId          String   @unique
-  disciplinaPrioritaria String
-  assuntoPrioritario   String?
-  nivelRecomendado     Nivel
-  quantidadeRecomendada Int
-  justificativa        String
-  createdAt            DateTime @default(now())
-
-  simulado Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
-}
-
 model MetaDiaria {
   id                 String   @id @default(uuid())
   data               DateTime
@@ -172,4 +160,20 @@ model MetaDiaria {
 
   alunoId String
   aluno   User   @relation(fields: [alunoId], references: [id])
+}
+
+model TrilhaAdaptativa {
+  id                    String   @id @default(uuid())
+  simuladoId            String   @unique
+  disciplinaPrioritaria String
+  assuntoPrioritario    String?
+  nivelRecomendado      Nivel
+  quantidadeRecomendada Int
+  justificativa         String
+  createdAt             DateTime @default(now())
+
+  simulado         Simulado  @relation("TrilhaDoDiagnostico", fields: [simuladoId], references: [id], onDelete: Cascade)
+
+  simuladoGeradoId String?   @unique
+  simuladoGerado   Simulado? @relation("TrilhaGerouExercicios", fields: [simuladoGeradoId], references: [id])
 }
