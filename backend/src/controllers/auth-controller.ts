@@ -4,7 +4,7 @@ import { AuthService } from '../services/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 
 const email = z.string().trim().toLowerCase().email();
-const registerSchema = z.object({ nome: z.string().trim().min(2).max(100), email, senha: z.string().min(8).max(72), confirmacaoSenha: z.string(), role: z.enum(['ALUNO', 'PROFESSOR']) }).refine(({ senha, confirmacaoSenha }) => senha === confirmacaoSenha, { path: ['confirmacaoSenha'], message: 'As senhas nao conferem.' });
+const registerSchema = z.object({ nome: z.string().trim().min(2).max(100), email, senha: z.string().min(8).max(72), confirmacaoSenha: z.string(), role: z.enum(['ADMIN', 'PROFESSOR', 'ALUNO']) }).refine(({ senha, confirmacaoSenha }) => senha === confirmacaoSenha, { path: ['confirmacaoSenha'], message: 'As senhas nao conferem.' });
 const loginSchema = z.object({ email, senha: z.string().min(1).max(72) });
 
 export class AuthController {
