@@ -4,7 +4,6 @@ import './styles.css';
 import { AuthGate } from './auth-gate';
 
 const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3333';
-// TESTE LOCAL: substituir pelo ID do usuário autenticado quando a autenticação estiver integrada.
 
 type Alternative = { id: string; text: string };
 type Question = { id: string; position: number; statement: string; discipline: string; topic: string; difficulty: string; alternatives: Alternative[]; selectedOptionId: string | null };

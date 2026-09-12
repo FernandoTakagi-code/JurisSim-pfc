@@ -8,8 +8,6 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ==== ENUMS ====
-
 enum Role {
   ADMIN
   PROFESSOR
@@ -33,8 +31,6 @@ enum TipoMetricaDiagnostico {
   NIVEL
   ASSUNTO_E_NIVEL
 }
-
-// ==== MODELS ====
 
 model User {
   id        String   @id @default(uuid())
