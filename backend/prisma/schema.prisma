@@ -87,7 +87,6 @@ model Alternativa {
   questaoId String
   questao   Questao @relation(fields: [questaoId], references: [id])
 }
-
 model Simulado {
   id                  String       @id @default(uuid())
   tipo                TipoSimulado
@@ -103,7 +102,6 @@ model Simulado {
   respostas Resposta[]
   questoes  QuestaoSimulado[]
   desempenhosDiagnostico DesempenhoDiagnostico[]
-  trilhaAdaptativa TrilhaAdaptativa?
 }
 
 model Resposta {
@@ -151,19 +149,6 @@ model DesempenhoDiagnostico {
   simulado Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
 
   @@index([simuladoId, tipo])
-}
-
-model TrilhaAdaptativa {
-  id                  String   @id @default(uuid())
-  simuladoId          String   @unique
-  disciplinaPrioritaria String
-  assuntoPrioritario   String?
-  nivelRecomendado     Nivel
-  quantidadeRecomendada Int
-  justificativa        String
-  createdAt            DateTime @default(now())
-
-  simulado Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
 }
 
 model MetaDiaria {
