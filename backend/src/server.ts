@@ -20,7 +20,7 @@ app.get('/health', (req, res) => {
 
 app.use('/diagnostics', diagnosticRoutes);
 app.use('/auth', authRoutes);
-app.use('/trails', trailRoutes);
+app.use('/trilhas', trailRoutes);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3333;
