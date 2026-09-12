@@ -3,7 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { errorHandler } from './middlewares/error-handler';
 import { diagnosticRoutes } from './routes/diagnostic-routes';
-import { authRoutes } from './routes/auth-routes';
+import authRoutes from './routes/authRoutes';
+import questaoRoutes from './routes/questaoRoutes';
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'JurisSim API rodando' });
 });
+app.use('/questoes', questaoRoutes);
 
 app.use('/diagnostics', diagnosticRoutes);
 app.use('/auth', authRoutes);
