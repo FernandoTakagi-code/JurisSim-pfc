@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { errorHandler } from './middlewares/error-handler';
 import { diagnosticRoutes } from './routes/diagnostic-routes';
+import { authRoutes } from './routes/auth-routes';
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/diagnostics', diagnosticRoutes);
+app.use('/auth', authRoutes);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3333;

@@ -23,8 +23,8 @@ export class DiagnosticService {
     return this.repository.createAttempt(studentId, questions.map((question) => question.id));
   }
 
-  async getQuestions(attemptId: string) {
-    const attempt = await this.getAttemptOrFail(attemptId);
+  async getQuestions(attemptId: string, studentId: string) {
+    const attempt = await this.getAttemptOrFail(attemptId, studentId);
     return attempt.questoes.map(({ posicao, questao, resposta }) => ({
       id: questao.id, position: posicao, statement: questao.enunciado, discipline: questao.disciplina,
       topic: questao.assunto, difficulty: questao.nivel,
@@ -33,8 +33,8 @@ export class DiagnosticService {
     }));
   }
 
-  async answer(attemptId: string, questionId: string, selectedOptionId: string) {
-    const attempt = await this.getAttemptOrFail(attemptId);
+  async answer(attemptId: string, studentId: string, questionId: string, selectedOptionId: string) {
+    const attempt = await this.getAttemptOrFail(attemptId, studentId);
     if (attempt.finalizadoEm) throw new ApiError(409, 'Esta tentativa de diagnostico ja foi finalizada.');
     const attemptQuestion = attempt.questoes.find((item) => item.questaoId === questionId);
     if (!attemptQuestion) throw new ApiError(404, 'A questao nao pertence a este diagnostico.');
@@ -52,8 +52,8 @@ export class DiagnosticService {
     return { message: 'Resposta registrada.' };
   }
 
-  async finalize(attemptId: string) {
-    const attempt = await this.getAttemptOrFail(attemptId);
+  async finalize(attemptId: string, studentId: string) {
+    const attempt = await this.getAttemptOrFail(attemptId, studentId);
     if (attempt.finalizadoEm) throw new ApiError(409, 'Esta tentativa de diagnostico ja foi finalizada.');
     if (!attempt.questoes.some((question) => question.resposta)) throw new ApiError(422, 'Nao e possivel finalizar um diagnostico sem respostas.');
     const result = analyzeDiagnostic(this.answeredQuestions(attempt));
@@ -62,14 +62,14 @@ export class DiagnosticService {
     return { attempt: finalizedAttempt, result };
   }
 
-  async getResult(attemptId: string) {
-    const attempt = await this.getAttemptOrFail(attemptId);
+  async getResult(attemptId: string, studentId: string) {
+    const attempt = await this.getAttemptOrFail(attemptId, studentId);
     if (!attempt.finalizadoEm) throw new ApiError(409, 'Finalize o diagnostico antes de consultar o resultado.');
     return { attempt, result: analyzeDiagnostic(this.answeredQuestions(attempt)) };
   }
 
-  async getTrail(attemptId: string) {
-    const { attempt } = await this.getResult(attemptId);
+  async getTrail(attemptId: string, studentId: string) {
+    const { attempt } = await this.getResult(attemptId, studentId);
     if (!attempt.trilhaAdaptativa) throw new ApiError(404, 'A trilha desta tentativa nao foi encontrada.');
     return attempt.trilhaAdaptativa;
   }
@@ -83,8 +83,8 @@ export class DiagnosticService {
     }));
   }
 
-  private async getAttemptOrFail(attemptId: string) {
-    const attempt = await this.repository.findAttempt(attemptId);
+  private async getAttemptOrFail(attemptId: string, studentId: string) {
+    const attempt = await this.repository.findAttempt(attemptId, studentId);
     if (!attempt) throw new ApiError(404, 'Diagnostico nao encontrado.');
     return attempt;
   }

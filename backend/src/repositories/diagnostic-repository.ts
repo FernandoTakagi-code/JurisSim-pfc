@@ -27,8 +27,8 @@ export class DiagnosticRepository {
     });
   }
 
-  async findAttempt(attemptId: string) {
-    return prisma.simulado.findFirst({ where: { id: attemptId, tipo: 'DIAGNOSTICO' }, include: attemptDetails });
+  async findAttempt(attemptId: string, studentId: string) {
+    return prisma.simulado.findFirst({ where: { id: attemptId, alunoId: studentId, tipo: 'DIAGNOSTICO' }, include: attemptDetails });
   }
 
   async saveAnswer(simuladoId: string, questaoId: string, questaoSimuladoId: string, alternativaEscolhidaId: string, correta: boolean) {
