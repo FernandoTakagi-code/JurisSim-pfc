@@ -1,5 +1,4 @@
-import type { AdaptiveResult, AnsweredQuestion, Level, MetricType, PerformanceMetric } from '../types/diagnostic';
-
+import type { AdaptiveResult, AnsweredQuestion, Level, MetricType, PerformanceMetric, TrailFilter } from '../types/diagnostic';
 export function getLevel(percentage: number): Level {
   if (percentage <= 49) return 'BASICO';
   if (percentage <= 79) return 'INTERMEDIARIO';
@@ -63,4 +62,16 @@ export function analyzeDiagnostic(questions: AnsweredQuestion[]): AdaptiveResult
     trail: { priorityDiscipline: weakestDiscipline.discipline, priorityTopic: focusTopic?.topic ?? null, recommendedLevel, recommendedQuantity: recommendedQuantity(recommendedLevel), reason },
     performances: [...disciplineMetrics, ...topicMetrics, ...difficultyMetrics, ...topicAndDifficultyMetrics],
   };
+}
+
+
+export function buildTrailFilters(priorityDiscipline: string, priorityTopic: string | null, recommendedLevel: Level): TrailFilter[] {
+  const filters: TrailFilter[] = [];
+  if (priorityTopic) {
+    filters.push({ disciplina: priorityDiscipline, assunto: priorityTopic, nivel: recommendedLevel });
+    filters.push({ disciplina: priorityDiscipline, assunto: priorityTopic, nivel: null });
+  }
+  filters.push({ disciplina: priorityDiscipline, assunto: null, nivel: recommendedLevel });
+  filters.push({ disciplina: priorityDiscipline, assunto: null, nivel: null });
+  return filters;
 }
