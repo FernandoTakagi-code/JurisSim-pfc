@@ -1,3 +1,4 @@
+
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { DiagnosticService } from '../services/diagnostic-service';
@@ -12,6 +13,7 @@ export class DiagnosticController {
   constructor(private readonly service = new DiagnosticService()) {}
 
   start = async (request: AuthenticatedRequest, response: Response) => {
+    console.log('DEBUG auth:', request.auth); 
     const { questionCount } = startSchema.parse(request.body);
     const attempt = await this.service.start(request.auth!.userId, questionCount);
     response.status(201).json({ id: attempt.id, totalQuestions: attempt.questoes.length, startedAt: attempt.iniciadoEm });

@@ -11,6 +11,8 @@ export function authMiddleware(
   res: Response,
   next: NextFunction
 ) {
+  console.log('DEBUG middleware chamado para:', req.method, req.originalUrl);
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -28,7 +30,8 @@ export function authMiddleware(
     req.usuario = payload;
     req.auth = { userId: payload.id, role: payload.role };
     return next();
-  } catch {
+  } catch (error) {
+    console.log('DEBUG erro ao verificar token:', error);
     return res.status(401).json({ erro: 'Token inválido ou expirado' });
   }
 }
