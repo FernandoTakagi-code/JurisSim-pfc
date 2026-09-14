@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { AuthService } from '../services/AuthService';
 import { UserRepository } from '../repositories/UserRepository';
+import type { AuthenticatedRequest } from '../middlewares/authMiddleware';
 
 const registerSchema = z.object({
   nome: z.string().min(2, 'Nome muito curto'),
@@ -64,5 +65,11 @@ export class AuthController {
       usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, role: usuario.role },
       token,
     });
+  }
+   static async session(req: AuthenticatedRequest, res: Response) {
+    if (!req.usuario) {
+      return res.status(401).json({ erro: 'Sessão inválida' });
+    }
+    return res.status(200).json({ nextStep: 'DIAGNOSTIC' });
   }
 }
