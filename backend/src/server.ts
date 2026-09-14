@@ -21,6 +21,7 @@ app.use('/questoes', questaoRoutes);
 
 app.use('/diagnostics', diagnosticRoutes);
 app.use('/auth', authRoutes);
+app.use('/trilhas', trailRoutes);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3333;
