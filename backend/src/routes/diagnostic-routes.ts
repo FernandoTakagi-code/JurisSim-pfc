@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { DiagnosticController } from '../controllers/diagnostic-controller';
-import { requireAuth } from '../middlewares/auth-middleware';
+import { authMiddleware } from '../middlewares/authMiddleware';
 
 const controller = new DiagnosticController();
 export const diagnosticRoutes = Router();
 
-diagnosticRoutes.use(requireAuth);
+diagnosticRoutes.use(authMiddleware);
 
 diagnosticRoutes.post('/', controller.start);
 diagnosticRoutes.get('/:attemptId/questions', controller.getQuestions);

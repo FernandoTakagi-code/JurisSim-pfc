@@ -3,6 +3,7 @@ import { AuthService } from '../services/AuthService';
 
 export interface AuthenticatedRequest extends Request {
   usuario?: { id: string; role: string };
+  auth?: { userId: string; role: string };
 }
 
 export function authMiddleware(
@@ -25,6 +26,7 @@ export function authMiddleware(
   try {
     const payload = AuthService.verificarToken(token);
     req.usuario = payload;
+    req.auth = { userId: payload.id, role: payload.role };
     return next();
   } catch {
     return res.status(401).json({ erro: 'Token inválido ou expirado' });
