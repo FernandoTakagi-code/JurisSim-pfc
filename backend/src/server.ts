@@ -5,6 +5,7 @@ import { errorHandler } from './middlewares/error-handler';
 import { diagnosticRoutes } from './routes/diagnostic-routes';
 import authRoutes from './routes/authRoutes';
 import questaoRoutes from './routes/questaoRoutes';
+import { trailRoutes } from './routes/trail-routes';
 
 dotenv.config();
 

@@ -20,6 +20,7 @@ type Question = {
 };
 type Metric = { tipo: string; disciplina: string; percentual: number };
 type Trail = {
+  id: string;
   disciplinaPrioritaria: string;
   assuntoPrioritario: string | null;
   nivelRecomendado: string;
@@ -32,6 +33,11 @@ type Result = {
   recommendation: string;
   performances: Metric[];
   trail: Trail | null;
+};
+type TrailResult = {
+  level: string;
+  overallPercentage: number;
+  recommendation: string;
 };
 const labels: Record<string, string> = {
   BASICO: "Básico",
@@ -109,6 +115,11 @@ function App() {
   const [result, setResult] = useState<Result>();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [trailId, setTrailId] = useState<string>();
+  const [trailQuestions, setTrailQuestions] = useState<Question[]>([]);
+  const [trailIndex, setTrailIndex] = useState(0);
+  const [trailAnswer, setTrailAnswer] = useState<string>();
+  const [trailResult, setTrailResult] = useState<TrailResult>();
 
   if (view === "questoes") {
     return (
@@ -186,6 +197,56 @@ function App() {
     }
   };
 
+  const generateTrail = async () => {
+    if (!result?.trail) return;
+    setLoading(true);
+    setError("");
+    try {
+      const attempt = await call<{ id: string }>(
+        `/trilhas/${result.trail.id}/gerar`,
+        { method: "POST" },
+      );
+      const response = await call<{ questions: Question[] }>(
+        `/trilhas/attempts/${attempt.id}/questions`,
+      );
+      setTrailId(attempt.id);
+      setTrailQuestions(response.questions);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Erro inesperado.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const nextTrailQuestion = async () => {
+    if (!trailId || !trailAnswer) return;
+    setLoading(true);
+    setError("");
+    try {
+      await call(
+        `/trilhas/attempts/${trailId}/answers/${trailQuestions[trailIndex].id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ selectedOptionId: trailAnswer }),
+        },
+      );
+      setTrailAnswer(undefined);
+      if (trailIndex + 1 < trailQuestions.length) {
+        setTrailIndex(trailIndex + 1);
+        return;
+      }
+      const finalized = await call<TrailResult>(
+        `/trilhas/attempts/${trailId}/finalize`,
+        { method: "POST" },
+      );
+      setTrailResult(finalized);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Erro inesperado.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!id && !result)
     return (
       <main className="landing">
@@ -233,9 +294,6 @@ function App() {
               </button>
               {error && <small className="error">{error}</small>}
             </article>
-            <small className="footnote">
-              Sem login nesta etapa do projeto.
-            </small>
           </div>
         </section>
       </main>
@@ -312,6 +370,113 @@ function App() {
     );
   }
 
+  if (trailId && trailQuestions.length > 0 && !trailResult) {
+    const question = trailQuestions[trailIndex];
+    return (
+      <div className="shell">
+        <Sidebar active="diagnostico" onNavigate={setView} />
+        <main className="content">
+          <header>
+            Trilha de exercícios <b>Olá, estudante!⌄</b>
+          </header>
+          <section className="page">
+            <p className="gold">
+              EXERCÍCIO {trailIndex + 1} DE {trailQuestions.length}
+            </p>
+            <div className="heading">
+              <div>
+                <h1>Vamos praticar.</h1>
+                <p>
+                  {question.discipline}
+                  {question.topic && ` · ${question.topic}`}
+                </p>
+              </div>
+              <strong>
+                {trailIndex + 1}
+                <small>/{trailQuestions.length}</small>
+              </strong>
+            </div>
+            <div className="progress">
+              <i
+                style={{
+                  width: `${((trailIndex + 1) / trailQuestions.length) * 100}%`,
+                }}
+              />
+            </div>
+            <article className="question">
+              <h2>{question.statement}</h2>
+              <div className="answers">
+                {question.alternatives.map((alternative, alternativeIndex) => (
+                  <label
+                    className={trailAnswer === alternative.id ? "picked" : ""}
+                    key={alternative.id}
+                  >
+                    <input
+                      type="radio"
+                      checked={trailAnswer === alternative.id}
+                      onChange={() => setTrailAnswer(alternative.id)}
+                    />
+                    <b>{String.fromCharCode(65 + alternativeIndex)}</b>
+                    <span>{alternative.text}</span>
+                  </label>
+                ))}
+              </div>
+              <footer>
+                {error && <span className="error">{error}</span>}
+                <button
+                  className="primary"
+                  disabled={!trailAnswer || loading}
+                  onClick={nextTrailQuestion}
+                >
+                  {loading
+                    ? "Salvando..."
+                    : trailIndex + 1 === trailQuestions.length
+                      ? "Finalizar exercícios"
+                      : "Próximo exercício"}{" "}
+                  <b>→</b>
+                </button>
+              </footer>
+            </article>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (trailResult) {
+    return (
+      <div className="shell">
+        <Sidebar active="diagnostico" onNavigate={setView} />
+        <main className="content">
+          <header>
+            Trilha concluída <b>Olá, estudante!⌄</b>
+          </header>
+          <section className="page result">
+            <p className="gold">EXERCÍCIOS CONCLUÍDOS</p>
+            <h1>Seu nível foi atualizado</h1>
+            <p className="muted">
+              O motor adaptativo reclassificou seu nível com base nessas
+              respostas.
+            </p>
+            <article className="summary">
+              <div className="score">
+                <b>{trailResult.overallPercentage}%</b>
+                <small>de acertos nesta trilha</small>
+              </div>
+              <div>
+                <p className="gold">NÍVEL ANTERIOR → NÍVEL ATUAL</p>
+                <h2>
+                  {labels[result.level]} → {labels[trailResult.level]}
+                </h2>
+                <p>{trailResult.recommendation}</p>
+              </div>
+            </article>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   const metrics = result.performances.filter(
     (metric) => metric.tipo === "DISCIPLINA",
   );
@@ -362,6 +527,14 @@ function App() {
                 <p>
                   <b>Nível recomendado:</b> {labels[trail.nivelRecomendado]}
                 </p>
+                <button
+                  className="primary"
+                  disabled={loading}
+                  onClick={generateTrail}
+                >
+                  {loading ? "Gerando..." : "Gerar exercícios"} <b>→</b>
+                </button>
+                {error && <small className="error">{error}</small>}
               </div>
               <strong>
                 {trail.quantidadeRecomendada}
