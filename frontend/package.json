@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build"
+    "build": "tsc -b && vite build",
+    "test:legal": "node scripts/test-legal.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.4",

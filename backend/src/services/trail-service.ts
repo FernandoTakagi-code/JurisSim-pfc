@@ -15,9 +15,10 @@ export class TrailService {
     private readonly students = new StudentRepository(),
   ) {}
 
-  async generate(trilhaId: string) {
+  async generate(trilhaId: string, userId: string) {
     const trilha = await this.repository.findTrilha(trilhaId);
     if (!trilha) throw new ApiError(404, 'Trilha adaptativa nao encontrada.');
+    this.requireOwner(trilha.simulado.alunoId, userId);
     if (trilha.simuladoGeradoId) throw new ApiError(409, 'Esta trilha ja gerou uma sessao de exercicios.');
 
     const filters = buildTrailFilters(trilha.disciplinaPrioritaria, trilha.assuntoPrioritario, trilha.nivelRecomendado);
@@ -27,8 +28,8 @@ export class TrailService {
     return this.repository.createTrailAttempt(trilha.simulado.alunoId, trilha.id, questions.map((question) => question.id));
   }
 
-  async getQuestions(attemptId: string) {
-    const attempt = await this.getAttemptOrFail(attemptId);
+  async getQuestions(attemptId: string, userId: string) {
+    const attempt = await this.getAttemptOrFail(attemptId, userId);
     return attempt.questoes.map(({ posicao, questao, resposta }) => ({
       id: questao.id, position: posicao, statement: questao.enunciado, discipline: questao.disciplina,
       topic: questao.assunto, difficulty: questao.nivel,
@@ -37,8 +38,8 @@ export class TrailService {
     }));
   }
 
-  async answer(attemptId: string, questionId: string, selectedOptionId: string) {
-    const attempt = await this.getAttemptOrFail(attemptId);
+  async answer(attemptId: string, userId: string, questionId: string, selectedOptionId: string) {
+    const attempt = await this.getAttemptOrFail(attemptId, userId);
     if (attempt.finalizadoEm) throw new ApiError(409, 'Esta trilha de exercicios ja foi finalizada.');
     const attemptQuestion = attempt.questoes.find((item) => item.questaoId === questionId);
     if (!attemptQuestion) throw new ApiError(404, 'A questao nao pertence a esta trilha.');
@@ -49,8 +50,8 @@ export class TrailService {
     return { message: 'Resposta registrada.' };
   }
 
-  async finalize(attemptId: string) {
-    const attempt = await this.getAttemptOrFail(attemptId);
+  async finalize(attemptId: string, userId: string) {
+    const attempt = await this.getAttemptOrFail(attemptId, userId);
     if (attempt.finalizadoEm) throw new ApiError(409, 'Esta trilha de exercicios ja foi finalizada.');
     if (!attempt.questoes.some((question) => question.resposta)) throw new ApiError(422, 'Responda ao menos uma questao antes de finalizar.');
 
@@ -68,9 +69,14 @@ export class TrailService {
     }));
   }
 
-  private async getAttemptOrFail(attemptId: string) {
+  private requireOwner(ownerId: string, userId: string) {
+    if (!userId || ownerId !== userId) throw new ApiError(403, 'Acesso negado a trilha de outro usuario.');
+  }
+
+  private async getAttemptOrFail(attemptId: string, userId: string) {
     const attempt = await this.repository.findAttempt(attemptId);
     if (!attempt) throw new ApiError(404, 'Sessao de exercicios nao encontrada.');
+    this.requireOwner(attempt.alunoId, userId);
     return attempt;
   }
 }

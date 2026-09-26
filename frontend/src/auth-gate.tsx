@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LegalLinks, legalAcceptance } from './legal';
 
 const api = import.meta.env.VITE_API_URL ?? "http://localhost:3333";
 
@@ -43,13 +44,16 @@ function VisualPanel() {
 export function AuthGate() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginSenha, setLoginSenha] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerSenha, setRegisterSenha] = useState("");
   const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
   const [role, setRole] = useState<"ALUNO" | "PROFESSOR">("ALUNO");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [accepted, setAccepted] = useState(false);
   const post = async (path: string, body: object) => {
     let response: Response;
     try {
@@ -73,18 +77,21 @@ export function AuthGate() {
     setError("");
     try {
       if (mode === "register") {
+        if (!accepted) throw new Error('Aceite os Termos de Uso e a Política de Privacidade.');
         await post("/auth/register", {
           nome,
-          email,
-          senha,
+          email: registerEmail,
+          senha: registerSenha,
           confirmacaoSenha,
           role,
+          acceptance: legalAcceptance,
         });
         setMode("login");
-        setSenha("");
+        setRegisterSenha("");
         setConfirmacaoSenha("");
+        setAccepted(false);
       } else {
-        const login = await post("/auth/login", { email, senha });
+        const login = await post("/auth/login", { email: loginEmail, senha: loginSenha });
         let session: Response;
         try {
           session = await fetch(`${api}/auth/session`, {
@@ -99,7 +106,8 @@ export function AuthGate() {
         if (!session.ok) throw new Error(body.message ?? "Sessão inválida.");
         sessionStorage.setItem("jurissim_token", login.token);
         sessionStorage.setItem("jurissim_next_step", body.nextStep);
-        window.location.reload();
+        sessionStorage.setItem("jurissim_user_name", body.user?.nome ?? "");
+        window.location.assign(body.nextStep === "DASHBOARD" ? "/dashboard" : "/");
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
@@ -108,6 +116,8 @@ export function AuthGate() {
     }
   };
   const isLogin = mode === "login";
+  const email = isLogin ? loginEmail : registerEmail;
+  const senha = isLogin ? loginSenha : registerSenha;
   return (
     <main className="auth-layout">
       <VisualPanel />
@@ -127,6 +137,8 @@ export function AuthGate() {
                 <label>
                   Nome completo
                   <input
+                    name="name"
+                    autoComplete="name"
                     placeholder="Digite seu nome completo"
                     value={nome}
                     onChange={(event) => setNome(event.target.value)}
@@ -149,20 +161,24 @@ export function AuthGate() {
             <label>
               E-mail
               <input
+                name="email"
+                autoComplete="email"
                 type="email"
                 placeholder="Digite seu e-mail"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => isLogin ? setLoginEmail(event.target.value) : setRegisterEmail(event.target.value)}
               />
             </label>
             <label>
               Sua senha
               <span className="password-field">
                 <input
+                  name={isLogin ? "current-password" : "new-password"}
+                  autoComplete={isLogin ? "current-password" : "new-password"}
                   type={showPassword ? "text" : "password"}
                   placeholder="Digite sua senha"
                   value={senha}
-                  onChange={(event) => setSenha(event.target.value)}
+                  onChange={(event) => isLogin ? setLoginSenha(event.target.value) : setRegisterSenha(event.target.value)}
                 />
                 <button
                   type="button"
@@ -178,6 +194,8 @@ export function AuthGate() {
                 Confirme sua senha
                 <span className="password-field">
                   <input
+                    name="confirm-password"
+                    autoComplete="new-password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Digite sua senha novamente"
                     value={confirmacaoSenha}
@@ -205,7 +223,11 @@ export function AuthGate() {
                 <button type="button">Esqueceu a senha?</button>
               </div>
             )}
-            <button className="auth-submit" disabled={loading} onClick={submit}>
+            {!isLogin && <div className="legal-consent">
+              <input id="legal-acceptance" type="checkbox" required checked={accepted} onChange={(event) => setAccepted(event.target.checked)} aria-labelledby="legal-consent-label" />
+              <span id="legal-consent-label"><label htmlFor="legal-acceptance">Li e aceito </label>os <a href="#/termos">Termos de Uso</a> e a <a href="#/privacidade">Política de Privacidade</a>.</span>
+            </div>}
+            <button className="auth-submit" disabled={loading || (!isLogin && !accepted)} onClick={submit}>
               {loading ? "Aguarde..." : isLogin ? "Entrar" : "Criar conta"}
             </button>
             {error && <small className="error">{error}</small>}
@@ -225,6 +247,7 @@ export function AuthGate() {
               {isLogin ? "Cadastre-se" : "Entrar"}
             </button>
           </p>
+          <LegalLinks />
         </div>
       </section>
     </main>
