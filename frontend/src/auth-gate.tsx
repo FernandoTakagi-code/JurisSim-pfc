@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 
 const api = import.meta.env.VITE_API_URL ?? "http://localhost:3333";
 
@@ -50,6 +51,7 @@ export function AuthGate() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
   const post = async (path: string, body: object) => {
     let response: Response;
     try {
@@ -68,6 +70,45 @@ export function AuthGate() {
       throw new Error(data.message ?? "Não foi possível concluir a operação.");
     return data;
   };
+
+  const estabelecerSessao = async (token: string) => {
+    let session: Response;
+    try {
+      session = await fetch(`${api}/auth/session`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      throw new Error(
+        "Login realizado, mas não foi possível consultar a sessão. Verifique se o backend está rodando na porta 3333.",
+      );
+    }
+    const body = await session.json();
+    if (!session.ok) throw new Error(body.message ?? "Sessão inválida.");
+    sessionStorage.setItem("jurissim_token", token);
+    sessionStorage.setItem("jurissim_nome", body.usuario.nome);
+    sessionStorage.setItem("jurissim_email", body.usuario.email);
+    sessionStorage.setItem("jurissim_next_step", body.nextStep);
+    window.location.reload();
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+    setLoading(true);
+    setError("");
+    try {
+      if (!credentialResponse.credential) {
+        throw new Error("Não foi possível obter as credenciais do Google.");
+      }
+      const result = await post("/auth/google", {
+        credential: credentialResponse.credential,
+      });
+      await estabelecerSessao(result.token);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Erro ao entrar com o Google.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submit = async () => {
     setLoading(true);
     setError("");
@@ -85,21 +126,7 @@ export function AuthGate() {
         setConfirmacaoSenha("");
       } else {
         const login = await post("/auth/login", { email, senha });
-        let session: Response;
-        try {
-          session = await fetch(`${api}/auth/session`, {
-            headers: { Authorization: `Bearer ${login.token}` },
-          });
-        } catch {
-          throw new Error(
-            "Login realizado, mas não foi possível consultar a sessão. Verifique se o backend está rodando na porta 3333.",
-          );
-        }
-        const body = await session.json();
-        if (!session.ok) throw new Error(body.message ?? "Sessão inválida.");
-        sessionStorage.setItem("jurissim_token", login.token);
-        sessionStorage.setItem("jurissim_next_step", body.nextStep);
-        window.location.reload();
+        await estabelecerSessao(login.token);
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
@@ -107,6 +134,7 @@ export function AuthGate() {
       setLoading(false);
     }
   };
+
   const isLogin = mode === "login";
   return (
     <main className="auth-layout">
@@ -212,9 +240,10 @@ export function AuthGate() {
             <div className="auth-divider">
               <span>ou</span>
             </div>
-            <button type="button" className="google-button">
-              <b>G</b> Entrar com o Google
-            </button>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError("Não foi possível entrar com o Google.")}
+            />
           </div>
           <p className="auth-switch">
             {isLogin ? "Ainda não tem uma conta?" : "Já possui uma conta?"}{" "}

@@ -5,7 +5,7 @@ export class UserRepository {
   static async criar(dados: {
     nome: string;
     email: string;
-    senhaHash: string;
+    senhaHash?: string;
     role: Role;
   }) {
     return prisma.user.create({ data: dados });
@@ -17,5 +17,8 @@ export class UserRepository {
 
   static async buscarPorId(id: string) {
     return prisma.user.findUnique({ where: { id } });
+  }
+  static async atualizarNome(id: string, nome: string) {
+  return prisma.user.update({ where: { id }, data: { nome } });
   }
 }

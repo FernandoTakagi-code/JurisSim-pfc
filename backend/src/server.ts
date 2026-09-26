@@ -6,7 +6,8 @@ import { diagnosticRoutes } from './routes/diagnostic-routes';
 import authRoutes from './routes/authRoutes';
 import questaoRoutes from './routes/questaoRoutes';
 import { trailRoutes } from './routes/trail-routes';
-
+import { setDefaultAutoSelectFamily } from 'node:net';
+setDefaultAutoSelectFamily(false);
 dotenv.config();
 
 const app = express();
@@ -18,7 +19,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'JurisSim API rodando' });
 });
 app.use('/questoes', questaoRoutes);
-
+app.use('/trilhas', trailRoutes);
 app.use('/diagnostics', diagnosticRoutes);
 app.use('/auth', authRoutes);
 app.use(errorHandler);

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 import { AuthGate } from "./auth-gate";
@@ -57,12 +58,113 @@ function Brand() {
   );
 }
 
+function SettingsModal({
+  nome,
+  email,
+  role,
+  onClose,
+}: {
+  nome: string;
+  email: string;
+  role: string;
+  onClose: () => void;
+}) {
+  const [nomeEditavel, setNomeEditavel] = useState(nome);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const salvarNome = async () => {
+    setSalvando(true);
+    setErro("");
+    try {
+      const response = await fetch(`${api}/auth/nome`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
+        },
+        body: JSON.stringify({ nome: nomeEditavel }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.erro ?? "Não foi possível salvar.");
+      sessionStorage.setItem("jurissim_nome", body.usuario.nome);
+      window.location.reload();
+    } catch (cause) {
+      setErro(cause instanceof Error ? cause.message : "Erro inesperado.");
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.4)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 30,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 12,
+          padding: 24,
+          minWidth: 320,
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 style={{ marginTop: 0 }}>Configurações da conta</h2>
+        <label style={{ display: "block", marginBottom: 12 }}>
+          <b>Nome</b>
+          <input
+            style={{ display: "block", width: "100%", marginTop: 4 }}
+            value={nomeEditavel}
+            onChange={(event) => setNomeEditavel(event.target.value)}
+          />
+        </label>
+        <p>
+          <b>E-mail:</b> {email}
+        </p>
+        <p>
+          <b>Papel:</b> {role}
+        </p>
+        {erro && <small style={{ color: "crimson" }}>{erro}</small>}
+        <hr />
+        <p style={{ fontSize: 13, color: "#888" }}>
+          Em breve: solicitação de exclusão de conta e dados pessoais,
+          conforme a LGPD.
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            disabled={salvando || nomeEditavel === nome}
+            onClick={salvarNome}
+          >
+            {salvando ? "Salvando..." : "Salvar nome"}
+          </button>
+          <button type="button" onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Sidebar({
   active,
   onNavigate,
+  onOpenSettings,
+  onSair,
 }: {
   active: "diagnostico" | "questoes";
   onNavigate: (view: "diagnostico" | "questoes") => void;
+  onOpenSettings: () => void;
+  onSair: () => void;
 }) {
   const items: [string, string, "diagnostico" | "questoes" | null][] = [
     ["⌂", "Início", null],
@@ -89,11 +191,11 @@ function Sidebar({
         <button>
           <i>♙</i>Meu perfil
         </button>
-        <button>
+        <button onClick={onOpenSettings}>
           <i>⚙</i>Configurações
         </button>
         <hr />
-        <button>
+        <button onClick={onSair}>
           <i>⇥</i>Sair
         </button>
       </div>
@@ -101,13 +203,20 @@ function Sidebar({
   );
 }
 
+function TopBar({ nome }: { nome: string }) {
+  return <b>Olá, {nome}!</b>;
+}
+
 function App() {
   if (!sessionStorage.getItem("jurissim_token")) return <AuthGate />;
 
-  const role = decodeRole(sessionStorage.getItem("jurissim_token")!);
+  const role = decodeRole(sessionStorage.getItem("jurissim_token")!) ?? "ALUNO";
   const [view, setView] = useState<"diagnostico" | "questoes">(
     role === "PROFESSOR" || role === "ADMIN" ? "questoes" : "diagnostico",
   );
+  const nome = sessionStorage.getItem("jurissim_nome") ?? "usuário";
+  const email = sessionStorage.getItem("jurissim_email") ?? "";
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [id, setId] = useState<string>();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
@@ -121,16 +230,34 @@ function App() {
   const [trailAnswer, setTrailAnswer] = useState<string>();
   const [trailResult, setTrailResult] = useState<TrailResult>();
 
+  const sair = () => {
+    sessionStorage.clear();
+    window.location.reload();
+  };
+
   if (view === "questoes") {
     return (
       <div className="shell">
-        <Sidebar active="questoes" onNavigate={setView} />
+        <Sidebar
+          active="questoes"
+          onNavigate={setView}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onSair={sair}
+        />
         <main className="content">
           <header>
-            Banco de questões <b>Olá!⌄</b>
+            Banco de questões <TopBar nome={nome} />
           </header>
           <QuestoesPage role={role} />
         </main>
+        {settingsOpen && (
+          <SettingsModal
+            nome={nome}
+            email={email}
+            role={role}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -303,10 +430,15 @@ function App() {
     const question = questions[index];
     return (
       <div className="shell">
-        <Sidebar active="diagnostico" onNavigate={setView} />
+        <Sidebar
+          active="diagnostico"
+          onNavigate={setView}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onSair={sair}
+        />
         <main className="content">
           <header>
-            Simulado diagnóstico <b>Olá, estudante!⌄</b>
+            Simulado diagnóstico <TopBar nome={nome} />
           </header>
           <section className="page">
             <p className="gold">
@@ -366,6 +498,14 @@ function App() {
             </article>
           </section>
         </main>
+        {settingsOpen && (
+          <SettingsModal
+            nome={nome}
+            email={email}
+            role={role}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -374,10 +514,15 @@ function App() {
     const question = trailQuestions[trailIndex];
     return (
       <div className="shell">
-        <Sidebar active="diagnostico" onNavigate={setView} />
+        <Sidebar
+          active="diagnostico"
+          onNavigate={setView}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onSair={sair}
+        />
         <main className="content">
           <header>
-            Trilha de exercícios <b>Olá, estudante!⌄</b>
+            Trilha de exercícios <TopBar nome={nome} />
           </header>
           <section className="page">
             <p className="gold">
@@ -439,6 +584,14 @@ function App() {
             </article>
           </section>
         </main>
+        {settingsOpen && (
+          <SettingsModal
+            nome={nome}
+            email={email}
+            role={role}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -446,10 +599,15 @@ function App() {
   if (trailResult) {
     return (
       <div className="shell">
-        <Sidebar active="diagnostico" onNavigate={setView} />
+        <Sidebar
+          active="diagnostico"
+          onNavigate={setView}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onSair={sair}
+        />
         <main className="content">
           <header>
-            Trilha concluída <b>Olá, estudante!⌄</b>
+            Trilha concluída <TopBar nome={nome} />
           </header>
           <section className="page result">
             <p className="gold">EXERCÍCIOS CONCLUÍDOS</p>
@@ -473,6 +631,14 @@ function App() {
             </article>
           </section>
         </main>
+        {settingsOpen && (
+          <SettingsModal
+            nome={nome}
+            email={email}
+            role={role}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -483,10 +649,15 @@ function App() {
   const trail = result.trail;
   return (
     <div className="shell">
-      <Sidebar active="diagnostico" onNavigate={setView} />
+      <Sidebar
+        active="diagnostico"
+        onNavigate={setView}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onSair={sair}
+      />
       <main className="content">
         <header>
-          Resultado do diagnóstico <b>Olá, estudante!⌄</b>
+          Resultado do diagnóstico <TopBar nome={nome} />
         </header>
         <section className="page result">
           <p className="gold">DIAGNÓSTICO CONCLUÍDO</p>
@@ -548,8 +719,20 @@ function App() {
           )}
         </section>
       </main>
+      {settingsOpen && (
+        <SettingsModal
+          nome={nome}
+          email={email}
+          role={role}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+    <App />
+  </GoogleOAuthProvider>,
+);
