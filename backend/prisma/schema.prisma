@@ -41,11 +41,41 @@ model User {
   nivelAtual Nivel? 
   createdAt DateTime @default(now())
 
+  legalAcceptedAt DateTime?
+  termsVersion String?
+  privacyVersion String?
+  auditLogs AuditLog[]
+
   turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
   turmasComoAluno     Turma[]      @relation("AlunoTurmas")
   questoesCriadas     Questao[]
   simulados           Simulado[]
   metasDiarias        MetaDiaria[]
+}
+
+enum AuditAction {
+  ACEITE_TERMOS_E_PRIVACIDADE
+  USUARIO_CADASTRADO
+  LOGIN_SUCESSO
+  LOGIN_FALHA
+  DIAGNOSTICO_INICIADO
+  DIAGNOSTICO_FINALIZADO
+  QUESTAO_CRIADA
+  QUESTAO_ATUALIZADA
+  QUESTAO_EXCLUIDA
+}
+
+model AuditLog {
+  id String @id @default(uuid())
+  userId String?
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict)
+  action AuditAction
+  occurredAt DateTime @default(now())
+  termsVersion String?
+  privacyVersion String?
+  resourceId String?
+
+  @@index([userId, occurredAt])
 }
 
 model Turma {

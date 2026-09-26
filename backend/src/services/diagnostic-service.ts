@@ -57,7 +57,7 @@ export class DiagnosticService {
     if (attempt.finalizadoEm) throw new ApiError(409, 'Esta tentativa de diagnostico ja foi finalizada.');
     if (!attempt.questoes.some((question) => question.resposta)) throw new ApiError(422, 'Nao e possivel finalizar um diagnostico sem respostas.');
     const result = analyzeDiagnostic(this.answeredQuestions(attempt));
-    const finalizedAttempt = await this.repository.finalize(attemptId, result);
+    const finalizedAttempt = await this.repository.finalize(attemptId, studentId, result);
     if (!finalizedAttempt) throw new ApiError(409, 'Esta tentativa de diagnostico ja foi finalizada.');
     return { attempt: finalizedAttempt, result };
   }
