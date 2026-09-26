@@ -65,7 +65,7 @@ export class DiagnosticService {
       result.recommendation = textoEnriquecido;
     }
 
-    const finalizedAttempt = await this.repository.finalize(attemptId, result);
+    const finalizedAttempt = await this.repository.finalize(attemptId, studentId, result);
     if (!finalizedAttempt) throw new ApiError(409, 'Esta tentativa de diagnostico ja foi finalizada.');
     return { attempt: finalizedAttempt, result };
   }

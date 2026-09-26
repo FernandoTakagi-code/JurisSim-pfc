@@ -19,7 +19,7 @@ model User {
   legalAcceptedAt     DateTime?
   termsVersion        String?
   privacyVersion      String?
-  AuditLog            AuditLog[]
+  auditLogs           AuditLog[]
   metasDiarias        MetaDiaria[]
   questoesCriadas     Questao[]
   simulados           Simulado[]
@@ -152,7 +152,7 @@ model AuditLog {
   termsVersion   String?
   privacyVersion String?
   resourceId     String?
-  User           User?       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user           User?       @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId, occurredAt])
 }

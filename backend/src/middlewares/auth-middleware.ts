@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from 'express';
-import { AuthService } from '../services/AuthService';
+import { AuthService } from '../services/auth-service';
 import { ApiError } from '../errors/api-error';
+
+const service = new AuthService();
 
 export interface AuthenticatedRequest extends Request {
   auth?: { userId: string; role: string };
@@ -11,24 +13,19 @@ export function requireAuth(request: AuthenticatedRequest, _response: Response, 
   if (scheme !== 'Bearer' || !token) {
     return next(new ApiError(401, 'Autenticacao obrigatoria.'));
   }
-
   try {
-    const payload = AuthService.verificarToken(token);
+    const payload = service.verifyToken(token);
     request.auth = { userId: payload.id, role: payload.role };
     next();
-  } catch {
-    return next(new ApiError(401, 'Token invalido ou expirado.'));
+  } catch (error) {
+    next(error);
   }
 }
 
-export function requireRoles(...papeisPermitidos: string[]) {
+export function requireRoles(...roles: string[]) {
   return (request: AuthenticatedRequest, _response: Response, next: NextFunction) => {
-    if (!request.auth) {
-      return next(new ApiError(401, 'Autenticacao obrigatoria.'));
-    }
-    if (!papeisPermitidos.includes(request.auth.role)) {
-      return next(new ApiError(403, 'Acesso negado para este papel.'));
-    }
+    if (!request.auth) return next(new ApiError(401, 'Autenticação obrigatória.'));
+    if (!roles.includes(request.auth.role)) return next(new ApiError(403, 'Acesso negado para este papel.'));
     next();
   };
 }

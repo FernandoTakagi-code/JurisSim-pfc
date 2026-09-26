@@ -35,30 +35,47 @@ function serviceWith(options: { trilha?: ReturnType<typeof trilha> | null; attem
 }
 
 describe('regras da trilha de exercicios', () => {
+  it('verifica propriedade antes de consultar questões ou revelar estado da trilha', async () => {
+    const { service, repository } = serviceWith({ trilha: trilha({ simuladoGeradoId: 'ja-gerado' }) });
+    await expect(service.generate('trilha-1', 'outro-aluno')).rejects.toMatchObject({ statusCode: 403 });
+    expect(repository.findQuestionsForTrail).not.toHaveBeenCalled();
+    expect(repository.createTrailAttempt).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia leitura, resposta e finalização de tentativa alheia antes de qualquer escrita', async () => {
+    const { service, repository, students } = serviceWith({ attempt: attempt({ finalizadoEm: new Date() }) });
+    await expect(service.getQuestions('trail-attempt-1', 'outro-aluno')).rejects.toMatchObject({ statusCode: 403 });
+    await expect(service.answer('trail-attempt-1', 'outro-aluno', 'question-1', 'alternative-1')).rejects.toMatchObject({ statusCode: 403 });
+    await expect(service.finalize('trail-attempt-1', 'outro-aluno')).rejects.toMatchObject({ statusCode: 403 });
+    expect(repository.saveAnswer).not.toHaveBeenCalled();
+    expect(repository.finalize).not.toHaveBeenCalled();
+    expect(students.updateLevel).not.toHaveBeenCalled();
+  });
+
   it('nao gera trilha inexistente', async () => {
     const { service } = serviceWith({ trilha: null });
-    await expect(service.generate('trilha-1')).rejects.toMatchObject({ statusCode: 404 });
+    await expect(service.generate('trilha-1', 'student-1')).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it('nao gera a mesma trilha duas vezes', async () => {
     const { service } = serviceWith({ trilha: trilha({ simuladoGeradoId: 'simulado-ja-gerado' }) });
-    await expect(service.generate('trilha-1')).rejects.toMatchObject({ statusCode: 409 });
+    await expect(service.generate('trilha-1', 'student-1')).rejects.toMatchObject({ statusCode: 409 });
   });
 
   it('nao gera trilha sem questoes disponiveis', async () => {
     const { service } = serviceWith({ trilha: trilha(), questions: [] });
-    await expect(service.generate('trilha-1')).rejects.toMatchObject({ statusCode: 409 });
+    await expect(service.generate('trilha-1', 'student-1')).rejects.toMatchObject({ statusCode: 409 });
   });
 
   it('cria a sessao de exercicios com o aluno e as questoes certas', async () => {
     const { service, repository } = serviceWith({ trilha: trilha(), questions: [{ id: 'question-1' }, { id: 'question-2' }] });
-    await service.generate('trilha-1');
+    await service.generate('trilha-1', 'student-1');
     expect(repository.createTrailAttempt).toHaveBeenCalledWith('student-1', 'trilha-1', ['question-1', 'question-2']);
   });
 
   it('nao expoe gabarito ao listar exercicios', async () => {
     const { service } = serviceWith({ attempt: attempt() });
-    const [question] = await service.getQuestions('trail-attempt-1');
+    const [question] = await service.getQuestions('trail-attempt-1', 'student-1');
     expect(question.alternatives[0]).toEqual({ id: 'alternative-1', text: 'Correta' });
     expect(question).not.toHaveProperty('correctOption');
   });
@@ -67,27 +84,27 @@ describe('regras da trilha de exercicios', () => {
     const currentAttempt = attempt() as any;
     currentAttempt.questoes[0].resposta = { questaoId: 'question-1' };
     const { service } = serviceWith({ attempt: currentAttempt });
-    await expect(service.answer('trail-attempt-1', 'question-1', 'alternative-1')).rejects.toMatchObject({ statusCode: 409 });
+    await expect(service.answer('trail-attempt-1', 'student-1', 'question-1', 'alternative-1')).rejects.toMatchObject({ statusCode: 409 });
   });
 
   it('impede resposta depois de finalizar', async () => {
     const { service } = serviceWith({ attempt: attempt({ finalizadoEm: new Date() }) });
-    await expect(service.answer('trail-attempt-1', 'question-1', 'alternative-1')).rejects.toMatchObject({ statusCode: 409 });
+    await expect(service.answer('trail-attempt-1', 'student-1', 'question-1', 'alternative-1')).rejects.toMatchObject({ statusCode: 409 });
   });
 
   it('impede resposta de questao fora da trilha', async () => {
     const { service } = serviceWith({ attempt: attempt() });
-    await expect(service.answer('trail-attempt-1', 'other-question', 'alternative-1')).rejects.toMatchObject({ statusCode: 404 });
+    await expect(service.answer('trail-attempt-1', 'student-1', 'other-question', 'alternative-1')).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it('rejeita alternativa que nao pertence a questao', async () => {
     const { service } = serviceWith({ attempt: attempt() });
-    await expect(service.answer('trail-attempt-1', 'question-1', 'other-alternative')).rejects.toMatchObject({ statusCode: 422 });
+    await expect(service.answer('trail-attempt-1', 'student-1', 'question-1', 'other-alternative')).rejects.toMatchObject({ statusCode: 422 });
   });
 
   it('impede finalizacao sem respostas', async () => {
     const { service } = serviceWith({ attempt: attempt() });
-    await expect(service.finalize('trail-attempt-1')).rejects.toMatchObject({ statusCode: 422 });
+    await expect(service.finalize('trail-attempt-1', 'student-1')).rejects.toMatchObject({ statusCode: 422 });
   });
 
   it('reclassifica o nivel do aluno ao finalizar', async () => {
@@ -99,7 +116,7 @@ describe('regras da trilha de exercicios', () => {
       })),
     });
     const { service, students } = serviceWith({ attempt: currentAttempt });
-    const result = await service.finalize('trail-attempt-1');
+    const result = await service.finalize('trail-attempt-1', 'student-1');
     expect(result.level).toBe('AVANCADO');
     expect(students.updateLevel).toHaveBeenCalledWith('student-1', 'AVANCADO');
   });

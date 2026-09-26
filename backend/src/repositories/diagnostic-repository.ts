@@ -1,4 +1,4 @@
-import { Prisma, TipoMetricaDiagnostico } from '@prisma/client';
+import { AuditAction, Prisma, TipoMetricaDiagnostico } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import type { AdaptiveResult } from '../types/diagnostic';
 
@@ -18,12 +18,16 @@ export class DiagnosticRepository {
   }
 
   async createAttempt(studentId: string, questionIds: string[]) {
-    return prisma.simulado.create({
-      data: {
-        tipo: 'DIAGNOSTICO', alunoId: studentId,
-        questoes: { create: questionIds.map((questaoId, index) => ({ questaoId, posicao: index + 1 })) },
-      },
-      include: attemptDetails,
+    return prisma.$transaction(async (tx) => {
+      const attempt = await tx.simulado.create({
+        data: {
+          tipo: 'DIAGNOSTICO', alunoId: studentId,
+          questoes: { create: questionIds.map((questaoId, index) => ({ questaoId, posicao: index + 1 })) },
+        },
+        include: attemptDetails,
+      });
+      await tx.auditLog.create({ data: { userId: studentId, action: 'DIAGNOSTICO_INICIADO' as AuditAction, resourceId: attempt.id } });
+      return attempt;
     });
   }
 
@@ -35,14 +39,15 @@ export class DiagnosticRepository {
     return prisma.resposta.create({ data: { simuladoId, questaoId, questaoSimuladoId, alternativaEscolhidaId, correta } });
   }
 
-  async finalize(attemptId: string, result: AdaptiveResult) {
-    const markedAsFinalized = await prisma.simulado.updateMany({
+  async finalize(attemptId: string, studentId: string, result: AdaptiveResult) {
+    return prisma.$transaction(async (tx) => {
+    const markedAsFinalized = await tx.simulado.updateMany({
       where: { id: attemptId, tipo: 'DIAGNOSTICO', finalizadoEm: null },
       data: { finalizadoEm: new Date() },
     });
     if (markedAsFinalized.count === 0) return null;
 
-    return prisma.simulado.update({
+    const attempt = await tx.simulado.update({
       where: { id: attemptId },
       data: {
         desempenhosDiagnostico: {
@@ -67,6 +72,9 @@ export class DiagnosticRepository {
         },
       },
       include: attemptDetails,
+    });
+    await tx.auditLog.create({ data: { userId: studentId, action: 'DIAGNOSTICO_FINALIZADO' as AuditAction, resourceId: attemptId } });
+    return attempt;
     });
   }
 }
