@@ -74,6 +74,11 @@ function SettingsModal({
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [senhaExclusao, setSenhaExclusao] = useState("");
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState("");
+
   const salvarNome = async () => {
     setSalvando(true);
     setErro("");
@@ -93,6 +98,28 @@ function SettingsModal({
     } catch (cause) {
       setErro(cause instanceof Error ? cause.message : "Erro inesperado.");
       setSalvando(false);
+    }
+  };
+
+  const excluirConta = async () => {
+    setExcluindo(true);
+    setErroExclusao("");
+    try {
+      const response = await fetch(`${api}/auth/conta`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
+        },
+        body: JSON.stringify({ senhaAtual: senhaExclusao || undefined }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message ?? "Não foi possível excluir a conta.");
+      sessionStorage.clear();
+      window.location.reload();
+    } catch (cause) {
+      setErroExclusao(cause instanceof Error ? cause.message : "Erro inesperado.");
+      setExcluindo(false);
     }
   };
 
@@ -154,6 +181,60 @@ function SettingsModal({
             Fechar
           </button>
         </div>
+        <hr />
+        <section aria-labelledby="danger-zone-title">
+          <h3 id="danger-zone-title" style={{ color: "crimson" }}>
+            Excluir conta
+          </h3>
+          {!confirmandoExclusao ? (
+            <button
+              type="button"
+              style={{ color: "crimson", borderColor: "crimson" }}
+              onClick={() => setConfirmandoExclusao(true)}
+            >
+              Excluir minha conta
+            </button>
+          ) : (
+            <div>
+              <p style={{ fontSize: 13, color: "#68758a" }}>
+                Essa ação é permanente. Seus dados pessoais serão anonimizados e você
+                perderá o acesso a esta conta.
+              </p>
+              <label style={{ display: "block", marginBottom: 8 }}>
+                <b>Confirme sua senha</b>
+                <input
+                  type="password"
+                  style={{ display: "block", width: "100%", marginTop: 4 }}
+                  value={senhaExclusao}
+                  onChange={(event) => setSenhaExclusao(event.target.value)}
+                  placeholder="Deixe em branco se você entrou com o Google"
+                />
+              </label>
+              {erroExclusao && <small style={{ color: "crimson" }}>{erroExclusao}</small>}
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button
+                  type="button"
+                  style={{ color: "crimson", borderColor: "crimson" }}
+                  disabled={excluindo}
+                  onClick={excluirConta}
+                >
+                  {excluindo ? "Excluindo..." : "Confirmar exclusão"}
+                </button>
+                <button
+                  type="button"
+                  disabled={excluindo}
+                  onClick={() => {
+                    setConfirmandoExclusao(false);
+                    setSenhaExclusao("");
+                    setErroExclusao("");
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
