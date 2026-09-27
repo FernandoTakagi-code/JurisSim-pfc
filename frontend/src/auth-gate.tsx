@@ -10,6 +10,39 @@ function resetTokenFromHash() {
   return route === "#/reset-password" ? new URLSearchParams(query).get("token") ?? "" : "";
 }
 
+type Perfil = "ALUNO" | "PROFESSOR";
+
+function perfilInicial(): Perfil {
+  return sessionStorage.getItem("jurissim_perfil") === "PROFESSOR" ? "PROFESSOR" : "ALUNO";
+}
+
+function PerfilSwitch({ perfil, onChange }: { perfil: Perfil; onChange: (perfil: Perfil) => void }) {
+  const opcoes: [Perfil, string, string][] = [
+    ["ALUNO", "Aluno", "Estude e faça simulados"],
+    ["PROFESSOR", "Professor", "Cadastre questões"],
+  ];
+  return (
+    <div className="perfil-switch" role="radiogroup" aria-label="Entrar como">
+      {opcoes.map(([valor, titulo, descricao]) => (
+        <button
+          key={valor}
+          type="button"
+          role="radio"
+          aria-checked={perfil === valor}
+          className={perfil === valor ? "active" : ""}
+          onClick={() => onChange(valor)}
+        >
+          <b>{valor === "ALUNO" ? "🎓" : "⚖"}</b>
+          <span>
+            <strong>{titulo}</strong>
+            <small>{descricao}</small>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function VisualPanel() {
   return (
     <section className="auth-pitch">
@@ -57,7 +90,7 @@ export function AuthGate() {
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerSenha, setRegisterSenha] = useState("");
   const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
-  const [role, setRole] = useState<"ALUNO" | "PROFESSOR">("ALUNO");
+  const [perfil, setPerfil] = useState<Perfil>(() => perfilInicial());
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -105,7 +138,9 @@ export function AuthGate() {
     sessionStorage.setItem("jurissim_next_step", body.nextStep);
     sessionStorage.setItem("jurissim_user_name", body.user?.nome ?? "");
     sessionStorage.setItem("jurissim_email", body.user?.email ?? "");
-    window.location.assign(body.nextStep === "DASHBOARD" ? "/dashboard" : "/");
+    sessionStorage.setItem("jurissim_perfil", perfil);
+    const destino = body.nextStep === "PROFESSOR" ? "/professor" : body.nextStep === "DASHBOARD" ? "/dashboard" : "/";
+    window.location.assign(destino);
   };
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
@@ -117,6 +152,7 @@ export function AuthGate() {
       }
       const result = await post("/auth/google", {
         credential: credentialResponse.credential,
+        perfil,
       });
       if (result.requiresAcceptance) {
         setPendingGoogleCredential(credentialResponse.credential);
@@ -139,6 +175,7 @@ export function AuthGate() {
       const result = await post("/auth/google", {
         credential: pendingGoogleCredential,
         acceptance: legalAcceptance,
+        perfil,
       });
       if (result.requiresAcceptance) throw new Error("Confirme o aceite para continuar.");
       setPendingGoogleCredential(undefined);
@@ -177,7 +214,7 @@ export function AuthGate() {
           email: registerEmail,
           senha: registerSenha,
           confirmacaoSenha,
-          role,
+          role: perfil,
           acceptance: legalAcceptance,
         });
         setMode("login");
@@ -185,7 +222,7 @@ export function AuthGate() {
         setConfirmacaoSenha("");
         setAccepted(false);
       } else {
-        const login = await post("/auth/login", { email: loginEmail, senha: loginSenha });
+        const login = await post("/auth/login", { email: loginEmail, senha: loginSenha, perfil });
         await estabelecerSessao(login.token);
       }
     } catch (cause) {
@@ -210,10 +247,11 @@ export function AuthGate() {
             <h2>{title}</h2>
             <p>
               {isRecovery ? "Recupere o acesso à sua conta JurisSim." : isLogin
-                ? "Acesse sua conta para continuar"
-                : "Comece sua preparação para a OAB"}
+                ? perfil === "PROFESSOR" ? "Acesse a área do professor" : "Acesse sua área de estudos"
+                : perfil === "PROFESSOR" ? "Cadastre-se para criar questões para seus alunos" : "Comece sua preparação para a OAB"}
             </p>
           </header>
+          {!isRecovery && <PerfilSwitch perfil={perfil} onChange={(valor) => { setPerfil(valor); setError(""); setPendingGoogleCredential(undefined); setAccepted(false); }} />}
           <div className="auth-card">
             {isRegister && (
               <>
@@ -226,18 +264,6 @@ export function AuthGate() {
                     value={nome}
                     onChange={(event) => setNome(event.target.value)}
                   />
-                </label>
-                <label>
-                  Tipo de usuário
-                  <select
-                    value={role}
-                    onChange={(event) =>
-                      setRole(event.target.value as "ALUNO" | "PROFESSOR")
-                    }
-                  >
-                    <option value="ALUNO">Aluno</option>
-                    <option value="PROFESSOR">Professor</option>
-                  </select>
                 </label>
               </>
             )}
@@ -314,11 +340,11 @@ export function AuthGate() {
             {mode === "reset" && <>
               <label>
                 Nova senha
-                <span className="password-field"><input name="new-password" autoComplete="new-password" type={showPassword ? "text" : "password"} minLength={6} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "â—‰" : "â—Œ"}</button></span>
+                <span className="password-field"><input name="new-password" autoComplete="new-password" type={showPassword ? "text" : "password"} minLength={6} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "◉" : "◌"}</button></span>
               </label>
               <label>
                 Confirme a nova senha
-                <span className="password-field"><input name="confirm-new-password" autoComplete="new-password" type={showPassword ? "text" : "password"} minLength={6} required value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "â—‰" : "â—Œ"}</button></span>
+                <span className="password-field"><input name="confirm-new-password" autoComplete="new-password" type={showPassword ? "text" : "password"} minLength={6} required value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "◉" : "◌"}</button></span>
               </label>
             </>}
             {isRegister && <div className="legal-consent">
@@ -326,7 +352,7 @@ export function AuthGate() {
               <span id="legal-consent-label"><label htmlFor="legal-acceptance">Li e aceito </label>os <a href="#/termos">Termos de Uso</a> e a <a href="#/privacidade">Política de Privacidade</a>.</span>
             </div>}
             <button className="auth-submit" disabled={loading || (isRegister && !accepted) || (mode === "forgot" && (recoveryRequested || !recoveryEmail)) || (mode === "reset" && (!newPassword || newPassword !== confirmNewPassword))} onClick={submit}>
-              {loading ? "Aguarde..." : isLogin ? "Entrar" : isRegister ? "Criar conta" : mode === "forgot" ? "Enviar instruções" : "Salvar nova senha"}
+              {loading ? "Aguarde..." : isLogin ? (perfil === "PROFESSOR" ? "Entrar como professor" : "Entrar como aluno") : isRegister ? (perfil === "PROFESSOR" ? "Criar conta de professor" : "Criar conta de aluno") : mode === "forgot" ? "Enviar instruções" : "Salvar nova senha"}
             </button>
             {error && <small className="error">{error}</small>}
             {mode === "reset" && recoveryNotice && <p className="recovery-notice" role="status">{recoveryNotice}</p>}
