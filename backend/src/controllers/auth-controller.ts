@@ -5,10 +5,10 @@ import { acceptanceSchema } from '../services/legal-acceptance';
 import { AuthService } from '../services/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { PasswordRecoveryService } from '../services/password-recovery-service';
-import { UnconfiguredRecoveryEmailSender } from '../services/recovery-email-sender';
+import { GmailRecoveryEmailSender } from '../services/recovery-email-sender';
 
+const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
 
-// Preserve the public registration/login contract of the previously active router.
 const registerSchema = z.object({
   nome: z.string().min(2, 'Nome muito curto'),
   email: z.string().email('E-mail inválido'),
@@ -19,10 +19,12 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
   senha: z.string().min(1, 'Senha é obrigatória'),
+  perfil: z.enum(['ALUNO', 'PROFESSOR']).optional(),
 });
 const googleSchema = z.object({
   credential: z.string().min(1, 'Credencial do Google não fornecida.'),
   acceptance: acceptanceSchema.optional(),
+  perfil: z.enum(['ALUNO', 'PROFESSOR']).optional(),
 });
 const nomeSchema = z.object({ nome: z.string().min(2, 'Nome muito curto') });
 const recoveryRequestSchema = z.object({ email: z.string().email('E-mail inválido.') });
@@ -38,7 +40,7 @@ const recoveryResetSchema = z.object({
 export class AuthController {
   constructor(
     private readonly service = new AuthService(),
-    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new UnconfiguredRecoveryEmailSender()),
+    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new GmailRecoveryEmailSender()),
   ) {}
 
   solicitarRecuperacaoSenha = async (request: Request, response: Response) => {
@@ -77,7 +79,7 @@ export class AuthController {
       response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
       return;
     }
-    response.json(await this.service.login(parsed.data.email, parsed.data.senha));
+    response.json(await this.service.login(parsed.data.email, parsed.data.senha, parsed.data.perfil));
   };
 
   google = async (request: Request, response: Response) => {
@@ -107,7 +109,7 @@ export class AuthController {
       return;
     }
     const nomeSugerido = payload.name ?? payload.given_name ?? payload.email.split('@')[0];
-    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance));
+    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance, parsed.data.perfil));
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {
@@ -122,5 +124,14 @@ export class AuthController {
     }
     const usuario = await this.service.updateNome(request.auth!.userId, parsed.data.nome);
     response.json({ usuario });
+  };
+
+  excluirConta = async (request: AuthenticatedRequest, response: Response) => {
+    const parsed = deleteAccountSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
+      return;
+    }
+    response.json(await this.service.deleteAccount(request.auth!.userId, parsed.data.senhaAtual));
   };
 }

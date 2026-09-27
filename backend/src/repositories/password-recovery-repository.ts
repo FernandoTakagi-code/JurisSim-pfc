@@ -27,7 +27,7 @@ export class PasswordRecoveryRepository {
         select: { id: true },
       });
       await tx.auditLog.create({
-        data: { userId, action: 'PASSWORD_RECOVERY_REQUESTED' as AuditAction, occurredAt: now },
+        data: { userId, action: 'RECUPERACAO_SENHA_SOLICITADA' as AuditAction, occurredAt: now },
       });
       return token.id;
     });
@@ -78,7 +78,7 @@ export class PasswordRecoveryRepository {
       if (updated.count !== 1) throw new Error('Password recovery account changed during reset.');
 
       await tx.auditLog.create({
-        data: { userId: account.id, action: 'PASSWORD_RECOVERY_COMPLETED' as AuditAction, occurredAt: now },
+        data: { userId: account.id, action: 'SENHA_REDEFINIDA' as AuditAction, occurredAt: now },
       });
       return true;
     });
