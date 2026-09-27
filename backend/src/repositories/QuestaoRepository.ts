@@ -33,18 +33,27 @@ export class QuestaoRepository {
     assunto?: string;
     nivel?: Nivel;
     turmaId?: string;
+    autorId?: string;
+    somenteDoAutor?: boolean;
   }) {
+    const visibilidade: Prisma.QuestaoWhereInput = filtros.somenteDoAutor && filtros.autorId
+      ? { autorId: filtros.autorId }
+      : {
+          OR: [
+            { publica: true },
+            ...(filtros.turmaId ? [{ turmaId: filtros.turmaId }] : []),
+            ...(filtros.autorId ? [{ autorId: filtros.autorId }] : []),
+          ],
+        };
     return prisma.questao.findMany({
       where: {
         disciplina: filtros.disciplina,
         assunto: filtros.assunto,
         nivel: filtros.nivel,
-        OR: [
-          { publica: true },
-          { turmaId: filtros.turmaId },
-        ],
+        ...visibilidade,
       },
       include: { alternativas: true },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
