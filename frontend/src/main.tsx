@@ -79,6 +79,10 @@ function SettingsModal({
   const [excluindo, setExcluindo] = useState(false);
   const [erroExclusao, setErroExclusao] = useState("");
 
+  const [reenviando, setReenviando] = useState(false);
+  const [erroReenvio, setErroReenvio] = useState("");
+  const [reenvioMensagem, setReenvioMensagem] = useState("");
+
   const salvarNome = async () => {
     setSalvando(true);
     setErro("");
@@ -123,6 +127,28 @@ function SettingsModal({
     }
   };
 
+  const reenviarConfirmacaoEmail = async () => {
+    setReenviando(true);
+    setErroReenvio("");
+    setReenvioMensagem("");
+    try {
+      const response = await fetch(`${api}/auth/email-verification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
+        },
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message ?? "Não foi possível reenviar o e-mail de confirmação.");
+      setReenvioMensagem(body.message ?? "E-mail de confirmação enviado.");
+    } catch (cause) {
+      setErroReenvio(cause instanceof Error ? cause.message : "Erro inesperado.");
+    } finally {
+      setReenviando(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -161,6 +187,18 @@ function SettingsModal({
           <b>Papel:</b> {role}
         </p>
         {erro && <small style={{ color: "crimson" }}>{erro}</small>}
+        <hr />
+        <section aria-labelledby="email-verification-title">
+          <h3 id="email-verification-title">Confirmação de e-mail</h3>
+          <p style={{ fontSize: 13, color: "#68758a", lineHeight: 1.5 }}>
+            Se você ainda não confirmou seu e-mail, clique abaixo para receber um novo link de confirmação.
+          </p>
+          <button type="button" disabled={reenviando} onClick={reenviarConfirmacaoEmail}>
+            {reenviando ? "Enviando..." : "Reenviar confirmação de e-mail"}
+          </button>
+          {reenvioMensagem && <p className="recovery-notice" role="status" style={{ fontSize: 13 }}>{reenvioMensagem}</p>}
+          {erroReenvio && <small style={{ color: "crimson", display: "block", marginTop: 4 }}>{erroReenvio}</small>}
+        </section>
         <hr />
         <section aria-labelledby="privacy-settings-title">
           <h3 id="privacy-settings-title">Privacidade e dados</h3>
@@ -308,7 +346,11 @@ function App() {
   const role = decodeRole(sessionStorage.getItem("jurissim_token")!) ?? "ALUNO";
   const nome = sessionStorage.getItem("jurissim_user_name") ?? "usuário";
   const email = sessionStorage.getItem("jurissim_email") ?? "";
+  const emailVerificado = sessionStorage.getItem("jurissim_email_verificado") !== "false";
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [gateReenviando, setGateReenviando] = useState(false);
+  const [gateMensagem, setGateMensagem] = useState("");
+  const [gateErro, setGateErro] = useState("");
   const [route, setRoute] = useState(() => window.location.pathname);
   const [view, setView] = useState<"diagnostico" | "questoes">(
     role === "PROFESSOR" || role === "ADMIN" ? "questoes" : "diagnostico",
@@ -362,6 +404,86 @@ function App() {
       setRoute("/");
     }
   }, [route, role]);
+  useEffect(() => {
+    const [hashRoute, query = ""] = window.location.hash.split("?");
+    if (hashRoute !== "#/verificar-email") return;
+    const token = new URLSearchParams(query).get("token");
+    if (!token) return;
+    (async () => {
+      try {
+        const response = await fetch(`${api}/auth/email-verification/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        const body = await response.json();
+        window.history.replaceState({}, "", window.location.pathname + window.location.search);
+        if (response.ok) {
+          sessionStorage.setItem("jurissim_email_verificado", "true");
+          alert(body.message ?? "E-mail confirmado com sucesso!");
+          window.location.reload();
+        } else {
+          alert(body.message ?? "Não foi possível confirmar o e-mail.");
+        }
+      } catch {
+        window.history.replaceState({}, "", window.location.pathname + window.location.search);
+        alert("Não foi possível confirmar o e-mail. Verifique sua conexão.");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!emailVerificado) {
+    const reenviarConfirmacaoGate = async () => {
+      setGateReenviando(true);
+      setGateErro("");
+      setGateMensagem("");
+      try {
+        const response = await fetch(`${api}/auth/email-verification`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
+          },
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message ?? "Não foi possível reenviar o e-mail de confirmação.");
+        setGateMensagem(body.message ?? "E-mail de confirmação enviado.");
+      } catch (cause) {
+        setGateErro(cause instanceof Error ? cause.message : "Erro inesperado.");
+      } finally {
+        setGateReenviando(false);
+      }
+    };
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f5f6f8",
+        }}
+      >
+        <section style={{ maxWidth: 420, width: "90%", background: "#fff", borderRadius: 12, padding: 32, textAlign: "center", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
+          <h1 style={{ marginTop: 0 }}>Confirme seu e-mail</h1>
+          <p className="muted">
+            Enviamos um link de confirmação para <b>{email}</b>. Verifique sua caixa de entrada (e o spam) e
+            clique no link para liberar o acesso ao JurisSim.
+          </p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 16, flexWrap: "wrap" }}>
+            <button className="primary" type="button" disabled={gateReenviando} onClick={reenviarConfirmacaoGate}>
+              {gateReenviando ? "Enviando..." : "Reenviar e-mail de confirmação"}
+            </button>
+            <button type="button" onClick={sair}>Sair</button>
+          </div>
+          {gateMensagem && <p className="recovery-notice" role="status" style={{ marginTop: 12 }}>{gateMensagem}</p>}
+          {gateErro && <small className="error" style={{ display: "block", marginTop: 12 }}>{gateErro}</small>}
+        </section>
+      </div>
+    );
+  }
 
   if (route === "/dashboard" && role === "ALUNO") {
     const firstName = nome.trim().split(/\s+/)[0] || "estudante";

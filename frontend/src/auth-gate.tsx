@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { LegalLinks, legalAcceptance } from './legal';
 
@@ -8,6 +8,11 @@ const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
 function resetTokenFromHash() {
   const [route, query = ""] = window.location.hash.split("?");
   return route === "#/reset-password" ? new URLSearchParams(query).get("token") ?? "" : "";
+}
+
+function verifyTokenFromHash() {
+  const [route, query = ""] = window.location.hash.split("?");
+  return route === "#/verificar-email" ? new URLSearchParams(query).get("token") ?? "" : "";
 }
 
 function VisualPanel() {
@@ -50,7 +55,10 @@ function VisualPanel() {
 
 export function AuthGate() {
   const [resetToken, setResetToken] = useState(() => resetTokenFromHash());
-  const [mode, setMode] = useState<"login" | "register" | "forgot" | "reset">(() => resetTokenFromHash() ? "reset" : "login");
+  const [verifyToken] = useState(() => verifyTokenFromHash());
+  const [mode, setMode] = useState<"login" | "register" | "forgot" | "reset" | "verify">(() =>
+    resetTokenFromHash() ? "reset" : verifyTokenFromHash() ? "verify" : "login"
+  );
   const [nome, setNome] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginSenha, setLoginSenha] = useState("");
@@ -68,6 +76,8 @@ export function AuthGate() {
   const [recoveryNotice, setRecoveryNotice] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [verifyStatus, setVerifyStatus] = useState<"pending" | "success" | "error">("pending");
+  const [verifyMessage, setVerifyMessage] = useState("");
 
   const post = async (path: string, body: object) => {
     let response: Response;
@@ -88,6 +98,22 @@ export function AuthGate() {
     return data;
   };
 
+  useEffect(() => {
+    if (mode !== "verify" || !verifyToken) return;
+    (async () => {
+      try {
+        const result = await post("/auth/email-verification/confirm", { token: verifyToken });
+        window.history.replaceState({}, "", window.location.pathname);
+        setVerifyStatus("success");
+        setVerifyMessage(result.message ?? "E-mail confirmado com sucesso!");
+      } catch (cause) {
+        setVerifyStatus("error");
+        setVerifyMessage(cause instanceof Error ? cause.message : "Não foi possível confirmar o e-mail.");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const estabelecerSessao = async (token: string) => {
     let session: Response;
     try {
@@ -105,6 +131,7 @@ export function AuthGate() {
     sessionStorage.setItem("jurissim_next_step", body.nextStep);
     sessionStorage.setItem("jurissim_user_name", body.user?.nome ?? "");
     sessionStorage.setItem("jurissim_email", body.user?.email ?? "");
+    sessionStorage.setItem("jurissim_email_verificado", String(Boolean(body.user?.emailVerificado)));
     window.location.assign(body.nextStep === "DASHBOARD" ? "/dashboard" : "/");
   };
 
@@ -194,6 +221,29 @@ export function AuthGate() {
       setLoading(false);
     }
   };
+
+  if (mode === "verify") {
+    return (
+      <main className="auth-layout">
+        <VisualPanel />
+        <section className="auth-content">
+          <div className="auth-form-wrap">
+            <header>
+              <h2>Confirmação de e-mail</h2>
+            </header>
+            <div className="auth-card">
+              {verifyStatus === "pending" && <p>Confirmando seu e-mail...</p>}
+              {verifyStatus === "success" && <p className="recovery-notice" role="status">{verifyMessage}</p>}
+              {verifyStatus === "error" && <small className="error">{verifyMessage}</small>}
+              <button className="auth-submit" type="button" onClick={() => { setMode("login"); window.history.replaceState({}, "", window.location.pathname); }}>
+                Ir para o Login
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   const isLogin = mode === "login";
   const isRegister = mode === "register";
@@ -314,11 +364,11 @@ export function AuthGate() {
             {mode === "reset" && <>
               <label>
                 Nova senha
-                <span className="password-field"><input name="new-password" autoComplete="new-password" type={showPassword ? "text" : "password"} minLength={6} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "â—‰" : "â—Œ"}</button></span>
+                <span className="password-field"><input name="new-password" autoComplete="new-password" type={showPassword ? "text" : "password"} minLength={6} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "◉" : "◌"}</button></span>
               </label>
               <label>
                 Confirme a nova senha
-                <span className="password-field"><input name="confirm-new-password" autoComplete="new-password" type={showPassword ? "text" : "password"} minLength={6} required value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "â—‰" : "â—Œ"}</button></span>
+                <span className="password-field"><input name="confirm-new-password" autoComplete="new-password" type={showPassword ? "text" : "password"} minLength={6} required value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "◉" : "◌"}</button></span>
               </label>
             </>}
             {isRegister && <div className="legal-consent">
