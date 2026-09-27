@@ -6,6 +6,8 @@ import { AuthGate } from "./auth-gate";
 import { decodeRole } from "./jwt";
 import { QuestoesPage } from "./QuestoesPage";
 import { LegalBoundary, LegalLinks } from './legal';
+import { Brand, SettingsModal } from "./shell";
+import { ProfessorArea } from "./ProfessorArea";
 
 const api = import.meta.env.VITE_API_URL ?? "http://localhost:3333";
 
@@ -46,237 +48,6 @@ const labels: Record<string, string> = {
   INTERMEDIARIO: "Intermediário",
   AVANCADO: "Avançado",
 };
-
-function Brand() {
-  return (
-    <div className="brand">
-      <b>⚖</b>
-      <span>
-        <strong>JurisSim</strong>
-        <small>Plataforma adaptativa para o Exame da OAB.</small>
-      </span>
-    </div>
-  );
-}
-
-function SettingsModal({
-  nome,
-  email,
-  role,
-  onClose,
-}: {
-  nome: string;
-  email: string;
-  role: string;
-  onClose: () => void;
-}) {
-  const [nomeEditavel, setNomeEditavel] = useState(nome);
-  const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState("");
-
-  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
-  const [senhaExclusao, setSenhaExclusao] = useState("");
-  const [excluindo, setExcluindo] = useState(false);
-  const [erroExclusao, setErroExclusao] = useState("");
-
-  const [reenviando, setReenviando] = useState(false);
-  const [erroReenvio, setErroReenvio] = useState("");
-  const [reenvioMensagem, setReenvioMensagem] = useState("");
-
-  const salvarNome = async () => {
-    setSalvando(true);
-    setErro("");
-    try {
-      const response = await fetch(`${api}/auth/nome`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
-        },
-        body: JSON.stringify({ nome: nomeEditavel }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.erro ?? "Não foi possível salvar.");
-      sessionStorage.setItem("jurissim_user_name", body.usuario.nome);
-      window.location.reload();
-    } catch (cause) {
-      setErro(cause instanceof Error ? cause.message : "Erro inesperado.");
-      setSalvando(false);
-    }
-  };
-
-  const excluirConta = async () => {
-    setExcluindo(true);
-    setErroExclusao("");
-    try {
-      const response = await fetch(`${api}/auth/conta`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
-        },
-        body: JSON.stringify({ senhaAtual: senhaExclusao || undefined }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message ?? "Não foi possível excluir a conta.");
-      sessionStorage.clear();
-      window.location.reload();
-    } catch (cause) {
-      setErroExclusao(cause instanceof Error ? cause.message : "Erro inesperado.");
-      setExcluindo(false);
-    }
-  };
-
-  const reenviarConfirmacaoEmail = async () => {
-    setReenviando(true);
-    setErroReenvio("");
-    setReenvioMensagem("");
-    try {
-      const response = await fetch(`${api}/auth/email-verification`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
-        },
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message ?? "Não foi possível reenviar o e-mail de confirmação.");
-      setReenvioMensagem(body.message ?? "E-mail de confirmação enviado.");
-    } catch (cause) {
-      setErroReenvio(cause instanceof Error ? cause.message : "Erro inesperado.");
-    } finally {
-      setReenviando(false);
-    }
-  };
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 30,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 12,
-          padding: 24,
-          minWidth: 320,
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <h2 style={{ marginTop: 0 }}>Configurações da conta</h2>
-        <label style={{ display: "block", marginBottom: 12 }}>
-          <b>Nome</b>
-          <input
-            style={{ display: "block", width: "100%", marginTop: 4 }}
-            value={nomeEditavel}
-            onChange={(event) => setNomeEditavel(event.target.value)}
-          />
-        </label>
-        <p>
-          <b>E-mail:</b> {email}
-        </p>
-        <p>
-          <b>Papel:</b> {role}
-        </p>
-        {erro && <small style={{ color: "crimson" }}>{erro}</small>}
-        <hr />
-        <section aria-labelledby="email-verification-title">
-          <h3 id="email-verification-title">Confirmação de e-mail</h3>
-          <p style={{ fontSize: 13, color: "#68758a", lineHeight: 1.5 }}>
-            Se você ainda não confirmou seu e-mail, clique abaixo para receber um novo link de confirmação.
-          </p>
-          <button type="button" disabled={reenviando} onClick={reenviarConfirmacaoEmail}>
-            {reenviando ? "Enviando..." : "Reenviar confirmação de e-mail"}
-          </button>
-          {reenvioMensagem && <p className="recovery-notice" role="status" style={{ fontSize: 13 }}>{reenvioMensagem}</p>}
-          {erroReenvio && <small style={{ color: "crimson", display: "block", marginTop: 4 }}>{erroReenvio}</small>}
-        </section>
-        <hr />
-        <section aria-labelledby="privacy-settings-title">
-          <h3 id="privacy-settings-title">Privacidade e dados</h3>
-          <LegalLinks />
-          <p style={{ fontSize: 13, color: "#68758a", lineHeight: 1.5 }}>
-            Para orientações sobre seus direitos, inclusive pedidos de exclusão quando aplicável, consulte a seção “Como exercer seus direitos” do Aviso de Privacidade. Esta tela não registra solicitações nem exclui dados.
-          </p>
-        </section>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            type="button"
-            disabled={salvando || nomeEditavel === nome}
-            onClick={salvarNome}
-          >
-            {salvando ? "Salvando..." : "Salvar nome"}
-          </button>
-          <button type="button" onClick={onClose}>
-            Fechar
-          </button>
-        </div>
-        <hr />
-        <section aria-labelledby="danger-zone-title">
-          <h3 id="danger-zone-title" style={{ color: "crimson" }}>
-            Excluir conta
-          </h3>
-          {!confirmandoExclusao ? (
-            <button
-              type="button"
-              style={{ color: "crimson", borderColor: "crimson" }}
-              onClick={() => setConfirmandoExclusao(true)}
-            >
-              Excluir minha conta
-            </button>
-          ) : (
-            <div>
-              <p style={{ fontSize: 13, color: "#68758a" }}>
-                Essa ação é permanente. Seus dados pessoais serão anonimizados e você
-                perderá o acesso a esta conta.
-              </p>
-              <label style={{ display: "block", marginBottom: 8 }}>
-                <b>Confirme sua senha</b>
-                <input
-                  type="password"
-                  style={{ display: "block", width: "100%", marginTop: 4 }}
-                  value={senhaExclusao}
-                  onChange={(event) => setSenhaExclusao(event.target.value)}
-                  placeholder="Deixe em branco se você entrou com o Google"
-                />
-              </label>
-              {erroExclusao && <small style={{ color: "crimson" }}>{erroExclusao}</small>}
-              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <button
-                  type="button"
-                  style={{ color: "crimson", borderColor: "crimson" }}
-                  disabled={excluindo}
-                  onClick={excluirConta}
-                >
-                  {excluindo ? "Excluindo..." : "Confirmar exclusão"}
-                </button>
-                <button
-                  type="button"
-                  disabled={excluindo}
-                  onClick={() => {
-                    setConfirmandoExclusao(false);
-                    setSenhaExclusao("");
-                    setErroExclusao("");
-                  }}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
-      </div>
-    </div>
-  );
-}
 
 function TopBar({ nome }: { nome: string }) {
   return <b>Olá, {nome}!</b>;
@@ -346,15 +117,20 @@ function App() {
   const role = decodeRole(sessionStorage.getItem("jurissim_token")!) ?? "ALUNO";
   const nome = sessionStorage.getItem("jurissim_user_name") ?? "usuário";
   const email = sessionStorage.getItem("jurissim_email") ?? "";
+  if (role === "PROFESSOR" || role === "ADMIN") {
+    return <ProfessorArea nome={nome} email={email} role={role} onSair={() => { sessionStorage.clear(); sessionStorage.setItem("jurissim_perfil", "PROFESSOR"); window.location.assign("/"); }} />;
+  }
+  return <StudentApp role={role} nome={nome} email={email} />;
+}
+
+function StudentApp({ role, nome, email }: { role: string; nome: string; email: string }) {
   const emailVerificado = sessionStorage.getItem("jurissim_email_verificado") !== "false";
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [gateReenviando, setGateReenviando] = useState(false);
   const [gateMensagem, setGateMensagem] = useState("");
   const [gateErro, setGateErro] = useState("");
   const [route, setRoute] = useState(() => window.location.pathname);
-  const [view, setView] = useState<"diagnostico" | "questoes">(
-    role === "PROFESSOR" || role === "ADMIN" ? "questoes" : "diagnostico",
-  );
+  const [view, setView] = useState<"diagnostico" | "questoes">("diagnostico");
   const [id, setId] = useState<string>();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
@@ -399,7 +175,7 @@ function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
   useEffect(() => {
-    if (route === "/dashboard" && role !== "ALUNO") {
+    if (route === "/professor" || (route === "/dashboard" && role !== "ALUNO")) {
       window.history.replaceState({}, "", "/");
       setRoute("/");
     }
