@@ -8,6 +8,20 @@ import versions from '../legal-versions.json';
 
 const GOOGLE_PASSWORD_SENTINEL = '!GOOGLE_OAUTH_ACCOUNT!';
 
+export type PerfilAcesso = 'ALUNO' | 'PROFESSOR';
+
+// Garante que o usuário entrou pela opção correta da tela de login.
+// ADMIN pode entrar pela área do professor.
+function verificarPerfil(role: string, perfil?: PerfilAcesso) {
+  if (!perfil) return;
+  const podeEntrar = perfil === 'PROFESSOR' ? role === 'PROFESSOR' || role === 'ADMIN' : role === 'ALUNO';
+  if (!podeEntrar) {
+    throw new ApiError(403, perfil === 'PROFESSOR'
+      ? 'Esta conta é de aluno. Selecione "Aluno" para entrar.'
+      : 'Esta conta é de professor. Selecione "Professor" para entrar.');
+  }
+}
+
 const jwtPayloadSchema = z.object({
   id: z.string().trim().min(1),
   role: z.enum(['ALUNO', 'PROFESSOR', 'ADMIN']),
@@ -24,7 +38,7 @@ export class AuthService {
     return this.loginResponse(user);
   }
 
-  async login(email: string, senha: string) {
+  async login(email: string, senha: string, perfil?: PerfilAcesso) {
     const user = await this.repository.findByEmail(email);
     if (!user) {
       await this.repository.recordLogin('LOGIN_FALHA');
@@ -37,6 +51,7 @@ export class AuthService {
       await this.repository.recordLogin('LOGIN_FALHA', user.id);
       throw new ApiError(401, 'E-mail ou senha inválidos.');
     }
+    verificarPerfil(user.role, perfil);
     const response = this.loginResponse(user);
     await this.repository.recordLogin('LOGIN_SUCESSO', user.id);
     return response;
@@ -44,8 +59,13 @@ export class AuthService {
 
   recordLoginFailure() { return this.repository.recordLogin('LOGIN_FALHA'); }
 
-  async loginWithGoogle(email: string, nomeSugerido: string, acceptance?: unknown) {
+  async loginWithGoogle(email: string, nomeSugerido: string, acceptance?: unknown, perfil?: PerfilAcesso) {
     const existing = await this.repository.findByEmail(email);
+    if (existing) verificarPerfil(existing.role, perfil);
+    // Contas Google novas são sempre de aluno; professor se cadastra com e-mail e senha.
+    if (!existing && perfil === 'PROFESSOR') {
+      throw new ApiError(403, 'Não há conta de professor com este e-mail. Cadastre-se como professor usando e-mail e senha.');
+    }
     if (existing?.senhaHash && existing.senhaHash !== GOOGLE_PASSWORD_SENTINEL) {
       throw new ApiError(409, 'Este e-mail já possui uma conta com senha. Entre com seu e-mail e senha.');
     }
@@ -80,8 +100,8 @@ export class AuthService {
     const user = await this.repository.findById(userId);
     if (!user) throw new ApiError(401, 'Sessão inválida.');
     return {
-      user: { nome: user.nome, email: user.email },
-      nextStep: await this.repository.hasCompletedDiagnostic(userId) ? 'DASHBOARD' : 'DIAGNOSTIC',
+      user: { nome: user.nome, email: user.email, role: user.role },
+      nextStep: user.role !== 'ALUNO' ? 'PROFESSOR' : await this.repository.hasCompletedDiagnostic(userId) ? 'DASHBOARD' : 'DIAGNOSTIC',
     };
   }
 

@@ -38,7 +38,7 @@ export class QuestaoController {
   }
 
   static async listar(req: AuthenticatedRequest, res: Response) {
-    const { disciplina, assunto, nivel, turmaId } = req.query;
+    const { disciplina, assunto, nivel, turmaId, minhas } = req.query;
 
     const questoes = await QuestaoService.listar(
       {
@@ -47,7 +47,9 @@ export class QuestaoController {
         nivel: nivel as any,
         turmaId: turmaId as string | undefined,
       },
-      req.auth!.role
+      req.auth!.role,
+      req.auth!.userId,
+      minhas === 'true',
     );
 
     return res.status(200).json(questoes);

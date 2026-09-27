@@ -33,9 +33,17 @@ export class QuestaoService {
 
   static async listar(
     filtros: { disciplina?: string; assunto?: string; nivel?: Nivel; turmaId?: string },
-    papelUsuario: string
+    papelUsuario: string,
+    usuarioId?: string,
+    somenteMinhas = false,
   ) {
-    const questoes = await QuestaoRepository.listar(filtros);
+    const ehProfessor = papelUsuario === 'PROFESSOR' || papelUsuario === 'ADMIN';
+    const questoes = await QuestaoRepository.listar({
+      ...filtros,
+      // Professores também enxergam as próprias questões privadas.
+      autorId: ehProfessor ? usuarioId : undefined,
+      somenteDoAutor: ehProfessor && somenteMinhas,
+    });
 
     if (papelUsuario === 'ALUNO') {
       return questoes.map((questao) => ({
