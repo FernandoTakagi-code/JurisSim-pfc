@@ -18,3 +18,15 @@ export class UnconfiguredRecoveryEmailSender implements RecoveryEmailSender {
     throw new Error('Recovery email provider is not configured.');
   }
 }
+
+export class ConsoleRecoveryEmailSender implements RecoveryEmailSender {
+  readonly isConfigured = true;
+
+  async sendPasswordRecovery({ to, resetUrl, expiresInMinutes }: PasswordRecoveryEmail): Promise<void> {
+    console.log('\n===== E-MAIL DE RECUPERAÇÃO DE SENHA (SIMULADO) =====');
+    console.log(`Para: ${to}`);
+    console.log(`Link: ${resetUrl}`);
+    console.log(`Expira em: ${expiresInMinutes} minutos`);
+    console.log('======================================================\n');
+  }
+}

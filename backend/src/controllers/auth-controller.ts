@@ -5,10 +5,10 @@ import { acceptanceSchema } from '../services/legal-acceptance';
 import { AuthService } from '../services/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { PasswordRecoveryService } from '../services/password-recovery-service';
-import { UnconfiguredRecoveryEmailSender } from '../services/recovery-email-sender';
+import { ConsoleRecoveryEmailSender } from '../services/recovery-email-sender';
 
+const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
 
-// Preserve the public registration/login contract of the previously active router.
 const registerSchema = z.object({
   nome: z.string().min(2, 'Nome muito curto'),
   email: z.string().email('E-mail inválido'),
@@ -38,7 +38,7 @@ const recoveryResetSchema = z.object({
 export class AuthController {
   constructor(
     private readonly service = new AuthService(),
-    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new UnconfiguredRecoveryEmailSender()),
+    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new ConsoleRecoveryEmailSender()),
   ) {}
 
   solicitarRecuperacaoSenha = async (request: Request, response: Response) => {
@@ -122,5 +122,14 @@ export class AuthController {
     }
     const usuario = await this.service.updateNome(request.auth!.userId, parsed.data.nome);
     response.json({ usuario });
+  };
+
+  excluirConta = async (request: AuthenticatedRequest, response: Response) => {
+    const parsed = deleteAccountSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
+      return;
+    }
+    response.json(await this.service.deleteAccount(request.auth!.userId, parsed.data.senhaAtual));
   };
 }

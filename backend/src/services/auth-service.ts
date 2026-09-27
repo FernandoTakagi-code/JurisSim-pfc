@@ -3,10 +3,9 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { acceptanceSchema } from './legal-acceptance';
 import { ApiError } from '../errors/api-error';
-import { AuthRepository } from '../repositories/auth-repository';
+import { AuthRepository, GOOGLE_PASSWORD_SENTINEL } from '../repositories/auth-repository';
 import versions from '../legal-versions.json';
 
-const GOOGLE_PASSWORD_SENTINEL = '!GOOGLE_OAUTH_ACCOUNT!';
 
 const jwtPayloadSchema = z.object({
   id: z.string().trim().min(1),
@@ -74,6 +73,16 @@ export class AuthService {
 
   async updateNome(userId: string, nome: string) {
     return this.repository.updateNome(userId, nome);
+  }
+  async deleteAccount(userId: string, senhaAtual?: string) {
+    const user = await this.repository.findByIdWithSenha(userId);
+    if (!user) throw new ApiError(404, 'Usuário não encontrado.');
+    if (user.senhaHash && user.senhaHash !== GOOGLE_PASSWORD_SENTINEL) {
+      if (!senhaAtual) throw new ApiError(400, 'Informe sua senha atual para confirmar a exclusão.');
+      if (!await bcrypt.compare(senhaAtual, user.senhaHash)) throw new ApiError(401, 'Senha incorreta.');
+    }
+    await this.repository.anonymizeUser(userId);
+    return { message: 'Conta excluída com sucesso.' };
   }
 
   async session(userId: string) {
