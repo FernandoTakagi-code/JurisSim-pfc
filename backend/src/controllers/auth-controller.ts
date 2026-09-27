@@ -6,6 +6,8 @@ import { AuthService } from '../services/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { PasswordRecoveryService } from '../services/password-recovery-service';
 import { GmailRecoveryEmailSender } from '../services/recovery-email-sender';
+import { EmailVerificationService } from '../services/email-verification-service';
+import { GmailEmailVerificationSender } from '../services/email-verification-sender';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
 
@@ -19,12 +21,10 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
   senha: z.string().min(1, 'Senha é obrigatória'),
-  perfil: z.enum(['ALUNO', 'PROFESSOR']).optional(),
 });
 const googleSchema = z.object({
   credential: z.string().min(1, 'Credencial do Google não fornecida.'),
   acceptance: acceptanceSchema.optional(),
-  perfil: z.enum(['ALUNO', 'PROFESSOR']).optional(),
 });
 const nomeSchema = z.object({ nome: z.string().min(2, 'Nome muito curto') });
 const recoveryRequestSchema = z.object({ email: z.string().email('E-mail inválido.') });
@@ -36,11 +36,13 @@ const recoveryResetSchema = z.object({
   path: ['confirmacaoSenha'],
   message: 'As senhas não coincidem.',
 });
+const confirmEmailSchema = z.object({ token: z.string().min(20).max(512) });
 
 export class AuthController {
   constructor(
     private readonly service = new AuthService(),
     private readonly passwordRecovery = new PasswordRecoveryService(undefined, new GmailRecoveryEmailSender()),
+    private readonly emailVerification = new EmailVerificationService(undefined, new GmailEmailVerificationSender()),
   ) {}
 
   solicitarRecuperacaoSenha = async (request: Request, response: Response) => {
@@ -69,7 +71,9 @@ export class AuthController {
       return;
     }
     const { nome, email, senha, role, acceptance } = parsed.data;
-    response.status(201).json(await this.service.register(nome, email, senha, role, acceptance));
+    const resultado = await this.service.register(nome, email, senha, role, acceptance);
+    this.emailVerification.requestVerification(resultado.usuario.id).catch(() => {});
+    response.status(201).json(resultado);
   };
 
   login = async (request: Request, response: Response) => {
@@ -79,7 +83,7 @@ export class AuthController {
       response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
       return;
     }
-    response.json(await this.service.login(parsed.data.email, parsed.data.senha, parsed.data.perfil));
+    response.json(await this.service.login(parsed.data.email, parsed.data.senha));
   };
 
   google = async (request: Request, response: Response) => {
@@ -109,7 +113,7 @@ export class AuthController {
       return;
     }
     const nomeSugerido = payload.name ?? payload.given_name ?? payload.email.split('@')[0];
-    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance, parsed.data.perfil));
+    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance));
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {
@@ -133,5 +137,19 @@ export class AuthController {
       return;
     }
     response.json(await this.service.deleteAccount(request.auth!.userId, parsed.data.senhaAtual));
+  };
+
+  solicitarConfirmacaoEmail = async (request: AuthenticatedRequest, response: Response) => {
+    const result = await this.emailVerification.requestVerification(request.auth!.userId);
+    response.status(202).json(result);
+  };
+
+  confirmarEmail = async (request: Request, response: Response) => {
+    const parsed = confirmEmailSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Token inválido.' });
+      return;
+    }
+    response.json(await this.emailVerification.confirm(parsed.data.token));
   };
 }

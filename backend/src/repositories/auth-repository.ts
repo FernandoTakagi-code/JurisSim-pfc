@@ -14,7 +14,7 @@ export class AuthRepository {
       },
     });
   }
-  findById(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, nome: true, email: true, role: true } }); }
+  findById(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, nome: true, email: true, role: true, emailVerifiedAt: true } }); }
   findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, deletedAt: true } }); }
   findByIdWithSenha(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, senhaHash: true } }); }
 
@@ -36,7 +36,7 @@ export class AuthRepository {
     const legal = acceptanceData(acceptance);
     return prisma.user.create({
       data: {
-        nome, email, role: 'ALUNO', senhaHash: GOOGLE_PASSWORD_SENTINEL, ...legal,
+        nome, email, role: 'ALUNO', senhaHash: GOOGLE_PASSWORD_SENTINEL, emailVerifiedAt: new Date(), ...legal,
         auditLogs: { create: [
           legal.auditLogs.create,
           { action: 'USUARIO_CADASTRADO' as AuditAction, occurredAt: legal.legalAcceptedAt },

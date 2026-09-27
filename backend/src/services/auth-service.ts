@@ -13,7 +13,7 @@ export type PerfilAcesso = 'ALUNO' | 'PROFESSOR';
 // ADMIN pode entrar pela área do professor.
 function verificarPerfil(role: string, perfil?: PerfilAcesso) {
   if (!perfil) return;
-  const podeEntrar = perfil === 'PROFESSOR' ? role === 'PROFESSOR' || role === 'ADMIN' : role === 'ALUNO';
+  const podeEntrar = perfil === 'PROFESSOR' ? role === 'PROFESSOR' || role === 'ADMIN': role === 'ALUNO';
   if (!podeEntrar) {
     throw new ApiError(403, perfil === 'PROFESSOR'
       ? 'Esta conta é de aluno. Selecione "Aluno" para entrar.'
@@ -84,7 +84,7 @@ export class AuthService {
       user = await this.repository.createGoogleUser(nomeSugerido, email, parsedAcceptance!.data);
     } else {
       user = existing;
-      if (!hasCurrentAcceptance) await this.repository.recordGoogleAcceptance(user.id, parsedAcceptance!.data);
+      if (!hasCurrentAcceptance) await this.repository.recordGoogleAcceptance(user.id,parsedAcceptance!.data);
     }
     const response = this.loginResponse(user);
     await this.repository.recordLogin('LOGIN_SUCESSO', user.id);
@@ -109,7 +109,7 @@ export class AuthService {
     const user = await this.repository.findById(userId);
     if (!user) throw new ApiError(401, 'Sessão inválida.');
     return {
-      user: { nome: user.nome, email: user.email, role: user.role },
+      user: { nome: user.nome, email: user.email, role: user.role, emailVerificado: user.emailVerifiedAt !== null },
       nextStep: user.role !== 'ALUNO' ? 'PROFESSOR' : await this.repository.hasCompletedDiagnostic(userId) ? 'DASHBOARD' : 'DIAGNOSTIC',
     };
   }
@@ -125,7 +125,7 @@ export class AuthService {
   private loginResponse(user: { id: string; nome: string; email: string; role: string }) {
     return {
       usuario: { id: user.id, nome: user.nome, email: user.email, role: user.role },
-      token: jwt.sign({ id: user.id, role: user.role }, this.jwtSecret(), { algorithm: 'HS256', expiresIn: '8h' }),
+      token: jwt.sign({ id: user.id, role: user.role }, this.jwtSecret(), { algorithm:'HS256', expiresIn: '8h' }),
     };
   }
 
