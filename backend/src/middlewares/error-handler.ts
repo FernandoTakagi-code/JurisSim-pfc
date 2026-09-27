@@ -11,7 +11,7 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, _ne
     response.status(422).json({ message: 'Dados invalidos.', issues: error.issues });
     return;
   }
-  // ORM errors can contain query arguments (including password hashes).
-  console.error('Erro interno do servidor.');
+ 
+console.error('Erro interno do servidor.', error);
   response.status(500).json({ message: 'Erro interno do servidor.' });
 };

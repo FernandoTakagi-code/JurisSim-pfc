@@ -5,7 +5,7 @@ import { acceptanceSchema } from '../services/legal-acceptance';
 import { AuthService } from '../services/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { PasswordRecoveryService } from '../services/password-recovery-service';
-import { ConsoleRecoveryEmailSender } from '../services/recovery-email-sender';
+import { GmailRecoveryEmailSender } from '../services/recovery-email-sender';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
 
@@ -38,7 +38,7 @@ const recoveryResetSchema = z.object({
 export class AuthController {
   constructor(
     private readonly service = new AuthService(),
-    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new ConsoleRecoveryEmailSender()),
+    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new GmailRecoveryEmailSender()),
   ) {}
 
   solicitarRecuperacaoSenha = async (request: Request, response: Response) => {

@@ -19,13 +19,30 @@ model User {
   legalAcceptedAt     DateTime?
   termsVersion        String?
   privacyVersion      String?
-  passwordRecoveryTokens PasswordRecoveryToken[]
+  emailVerifiedAt     DateTime?
+  deletedAt           DateTime?
   auditLogs           AuditLog[]
+  authTokens          AuthToken[]
+  recoveryTokens      PasswordRecoveryToken[]
   metasDiarias        MetaDiaria[]
   questoesCriadas     Questao[]
   simulados           Simulado[]
   turmasComoAluno     Turma[]      @relation("AlunoTurmas")
   turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
+}
+
+model AuthToken {
+  id        String        @id @default(uuid())
+  userId    String
+  tokenHash String
+  type      AuthTokenType
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([tokenHash])
 }
 
 model PasswordRecoveryToken {
@@ -195,6 +212,11 @@ enum TipoMetricaDiagnostico {
   ASSUNTO_E_NIVEL
 }
 
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
 enum AuditAction {
   ACEITE_TERMOS_E_PRIVACIDADE
   USUARIO_CADASTRADO
@@ -205,6 +227,9 @@ enum AuditAction {
   QUESTAO_CRIADA
   QUESTAO_ATUALIZADA
   QUESTAO_EXCLUIDA
-  PASSWORD_RECOVERY_REQUESTED
-  PASSWORD_RECOVERY_COMPLETED
+  EMAIL_CONFIRMADO
+  SENHA_REDEFINIDA
+  CONTA_EXCLUIDA
+  RECUPERACAO_SENHA_SOLICITADA
 }
+
