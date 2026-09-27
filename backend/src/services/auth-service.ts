@@ -4,6 +4,9 @@ import { z } from 'zod';
 import { acceptanceSchema } from './legal-acceptance';
 import { ApiError } from '../errors/api-error';
 import { AuthRepository } from '../repositories/auth-repository';
+import versions from '../legal-versions.json';
+
+const GOOGLE_PASSWORD_SENTINEL = '!GOOGLE_OAUTH_ACCOUNT!';
 
 const jwtPayloadSchema = z.object({
   id: z.string().trim().min(1),
@@ -27,7 +30,7 @@ export class AuthService {
       await this.repository.recordLogin('LOGIN_FALHA');
       throw new ApiError(401, 'E-mail ou senha inválidos.');
     }
-    if (!user.senhaHash) {
+    if (!user.senhaHash || user.senhaHash === GOOGLE_PASSWORD_SENTINEL) {
       throw new ApiError(401, 'Esta conta usa login do Google. Entre com o Google.');
     }
     if (!await bcrypt.compare(senha, user.senhaHash)) {
@@ -41,9 +44,29 @@ export class AuthService {
 
   recordLoginFailure() { return this.repository.recordLogin('LOGIN_FALHA'); }
 
-  async loginWithGoogle(email: string, nomeSugerido: string) {
+  async loginWithGoogle(email: string, nomeSugerido: string, acceptance?: unknown) {
     const existing = await this.repository.findByEmail(email);
-    const user = existing ?? await this.repository.createGoogleUser(nomeSugerido, email);
+    if (existing?.senhaHash && existing.senhaHash !== GOOGLE_PASSWORD_SENTINEL) {
+      throw new ApiError(409, 'Este e-mail já possui uma conta com senha. Entre com seu e-mail e senha.');
+    }
+    const parsedAcceptance = acceptance === undefined ? undefined : acceptanceSchema.safeParse(acceptance);
+    if (parsedAcceptance && !parsedAcceptance.success) {
+      throw new ApiError(400, 'Aceite os Termos de Uso e o Aviso de Privacidade nas versões atuais.');
+    }
+    const hasCurrentAcceptance = Boolean(
+      existing?.legalAcceptedAt &&
+      existing.termsVersion === versions.termsVersion &&
+      existing.privacyVersion === versions.privacyVersion,
+    );
+    if (!hasCurrentAcceptance && !parsedAcceptance?.success) return { requiresAcceptance: true as const };
+
+    let user: { id: string; nome: string; email: string; role: string };
+    if (!existing) {
+      user = await this.repository.createGoogleUser(nomeSugerido, email, parsedAcceptance!.data);
+    } else {
+      user = existing;
+      if (!hasCurrentAcceptance) await this.repository.recordGoogleAcceptance(user.id, parsedAcceptance!.data);
+    }
     const response = this.loginResponse(user);
     await this.repository.recordLogin('LOGIN_SUCESSO', user.id);
     return response;

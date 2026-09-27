@@ -4,8 +4,9 @@ import { OAuth2Client } from 'google-auth-library';
 import { acceptanceSchema } from '../services/legal-acceptance';
 import { AuthService } from '../services/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
+import { PasswordRecoveryService } from '../services/password-recovery-service';
+import { UnconfiguredRecoveryEmailSender } from '../services/recovery-email-sender';
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Preserve the public registration/login contract of the previously active router.
 const registerSchema = z.object({
@@ -19,10 +20,45 @@ const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
   senha: z.string().min(1, 'Senha é obrigatória'),
 });
+const googleSchema = z.object({
+  credential: z.string().min(1, 'Credencial do Google não fornecida.'),
+  acceptance: acceptanceSchema.optional(),
+});
 const nomeSchema = z.object({ nome: z.string().min(2, 'Nome muito curto') });
+const recoveryRequestSchema = z.object({ email: z.string().email('E-mail inválido.') });
+const recoveryResetSchema = z.object({
+  token: z.string().min(20).max(512),
+  senha: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.'),
+  confirmacaoSenha: z.string().min(6, 'Confirme a nova senha.'),
+}).refine(data => data.senha === data.confirmacaoSenha, {
+  path: ['confirmacaoSenha'],
+  message: 'As senhas não coincidem.',
+});
 
 export class AuthController {
-  constructor(private readonly service = new AuthService()) {}
+  constructor(
+    private readonly service = new AuthService(),
+    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new UnconfiguredRecoveryEmailSender()),
+  ) {}
+
+  solicitarRecuperacaoSenha = async (request: Request, response: Response) => {
+    const parsed = recoveryRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Informe um e-mail válido.' });
+      return;
+    }
+    const message = await this.passwordRecovery.requestRecovery(parsed.data.email);
+    response.status(202).json({ message });
+  };
+
+  redefinirSenha = async (request: Request, response: Response) => {
+    const parsed = recoveryResetSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: parsed.error.issues[0]?.message ?? 'Dados inválidos.' });
+      return;
+    }
+    response.json(await this.passwordRecovery.resetPassword(parsed.data.token, parsed.data.senha, parsed.data.confirmacaoSenha));
+  };
 
   register = async (request: Request, response: Response) => {
     const parsed = registerSchema.safeParse(request.body);
@@ -45,28 +81,33 @@ export class AuthController {
   };
 
   google = async (request: Request, response: Response) => {
-    const { credential } = request.body;
-    if (!credential) {
-      response.status(400).json({ message: 'Credencial do Google não fornecida.' });
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (!clientId) {
+      response.status(503).json({ message: 'Login Google indisponível: configure GOOGLE_CLIENT_ID no backend.' });
+      return;
+    }
+    const parsed = googleSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Envie uma credencial Google válida e, quando solicitado, o aceite legal atual.' });
       return;
     }
     let payload;
     try {
-      const ticket = await googleClient.verifyIdToken({
-        idToken: credential,
-        audience: process.env.GOOGLE_CLIENT_ID,
+      const ticket = await new OAuth2Client(clientId).verifyIdToken({
+        idToken: parsed.data.credential,
+        audience: clientId,
       });
       payload = ticket.getPayload();
     } catch {
       response.status(401).json({ message: 'Token do Google inválido.' });
       return;
     }
-    if (!payload?.email) {
+    if (!payload?.email || payload.email_verified !== true) {
       response.status(401).json({ message: 'Não foi possível obter o e-mail da conta Google.' });
       return;
     }
     const nomeSugerido = payload.name ?? payload.given_name ?? payload.email.split('@')[0];
-    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido));
+    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance));
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {

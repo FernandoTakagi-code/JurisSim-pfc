@@ -7,5 +7,7 @@ export const authRoutes = Router();
 authRoutes.post('/register', controller.register);
 authRoutes.post('/login', controller.login);
 authRoutes.post('/google', controller.google);
+authRoutes.post('/password-recovery', controller.solicitarRecuperacaoSenha);
+authRoutes.post('/password-reset', controller.redefinirSenha);
 authRoutes.get('/session', requireAuth, controller.session);
 authRoutes.put('/nome', requireAuth, controller.atualizarNome);

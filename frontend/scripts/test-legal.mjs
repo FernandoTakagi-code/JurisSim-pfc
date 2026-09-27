@@ -60,7 +60,7 @@ try {
     await until('!!document.querySelector(".auth-card")');
   };
   await cdp('Emulation.setDeviceMetricsOverride', { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
-  for (const [hash, title] of [['#/termos', 'Termos de Uso'], ['#/privacidade', 'Política de Privacidade']]) {
+  for (const [hash, title] of [['#/termos', 'Termos de Uso'], ['#/privacidade', 'Aviso de Privacidade']]) {
     await navigate(hash);
     await until(`document.title === '${title} — JurisSim'`);
     assert.equal(await evaluate('!!sessionStorage.getItem("jurissim_token")'), false);
@@ -73,6 +73,29 @@ try {
     await evaluate('document.querySelector(".legal-back").click()');
     await until('!document.querySelector(".legal-page")');
   }
+  await evaluate('document.querySelector(".auth-options button").click()');
+  await until('!!document.querySelector("input[name=recovery-email]")');
+  const neutralRecoveryMessage = 'Se existir uma conta associada a este e-mail, enviaremos as instruções de recuperação.';
+  await evaluate(`window.fillRecoveryInput = (selector, value) => { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }; window.fillRecoveryInput('input[name=recovery-email]', 'unknown@example.com'); window.fetch = async (url, init) => { window.recoveryRequest = { url, body: JSON.parse(init.body) }; return new Response(JSON.stringify({ message: ${JSON.stringify(neutralRecoveryMessage)} }), { status: 202 }); };`);
+  await evaluate('document.querySelector(".auth-submit").click()');
+  await until('!!document.querySelector(".recovery-notice")');
+  assert.equal(await evaluate('document.querySelector(".recovery-notice").textContent'), neutralRecoveryMessage);
+  assert.equal(await evaluate('window.recoveryRequest.body.email'), 'unknown@example.com');
+  assert.ok(await evaluate('window.recoveryRequest.url.endsWith("/auth/password-recovery")'));
+  await evaluate('document.querySelector(".text-button").click()');
+  const resetTokenPreview = 'a'.repeat(43);
+  await navigate(`?recovery-test=1#/reset-password?token=${resetTokenPreview}`);
+  await until('!!document.querySelector(".auth-card")');
+  assert.equal(await evaluate('document.querySelector("h2").textContent'), 'Defina uma nova senha');
+  await evaluate(`window.fillRecoveryInput = (selector, value) => { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); };`);
+  await evaluate(`window.fillRecoveryInput('input[name=new-password]', 'senha-nova-segura'); window.fillRecoveryInput('input[name=confirm-new-password]', 'senha-nova-segura'); window.fetch = async (url, init) => { window.resetRequest = { url, body: JSON.parse(init.body) }; return new Response(JSON.stringify({ message: 'Senha redefinida. Você já pode entrar com sua nova senha.' }), { status: 200 }); };`);
+  await evaluate('document.querySelector(".auth-submit").click()');
+  await until('document.querySelector("h2").textContent === "Login" && !!document.querySelector(".recovery-notice")');
+  assert.equal(await evaluate('window.resetRequest.url.endsWith("/auth/password-reset")'), true);
+  assert.equal(await evaluate('window.resetRequest.body.token'), resetTokenPreview);
+  assert.equal(await evaluate('window.resetRequest.body.senha'), 'senha-nova-segura');
+  assert.equal(await evaluate('window.location.hash'), '');
+  await navigate('');
   await evaluate(`const setInput = (selector, value) => { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }; setInput('input[name="email"]', 'login@example.com'); setInput('input[autocomplete="current-password"]', 'login-password');`);
   await evaluate('document.querySelector(".auth-switch button").click()');
   await until('!!document.querySelector("#legal-acceptance")');
@@ -99,8 +122,23 @@ try {
   assert.ok(await evaluate('window.requests[0].body.acceptance.termsVersion && window.requests[0].body.acceptance.privacyVersion'));
   const token = `x.${Buffer.from(JSON.stringify({ role: 'ALUNO' })).toString('base64url')}.x`;
   await evaluate(`sessionStorage.setItem('jurissim_token', '${token}')`);
+  await evaluate("window.location.hash = ''");
+  await until('!document.querySelector(".legal-page")');
+  await evaluate("history.replaceState({}, '', '/desempenho')");
   await cdp('Page.reload');
   await until('!!document.querySelector(".app-legal-footer")');
+  await until('!!document.querySelector(".nav-bottom button")');
+  await evaluate(`[...document.querySelectorAll('.nav-bottom button')].find(button => button.textContent.includes('Config')).click()`);
+  await until("!!document.querySelector('#privacy-settings-title')");
+  assert.equal(await evaluate(`document.querySelectorAll('#privacy-settings-title ~ .legal-links a[href="#/termos"], #privacy-settings-title ~ .legal-links a[href="#/privacidade"]').length`), 2);
+  assert.equal(await evaluate(`document.querySelector('#privacy-settings-title').parentElement.textContent.includes('Em breve')`), false);
+  for (const hash of ['#/termos', '#/privacidade']) {
+    await evaluate(`document.querySelector('#privacy-settings-title').parentElement.querySelector('.legal-links a[href="${hash}"]').click()`);
+    await until('!!document.querySelector(".legal-page")');
+    await evaluate('document.querySelector(".legal-back").click()');
+    await until('!document.querySelector(".legal-page")');
+  }
+  await evaluate(`[...document.querySelectorAll('button')].find(button => button.textContent.includes('Fechar')).click()`);
   for (const width of [1366, 390]) {
     await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 760 });
     for (const hash of ['#/termos', '#/privacidade']) {

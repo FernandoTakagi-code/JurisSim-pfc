@@ -135,10 +135,13 @@ function SettingsModal({
         </p>
         {erro && <small style={{ color: "crimson" }}>{erro}</small>}
         <hr />
-        <p style={{ fontSize: 13, color: "#888" }}>
-          Em breve: solicitação de exclusão de conta e dados pessoais,
-          conforme a LGPD.
-        </p>
+        <section aria-labelledby="privacy-settings-title">
+          <h3 id="privacy-settings-title">Privacidade e dados</h3>
+          <LegalLinks />
+          <p style={{ fontSize: 13, color: "#68758a", lineHeight: 1.5 }}>
+            Para orientações sobre seus direitos, inclusive pedidos de exclusão quando aplicável, consulte a seção “Como exercer seus direitos” do Aviso de Privacidade. Esta tela não registra solicitações nem exclui dados.
+          </p>
+        </section>
         <div style={{ display: "flex", gap: 8 }}>
           <button
             type="button"
@@ -837,7 +840,7 @@ function App() {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+  <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ""}>
     <LegalBoundary>
       <App />
       {sessionStorage.getItem('jurissim_token') && <footer className="app-legal-footer"><LegalLinks /></footer>}

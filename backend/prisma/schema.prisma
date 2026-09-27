@@ -19,12 +19,26 @@ model User {
   legalAcceptedAt     DateTime?
   termsVersion        String?
   privacyVersion      String?
+  passwordRecoveryTokens PasswordRecoveryToken[]
   auditLogs           AuditLog[]
   metasDiarias        MetaDiaria[]
   questoesCriadas     Questao[]
   simulados           Simulado[]
   turmasComoAluno     Turma[]      @relation("AlunoTurmas")
   turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
+}
+
+model PasswordRecoveryToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  consumedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
 }
 
 model Turma {
@@ -191,4 +205,6 @@ enum AuditAction {
   QUESTAO_CRIADA
   QUESTAO_ATUALIZADA
   QUESTAO_EXCLUIDA
+  PASSWORD_RECOVERY_REQUESTED
+  PASSWORD_RECOVERY_COMPLETED
 }
