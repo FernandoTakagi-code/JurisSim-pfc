@@ -19,10 +19,12 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
   senha: z.string().min(1, 'Senha é obrigatória'),
+  perfil: z.enum(['ALUNO', 'PROFESSOR']).optional(),
 });
 const googleSchema = z.object({
   credential: z.string().min(1, 'Credencial do Google não fornecida.'),
   acceptance: acceptanceSchema.optional(),
+  perfil: z.enum(['ALUNO', 'PROFESSOR']).optional(),
 });
 const nomeSchema = z.object({ nome: z.string().min(2, 'Nome muito curto') });
 const recoveryRequestSchema = z.object({ email: z.string().email('E-mail inválido.') });
@@ -77,7 +79,7 @@ export class AuthController {
       response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
       return;
     }
-    response.json(await this.service.login(parsed.data.email, parsed.data.senha));
+    response.json(await this.service.login(parsed.data.email, parsed.data.senha, parsed.data.perfil));
   };
 
   google = async (request: Request, response: Response) => {
@@ -107,7 +109,7 @@ export class AuthController {
       return;
     }
     const nomeSugerido = payload.name ?? payload.given_name ?? payload.email.split('@')[0];
-    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance));
+    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance, parsed.data.perfil));
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {
