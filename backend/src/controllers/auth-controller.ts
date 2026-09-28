@@ -1,15 +1,155 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
+import { OAuth2Client } from 'google-auth-library';
+import { acceptanceSchema } from '../services/legal-acceptance';
 import { AuthService } from '../services/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
+import { PasswordRecoveryService } from '../services/password-recovery-service';
+import { GmailRecoveryEmailSender } from '../services/recovery-email-sender';
+import { EmailVerificationService } from '../services/email-verification-service';
+import { GmailEmailVerificationSender } from '../services/email-verification-sender';
 
-const email = z.string().trim().toLowerCase().email();
-const registerSchema = z.object({ nome: z.string().trim().min(2).max(100), email, senha: z.string().min(8).max(72), confirmacaoSenha: z.string(), role: z.enum(['ALUNO', 'PROFESSOR']) }).refine(({ senha, confirmacaoSenha }) => senha === confirmacaoSenha, { path: ['confirmacaoSenha'], message: 'As senhas nao conferem.' });
-const loginSchema = z.object({ email, senha: z.string().min(1).max(72) });
+const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
+
+const registerSchema = z.object({
+  nome: z.string().min(2, 'Nome muito curto'),
+  email: z.string().email('E-mail inválido'),
+  senha: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
+  role: z.enum(['PROFESSOR', 'ALUNO']),
+  acceptance: acceptanceSchema,
+});
+const loginSchema = z.object({
+  email: z.string().email('E-mail inválido'),
+  senha: z.string().min(1, 'Senha é obrigatória'),
+});
+const googleSchema = z.object({
+  credential: z.string().min(1, 'Credencial do Google não fornecida.'),
+  acceptance: acceptanceSchema.optional(),
+});
+const nomeSchema = z.object({ nome: z.string().min(2, 'Nome muito curto') });
+const recoveryRequestSchema = z.object({ email: z.string().email('E-mail inválido.') });
+const recoveryResetSchema = z.object({
+  token: z.string().min(20).max(512),
+  senha: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.'),
+  confirmacaoSenha: z.string().min(6, 'Confirme a nova senha.'),
+}).refine(data => data.senha === data.confirmacaoSenha, {
+  path: ['confirmacaoSenha'],
+  message: 'As senhas não coincidem.',
+});
+const confirmEmailSchema = z.object({ token: z.string().min(20).max(512) });
 
 export class AuthController {
-  constructor(private readonly service = new AuthService()) {}
-  register = async (request: Request, response: Response) => { const body = registerSchema.parse(request.body); const user = await this.service.register(body.nome, body.email, body.senha, body.role); response.status(201).json({ message: 'Cadastro criado com sucesso.', user }); };
-  login = async (request: Request, response: Response) => { const { email, senha } = loginSchema.parse(request.body); response.json(await this.service.login(email, senha)); };
-  session = async (request: AuthenticatedRequest, response: Response) => response.json(await this.service.session(request.auth!.userId));
+  constructor(
+    private readonly service = new AuthService(),
+    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new GmailRecoveryEmailSender()),
+    private readonly emailVerification = new EmailVerificationService(undefined, new GmailEmailVerificationSender()),
+  ) {}
+
+  solicitarRecuperacaoSenha = async (request: Request, response: Response) => {
+    const parsed = recoveryRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Informe um e-mail válido.' });
+      return;
+    }
+    const message = await this.passwordRecovery.requestRecovery(parsed.data.email);
+    response.status(202).json({ message });
+  };
+
+  redefinirSenha = async (request: Request, response: Response) => {
+    const parsed = recoveryResetSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: parsed.error.issues[0]?.message ?? 'Dados inválidos.' });
+      return;
+    }
+    response.json(await this.passwordRecovery.resetPassword(parsed.data.token, parsed.data.senha, parsed.data.confirmacaoSenha));
+  };
+
+  register = async (request: Request, response: Response) => {
+    const parsed = registerSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Verifique os dados e aceite as versões atuais dos Termos de Uso e da Política de Privacidade.', erro: parsed.error.format() });
+      return;
+    }
+    const { nome, email, senha, role, acceptance } = parsed.data;
+    const resultado = await this.service.register(nome, email, senha, role, acceptance);
+    this.emailVerification.requestVerification(resultado.usuario.id).catch(() => {});
+    response.status(201).json(resultado);
+  };
+
+  login = async (request: Request, response: Response) => {
+    const parsed = loginSchema.safeParse(request.body);
+    if (!parsed.success) {
+      await this.service.recordLoginFailure();
+      response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
+      return;
+    }
+    response.json(await this.service.login(parsed.data.email, parsed.data.senha));
+  };
+
+  google = async (request: Request, response: Response) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (!clientId) {
+      response.status(503).json({ message: 'Login Google indisponível: configure GOOGLE_CLIENT_ID no backend.' });
+      return;
+    }
+    const parsed = googleSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Envie uma credencial Google válida e, quando solicitado, o aceite legal atual.' });
+      return;
+    }
+    let payload;
+    try {
+      const ticket = await new OAuth2Client(clientId).verifyIdToken({
+        idToken: parsed.data.credential,
+        audience: clientId,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      response.status(401).json({ message: 'Token do Google inválido.' });
+      return;
+    }
+    if (!payload?.email || payload.email_verified !== true) {
+      response.status(401).json({ message: 'Não foi possível obter o e-mail da conta Google.' });
+      return;
+    }
+    const nomeSugerido = payload.name ?? payload.given_name ?? payload.email.split('@')[0];
+    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance));
+  };
+
+  session = async (request: AuthenticatedRequest, response: Response) => {
+    response.json(await this.service.session(request.auth!.userId));
+  };
+
+  atualizarNome = async (request: AuthenticatedRequest, response: Response) => {
+    const parsed = nomeSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Nome inválido.', erro: parsed.error.format() });
+      return;
+    }
+    const usuario = await this.service.updateNome(request.auth!.userId, parsed.data.nome);
+    response.json({ usuario });
+  };
+
+  excluirConta = async (request: AuthenticatedRequest, response: Response) => {
+    const parsed = deleteAccountSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
+      return;
+    }
+    response.json(await this.service.deleteAccount(request.auth!.userId, parsed.data.senhaAtual));
+  };
+
+  solicitarConfirmacaoEmail = async (request: AuthenticatedRequest, response: Response) => {
+    const result = await this.emailVerification.requestVerification(request.auth!.userId);
+    response.status(202).json(result);
+  };
+
+  confirmarEmail = async (request: Request, response: Response) => {
+    const parsed = confirmEmailSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Token inválido.' });
+      return;
+    }
+    response.json(await this.emailVerification.confirm(parsed.data.token));
+  };
 }

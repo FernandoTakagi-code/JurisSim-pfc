@@ -1,5 +1,6 @@
 import { QuestaoRepository } from '../repositories/QuestaoRepository';
 import { Nivel } from '@prisma/client';
+import { ApiError } from '../errors/api-error';
 
 interface DadosCriarQuestao {
   enunciado: string;
@@ -14,24 +15,35 @@ interface DadosCriarQuestao {
 }
 
 export class QuestaoService {
-  static async criar(dados: DadosCriarQuestao) {
-    const corretas = dados.alternativas.filter((a) => a.correta);
+  static async criar(dados: DadosCriarQuestao, actorId: string) {
+    this.validarAlternativas(dados.alternativas);
+    return QuestaoRepository.criar(dados, actorId);
+  }
+
+  private static validarAlternativas(alternativas: DadosCriarQuestao['alternativas']) {
+    const corretas = alternativas.filter((a) => a.correta);
     if (corretas.length !== 1) {
-      throw new Error('A questão deve ter exatamente uma alternativa correta');
+      throw new ApiError(400, 'A questão deve ter exatamente uma alternativa correta');
     }
 
-    if (dados.alternativas.length < 2) {
-      throw new Error('A questão deve ter pelo menos duas alternativas');
+    if (alternativas.length < 2) {
+      throw new ApiError(400, 'A questão deve ter pelo menos duas alternativas');
     }
-
-    return QuestaoRepository.criar(dados);
   }
 
   static async listar(
     filtros: { disciplina?: string; assunto?: string; nivel?: Nivel; turmaId?: string },
-    papelUsuario: string
+    papelUsuario: string,
+    usuarioId?: string,
+    somenteMinhas = false,
   ) {
-    const questoes = await QuestaoRepository.listar(filtros);
+    const ehProfessor = papelUsuario === 'PROFESSOR' || papelUsuario === 'ADMIN';
+    const questoes = await QuestaoRepository.listar({
+      ...filtros,
+      // Professores também enxergam as próprias questões privadas.
+      autorId: ehProfessor ? usuarioId : undefined,
+      somenteDoAutor: ehProfessor && somenteMinhas,
+    });
 
     if (papelUsuario === 'ALUNO') {
       return questoes.map((questao) => ({
@@ -50,7 +62,7 @@ export class QuestaoService {
     const questao = await QuestaoRepository.buscarPorId(id);
 
     if (!questao) {
-      throw new Error('Questão não encontrada');
+      throw new ApiError(404, 'Questão não encontrada');
     }
 
     if (papelUsuario === 'ALUNO') {
@@ -66,19 +78,12 @@ export class QuestaoService {
     return questao;
   }
 
-  static async atualizar(id: string, dados: Partial<DadosCriarQuestao>) {
-    const questaoExistente = await QuestaoRepository.buscarPorId(id);
-    if (!questaoExistente) {
-      throw new Error('Questão não encontrada');
-    }
-    return QuestaoRepository.atualizar(id, dados);
+  static async atualizar(id: string, dados: Partial<Omit<DadosCriarQuestao, 'autorId'>>, actorId: string) {
+    if (dados.alternativas) this.validarAlternativas(dados.alternativas);
+    return QuestaoRepository.atualizar(id, dados, actorId);
   }
 
-  static async remover(id: string) {
-    const questaoExistente = await QuestaoRepository.buscarPorId(id);
-    if (!questaoExistente) {
-      throw new Error('Questão não encontrada');
-    }
-    return QuestaoRepository.remover(id);
+  static async remover(id: string, actorId: string) {
+    return QuestaoRepository.remover(id, actorId);
   }
 }

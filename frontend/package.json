@@ -4,9 +4,11 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build"
+    "build": "tsc -b && vite build",
+    "test:legal": "node scripts/test-legal.mjs"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.13.5",
     "@vitejs/plugin-react": "^5.0.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

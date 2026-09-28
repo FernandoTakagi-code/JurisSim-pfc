@@ -3,6 +3,7 @@ import { ApiError } from '../errors/api-error';
 import { DiagnosticRepository } from '../repositories/diagnostic-repository';
 import type { AnsweredQuestion } from '../types/diagnostic';
 import { analyzeDiagnostic } from './adaptive-engine';
+import { gerarJustificativaComIA } from './feedback-service';
 
 type Attempt = Prisma.SimuladoGetPayload<{
   include: {
@@ -57,7 +58,14 @@ export class DiagnosticService {
     if (attempt.finalizadoEm) throw new ApiError(409, 'Esta tentativa de diagnostico ja foi finalizada.');
     if (!attempt.questoes.some((question) => question.resposta)) throw new ApiError(422, 'Nao e possivel finalizar um diagnostico sem respostas.');
     const result = analyzeDiagnostic(this.answeredQuestions(attempt));
-    const finalizedAttempt = await this.repository.finalize(attemptId, result);
+
+    const textoEnriquecido = await gerarJustificativaComIA(result.trail);
+    if (textoEnriquecido) {
+      result.trail.reason = textoEnriquecido;
+      result.recommendation = textoEnriquecido;
+    }
+
+    const finalizedAttempt = await this.repository.finalize(attemptId, studentId, result);
     if (!finalizedAttempt) throw new ApiError(409, 'Esta tentativa de diagnostico ja foi finalizada.');
     return { attempt: finalizedAttempt, result };
   }
@@ -65,7 +73,12 @@ export class DiagnosticService {
   async getResult(attemptId: string, studentId: string) {
     const attempt = await this.getAttemptOrFail(attemptId, studentId);
     if (!attempt.finalizadoEm) throw new ApiError(409, 'Finalize o diagnostico antes de consultar o resultado.');
-    return { attempt, result: analyzeDiagnostic(this.answeredQuestions(attempt)) };
+    const result = analyzeDiagnostic(this.answeredQuestions(attempt));
+    if (attempt.trilhaAdaptativa?.justificativa) {
+      result.trail.reason = attempt.trilhaAdaptativa.justificativa;
+      result.recommendation = attempt.trilhaAdaptativa.justificativa;
+    }
+    return { attempt, result };
   }
 
   async getTrail(attemptId: string, studentId: string) {

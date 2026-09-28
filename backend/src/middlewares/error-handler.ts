@@ -11,6 +11,7 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, _ne
     response.status(422).json({ message: 'Dados invalidos.', issues: error.issues });
     return;
   }
-  console.error(error);
+ 
+console.error('Erro interno do servidor.', error);
   response.status(500).json({ message: 'Erro interno do servidor.' });
 };

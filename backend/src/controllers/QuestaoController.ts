@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { z } from 'zod';
 import { QuestaoService } from '../services/QuestaoService';
-import { AuthenticatedRequest } from '../middlewares/authMiddleware';
+import { AuthenticatedRequest } from '../middlewares/auth-middleware';
 
 const alternativaSchema = z.object({
   texto: z.string().min(1, 'Texto da alternativa é obrigatório'),
@@ -18,6 +18,10 @@ const criarQuestaoSchema = z.object({
   turmaId: z.string().optional(),
   alternativas: z.array(alternativaSchema).min(2),
 });
+const atualizarQuestaoSchema = criarQuestaoSchema.partial().strict().refine(
+  (dados) => Object.keys(dados).length > 0,
+  { message: 'Informe ao menos um campo para atualizar.' },
+);
 
 export class QuestaoController {
   static async criar(req: AuthenticatedRequest, res: Response) {
@@ -26,19 +30,15 @@ export class QuestaoController {
       return res.status(400).json({ erro: parsed.error.format() });
     }
 
-    try {
-      const questao = await QuestaoService.criar({
-        ...parsed.data,
-        autorId: req.usuario!.id,
-      });
-      return res.status(201).json(questao);
-    } catch (erro: any) {
-      return res.status(400).json({ erro: erro.message });
-    }
+    const questao = await QuestaoService.criar({
+      ...parsed.data,
+      autorId: req.auth!.userId,
+    }, req.auth!.userId);
+    return res.status(201).json(questao);
   }
 
   static async listar(req: AuthenticatedRequest, res: Response) {
-    const { disciplina, assunto, nivel, turmaId } = req.query;
+    const { disciplina, assunto, nivel, turmaId, minhas } = req.query;
 
     const questoes = await QuestaoService.listar(
       {
@@ -47,36 +47,28 @@ export class QuestaoController {
         nivel: nivel as any,
         turmaId: turmaId as string | undefined,
       },
-      req.usuario!.role
+      req.auth!.role,
+      req.auth!.userId,
+      minhas === 'true',
     );
 
     return res.status(200).json(questoes);
   }
 
   static async buscarPorId(req: AuthenticatedRequest, res: Response) {
-    try {
-      const questao = await QuestaoService.buscarPorId(req.params.id as string, req.usuario!.role);
-      return res.status(200).json(questao);
-    } catch (erro: any) {
-      return res.status(404).json({ erro: erro.message });
-    }
+    const questao = await QuestaoService.buscarPorId(req.params.id as string, req.auth!.role);
+    return res.status(200).json(questao);
   }
 
   static async atualizar(req: AuthenticatedRequest, res: Response) {
-    try {
-      const questao = await QuestaoService.atualizar(req.params.id as string, req.body);
-      return res.status(200).json(questao);
-    } catch (erro: any) {
-      return res.status(404).json({ erro: erro.message });
-    }
+    const parsed = atualizarQuestaoSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ erro: parsed.error.format() });
+    const questao = await QuestaoService.atualizar(req.params.id as string, parsed.data, req.auth!.userId);
+    return res.status(200).json(questao);
   }
 
   static async remover(req: AuthenticatedRequest, res: Response) {
-    try {
-      await QuestaoService.remover(req.params.id as string);
-      return res.status(204).send();
-    } catch (erro: any) {
-      return res.status(404).json({ erro: erro.message });
-    }
+    await QuestaoService.remover(req.params.id as string, req.auth!.userId);
+    return res.status(204).send();
   }
 }

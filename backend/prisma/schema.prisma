@@ -8,6 +8,186 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model User {
+  id                  String       @id @default(uuid())
+  nome                String
+  email               String       @unique
+  senhaHash           String?
+  role                Role
+  createdAt           DateTime     @default(now())
+  nivelAtual          Nivel?
+  legalAcceptedAt     DateTime?
+  termsVersion        String?
+  privacyVersion      String?
+  emailVerifiedAt     DateTime?
+  deletedAt           DateTime?
+  auditLogs           AuditLog[]
+  authTokens          AuthToken[]
+  recoveryTokens      PasswordRecoveryToken[]
+  metasDiarias        MetaDiaria[]
+  questoesCriadas     Questao[]
+  simulados           Simulado[]
+  turmasComoAluno     Turma[]      @relation("AlunoTurmas")
+  turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
+}
+
+model AuthToken {
+  id        String        @id @default(uuid())
+  userId    String
+  tokenHash String
+  type      AuthTokenType
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([tokenHash])
+}
+
+model PasswordRecoveryToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  consumedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
+model Turma {
+  id            String    @id @default(uuid())
+  nome          String
+  codigoConvite String    @unique
+  createdAt     DateTime  @default(now())
+  questoes      Questao[]
+  alunos        User[]    @relation("AlunoTurmas")
+  professores   User[]    @relation("ProfessorTurmas")
+}
+
+model Questao {
+  id                    String            @id @default(uuid())
+  enunciado             String
+  disciplina            String
+  assunto               String
+  nivel                 Nivel
+  fundamentacaoJuridica String
+  publica               Boolean           @default(true)
+  createdAt             DateTime          @default(now())
+  turmaId               String?
+  autorId               String
+  alternativas          Alternativa[]
+  autor                 User              @relation(fields: [autorId], references: [id])
+  turma                 Turma?            @relation(fields: [turmaId], references: [id])
+  diagnosticos          QuestaoSimulado[]
+  respostas             Resposta[]
+}
+
+model Alternativa {
+  id        String  @id @default(uuid())
+  texto     String
+  correta   Boolean
+  questaoId String
+  questao   Questao @relation(fields: [questaoId], references: [id])
+}
+
+model Simulado {
+  id                     String                  @id @default(uuid())
+  tipo                   TipoSimulado
+  iniciadoEm             DateTime                @default(now())
+  finalizadoEm           DateTime?
+  tempoLimiteSegundos    Int?
+  alunoId                String
+  desempenhosDiagnostico DesempenhoDiagnostico[]
+  questoes               QuestaoSimulado[]
+  respostas              Resposta[]
+  aluno                  User                    @relation(fields: [alunoId], references: [id])
+  trilhaOrigem           TrilhaAdaptativa?       @relation("TrilhaGerouExercicios")
+  trilhaAdaptativa       TrilhaAdaptativa?       @relation("TrilhaDoDiagnostico")
+}
+
+model Resposta {
+  id                     String           @id @default(uuid())
+  correta                Boolean
+  tempoRespostaSegundos  Int?
+  respondidoEm           DateTime         @default(now())
+  simuladoId             String
+  questaoId              String
+  alternativaEscolhidaId String?
+  questaoSimuladoId      String?          @unique
+  questao                Questao          @relation(fields: [questaoId], references: [id])
+  questaoSimulado        QuestaoSimulado? @relation("RespostaDiagnostico", fields: [questaoSimuladoId], references: [id])
+  simulado               Simulado         @relation(fields: [simuladoId], references: [id])
+}
+
+model QuestaoSimulado {
+  id         String    @id @default(uuid())
+  posicao    Int
+  simuladoId String
+  questaoId  String
+  questao    Questao   @relation(fields: [questaoId], references: [id])
+  simulado   Simulado  @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
+  resposta   Resposta? @relation("RespostaDiagnostico")
+
+  @@unique([simuladoId, questaoId])
+  @@unique([simuladoId, posicao])
+}
+
+model DesempenhoDiagnostico {
+  id            String                 @id @default(uuid())
+  simuladoId    String
+  tipo          TipoMetricaDiagnostico
+  disciplina    String
+  assunto       String?
+  nivel         Nivel?
+  acertos       Int
+  totalQuestoes Int
+  percentual    Float
+  simulado      Simulado               @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
+
+  @@index([simuladoId, tipo])
+}
+
+model MetaDiaria {
+  id                 String   @id @default(uuid())
+  data               DateTime
+  metaQuestoes       Int
+  questoesResolvidas Int      @default(0)
+  cumprida           Boolean  @default(false)
+  alunoId            String
+  aluno              User     @relation(fields: [alunoId], references: [id])
+}
+
+model TrilhaAdaptativa {
+  id                    String    @id @default(uuid())
+  simuladoId            String    @unique
+  disciplinaPrioritaria String
+  assuntoPrioritario    String?
+  nivelRecomendado      Nivel
+  quantidadeRecomendada Int
+  justificativa         String
+  createdAt             DateTime  @default(now())
+  simuladoGeradoId      String?   @unique
+  simuladoGerado        Simulado? @relation("TrilhaGerouExercicios", fields: [simuladoGeradoId], references: [id])
+  simulado              Simulado  @relation("TrilhaDoDiagnostico", fields: [simuladoId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id             String      @id @default(uuid())
+  userId         String?
+  action         AuditAction
+  occurredAt     DateTime    @default(now())
+  termsVersion   String?
+  privacyVersion String?
+  resourceId     String?
+  user           User?       @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, occurredAt])
+}
+
 enum Role {
   ADMIN
   PROFESSOR
@@ -32,148 +212,24 @@ enum TipoMetricaDiagnostico {
   ASSUNTO_E_NIVEL
 }
 
-model User {
-  id        String   @id @default(uuid())
-  nome      String
-  email     String   @unique
-  senhaHash String
-  role      Role
-  nivelAtual Nivel? 
-  createdAt DateTime @default(now())
-
-  turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
-  turmasComoAluno     Turma[]      @relation("AlunoTurmas")
-  questoesCriadas     Questao[]
-  simulados           Simulado[]
-  metasDiarias        MetaDiaria[]
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
 }
 
-model Turma {
-  id            String   @id @default(uuid())
-  nome          String
-  codigoConvite String   @unique
-  createdAt     DateTime @default(now())
-
-  professores User[]    @relation("ProfessorTurmas")
-  alunos      User[]    @relation("AlunoTurmas")
-  questoes    Questao[]
+enum AuditAction {
+  ACEITE_TERMOS_E_PRIVACIDADE
+  USUARIO_CADASTRADO
+  LOGIN_SUCESSO
+  LOGIN_FALHA
+  DIAGNOSTICO_INICIADO
+  DIAGNOSTICO_FINALIZADO
+  QUESTAO_CRIADA
+  QUESTAO_ATUALIZADA
+  QUESTAO_EXCLUIDA
+  EMAIL_CONFIRMADO
+  SENHA_REDEFINIDA
+  CONTA_EXCLUIDA
+  RECUPERACAO_SENHA_SOLICITADA
 }
 
-model Questao {
-  id                    String   @id @default(uuid())
-  enunciado             String
-  disciplina            String
-  assunto               String
-  nivel                 Nivel
-  fundamentacaoJuridica String
-  publica               Boolean  @default(true)
-  createdAt             DateTime @default(now())
-
-  turmaId String?
-  turma   Turma?  @relation(fields: [turmaId], references: [id])
-
-  autorId String
-  autor   User   @relation(fields: [autorId], references: [id])
-
-  alternativas Alternativa[]
-  respostas    Resposta[]
-  diagnosticos QuestaoSimulado[]
-}
-
-model Alternativa {
-  id        String  @id @default(uuid())
-  texto     String
-  correta   Boolean
-  questaoId String
-  questao   Questao @relation(fields: [questaoId], references: [id])
-}
-model Simulado {
-  id                  String       @id @default(uuid())
-  tipo                TipoSimulado
-  iniciadoEm          DateTime     @default(now())
-  finalizadoEm        DateTime?
-  tempoLimiteSegundos Int?
-  trilhaAdaptativa TrilhaAdaptativa? @relation("TrilhaDoDiagnostico")
-  trilhaOrigem     TrilhaAdaptativa? @relation("TrilhaGerouExercicios")
-
-  alunoId String
-  aluno   User   @relation(fields: [alunoId], references: [id])
-
-  respostas Resposta[]
-  questoes  QuestaoSimulado[]
-  desempenhosDiagnostico DesempenhoDiagnostico[]
-}
-
-model Resposta {
-  id                    String   @id @default(uuid())
-  correta               Boolean
-  tempoRespostaSegundos Int?
-  respondidoEm          DateTime @default(now())
-
-  simuladoId String
-  simulado   Simulado @relation(fields: [simuladoId], references: [id])
-
-  questaoId String
-  questao   Questao @relation(fields: [questaoId], references: [id])
-
-  alternativaEscolhidaId String?
-  questaoSimuladoId      String? @unique
-  questaoSimulado        QuestaoSimulado? @relation("RespostaDiagnostico", fields: [questaoSimuladoId], references: [id])
-}
-
-model QuestaoSimulado {
-  id        String   @id @default(uuid())
-  posicao   Int
-  simuladoId String
-  questaoId String
-
-  simulado Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
-  questao   Questao  @relation(fields: [questaoId], references: [id], onDelete: Restrict)
-  resposta  Resposta? @relation("RespostaDiagnostico")
-
-  @@unique([simuladoId, questaoId])
-  @@unique([simuladoId, posicao])
-}
-
-model DesempenhoDiagnostico {
-  id              String                  @id @default(uuid())
-  simuladoId      String
-  tipo            TipoMetricaDiagnostico
-  disciplina      String
-  assunto         String?
-  nivel           Nivel?
-  acertos         Int
-  totalQuestoes   Int
-  percentual      Float
-
-  simulado Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
-
-  @@index([simuladoId, tipo])
-}
-
-model MetaDiaria {
-  id                 String   @id @default(uuid())
-  data               DateTime
-  metaQuestoes       Int
-  questoesResolvidas Int      @default(0)
-  cumprida           Boolean  @default(false)
-
-  alunoId String
-  aluno   User   @relation(fields: [alunoId], references: [id])
-}
-
-model TrilhaAdaptativa {
-  id                    String   @id @default(uuid())
-  simuladoId            String   @unique
-  disciplinaPrioritaria String
-  assuntoPrioritario    String?
-  nivelRecomendado      Nivel
-  quantidadeRecomendada Int
-  justificativa         String
-  createdAt             DateTime @default(now())
-
-  simulado         Simulado  @relation("TrilhaDoDiagnostico", fields: [simuladoId], references: [id], onDelete: Cascade)
-
-  simuladoGeradoId String?   @unique
-  simuladoGerado   Simulado? @relation("TrilhaGerouExercicios", fields: [simuladoGeradoId], references: [id])
-}

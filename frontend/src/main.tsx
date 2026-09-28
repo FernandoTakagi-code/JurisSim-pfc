@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 import { AuthGate } from "./auth-gate";
 import { decodeRole } from "./jwt";
 import { QuestoesPage } from "./QuestoesPage";
+import { LegalBoundary, LegalLinks } from './legal';
+import { Brand, SettingsModal } from "./shell";
+import { ProfessorArea } from "./ProfessorArea";
 
 const api = import.meta.env.VITE_API_URL ?? "http://localhost:3333";
 
@@ -45,24 +49,26 @@ const labels: Record<string, string> = {
   AVANCADO: "Avançado",
 };
 
-function Brand() {
-  return (
-    <div className="brand">
-      <b>⚖</b>
-      <span>
-        <strong>JurisSim</strong>
-        <small>Plataforma adaptativa para o Exame da OAB.</small>
-      </span>
-    </div>
-  );
+function TopBar({ nome }: { nome: string }) {
+  return <b>Olá, {nome}!</b>;
 }
 
 function Sidebar({
   active,
   onNavigate,
+  role,
+  onDashboard,
+  onPerformance,
+  onOpenSettings,
+  onSair,
 }: {
-  active: "diagnostico" | "questoes";
+  active: "dashboard" | "diagnostico" | "questoes" | "desempenho";
   onNavigate: (view: "diagnostico" | "questoes") => void;
+  role: string | null;
+  onDashboard: () => void;
+  onPerformance: () => void;
+  onOpenSettings: () => void;
+  onSair: () => void;
 }) {
   const items: [string, string, "diagnostico" | "questoes" | null][] = [
     ["⌂", "Início", null],
@@ -71,14 +77,18 @@ function Sidebar({
     ["▥", "Meu desempenho", null],
   ];
   return (
-    <aside>
+    <aside className={active === "dashboard" ? "dashboard-sidebar" : undefined}>
       <Brand />
       <nav>
-        {items.map(([icon, label, view]) => (
+        {items.map(([icon, label, view], index) => (
           <button
-            className={view === active ? "active" : ""}
+            className={(view === active || (index === 0 && active === "dashboard") || (index === 3 && active === "desempenho")) ? "active" : ""}
             key={label}
-            onClick={() => view && onNavigate(view)}
+            onClick={() => {
+              if (index === 0 && role === "ALUNO") onDashboard();
+              else if (index === 3 && role === "ALUNO") onPerformance();
+              else if (view) onNavigate(view);
+            }}
           >
             <i>{icon}</i>
             {label}
@@ -89,11 +99,11 @@ function Sidebar({
         <button>
           <i>♙</i>Meu perfil
         </button>
-        <button>
+        <button onClick={onOpenSettings}>
           <i>⚙</i>Configurações
         </button>
         <hr />
-        <button>
+        <button onClick={onSair}>
           <i>⇥</i>Sair
         </button>
       </div>
@@ -104,10 +114,23 @@ function Sidebar({
 function App() {
   if (!sessionStorage.getItem("jurissim_token")) return <AuthGate />;
 
-  const role = decodeRole(sessionStorage.getItem("jurissim_token")!);
-  const [view, setView] = useState<"diagnostico" | "questoes">(
-    role === "PROFESSOR" || role === "ADMIN" ? "questoes" : "diagnostico",
-  );
+  const role = decodeRole(sessionStorage.getItem("jurissim_token")!) ?? "ALUNO";
+  const nome = sessionStorage.getItem("jurissim_user_name") ?? "usuário";
+  const email = sessionStorage.getItem("jurissim_email") ?? "";
+  if (role === "PROFESSOR" || role === "ADMIN") {
+    return <ProfessorArea nome={nome} email={email} role={role} onSair={() => { sessionStorage.clear(); sessionStorage.setItem("jurissim_perfil", "PROFESSOR"); window.location.assign("/"); }} />;
+  }
+  return <StudentApp role={role} nome={nome} email={email} />;
+}
+
+function StudentApp({ role, nome, email }: { role: string; nome: string; email: string }) {
+  const emailVerificado = sessionStorage.getItem("jurissim_email_verificado") !== "false";
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [gateReenviando, setGateReenviando] = useState(false);
+  const [gateMensagem, setGateMensagem] = useState("");
+  const [gateErro, setGateErro] = useState("");
+  const [route, setRoute] = useState(() => window.location.pathname);
+  const [view, setView] = useState<"diagnostico" | "questoes">("diagnostico");
   const [id, setId] = useState<string>();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
@@ -121,16 +144,221 @@ function App() {
   const [trailAnswer, setTrailAnswer] = useState<string>();
   const [trailResult, setTrailResult] = useState<TrailResult>();
 
+  const sair = () => {
+    sessionStorage.clear();
+    window.location.reload();
+  };
+
+  const navigate = (path: string) => {
+    window.history.pushState({}, "", path);
+    setRoute(path);
+  };
+  const navigateView = (destination: "diagnostico" | "questoes") => {
+    setView(destination);
+    navigate("/");
+  };
+  const startStudying = () => {
+    setId(undefined);
+    setQuestions([]);
+    setResult(undefined);
+    setTrailId(undefined);
+    setTrailQuestions([]);
+    setTrailResult(undefined);
+    setIndex(0);
+    setTrailIndex(0);
+    setView("diagnostico");
+    navigate("/");
+  };
+  useEffect(() => {
+    const onPopState = () => setRoute(window.location.pathname);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+  useEffect(() => {
+    if (route === "/professor" || (route === "/dashboard" && role !== "ALUNO")) {
+      window.history.replaceState({}, "", "/");
+      setRoute("/");
+    }
+  }, [route, role]);
+  useEffect(() => {
+    const [hashRoute, query = ""] = window.location.hash.split("?");
+    if (hashRoute !== "#/verificar-email") return;
+    const token = new URLSearchParams(query).get("token");
+    if (!token) return;
+    (async () => {
+      try {
+        const response = await fetch(`${api}/auth/email-verification/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        const body = await response.json();
+        window.history.replaceState({}, "", window.location.pathname + window.location.search);
+        if (response.ok) {
+          sessionStorage.setItem("jurissim_email_verificado", "true");
+          alert(body.message ?? "E-mail confirmado com sucesso!");
+          window.location.reload();
+        } else {
+          alert(body.message ?? "Não foi possível confirmar o e-mail.");
+        }
+      } catch {
+        window.history.replaceState({}, "", window.location.pathname + window.location.search);
+        alert("Não foi possível confirmar o e-mail. Verifique sua conexão.");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!emailVerificado) {
+    const reenviarConfirmacaoGate = async () => {
+      setGateReenviando(true);
+      setGateErro("");
+      setGateMensagem("");
+      try {
+        const response = await fetch(`${api}/auth/email-verification`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
+          },
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message ?? "Não foi possível reenviar o e-mail de confirmação.");
+        setGateMensagem(body.message ?? "E-mail de confirmação enviado.");
+      } catch (cause) {
+        setGateErro(cause instanceof Error ? cause.message : "Erro inesperado.");
+      } finally {
+        setGateReenviando(false);
+      }
+    };
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f5f6f8",
+        }}
+      >
+        <section style={{ maxWidth: 420, width: "90%", background: "#fff", borderRadius: 12, padding: 32, textAlign: "center", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
+          <h1 style={{ marginTop: 0 }}>Confirme seu e-mail</h1>
+          <p className="muted">
+            Enviamos um link de confirmação para <b>{email}</b>. Verifique sua caixa de entrada (e o spam) e
+            clique no link para liberar o acesso ao JurisSim.
+          </p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 16, flexWrap: "wrap" }}>
+            <button className="primary" type="button" disabled={gateReenviando} onClick={reenviarConfirmacaoGate}>
+              {gateReenviando ? "Enviando..." : "Reenviar e-mail de confirmação"}
+            </button>
+            <button type="button" onClick={sair}>Sair</button>
+          </div>
+          {gateMensagem && <p className="recovery-notice" role="status" style={{ marginTop: 12 }}>{gateMensagem}</p>}
+          {gateErro && <small className="error" style={{ display: "block", marginTop: 12 }}>{gateErro}</small>}
+        </section>
+      </div>
+    );
+  }
+
+  if (route === "/dashboard" && role === "ALUNO") {
+    const firstName = nome.trim().split(/\s+/)[0] || "estudante";
+    const metrics = result?.performances.filter((metric) => metric.tipo === "DISCIPLINA") ?? [];
+    const trail = result?.trail;
+    return (
+      <div className="shell">
+        <Sidebar active="dashboard" onNavigate={(destination) => destination === "diagnostico" ? startStudying() : navigateView(destination)} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
+        <main className="content">
+          <header><span>Início</span><b>Olá, {firstName}</b></header>
+          <section className="page dashboard-page">
+            <div className="dashboard-heading">
+              <div><p className="gold">JURISSIM · OAB</p><h1>Seu espaço de estudos</h1><p className="muted">Acompanhe seu preparo e continue de onde parou.</p></div>
+              <button className="primary" onClick={startStudying}>Estudar agora <b>→</b></button>
+            </div>
+            <article className="dashboard-recommendation">
+              <div className="recommendation-icon">✦</div>
+              <div className="recommendation-copy">
+                <p className="gold">RECOMENDADO PARA VOCÊ</p>
+                {trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{trail.assuntoPrioritario ?? "Conteudos gerais da disciplina"} · nivel {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></> : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem quando houver resultados disponíveis nesta sessão.</p></>}
+              </div>
+              {trail && <button className="outline-button" onClick={() => navigate("/desempenho")}>Ver trilha</button>}
+            </article>
+            <div className="dashboard-stats">
+              <article><span>Seu nível</span><strong>{result ? labels[result.level] ?? result.level : "—"}</strong><small>{result ? "Resultado do diagnóstico" : "Sem resultado disponível"}</small></article>
+              <article><span>Acertos no diagnóstico</span><strong>{result ? `${result.overallPercentage}%` : "—"}</strong><small>{result ? "Percentual de acertos" : "Aguardando dados reais"}</small></article>
+              <article><span>Disciplinas avaliadas</span><strong>{result ? metrics.length : "—"}</strong><small>{result ? "No último diagnóstico" : "Aguardando diagnóstico"}</small></article>
+            </div>
+            <div className="dashboard-grid">
+              <article className="panel dashboard-panel">
+                <div className="dashboard-panel-heading"><div><p className="gold">VISÃO POR MATÉRIA</p><h2>Desempenho por disciplina</h2></div><button className="text-button" onClick={() => navigate("/desempenho")}>Ver meu desempenho</button></div>
+                {metrics.length ? metrics.map((metric) => <div className="metric" key={metric.disciplina}><span>{metric.disciplina}</span><div><i style={{ width: `${metric.percentual}%` }} /></div><b>{metric.percentual}%</b></div>) : <p className="empty-dashboard">O desempenho por matéria será exibido após um diagnóstico com resultados disponíveis.</p>}
+              </article>
+              <article className="panel dashboard-panel">
+                <div className="dashboard-panel-heading"><div><p className="gold">EVOLUÇÃO</p><h2>Seu progresso</h2></div></div>
+                <div className="empty-chart"><span>⌁</span><p>O histórico de evolução não está disponível.</p></div>
+              </article>
+              <article className="panel dashboard-panel dashboard-activity">
+                <div className="dashboard-panel-heading"><div><p className="gold">ATIVIDADE</p><h2>Atividade recente</h2></div></div>
+                <p className="empty-dashboard">O sistema ainda não fornece um histórico de atividades para este painel.</p>
+              </article>
+            </div>
+          </section>
+        </main>
+        {settingsOpen && (
+          <SettingsModal
+            nome={nome}
+            email={email}
+            role={role}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (route === "/desempenho" && !result) {
+    return (
+      <div className="shell">
+        <Sidebar active="desempenho" onNavigate={navigateView} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
+        <main className="content">
+          <header><span>Meu desempenho</span><TopBar nome={nome} /></header>
+          <section className="page">
+            <p className="gold">SEU DESEMPENHO</p>
+            <h1>Dados ainda indisponíveis</h1>
+            <p className="muted">Não há resultados de diagnóstico carregados nesta sessão.</p>
+            <button className="primary" onClick={() => navigate("/dashboard")}>Ir para o Dashboard <b>→</b></button>
+          </section>
+        </main>
+        {settingsOpen && (
+          <SettingsModal
+            nome={nome}
+            email={email}
+            role={role}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (view === "questoes") {
     return (
       <div className="shell">
-        <Sidebar active="questoes" onNavigate={setView} />
+        <Sidebar active="questoes" onNavigate={navigateView} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
         <main className="content">
           <header>
-            Banco de questões <b>Olá!⌄</b>
+            Banco de questões <TopBar nome={nome} />
           </header>
           <QuestoesPage role={role} />
         </main>
+        {settingsOpen && (
+          <SettingsModal
+            nome={nome}
+            email={email}
+            role={role}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -209,6 +437,7 @@ function App() {
       const response = await call<{ questions: Question[] }>(
         `/trilhas/attempts/${attempt.id}/questions`,
       );
+      if (route === "/desempenho") navigate("/");
       setTrailId(attempt.id);
       setTrailQuestions(response.questions);
     } catch (cause) {
@@ -303,10 +532,10 @@ function App() {
     const question = questions[index];
     return (
       <div className="shell">
-        <Sidebar active="diagnostico" onNavigate={setView} />
+        <Sidebar active="diagnostico" onNavigate={navigateView} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
         <main className="content">
           <header>
-            Simulado diagnóstico <b>Olá, estudante!⌄</b>
+            Simulado diagnóstico <TopBar nome={nome} />
           </header>
           <section className="page">
             <p className="gold">
@@ -366,6 +595,14 @@ function App() {
             </article>
           </section>
         </main>
+        {settingsOpen && (
+          <SettingsModal
+            nome={nome}
+            email={email}
+            role={role}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -374,10 +611,10 @@ function App() {
     const question = trailQuestions[trailIndex];
     return (
       <div className="shell">
-        <Sidebar active="diagnostico" onNavigate={setView} />
+        <Sidebar active="diagnostico" onNavigate={navigateView} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
         <main className="content">
           <header>
-            Trilha de exercícios <b>Olá, estudante!⌄</b>
+            Trilha de exercícios <TopBar nome={nome} />
           </header>
           <section className="page">
             <p className="gold">
@@ -439,17 +676,25 @@ function App() {
             </article>
           </section>
         </main>
+        {settingsOpen && (
+          <SettingsModal
+            nome={nome}
+            email={email}
+            role={role}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
       </div>
     );
   }
 
-  if (trailResult) {
+  if (trailResult && route !== "/desempenho") {
     return (
       <div className="shell">
-        <Sidebar active="diagnostico" onNavigate={setView} />
+        <Sidebar active="diagnostico" onNavigate={navigateView} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
         <main className="content">
           <header>
-            Trilha concluída <b>Olá, estudante!⌄</b>
+            Trilha concluída <TopBar nome={nome} />
           </header>
           <section className="page result">
             <p className="gold">EXERCÍCIOS CONCLUÍDOS</p>
@@ -469,10 +714,22 @@ function App() {
                   {labels[result.level]} → {labels[trailResult.level]}
                 </h2>
                 <p>{trailResult.recommendation}</p>
+                <div className="result-actions">
+                  <button className="primary" onClick={() => navigate("/dashboard")}>Voltar ao Dashboard <b>→</b></button>
+                  <button className="outline-button" onClick={() => navigate("/desempenho")}>Ver meu desempenho</button>
+                </div>
               </div>
             </article>
           </section>
         </main>
+        {settingsOpen && (
+          <SettingsModal
+            nome={nome}
+            email={email}
+            role={role}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -483,10 +740,10 @@ function App() {
   const trail = result.trail;
   return (
     <div className="shell">
-      <Sidebar active="diagnostico" onNavigate={setView} />
+      <Sidebar active="diagnostico" onNavigate={navigateView} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
       <main className="content">
         <header>
-          Resultado do diagnóstico <b>Olá, estudante!⌄</b>
+          Resultado do diagnóstico <TopBar nome={nome} />
         </header>
         <section className="page result">
           <p className="gold">DIAGNÓSTICO CONCLUÍDO</p>
@@ -546,10 +803,26 @@ function App() {
               </strong>
             </article>
           )}
+          <button className="outline-button result-dashboard-link" onClick={() => navigate("/dashboard")}>Ir para o Dashboard</button>
         </section>
       </main>
+      {settingsOpen && (
+        <SettingsModal
+          nome={nome}
+          email={email}
+          role={role}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ""}>
+    <LegalBoundary>
+      <App />
+      {sessionStorage.getItem('jurissim_token') && <footer className="app-legal-footer"><LegalLinks /></footer>}
+    </LegalBoundary>
+  </GoogleOAuthProvider>,
+);
