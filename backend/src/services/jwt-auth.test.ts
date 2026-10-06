@@ -8,11 +8,12 @@ import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 const mocks = vi.hoisted(() => ({
   findByEmail: vi.fn(), findById: vi.fn(), recordLogin: vi.fn(), hasCompletedDiagnostic: vi.fn(), start: vi.fn(), createQuestion: vi.fn(),
 }));
-vi.mock('../repositories/auth-repository', () => ({ AuthRepository: class {
+vi.mock('../repositories/auth-repository', () => ({ GOOGLE_PASSWORD_SENTINEL: '!GOOGLE_OAUTH_ACCOUNT!', AuthRepository: class {
   findByEmail = mocks.findByEmail;
   findById = mocks.findById;
   recordLogin = mocks.recordLogin;
   hasCompletedDiagnostic = mocks.hasCompletedDiagnostic;
+  findByIdForAuth = async (id: string) => ({ id, role: 'ALUNO', deletedAt: null });
 } }));
 // Keep the real diagnostic router/controller; isolate database/business operations.
 vi.mock('./diagnostic-service', () => ({ DiagnosticService: class { start = mocks.start; } }));

@@ -4,7 +4,10 @@ import type { Server } from 'node:http';
 import jwt from 'jsonwebtoken';
 
 const db = vi.hoisted(() => ({ findMany: vi.fn() }));
-vi.mock('../lib/prisma', () => ({ prisma: { auditLog: db } }));
+vi.mock('../lib/prisma', () => ({ prisma: {
+  auditLog: db,
+  user: { findUnique: async ({ where }: { where: { id: string } }) => ({ id: where.id, role: 'ADMIN', deletedAt: null }) },
+} }));
 
 const secret = 'chave-exclusiva-de-testes-audit-com-mais-de-32-caracteres';
 const userId = '00000000-0000-4000-8000-000000000001';

@@ -144,7 +144,7 @@ describe('consumo atômico e redefinição', () => {
       data: { consumedAt: now },
     }));
     expect(db.userUpdateMany).toHaveBeenCalledWith({ where: { id: 'user-1', senhaHash: '$2b$10$traditional-hash' }, data: { senhaHash: 'new-password-hash' } });
-    expect(db.auditCreate).toHaveBeenCalledWith({ data: { userId: 'user-1', action: 'PASSWORD_RECOVERY_COMPLETED', occurredAt: now } });
+    expect(db.auditCreate).toHaveBeenCalledWith({ data: { userId: 'user-1', action: 'SENHA_REDEFINIDA', occurredAt: now } });
     expect(storedToken?.consumedAt).toEqual(now);
     expect(account?.senhaHash).toBe('new-password-hash');
   });

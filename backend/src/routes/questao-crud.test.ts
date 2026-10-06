@@ -11,6 +11,9 @@ const db = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }));
 vi.mock('../config/prisma', () => ({ prisma: db }));
+vi.mock('../lib/prisma', () => ({ prisma: {
+  user: { findUnique: async ({ where }: { where: { id: string } }) => ({ id: where.id, role: 'PROFESSOR', deletedAt: null }) },
+} }));
 
 // Exercise actual routes, controllers, services and repository without a database.
 // The persistence double enforces the relevant FK and transactional behavior.
