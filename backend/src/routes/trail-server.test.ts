@@ -10,7 +10,14 @@ const mocks = vi.hoisted(() => ({
 }));
 // Only persistence is mocked: use the actual server, login, middleware,
 // routers, controllers, services and adaptive engine.
-vi.mock('../repositories/auth-repository', () => ({ AuthRepository: class { findByEmail = mocks.user; recordLogin = mocks.recordLogin; } }));
+vi.mock('../repositories/auth-repository', () => ({
+  GOOGLE_PASSWORD_SENTINEL: '!GOOGLE_OAUTH_ACCOUNT!',
+  AuthRepository: class {
+    findByEmail = mocks.user;
+    recordLogin = mocks.recordLogin;
+    findByIdForAuth = async (id: string) => ({ id, role: 'ALUNO', deletedAt: null });
+  },
+}));
 vi.mock('../repositories/diagnostic-repository', () => ({ DiagnosticRepository: class { findAttempt = mocks.diagnostic; } }));
 vi.mock('../repositories/trail-repository', () => ({ TrailRepository: class {
   findTrilha = mocks.trail;

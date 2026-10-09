@@ -12,6 +12,6 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, _ne
     return;
   }
  
-console.error('Erro interno do servidor.', error);
+  console.error('Erro interno do servidor.');
   response.status(500).json({ message: 'Erro interno do servidor.' });
 };

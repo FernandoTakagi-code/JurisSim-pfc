@@ -96,7 +96,7 @@ describe('cadastro HTTP no roteador oficial', () => {
     expect(login.status).toBe(200);
     const session = await fetch(`${base}/auth/session`, { headers: { Authorization: `Bearer ${(await login.json()).token}` } });
     expect(session.status).toBe(200);
-    expect(await session.json()).toEqual({ user: { nome: body.nome, email: body.email }, nextStep: 'DIAGNOSTIC' });
+    expect(await session.json()).toMatchObject({ user: { nome: body.nome, email: body.email, role: 'ALUNO' }, nextStep: 'DIAGNOSTIC' });
   });
 
   it('não permite criar ADMIN pelo cadastro público', async () => {
