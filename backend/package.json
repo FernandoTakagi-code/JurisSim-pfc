@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "test": "vitest run src",
     "test:watch": "vitest",
+    "email:verify": "tsx scripts/verify-email-config.ts",
     "test:legal-db": "node scripts/verify-legal-db.cjs",
     "prisma:generate": "prisma generate",
     "prisma:seed": "tsx prisma/seed.ts"
@@ -25,6 +26,7 @@
     "groq-sdk": "^1.6.0",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^10.0.11",
+    "sharp": "^0.35.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {

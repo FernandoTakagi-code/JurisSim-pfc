@@ -10,6 +10,7 @@ import { auditRoutes } from './routes/audit-routes';
 import { studentHistoryRoutes } from './routes/student-history-routes';
 import { classRoutes, examRoutes } from './routes/class-exam-routes';
 import { goalRoutes, reportRoutes } from './routes/goals-reports-routes';
+import { profilePhotoRoutes } from './routes/profile-photo-routes';
 import { setDefaultAutoSelectFamily } from 'node:net';
 setDefaultAutoSelectFamily(false);
 
@@ -31,6 +32,7 @@ app.use('/turmas', classRoutes);
 app.use('/avaliacoes', examRoutes);
 app.use('/goals', goalRoutes);
 app.use('/reports', reportRoutes);
+app.use('/profile/photo', profilePhotoRoutes);
 app.use(errorHandler);
 
 const PORT = env.PORT;
