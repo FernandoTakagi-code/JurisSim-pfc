@@ -3,7 +3,7 @@
 // databases/data files. Prisma receives explicit disposable connection settings.
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
-const { createHash } = require('node:crypto');
+const { createHash, randomBytes } = require('node:crypto');
 const fs = require('node:fs');
 const net = require('node:net');
 const os = require('node:os');
@@ -193,6 +193,20 @@ async function main() {
   console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-goals-reports-db.ts', data]));
   console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-profile-photo-db.ts', data]));
   console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-auth-stage7-db.ts', data]));
+
+  // Separate database for main's suite, within this same freshly created cluster.
+  sql('postgres', 'CREATE DATABASE jurissim_integration;');
+  prisma('jurissim_integration', ['migrate', 'deploy', '--schema', 'prisma/schema.prisma']);
+  const integrationUrl = `postgresql://${user}@127.0.0.1:${port}/jurissim_integration?schema=public`;
+  const capability = randomBytes(32).toString('hex');
+  fs.writeFileSync(path.join(artifacts, 'integration-test-owner.json'), JSON.stringify({
+    capability, url: integrationUrl, dataDirectory: data,
+  }));
+  Object.assign(env, { TEST_DATABASE_URL: integrationUrl, TEST_DIRECT_URL: integrationUrl,
+    DATABASE_URL: integrationUrl, DIRECT_URL: integrationUrl, SHADOW_DATABASE_URL: integrationUrl,
+    JURISSIM_TEST_DATA_DIR: data, JURISSIM_TEST_CAPABILITY: capability });
+  console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts']));
+  assertNoDrift('jurissim_integration');
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(() => {
   if (started) {
