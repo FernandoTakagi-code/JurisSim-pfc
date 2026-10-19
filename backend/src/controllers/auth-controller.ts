@@ -10,27 +10,34 @@ import { EmailVerificationService } from '../services/email-verification-service
 import { GmailEmailVerificationSender } from '../services/email-verification-sender';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
+const emailSchema = z.string().trim().email('E-mail inválido').max(254);
+const passwordSchema = z.string().min(6, 'Senha deve ter pelo menos 6 caracteres').refine(value => Buffer.byteLength(value, 'utf8') <= 72, 'A senha deve ter no máximo 72 bytes em UTF-8.');
+const perfilSchema = z.enum(['ALUNO', 'PROFESSOR']).optional();
 
 const registerSchema = z.object({
-  nome: z.string().min(2, 'Nome muito curto'),
-  email: z.string().email('E-mail inválido'),
-  senha: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
+  nome: z.string().trim().min(2, 'Nome muito curto').max(120),
+  email: emailSchema,
+  senha: passwordSchema,
+  confirmacaoSenha: z.string().optional(),
   role: z.enum(['PROFESSOR', 'ALUNO']),
   acceptance: acceptanceSchema,
-});
+}).refine(data => data.confirmacaoSenha === undefined || data.senha === data.confirmacaoSenha, { message: 'As senhas não coincidem.', path: ['confirmacaoSenha'] });
 const loginSchema = z.object({
-  email: z.string().email('E-mail inválido'),
-  senha: z.string().min(1, 'Senha é obrigatória'),
+  email: emailSchema,
+  senha: z.string().min(1, 'Senha é obrigatória').max(1024),
+  perfil: perfilSchema,
 });
 const googleSchema = z.object({
   credential: z.string().min(1, 'Credencial do Google não fornecida.'),
   acceptance: acceptanceSchema.optional(),
+  perfil: perfilSchema,
+  nonce: z.string().regex(/^[a-f0-9]{64}$/),
 });
 const nomeSchema = z.object({ nome: z.string().min(2, 'Nome muito curto') });
-const recoveryRequestSchema = z.object({ email: z.string().email('E-mail inválido.') });
+const recoveryRequestSchema = z.object({ email: emailSchema });
 const recoveryResetSchema = z.object({
   token: z.string().min(20).max(512),
-  senha: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.'),
+  senha: passwordSchema,
   confirmacaoSenha: z.string().min(6, 'Confirme a nova senha.'),
 }).refine(data => data.senha === data.confirmacaoSenha, {
   path: ['confirmacaoSenha'],
@@ -72,8 +79,18 @@ export class AuthController {
     }
     const { nome, email, senha, role, acceptance } = parsed.data;
     const resultado = await this.service.register(nome, email, senha, role, acceptance);
-    this.emailVerification.requestVerification(resultado.usuario.id).catch(() => {});
-    response.status(201).json(resultado);
+    let emailVerification;
+    try {
+      const verification = await this.emailVerification.requestVerification(resultado.usuario.id);
+      emailVerification = { status: 'sent', message: verification.message };
+    } catch {
+      console.error('Não foi possível enviar a confirmação de e-mail após o cadastro.');
+      emailVerification = {
+        status: 'unavailable',
+        message: 'Conta criada, mas não foi possível enviar a confirmação de e-mail. Entre e solicite o reenvio.',
+      };
+    }
+    response.status(201).json({ ...resultado, emailVerification });
   };
 
   login = async (request: Request, response: Response) => {
@@ -83,7 +100,7 @@ export class AuthController {
       response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
       return;
     }
-    response.json(await this.service.login(parsed.data.email, parsed.data.senha));
+    response.json(await this.service.login(parsed.data.email, parsed.data.senha, parsed.data.perfil));
   };
 
   google = async (request: Request, response: Response) => {
@@ -108,12 +125,16 @@ export class AuthController {
       response.status(401).json({ message: 'Token do Google inválido.' });
       return;
     }
-    if (!payload?.email || payload.email_verified !== true) {
+    if (!payload?.email || payload.email_verified !== true || payload.nonce !== parsed.data.nonce) {
       response.status(401).json({ message: 'Não foi possível obter o e-mail da conta Google.' });
       return;
     }
     const nomeSugerido = payload.name ?? payload.given_name ?? payload.email.split('@')[0];
-    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance));
+    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance, parsed.data.perfil));
+  };
+
+  logout = async (request: AuthenticatedRequest, response: Response) => {
+    response.json(await this.service.logout(request.auth!.userId));
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {

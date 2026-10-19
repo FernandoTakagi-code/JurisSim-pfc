@@ -6,7 +6,7 @@ import versions from '../legal-versions.json';
 
 const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), auditCreate: vi.fn(),
-  verifyIdToken: vi.fn(), payload: { email: 'ana@example.com', email_verified: true, name: 'Ana Google' },
+  verifyIdToken: vi.fn(), payload: { email: 'ana@example.com', email_verified: true, name: 'Ana Google', nonce: 'a'.repeat(64) },
 }));
 const users = new Map<string, Record<string, unknown>>();
 vi.mock('../lib/prisma', () => ({
@@ -42,9 +42,9 @@ beforeEach(() => {
   users.clear();
   mocks.findUnique.mockReset().mockImplementation(({ where }: { where: { email: string } }) => users.get(where.email) ?? null);
   mocks.create.mockReset().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
-    const user = { id: 'google-user-1', nome: data.nome, email: data.email, role: data.role, senhaHash: data.senhaHash, legalAcceptedAt: data.legalAcceptedAt, termsVersion: data.termsVersion, privacyVersion: data.privacyVersion };
+    const user = { id: 'google-user-1', sessionVersion: 0, nome: data.nome, email: data.email, role: data.role, senhaHash: data.senhaHash, legalAcceptedAt: data.legalAcceptedAt, termsVersion: data.termsVersion, privacyVersion: data.privacyVersion };
     users.set(String(user.email), user);
-    return { id: user.id, nome: user.nome, email: user.email, role: user.role };
+    return { id: user.id, nome: user.nome, email: user.email, role: user.role, sessionVersion: user.sessionVersion };
   });
   mocks.update.mockReset().mockImplementation(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
     const [email, current] = [...users.entries()].find(([, user]) => user.id === where.id)!;
@@ -53,7 +53,7 @@ beforeEach(() => {
     return updated;
   });
   mocks.auditCreate.mockReset().mockResolvedValue({});
-  mocks.payload = { email: 'ana@example.com', email_verified: true, name: 'Ana Google' };
+  mocks.payload = { email: 'ana@example.com', email_verified: true, name: 'Ana Google', nonce: 'a'.repeat(64) };
   mocks.verifyIdToken.mockReset().mockResolvedValue({ getPayload: () => mocks.payload });
 });
 
@@ -61,7 +61,7 @@ afterAll(async () => { if (server) await new Promise<void>(resolve => server.clo
 
 async function google(body: Record<string, unknown> = { credential: 'google-id-token' }) {
   return fetch(`${base}/auth/google`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nonce: 'a'.repeat(64), ...body }),
   });
 }
 
@@ -87,7 +87,7 @@ describe('login Google e aceite legal', () => {
     expect(saved.termsVersion).toBe(versions.termsVersion);
     expect(saved.privacyVersion).toBe(versions.privacyVersion);
     expect(saved.auditLogs.create.map((event: { action: string }) => event.action)).toEqual(['ACEITE_TERMOS_E_PRIVACIDADE', 'USUARIO_CADASTRADO']);
-    expect(jwt.verify(result.token, secret)).toMatchObject({ role: 'ALUNO' });
+    expect(jwt.verify(result.token, secret)).toMatchObject({ role: 'ALUNO', sessionVersion: 0 });
   });
 
   it('não aceita versões antigas nem aceite falso no primeiro acesso', async () => {
@@ -100,19 +100,21 @@ describe('login Google e aceite legal', () => {
 
   it('faz login direto de conta Google com aceite vigente, sem pedir nova confirmação', async () => {
     users.set('ana@example.com', {
-      id: 'google-user-1', nome: 'Ana Google', email: 'ana@example.com', role: 'ALUNO', senhaHash: '!GOOGLE_OAUTH_ACCOUNT!',
+      id: 'google-user-1', nome: 'Ana Google', email: 'ana@example.com', role: 'ALUNO', sessionVersion: 4, senhaHash: '!GOOGLE_OAUTH_ACCOUNT!',
       legalAcceptedAt: new Date(), termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion,
     });
     const response = await google();
     expect(response.status).toBe(200);
-    expect((await response.json()).usuario.role).toBe('ALUNO');
+    const result = await response.json();
+    expect(result.usuario.role).toBe('ALUNO');
+    expect((jwt.verify(result.token, secret) as jwt.JwtPayload).sessionVersion === 4).toBe(true);
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
   it('pede aceite de conta Google legada e registra nova versão sem recriar usuário', async () => {
     users.set('ana@example.com', {
-      id: 'google-user-1', nome: 'Ana Google', email: 'ana@example.com', role: 'ALUNO', senhaHash: '!GOOGLE_OAUTH_ACCOUNT!',
+      id: 'google-user-1', nome: 'Ana Google', email: 'ana@example.com', role: 'ALUNO', sessionVersion: 0, senhaHash: '!GOOGLE_OAUTH_ACCOUNT!',
       legalAcceptedAt: null, termsVersion: null, privacyVersion: null,
     });
     expect((await (await google()).json())).toEqual({ requiresAcceptance: true });
@@ -135,7 +137,7 @@ describe('login Google e aceite legal', () => {
   });
 
   it('recusa e-mail não verificado antes de consultar ou criar conta', async () => {
-    mocks.payload = { email: 'ana@example.com', email_verified: false, name: 'Ana Google' };
+    mocks.payload = { email: 'ana@example.com', email_verified: false, name: 'Ana Google', nonce: 'a'.repeat(64) };
     const response = await google();
     expect(response.status).toBe(401);
     expect(mocks.findUnique).not.toHaveBeenCalled();

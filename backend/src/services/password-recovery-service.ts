@@ -4,6 +4,7 @@ import { ApiError } from '../errors/api-error';
 import { GOOGLE_PASSWORD_SENTINEL } from '../repositories/auth-repository';
 import { PasswordRecoveryRepository } from '../repositories/password-recovery-repository';
 import type { RecoveryEmailSender } from './recovery-email-sender';
+import { isValidAppUrl } from './app-url';
 
 export const PASSWORD_RECOVERY_TOKEN_TTL_MINUTES = 30;
 const NEUTRAL_RESPONSE = 'Se existir uma conta associada a este e-mail, enviaremos as instruções de recuperação.';
@@ -16,12 +17,12 @@ export class PasswordRecoveryService {
   ) {}
 
   async requestRecovery(email: string) {
-    if (!this.emailSender?.isConfigured || !this.isValidAppUrl(this.publicAppUrl)) {
+    if (!this.emailSender?.isConfigured || !isValidAppUrl(this.publicAppUrl)) {
       throw new ApiError(503, 'A recuperação de senha está temporariamente indisponível.');
     }
 
     const account = await this.repository.findAccount(email);
-    if (!account?.senhaHash || account.senhaHash === GOOGLE_PASSWORD_SENTINEL) return NEUTRAL_RESPONSE;
+    if (!account?.senhaHash || account.deletedAt || account.senhaHash === GOOGLE_PASSWORD_SENTINEL) return NEUTRAL_RESPONSE;
 
     const token = randomBytes(32).toString('base64url');
     const tokenHash = createHash('sha256').update(token).digest('hex');
@@ -30,7 +31,7 @@ export class PasswordRecoveryService {
     const tokenId = await this.repository.createToken(account.id, tokenHash, now, expiresAt);
     if (!tokenId) return NEUTRAL_RESPONSE;
 
-    const resetUrl = `${this.publicAppUrl!.replace(/\/$/, '')}/#/reset-password?token=${encodeURIComponent(token)}`;
+    const resetUrl = `${new URL(this.publicAppUrl!).toString().replace(/\/$/, '')}/#/reset-password?token=${encodeURIComponent(token)}`;
     try {
       await this.emailSender.sendPasswordRecovery({
         to: email,
@@ -52,18 +53,9 @@ export class PasswordRecoveryService {
       throw new ApiError(400, 'Link inválido, expirado ou já utilizado.');
     }
     const senhaHash = await bcrypt.hash(senha, 10);
-    const completed = await this.repository.consumeAndReset(tokenHash, senhaHash, now);
+    const completed = await this.repository.consumeAndReset(tokenHash, senhaHash, new Date());
     if (!completed) throw new ApiError(400, 'Link inválido, expirado ou já utilizado.');
     return { message: 'Senha redefinida. Você já pode entrar com sua nova senha.' };
   }
 
-  private isValidAppUrl(value?: string): boolean {
-    if (!value) return false;
-    try {
-      const url = new URL(value);
-      return (url.protocol === 'https:' || (process.env.NODE_ENV !== 'production' && url.protocol === 'http:')) && !url.username && !url.password;
-    } catch {
-      return false;
-    }
-  }
 }

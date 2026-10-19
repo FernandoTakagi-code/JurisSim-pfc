@@ -1,3 +1,5 @@
+import { GmailSmtpClient } from './gmail-smtp';
+
 export type EmailVerificationEmail = {
   to: string;
   verifyUrl: string;
@@ -21,33 +23,24 @@ export class UnconfiguredEmailVerificationSender implements EmailVerificationSen
 // Reaproveita GMAIL_USER e GMAIL_APP_PASSWORD já configurados no .env.
 export class GmailEmailVerificationSender implements EmailVerificationSender {
   readonly isConfigured: boolean;
-  private transporter?: import('nodemailer').Transporter;
+  private readonly smtp: GmailSmtpClient;
 
   constructor(
-    private readonly gmailUser = process.env.GMAIL_USER,
-    private readonly gmailAppPassword = process.env.GMAIL_APP_PASSWORD,
+    gmailUser = process.env.GMAIL_USER,
+    gmailAppPassword = process.env.GMAIL_APP_PASSWORD,
   ) {
-    this.isConfigured = Boolean(this.gmailUser && this.gmailAppPassword);
-  }
-
-  private async getTransporter() {
-    if (!this.transporter) {
-      const nodemailer = await import('nodemailer');
-      this.transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: this.gmailUser, pass: this.gmailAppPassword },
-      });
-    }
-    return this.transporter;
+    this.smtp = new GmailSmtpClient(gmailUser, gmailAppPassword);
+    this.isConfigured = this.smtp.isConfigured;
   }
 
   async sendEmailVerification({ to, verifyUrl, expiresInMinutes }: EmailVerificationEmail): Promise<void> {
     if (!this.isConfigured) throw new Error('Gmail email verification sender is not configured.');
-    const transporter = await this.getTransporter();
+    const transporter = this.smtp.getTransporter();
     await transporter.sendMail({
-      from: `"JurisSim" <${this.gmailUser}>`,
+      from: this.smtp.from,
       to,
       subject: 'Confirme seu e-mail — JurisSim',
+      text: `Confirme seu e-mail no JurisSim: ${verifyUrl}\nEste link expira em ${expiresInMinutes} minutos. Se você não se cadastrou, ignore esta mensagem.`,
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2 style="color: #0b1f3a;">Confirme seu e-mail</h2>

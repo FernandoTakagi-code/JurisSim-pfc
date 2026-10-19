@@ -13,6 +13,7 @@ model User {
   nome                String
   email               String       @unique
   senhaHash           String?
+  sessionVersion      Int          @default(0)
   role                Role
   createdAt           DateTime     @default(now())
   nivelAtual          Nivel?
@@ -29,6 +30,19 @@ model User {
   simulados           Simulado[]
   turmasComoAluno     Turma[]      @relation("AlunoTurmas")
   turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
+  avaliacoesCriadas   Avaliacao[]
+  profilePhotos       ProfilePhoto[]
+}
+
+// At most one private photo per user (primary key). List relation allows atomic
+// deleteMany during account anonymization even if no photo has been chosen.
+model ProfilePhoto {
+  userId    String @id
+  avatarId  String?
+  image     Bytes?
+  version   String @default(uuid())
+  updatedAt DateTime @updatedAt
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AuthToken {
@@ -63,6 +77,9 @@ model Turma {
   nome          String
   codigoConvite String    @unique
   createdAt     DateTime  @default(now())
+  archivedAt    DateTime?
+  conviteExpiraEm DateTime?
+  avaliacoes    Avaliacao[]
   questoes      Questao[]
   alunos        User[]    @relation("AlunoTurmas")
   professores   User[]    @relation("ProfessorTurmas")
@@ -84,6 +101,7 @@ model Questao {
   turma                 Turma?            @relation(fields: [turmaId], references: [id])
   diagnosticos          QuestaoSimulado[]
   respostas             Resposta[]
+  avaliacoes            AvaliacaoQuestao[]
 }
 
 model Alternativa {
@@ -101,12 +119,47 @@ model Simulado {
   finalizadoEm           DateTime?
   tempoLimiteSegundos    Int?
   alunoId                String
+  avaliacaoId            String?
+  avaliacao              Avaliacao? @relation(fields: [avaliacaoId], references: [id], onDelete: Restrict)
   desempenhosDiagnostico DesempenhoDiagnostico[]
   questoes               QuestaoSimulado[]
   respostas              Resposta[]
   aluno                  User                    @relation(fields: [alunoId], references: [id])
   trilhaOrigem           TrilhaAdaptativa?       @relation("TrilhaGerouExercicios")
   trilhaAdaptativa       TrilhaAdaptativa?       @relation("TrilhaDoDiagnostico")
+
+  @@index([alunoId, iniciadoEm, id])
+  @@index([alunoId, finalizadoEm, id])
+  @@unique([avaliacaoId, alunoId])
+}
+
+model Avaliacao {
+  id String @id @default(uuid())
+  titulo String
+  descricao String @default("")
+  duracaoSegundos Int?
+  createdAt DateTime @default(now())
+  publishedAt DateTime?
+  autorId String
+  autor User @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  turmas Turma[]
+  questoes AvaliacaoQuestao[]
+  tentativas Simulado[]
+
+  @@index([autorId, createdAt, id])
+}
+
+model AvaliacaoQuestao {
+  id String @id @default(uuid())
+  avaliacaoId String
+  questaoId String
+  posicao Int
+  avaliacao Avaliacao @relation(fields: [avaliacaoId], references: [id], onDelete: Restrict)
+  questao Questao @relation(fields: [questaoId], references: [id], onDelete: Restrict)
+
+  @@unique([avaliacaoId, questaoId])
+  @@unique([avaliacaoId, posicao])
+  @@index([questaoId])
 }
 
 model Resposta {
@@ -121,6 +174,8 @@ model Resposta {
   questao                Questao          @relation(fields: [questaoId], references: [id])
   questaoSimulado        QuestaoSimulado? @relation("RespostaDiagnostico", fields: [questaoSimuladoId], references: [id])
   simulado               Simulado         @relation(fields: [simuladoId], references: [id])
+
+  @@index([simuladoId, respondidoEm])
 }
 
 model QuestaoSimulado {
@@ -159,6 +214,8 @@ model MetaDiaria {
   cumprida           Boolean  @default(false)
   alunoId            String
   aluno              User     @relation(fields: [alunoId], references: [id])
+
+  @@index([alunoId, data, id])
 }
 
 model TrilhaAdaptativa {
@@ -203,6 +260,7 @@ enum Nivel {
 enum TipoSimulado {
   DIAGNOSTICO
   PERSONALIZADO
+  AVALIACAO
 }
 
 enum TipoMetricaDiagnostico {
@@ -227,6 +285,9 @@ enum AuditAction {
   QUESTAO_CRIADA
   QUESTAO_ATUALIZADA
   QUESTAO_EXCLUIDA
+  // Preserve values introduced by the historical password-recovery migration.
+  PASSWORD_RECOVERY_REQUESTED
+  PASSWORD_RECOVERY_COMPLETED
   EMAIL_CONFIRMADO
   SENHA_REDEFINIDA
   CONTA_EXCLUIDA

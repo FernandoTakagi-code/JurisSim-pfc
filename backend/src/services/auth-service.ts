@@ -21,9 +21,13 @@ function verificarPerfil(role: string, perfil?: PerfilAcesso) {
   }
 }
 
+const sessionVersionSchema = z.number().int().min(0).max(2147483647);
 const jwtPayloadSchema = z.object({
   id: z.string().trim().min(1),
   role: z.enum(['ALUNO', 'PROFESSOR', 'ADMIN']),
+  exp: z.number().int().positive(),
+  // Legacy JWTs remain valid only while the account is still at version zero.
+  sessionVersion: sessionVersionSchema.default(0),
 });
 
 export class AuthService {
@@ -33,13 +37,18 @@ export class AuthService {
     acceptanceSchema.parse(acceptance);
     if (await this.repository.findByEmail(email)) throw new ApiError(409, 'E-mail já cadastrado.');
     const senhaHash = await bcrypt.hash(senha, 10);
-    const user = await this.repository.createUser(nome, email, senhaHash, role, acceptance);
-    return this.loginResponse(user);
+    try {
+      const user = await this.repository.createUser(nome, email, senhaHash, role, acceptance);
+      return this.loginResponse(user);
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') throw new ApiError(409, 'E-mail já cadastrado.');
+      throw error;
+    }
   }
 
   async login(email: string, senha: string, perfil?: PerfilAcesso) {
     const user = await this.repository.findByEmail(email);
-    if (!user) {
+    if (!user || user.deletedAt) {
       await this.repository.recordLogin('LOGIN_FALHA');
       throw new ApiError(401, 'E-mail ou senha inválidos.');
     }
@@ -60,6 +69,7 @@ export class AuthService {
 
   async loginWithGoogle(email: string, nomeSugerido: string, acceptance?: unknown, perfil?: PerfilAcesso) {
     const existing = await this.repository.findByEmail(email);
+    if (existing?.deletedAt) throw new ApiError(401, 'Conta indisponível.');
     if (existing) verificarPerfil(existing.role, perfil);
     // Contas Google novas são sempre de aluno; professor se cadastra com e-mail e senha.
     if (!existing && perfil === 'PROFESSOR') {
@@ -79,7 +89,7 @@ export class AuthService {
     );
     if (!hasCurrentAcceptance && !parsedAcceptance?.success) return { requiresAcceptance: true as const };
 
-    let user: { id: string; nome: string; email: string; role: string };
+    let user: { id: string; nome: string; email: string; role: string; sessionVersion: number };
     if (!existing) {
       user = await this.repository.createGoogleUser(nomeSugerido, email, parsedAcceptance!.data);
     } else {
@@ -94,6 +104,10 @@ export class AuthService {
   async updateNome(userId: string, nome: string) {
     return this.repository.updateNome(userId, nome);
   }
+  async logout(userId: string) {
+    await this.repository.revokeSessions(userId);
+    return { message: 'Sessões encerradas. Entre novamente para acessar sua conta.' };
+  }
   async deleteAccount(userId: string, senhaAtual?: string) {
     const user = await this.repository.findByIdWithSenha(userId);
     if (!user) throw new ApiError(404, 'Usuário não encontrado.');
@@ -107,9 +121,10 @@ export class AuthService {
 
   async session(userId: string) {
     const user = await this.repository.findById(userId);
-    if (!user) throw new ApiError(401, 'Sessão inválida.');
+    if (!user || user.deletedAt) throw new ApiError(401, 'Sessão inválida.');
+    const emailVerificado = Boolean(user.emailVerifiedAt);
     return {
-      user: { nome: user.nome, email: user.email, role: user.role, emailVerificado: user.emailVerifiedAt !== null },
+      user: { id: user.id, nome: user.nome, email: user.email, role: user.role, emailVerificado },
       nextStep: user.role !== 'ALUNO' ? 'PROFESSOR' : await this.repository.hasCompletedDiagnostic(userId) ? 'DASHBOARD' : 'DIAGNOSTIC',
     };
   }
@@ -122,10 +137,10 @@ export class AuthService {
     }
   }
 
-  private loginResponse(user: { id: string; nome: string; email: string; role: string }) {
+  private loginResponse(user: { id: string; nome: string; email: string; role: string; sessionVersion: number }) {
     return {
       usuario: { id: user.id, nome: user.nome, email: user.email, role: user.role },
-      token: jwt.sign({ id: user.id, role: user.role }, this.jwtSecret(), { algorithm:'HS256', expiresIn: '8h' }),
+      token: jwt.sign({ id: user.id, role: user.role, sessionVersion: sessionVersionSchema.parse(user.sessionVersion) }, this.jwtSecret(), { algorithm:'HS256', expiresIn: '8h' }),
     };
   }
 

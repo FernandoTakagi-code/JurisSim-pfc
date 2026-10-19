@@ -99,11 +99,11 @@ describe('solicitação de recuperação', () => {
 
 describe('consumo atômico e redefinição', () => {
   let storedToken: { id: string; userId: string; expiresAt: Date; consumedAt: Date | null } | null;
-  let account: { id: string; senhaHash: string | null } | null;
+  let account: { id: string; senhaHash: string | null; sessionVersion: number } | null;
 
   beforeEach(() => {
     storedToken = { id: 'recovery-row-1', userId: 'user-1', expiresAt: new Date(now.getTime() + 60_000), consumedAt: null };
-    account = { id: 'user-1', senhaHash: '$2b$10$traditional-hash' };
+    account = { id: 'user-1', senhaHash: '$2b$10$traditional-hash', sessionVersion: 0 };
     db.tokenFindUnique.mockReset().mockImplementation(async () => storedToken);
     db.userFindUnique.mockReset().mockImplementation(async () => account);
     db.tokenUpdateMany.mockReset().mockImplementation(async () => {
@@ -111,13 +111,14 @@ describe('consumo atômico e redefinição', () => {
       storedToken = { ...storedToken, consumedAt: now };
       return { count: 1 };
     });
-    db.userUpdateMany.mockReset().mockImplementation(async ({ data }: { data: { senhaHash: string } }) => {
+    db.userUpdateMany.mockReset().mockImplementation(async ({ data }: { data: { senhaHash: string; sessionVersion: { increment: number } } }) => {
       if (!account || account.senhaHash === GOOGLE_PASSWORD_SENTINEL) return { count: 0 };
-      account = { ...account, senhaHash: data.senhaHash };
+      account = { ...account, senhaHash: data.senhaHash, sessionVersion: account.sessionVersion + data.sessionVersion.increment };
       return { count: 1 };
     });
     db.auditCreate.mockReset().mockResolvedValue({});
     db.transaction.mockReset().mockImplementation((work: (tx: unknown) => Promise<unknown>) => work({
+      $queryRaw: async () => [{ id: 'user-1' }],
       passwordRecoveryToken: { count: db.tokenCount, create: db.tokenCreate, findUnique: db.tokenFindUnique, updateMany: db.tokenUpdateMany },
       user: { findUnique: db.userFindUnique, updateMany: db.userUpdateMany },
       auditLog: { create: db.auditCreate },
@@ -135,7 +136,7 @@ describe('consumo atômico e redefinição', () => {
     expect(db.userUpdateMany).not.toHaveBeenCalled();
   });
 
-  it('consome o token, troca somente o hash da senha e audita em uma transação', async () => {
+  it('consome o token, troca a senha, revoga sessões e audita em uma transação', async () => {
     const repository = new PasswordRecoveryRepository();
     expect(await repository.consumeAndReset('token-hash', 'new-password-hash', now)).toBe(true);
     expect(db.transaction).toHaveBeenCalledOnce();
@@ -143,15 +144,16 @@ describe('consumo atômico e redefinição', () => {
       where: { id: 'recovery-row-1', consumedAt: null, expiresAt: { gt: now } },
       data: { consumedAt: now },
     }));
-    expect(db.userUpdateMany).toHaveBeenCalledWith({ where: { id: 'user-1', senhaHash: '$2b$10$traditional-hash' }, data: { senhaHash: 'new-password-hash' } });
-    expect(db.auditCreate).toHaveBeenCalledWith({ data: { userId: 'user-1', action: 'PASSWORD_RECOVERY_COMPLETED', occurredAt: now } });
+    expect(db.userUpdateMany).toHaveBeenCalledWith({ where: { id: 'user-1', senhaHash: '$2b$10$traditional-hash', deletedAt: null }, data: { senhaHash: 'new-password-hash', sessionVersion: { increment: 1 } } });
+    expect(db.auditCreate).toHaveBeenCalledWith({ data: { userId: 'user-1', action: 'SENHA_REDEFINIDA', occurredAt: now } });
     expect(storedToken?.consumedAt).toEqual(now);
     expect(account?.senhaHash).toBe('new-password-hash');
+    expect(account?.sessionVersion).toBe(1);
   });
 
   it('não altera senha de conta Google nem consome seu token', async () => {
     const repository = new PasswordRecoveryRepository();
-    account = { id: 'user-1', senhaHash: GOOGLE_PASSWORD_SENTINEL };
+    account = { id: 'user-1', senhaHash: GOOGLE_PASSWORD_SENTINEL, sessionVersion: 0 };
     expect(await repository.consumeAndReset('token-hash', 'new-password-hash', now)).toBe(false);
     expect(db.tokenUpdateMany).not.toHaveBeenCalled();
     expect(db.userUpdateMany).not.toHaveBeenCalled();
@@ -170,7 +172,7 @@ describe('consumo atômico e redefinição', () => {
     expect(await bcrypt.compare('nova-senha-segura', savedHash)).toBe(true);
     expect(bcrypt.getRounds(savedHash)).toBe(10);
     const authRepository = {
-      findByEmail: vi.fn().mockResolvedValue({ id: 'user-1', nome: 'Aluno', email, role: 'ALUNO', senhaHash: savedHash }),
+      findByEmail: vi.fn().mockResolvedValue({ id: 'user-1', nome: 'Aluno', email, role: 'ALUNO', sessionVersion: 1, senhaHash: savedHash }),
       recordLogin: vi.fn().mockResolvedValue(undefined),
     };
     await expect(new AuthService(authRepository as never).login(email, 'nova-senha-segura')).resolves.toHaveProperty('token');
