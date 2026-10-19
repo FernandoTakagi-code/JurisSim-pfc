@@ -9,5 +9,6 @@ trailRoutes.use(requireAuth);
 
 trailRoutes.post('/:trilhaId/gerar', controller.generate);
 trailRoutes.get('/attempts/:attemptId/questions', controller.getQuestions);
+trailRoutes.get('/attempts/:attemptId/result', controller.getResult);
 trailRoutes.put('/attempts/:attemptId/answers/:questionId', controller.answer);
 trailRoutes.post('/attempts/:attemptId/finalize', controller.finalize);

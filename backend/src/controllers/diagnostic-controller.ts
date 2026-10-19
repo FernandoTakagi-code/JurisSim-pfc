@@ -33,6 +33,7 @@ export class DiagnosticController {
 
   getResult = async (request: AuthenticatedRequest, response: Response) => {
     const { attempt, result } = await this.service.getResult(this.pathParam(request, 'attemptId'), request.auth!.userId);
+    response.setHeader('Cache-Control', 'no-store');
     response.json(this.resultResponse(attempt, result));
   };
 
@@ -40,10 +41,13 @@ export class DiagnosticController {
     response.json({ trail: await this.service.getTrail(this.pathParam(request, 'attemptId'), request.auth!.userId) });
   };
 
-  private resultResponse(attempt: { id: string; finalizadoEm: Date | null; desempenhosDiagnostico: unknown[]; trilhaAdaptativa: unknown }, result: { correctAnswers: number; totalQuestions: number; overallPercentage: number; level: string; weakestDiscipline: string; weakestTopic: string | null; recommendation: string }) {
+  private resultResponse(attempt: { id: string; finalizadoEm: Date | null; desempenhosDiagnostico: unknown[]; trilhaAdaptativa: unknown; questoes: { resposta: { correta: boolean } | null }[] }, result: { correctAnswers: number; totalQuestions: number; overallPercentage: number; level: string; weakestDiscipline: string; weakestTopic: string | null; recommendation: string }) {
+    const answered = attempt.questoes.filter(question => question.resposta).length;
     return {
       id: attempt.id, finalizedAt: attempt.finalizadoEm,
       correctAnswers: result.correctAnswers, totalQuestions: result.totalQuestions,
+      answeredQuestions: answered, incorrectAnswers: answered - result.correctAnswers,
+      unansweredQuestions: result.totalQuestions - answered,
       overallPercentage: result.overallPercentage, level: result.level,
       weakestDiscipline: result.weakestDiscipline, weakestTopic: result.weakestTopic,
       recommendation: result.recommendation, performances: attempt.desempenhosDiagnostico,

@@ -26,6 +26,11 @@ export class TrailController {
     response.json(await this.service.finalize(this.pathParam(request, 'attemptId'), request.auth!.userId));
   };
 
+  getResult = async (request: AuthenticatedRequest, response: Response) => {
+    response.setHeader('Cache-Control', 'no-store');
+    response.json(await this.service.getResult(this.pathParam(request, 'attemptId'), request.auth!.userId));
+  };
+
   private pathParam(request: Request, name: string): string {
     return z.string().uuid().parse(request.params[name]);
   }

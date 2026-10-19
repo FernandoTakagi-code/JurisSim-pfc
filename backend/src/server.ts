@@ -7,6 +7,7 @@ import { authRoutes } from './routes/auth-routes';
 import questaoRoutes from './routes/questaoRoutes';
 import { trailRoutes } from './routes/trail-routes';
 import { auditRoutes } from './routes/audit-routes';
+import { studentHistoryRoutes } from './routes/student-history-routes';
 import { setDefaultAutoSelectFamily } from 'node:net';
 setDefaultAutoSelectFamily(false);
 
@@ -23,6 +24,7 @@ app.use('/trilhas', trailRoutes);
 app.use('/diagnostics', diagnosticRoutes);
 app.use('/auth', authRoutes);
 app.use('/audit-logs', auditRoutes);
+app.use('/students/me', studentHistoryRoutes);
 app.use(errorHandler);
 
 const PORT = env.PORT;
