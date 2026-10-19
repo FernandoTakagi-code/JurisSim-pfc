@@ -1,8 +1,9 @@
+import { apiRequest } from './api';
+import { endSession, establishSession, sessionDestination } from './auth-session';
 import { useEffect, useState } from "react";
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { LegalLinks, legalAcceptance } from './legal';
 
-const api = import.meta.env.VITE_API_URL ?? "http://localhost:3333";
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
 
 function resetTokenFromHash() {
@@ -21,7 +22,7 @@ function perfilInicial(): Perfil {
   return sessionStorage.getItem("jurissim_perfil") === "PROFESSOR" ? "PROFESSOR" : "ALUNO";
 }
 
-function PerfilSwitch({ perfil, onChange }: { perfil: Perfil; onChange: (perfil: Perfil) => void }) {
+function PerfilSwitch({ perfil, onChange, disabled }: { perfil: Perfil; onChange: (perfil: Perfil) => void; disabled: boolean }) {
   const opcoes: [Perfil, string, string][] = [
     ["ALUNO", "Aluno", "Estude e faça simulados"],
     ["PROFESSOR", "Professor", "Cadastre questões"],
@@ -32,6 +33,7 @@ function PerfilSwitch({ perfil, onChange }: { perfil: Perfil; onChange: (perfil:
         <button
           key={valor}
           type="button"
+          disabled={disabled}
           role="radio"
           aria-checked={perfil === valor}
           className={perfil === valor ? "active" : ""}
@@ -88,9 +90,10 @@ function VisualPanel() {
 
 export function AuthGate() {
   const [resetToken, setResetToken] = useState(() => resetTokenFromHash());
-  const [verifyToken] = useState(() => verifyTokenFromHash());
+  const [verifyToken, setVerifyToken] = useState(() => verifyTokenFromHash());
+  const [googleNonce] = useState(() => Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join(''));
   const [mode, setMode] = useState<"login" | "register" | "forgot" | "reset" | "verify">(() =>
-    resetTokenFromHash() ? "reset" : verifyTokenFromHash() ? "verify" : "login"
+    window.location.hash.startsWith('#/reset-password') ? "reset" : window.location.hash.startsWith('#/verificar-email') ? "verify" : "login"
   );
   const [nome, setNome] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
@@ -106,68 +109,56 @@ export function AuthGate() {
   const [pendingGoogleCredential, setPendingGoogleCredential] = useState<string>();
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryRequested, setRecoveryRequested] = useState(false);
-  const [recoveryNotice, setRecoveryNotice] = useState("");
+  const [recoveryNotice, setRecoveryNotice] = useState(() => sessionStorage.getItem('jurissim_logout_notice') ?? '');
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [verifyStatus, setVerifyStatus] = useState<"pending" | "success" | "error">("pending");
   const [verifyMessage, setVerifyMessage] = useState("");
 
-  const post = async (path: string, body: object) => {
-    let response: Response;
-    try {
-      response = await fetch(`${api}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-    } catch {
-      throw new Error(
-        "Não foi possível conectar ao servidor. Verifique se o backend está rodando na porta 3333.",
-      );
-    }
-    const data = await response.json();
-    if (!response.ok)
-      throw new Error(data.message ?? "Não foi possível concluir a operação.");
-    return data;
-  };
+  const post = (path: string, body: object) => apiRequest<any>(path, { method: 'POST', body: JSON.stringify(body) }, { authenticated: false });
 
   useEffect(() => {
-    if (mode !== "verify" || !verifyToken) return;
+    const consumeLink = () => {
+      const route = window.location.hash.split('?')[0];
+      if (route !== '#/reset-password' && route !== '#/verificar-email') return;
+      const token = route === '#/reset-password' ? resetTokenFromHash() : verifyTokenFromHash();
+      setRecoveryNotice(''); setRecoveryRequested(false);
+      setNewPassword(''); setConfirmNewPassword('');
+      setMode(route === '#/reset-password' ? 'reset' : 'verify');
+      setResetToken(route === '#/reset-password' ? token : ''); setVerifyToken(route === '#/verificar-email' ? token : '');
+      setError(token ? '' : 'Link inválido ou incompleto. Solicite um novo link.');
+      window.history.replaceState({}, '', window.location.pathname);
+    };
+    consumeLink(); window.addEventListener('hashchange', consumeLink);
+    return () => window.removeEventListener('hashchange', consumeLink);
+  }, []);
+
+  useEffect(() => {
+    if (mode !== "verify") return;
+    if (!verifyToken) { setVerifyStatus('error'); setVerifyMessage('Link inválido ou incompleto. Solicite um novo link.'); return; }
+    let cancelled = false;
+    setVerifyStatus('pending');
     (async () => {
       try {
         const result = await post("/auth/email-verification/confirm", { token: verifyToken });
+        if (cancelled) return;
         window.history.replaceState({}, "", window.location.pathname);
         setVerifyStatus("success");
         setVerifyMessage(result.message ?? "E-mail confirmado com sucesso!");
       } catch (cause) {
+        if (cancelled) return;
         setVerifyStatus("error");
         setVerifyMessage(cause instanceof Error ? cause.message : "Não foi possível confirmar o e-mail.");
       }
     })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [verifyToken, mode]);
 
   const estabelecerSessao = async (token: string) => {
-    let session: Response;
-    try {
-      session = await fetch(`${api}/auth/session`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch {
-      throw new Error(
-        "Login realizado, mas não foi possível consultar a sessão. Verifique se o backend está rodando na porta 3333.",
-      );
-    }
-    const body = await session.json();
-    if (!session.ok) throw new Error(body.message ?? "Sessão inválida.");
-    sessionStorage.setItem("jurissim_token", token);
-    sessionStorage.setItem("jurissim_next_step", body.nextStep);
-    sessionStorage.setItem("jurissim_user_name", body.user?.nome ?? "");
-    sessionStorage.setItem("jurissim_email", body.user?.email ?? "");
-    sessionStorage.setItem("jurissim_email_verificado", String(Boolean(body.user?.emailVerificado)));
-    sessionStorage.setItem("jurissim_perfil", perfil);
-    const destino = body.nextStep === "PROFESSOR" ? "/professor" : body.nextStep === "DASHBOARD" ? "/dashboard" : "/";
-    window.location.assign(destino);
+    const session = await establishSession(token);
+    sessionStorage.setItem('jurissim_perfil', session.user.role === 'ALUNO' ? 'ALUNO' : 'PROFESSOR');
+    window.location.assign(sessionDestination(session));
   };
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
@@ -179,6 +170,7 @@ export function AuthGate() {
       }
       const result = await post("/auth/google", {
         credential: credentialResponse.credential,
+        nonce: googleNonce,
         perfil,
       });
       if (result.requiresAcceptance) {
@@ -201,6 +193,7 @@ export function AuthGate() {
     try {
       const result = await post("/auth/google", {
         credential: pendingGoogleCredential,
+        nonce: googleNonce,
         acceptance: legalAcceptance,
         perfil,
       });
@@ -215,9 +208,12 @@ export function AuthGate() {
   };
 
   const submit = async () => {
+    if (loading) return;
     setLoading(true);
     setError("");
     try {
+      if ((mode === 'register' && registerSenha !== confirmacaoSenha) || (mode === 'reset' && newPassword !== confirmNewPassword)) throw new Error('As senhas não coincidem.');
+      if ((mode === 'register' || mode === 'reset') && new TextEncoder().encode(mode === 'register' ? registerSenha : newPassword).length > 72) throw new Error('A senha deve ter no máximo 72 bytes em UTF-8.');
       if (mode === "forgot") {
         const result = await post("/auth/password-recovery", { email: recoveryEmail });
         setRecoveryRequested(true);
@@ -228,6 +224,7 @@ export function AuthGate() {
           senha: newPassword,
           confirmacaoSenha: confirmNewPassword,
         });
+        endSession();
         window.history.replaceState({}, "", window.location.pathname);
         setResetToken("");
         setNewPassword("");
@@ -236,7 +233,7 @@ export function AuthGate() {
         setRecoveryNotice(result.message);
       } else if (mode === "register") {
         if (!accepted) throw new Error('Aceite os Termos de Uso e a Política de Privacidade.');
-        await post("/auth/register", {
+        const registration = await post("/auth/register", {
           nome,
           email: registerEmail,
           senha: registerSenha,
@@ -245,6 +242,8 @@ export function AuthGate() {
           acceptance: legalAcceptance,
         });
         setMode("login");
+        setLoginEmail(registerEmail);
+        setRecoveryNotice(registration.emailVerification?.message ?? "Conta criada. Confirme seu e-mail para acessar o sistema.");
         setRegisterSenha("");
         setConfirmacaoSenha("");
         setAccepted(false);
@@ -271,7 +270,7 @@ export function AuthGate() {
             <div className="auth-card">
               {verifyStatus === "pending" && <p>Confirmando seu e-mail...</p>}
               {verifyStatus === "success" && <p className="recovery-notice" role="status">{verifyMessage}</p>}
-              {verifyStatus === "error" && <small className="error">{verifyMessage}</small>}
+              {verifyStatus === "error" && <small className="error" role="alert">{verifyMessage}</small>}
               <button className="auth-submit" type="button" onClick={() => { setMode("login"); window.history.replaceState({}, "", window.location.pathname); }}>
                 Ir para o Login
               </button>
@@ -301,14 +300,15 @@ export function AuthGate() {
                 : perfil === "PROFESSOR" ? "Cadastre-se para criar questões para seus alunos" : "Comece sua preparação para a OAB"}
             </p>
           </header>
-          {!isRecovery && <PerfilSwitch perfil={perfil} onChange={(valor) => { setPerfil(valor); setError(""); setPendingGoogleCredential(undefined); setAccepted(false); }} />}
-          <div className="auth-card">
+          {!isRecovery && <PerfilSwitch disabled={loading} perfil={perfil} onChange={(valor) => { setPerfil(valor); setError(""); setPendingGoogleCredential(undefined); setAccepted(false); }} />}
+          <form className="auth-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
             {isRegister && (
               <>
                 <label>
                   Nome completo
                   <input
                     name="name"
+                    required minLength={2} maxLength={120}
                     autoComplete="name"
                     placeholder="Digite seu nome completo"
                     value={nome}
@@ -321,6 +321,7 @@ export function AuthGate() {
               E-mail
               <input
                 name="email"
+                required maxLength={254}
                 autoComplete="email"
                 type="email"
                 placeholder="Digite seu e-mail"
@@ -333,6 +334,7 @@ export function AuthGate() {
               <span className="password-field">
                 <input
                   name={isLogin ? "current-password" : "new-password"}
+                  required minLength={isRegister ? 6 : 1} maxLength={isRegister ? 72 : 1024}
                   autoComplete={isLogin ? "current-password" : "new-password"}
                   type={showPassword ? "text" : "password"}
                   placeholder="Digite sua senha"
@@ -354,6 +356,7 @@ export function AuthGate() {
                 <span className="password-field">
                   <input
                     name="confirm-password"
+                    required minLength={6} maxLength={72}
                     autoComplete="new-password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Digite sua senha novamente"
@@ -376,9 +379,7 @@ export function AuthGate() {
             )}
             {isLogin && (
               <div className="auth-options">
-                <label>
-                  <input type="checkbox" /> Lembrar de mim
-                </label>
+                <span>Sessão neste navegador</span>
                 <button type="button" onClick={() => { setRecoveryEmail(loginEmail); setRecoveryRequested(false); setRecoveryNotice(""); setError(""); setMode("forgot"); }}>Esqueceu a senha?</button>
               </div>
             )}
@@ -401,18 +402,19 @@ export function AuthGate() {
               <input id="legal-acceptance" type="checkbox" required checked={accepted} onChange={(event) => setAccepted(event.target.checked)} aria-labelledby="legal-consent-label" />
               <span id="legal-consent-label"><label htmlFor="legal-acceptance">Li e aceito </label>os <a href="#/termos">Termos de Uso</a> e a <a href="#/privacidade">Política de Privacidade</a>.</span>
             </div>}
-            <button className="auth-submit" disabled={loading || (isRegister && !accepted) || (mode === "forgot" && (recoveryRequested || !recoveryEmail)) || (mode === "reset" && (!newPassword || newPassword !== confirmNewPassword))} onClick={submit}>
+            <button type="submit" className="auth-submit" disabled={loading || (isRegister && !accepted) || (mode === "forgot" && (recoveryRequested || !recoveryEmail)) || (mode === "reset" && (!resetToken || !newPassword || newPassword !== confirmNewPassword))}>
               {loading ? "Aguarde..." : isLogin ? (perfil === "PROFESSOR" ? "Entrar como professor" : "Entrar como aluno") : isRegister ? (perfil === "PROFESSOR" ? "Criar conta de professor" : "Criar conta de aluno") : mode === "forgot" ? "Enviar instruções" : "Salvar nova senha"}
             </button>
-            {error && <small className="error">{error}</small>}
+            {error && <small className="error" role="alert">{error}</small>}
             {mode === "reset" && recoveryNotice && <p className="recovery-notice" role="status">{recoveryNotice}</p>}
             {isLogin && recoveryNotice && <p className="recovery-notice" role="status">{recoveryNotice}</p>}
             {isRecovery && <button className="text-button" type="button" onClick={() => { setMode("login"); setRecoveryRequested(false); setRecoveryNotice(""); setError(""); }}>Voltar ao Login</button>}
             {!isRecovery && <div className="auth-divider">
               <span>ou</span>
             </div>}
-            {!isRecovery && !googleClientId && <small className="error">Login Google indisponível: configure VITE_GOOGLE_CLIENT_ID em frontend/.env.</small>}
+            {!isRecovery && !googleClientId && <small className="muted">Login Google indisponível no momento.</small>}
             {!isRecovery && googleClientId && !pendingGoogleCredential && <GoogleLogin
+              nonce={googleNonce}
               onSuccess={handleGoogleSuccess}
               onError={() => setError("Não foi possível entrar com o Google.")}
             />}
@@ -431,11 +433,12 @@ export function AuthGate() {
                 Cancelar e voltar ao login
               </button>
             </section>}
-          </div>
+          </form>
           {!isRecovery && <p className="auth-switch">
             {isLogin ? "Ainda não tem uma conta?" : "Já possui uma conta?"}{" "}
             <button
               type="button"
+              disabled={loading}
               onClick={() => setMode(isLogin ? "register" : "login")}
             >
               {isLogin ? "Cadastre-se" : "Entrar"}

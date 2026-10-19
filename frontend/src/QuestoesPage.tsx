@@ -1,6 +1,6 @@
+import { apiRequest } from './api';
 import { useEffect, useState } from "react";
 
-const api = import.meta.env.VITE_API_URL ?? "http://localhost:3333";
 
 type Alternativa = { id: string; texto: string; correta?: boolean };
 type Questao = {
@@ -20,19 +20,7 @@ const nivelLabel: Record<string, string> = {
   AVANCADO: "Avançado",
 };
 
-async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${api}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
-      ...init?.headers,
-    },
-  });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.erro ?? body.message ?? "Não foi possível concluir a operação.");
-  return body as T;
-}
+const call = apiRequest;
 
 export function QuestoesPage({ role }: { role: string | null }) {
   const [questoes, setQuestoes] = useState<Questao[]>([]);

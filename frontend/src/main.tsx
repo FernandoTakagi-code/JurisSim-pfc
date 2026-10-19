@@ -3,13 +3,19 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 import { AuthGate } from "./auth-gate";
-import { decodeRole } from "./jwt";
+import { apiRequest } from './api';
+import { useSession, refreshSession, endSession, logoutSession, sessionDestination } from './auth-session';
+import { EmailConfirmationGate } from './email-confirmation-gate';
 import { QuestoesPage } from "./QuestoesPage";
 import { LegalBoundary, LegalLinks } from './legal';
 import { Brand, SettingsModal } from "./shell";
 import { ProfessorArea } from "./ProfessorArea";
+import { IntegrationShell } from "./integration-shell";
+import { navigate as navigateTo, usePath } from "./navigation";
+import { ClassesPage, ExamsPage, ClassExamAttempt } from "./class-exams";
+import { GoalsPage } from "./goals-reports";
+import { useStudentProgress, ProgressStatus, Evolution, RecentActivities, PerformanceIndicators, StudentHistory, PersistedResult } from "./student-progress";
 
-const api = import.meta.env.VITE_API_URL ?? "http://localhost:3333";
 
 type Alternative = { id: string; text: string };
 type Question = {
@@ -30,6 +36,7 @@ type Trail = {
   nivelRecomendado: string;
   quantidadeRecomendada: number;
   justificativa: string;
+  simuladoGeradoId?: string | null;
 };
 type Result = {
   overallPercentage: number;
@@ -112,30 +119,41 @@ function Sidebar({
 }
 
 function App() {
-  if (!sessionStorage.getItem("jurissim_token")) return <AuthGate />;
-
-  const role = decodeRole(sessionStorage.getItem("jurissim_token")!) ?? "ALUNO";
-  const nome = sessionStorage.getItem("jurissim_user_name") ?? "usuário";
-  const email = sessionStorage.getItem("jurissim_email") ?? "";
-  if (role === "PROFESSOR" || role === "ADMIN") {
-    return <ProfessorArea nome={nome} email={email} role={role} onSair={() => { sessionStorage.clear(); sessionStorage.setItem("jurissim_perfil", "PROFESSOR"); window.location.assign("/"); }} />;
-  }
-  return <StudentApp role={role} nome={nome} email={email} />;
+  const [authLink, setAuthLink] = useState(() => /^#\/(verificar-email|reset-password)(\?|$)/.test(window.location.hash));
+  useEffect(() => {
+    const update = () => setAuthLink(/^#\/(verificar-email|reset-password)(\?|$)/.test(window.location.hash));
+    window.addEventListener('hashchange', update);
+    return () => window.removeEventListener('hashchange', update);
+  }, []);
+  const auth = useSession();
+  useEffect(() => {
+    const refresh = () => { if (!authLink && document.visibilityState !== 'hidden') void refreshSession().catch(() => {}); };
+    refresh();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+  }, [authLink]);
+  if (authLink || (auth.status === 'anonymous' && !sessionStorage.getItem('jurissim_token'))) return <AuthGate />;
+  if (auth.status === 'error') return <main className="page"><p className="error" role="alert">{auth.message}</p><button onClick={() => void refreshSession().catch(() => {})}>Tentar novamente</button><button onClick={() => void logoutSession()}>Sair</button></main>;
+  if (auth.status !== 'ready' || !auth.session) return <p className="muted" role="status">Validando sessão...</p>;
+  const { user } = auth.session;
+  const sair = async () => { if (!await logoutSession()) return; if (user.role !== 'ALUNO') sessionStorage.setItem('jurissim_perfil', 'PROFESSOR'); window.location.assign('/'); };
+  if (!user.emailVerificado) return <EmailConfirmationGate email={user.email} onSair={sair} />;
+  if (user.role === 'PROFESSOR' || user.role === 'ADMIN') return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair}><ProfessorArea userId={user.id} nome={user.nome} email={user.email} role={user.role} onSair={sair} /></IntegrationShell>;
+  return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair}><StudentApp role={user.role} nome={user.nome} email={user.email} initialDestination={sessionDestination(auth.session)} /></IntegrationShell>;
 }
 
-function StudentApp({ role, nome, email }: { role: string; nome: string; email: string }) {
-  const emailVerificado = sessionStorage.getItem("jurissim_email_verificado") !== "false";
+function StudentApp({ role, nome, email, initialDestination }: { role: string; nome: string; email: string; initialDestination: string }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [gateReenviando, setGateReenviando] = useState(false);
-  const [gateMensagem, setGateMensagem] = useState("");
-  const [gateErro, setGateErro] = useState("");
-  const [route, setRoute] = useState(() => window.location.pathname);
-  const [view, setView] = useState<"diagnostico" | "questoes">("diagnostico");
+  const route = usePath();
+  const view = route === "/questoes" ? "questoes" : "diagnostico";
   const [id, setId] = useState<string>();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState<string>();
-  const [result, setResult] = useState<Result>();
+  const [currentResult, setResult] = useState<Result>();
+  const progress = useStudentProgress();
+  const result = currentResult ?? (["/dashboard", "/desempenho", "/trilha"].includes(route) ? progress.latestResult : undefined);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [trailId, setTrailId] = useState<string>();
@@ -145,18 +163,12 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
   const [trailResult, setTrailResult] = useState<TrailResult>();
 
   const sair = () => {
-    sessionStorage.clear();
+    endSession();
     window.location.reload();
   };
 
-  const navigate = (path: string) => {
-    window.history.pushState({}, "", path);
-    setRoute(path);
-  };
-  const navigateView = (destination: "diagnostico" | "questoes") => {
-    setView(destination);
-    navigate("/");
-  };
+  const navigate = navigateTo;
+  const navigateView = (destination: "diagnostico" | "questoes") => navigate(destination === "questoes" ? "/questoes" : "/");
   const startStudying = () => {
     setId(undefined);
     setQuestions([]);
@@ -166,100 +178,26 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
     setTrailResult(undefined);
     setIndex(0);
     setTrailIndex(0);
-    setView("diagnostico");
     navigate("/");
   };
   useEffect(() => {
-    const onPopState = () => setRoute(window.location.pathname);
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
-  useEffect(() => {
-    if (route === "/professor" || (route === "/dashboard" && role !== "ALUNO")) {
-      window.history.replaceState({}, "", "/");
-      setRoute("/");
+    if (route.startsWith("/professor")) {
+      const destination = initialDestination;
+      navigateTo(destination, true);
     }
-  }, [route, role]);
-  useEffect(() => {
-    const [hashRoute, query = ""] = window.location.hash.split("?");
-    if (hashRoute !== "#/verificar-email") return;
-    const token = new URLSearchParams(query).get("token");
-    if (!token) return;
-    (async () => {
-      try {
-        const response = await fetch(`${api}/auth/email-verification/confirm`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        });
-        const body = await response.json();
-        window.history.replaceState({}, "", window.location.pathname + window.location.search);
-        if (response.ok) {
-          sessionStorage.setItem("jurissim_email_verificado", "true");
-          alert(body.message ?? "E-mail confirmado com sucesso!");
-          window.location.reload();
-        } else {
-          alert(body.message ?? "Não foi possível confirmar o e-mail.");
-        }
-      } catch {
-        window.history.replaceState({}, "", window.location.pathname + window.location.search);
-        alert("Não foi possível confirmar o e-mail. Verifique sua conexão.");
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [route, role, initialDestination]);
 
-  if (!emailVerificado) {
-    const reenviarConfirmacaoGate = async () => {
-      setGateReenviando(true);
-      setGateErro("");
-      setGateMensagem("");
-      try {
-        const response = await fetch(`${api}/auth/email-verification`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
-          },
-        });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message ?? "Não foi possível reenviar o e-mail de confirmação.");
-        setGateMensagem(body.message ?? "E-mail de confirmação enviado.");
-      } catch (cause) {
-        setGateErro(cause instanceof Error ? cause.message : "Erro inesperado.");
-      } finally {
-        setGateReenviando(false);
-      }
-    };
-    return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#f5f6f8",
-        }}
-      >
-        <section style={{ maxWidth: 420, width: "90%", background: "#fff", borderRadius: 12, padding: 32, textAlign: "center", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
-          <h1 style={{ marginTop: 0 }}>Confirme seu e-mail</h1>
-          <p className="muted">
-            Enviamos um link de confirmação para <b>{email}</b>. Verifique sua caixa de entrada (e o spam) e
-            clique no link para liberar o acesso ao JurisSim.
-          </p>
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 16, flexWrap: "wrap" }}>
-            <button className="primary" type="button" disabled={gateReenviando} onClick={reenviarConfirmacaoGate}>
-              {gateReenviando ? "Enviando..." : "Reenviar e-mail de confirmação"}
-            </button>
-            <button type="button" onClick={sair}>Sair</button>
-          </div>
-          {gateMensagem && <p className="recovery-notice" role="status" style={{ marginTop: 12 }}>{gateMensagem}</p>}
-          {gateErro && <small className="error" style={{ display: "block", marginTop: 12 }}>{gateErro}</small>}
-        </section>
-      </div>
-    );
-  }
+
+  const classAttemptRoute = /^\/simulados\/tentativas\/([^/]+)$/.exec(route);
+  if (route === "/metas") return <GoalsPage />;
+  if (route === "/turmas") return <ClassesPage teacher={false} />;
+  if (route === "/simulados") return <ExamsPage teacher={false} />;
+  if (classAttemptRoute) return <ClassExamAttempt key={classAttemptRoute[1]} id={classAttemptRoute[1]} onCompleted={() => void progress.refresh()} />;
+  const resultRoute = /^\/resultados\/(diagnostico|trilha)\/([^/]+)$/.exec(route);
+  if (route === "/historico") return <StudentHistory />;
+  if (resultRoute) return <PersistedResult type={resultRoute[1] as "diagnostico" | "trilha"} id={resultRoute[2]} />;
+
+  if (route === "/trilha" && !result) return <section className="page"><h1>Minha trilha adaptativa</h1><p className="muted">Nenhuma trilha carregada nesta sessão. Conclua um diagnóstico para receber sua recomendação real.</p><button className="primary" onClick={startStudying}>Iniciar diagnóstico</button></section>;
 
   if (route === "/dashboard" && role === "ALUNO") {
     const firstName = nome.trim().split(/\s+/)[0] || "estudante";
@@ -270,6 +208,7 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
         <Sidebar active="dashboard" onNavigate={(destination) => destination === "diagnostico" ? startStudying() : navigateView(destination)} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
         <main className="content">
           <header><span>Início</span><b>Olá, {firstName}</b></header>
+          <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refresh()} />
           <section className="page dashboard-page">
             <div className="dashboard-heading">
               <div><p className="gold">JURISSIM · OAB</p><h1>Seu espaço de estudos</h1><p className="muted">Acompanhe seu preparo e continue de onde parou.</p></div>
@@ -279,7 +218,7 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
               <div className="recommendation-icon">✦</div>
               <div className="recommendation-copy">
                 <p className="gold">RECOMENDADO PARA VOCÊ</p>
-                {trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{trail.assuntoPrioritario ?? "Conteudos gerais da disciplina"} · nivel {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></> : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem quando houver resultados disponíveis nesta sessão.</p></>}
+                {trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{trail.assuntoPrioritario ?? "Conteudos gerais da disciplina"} · nivel {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></> : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem após seu primeiro diagnóstico concluído.</p></>}
               </div>
               {trail && <button className="outline-button" onClick={() => navigate("/desempenho")}>Ver trilha</button>}
             </article>
@@ -295,11 +234,11 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
               </article>
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">EVOLUÇÃO</p><h2>Seu progresso</h2></div></div>
-                <div className="empty-chart"><span>⌁</span><p>O histórico de evolução não está disponível.</p></div>
+                <Evolution items={progress.data?.evolution} />
               </article>
               <article className="panel dashboard-panel dashboard-activity">
                 <div className="dashboard-panel-heading"><div><p className="gold">ATIVIDADE</p><h2>Atividade recente</h2></div></div>
-                <p className="empty-dashboard">O sistema ainda não fornece um histórico de atividades para este painel.</p>
+                <RecentActivities items={progress.data?.recentActivities} />
               </article>
             </div>
           </section>
@@ -324,8 +263,10 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
           <header><span>Meu desempenho</span><TopBar nome={nome} /></header>
           <section className="page">
             <p className="gold">SEU DESEMPENHO</p>
-            <h1>Dados ainda indisponíveis</h1>
-            <p className="muted">Não há resultados de diagnóstico carregados nesta sessão.</p>
+            <h1>{progress.data?.totals.completedActivities ? "Seu desempenho" : "Dados ainda indisponíveis"}</h1>
+            <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refresh()} />
+            <p className="muted">Nenhum diagnóstico concluído foi encontrado na sua conta.</p>
+            <PerformanceIndicators data={progress.data} />
             <button className="primary" onClick={() => navigate("/dashboard")}>Ir para o Dashboard <b>→</b></button>
           </section>
         </main>
@@ -363,20 +304,7 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
     );
   }
 
-  const call = async <T,>(path: string, init?: RequestInit) => {
-    const response = await fetch(`${api}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
-        ...init?.headers,
-      },
-    });
-    const body = await response.json();
-    if (!response.ok)
-      throw new Error(body.message ?? "Não foi possível concluir a operação.");
-    return body as T;
-  };
+  const call = apiRequest;
 
   const start = async () => {
     setLoading(true);
@@ -418,6 +346,7 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
         `/diagnostics/${id}/trail`,
       );
       setResult({ ...diagnosticResult, trail: trailResponse.trail });
+      void progress.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
     } finally {
@@ -438,6 +367,7 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
         `/trilhas/attempts/${attempt.id}/questions`,
       );
       if (route === "/desempenho") navigate("/");
+      setResult({ ...result, trail: { ...result.trail, simuladoGeradoId: attempt.id } });
       setTrailId(attempt.id);
       setTrailQuestions(response.questions);
     } catch (cause) {
@@ -469,6 +399,7 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
         { method: "POST" },
       );
       setTrailResult(finalized);
+      void progress.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
     } finally {
@@ -607,7 +538,7 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
     );
   }
 
-  if (trailId && trailQuestions.length > 0 && !trailResult) {
+  if (trailId && trailQuestions.length > 0 && !trailResult && route !== "/desempenho") {
     const question = trailQuestions[trailIndex];
     return (
       <div className="shell">
@@ -746,6 +677,8 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
           Resultado do diagnóstico <TopBar nome={nome} />
         </header>
         <section className="page result">
+          <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refresh()} />
+          {route === "/desempenho" && <PerformanceIndicators data={progress.data} />}
           <p className="gold">DIAGNÓSTICO CONCLUÍDO</p>
           <h1>Seu desempenho</h1>
           <p className="muted">Veja seu ponto de partida para a preparação.</p>
@@ -786,11 +719,12 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
                 </p>
                 <button
                   className="primary"
-                  disabled={loading}
+                  disabled={loading || !!trail.simuladoGeradoId}
                   onClick={generateTrail}
                 >
-                  {loading ? "Gerando..." : "Gerar exercícios"} <b>→</b>
+                  {trail.simuladoGeradoId ? "Exercícios já gerados" : loading ? "Gerando..." : "Gerar exercícios"} <b>→</b>
                 </button>
+                {trail.simuladoGeradoId && <button className="text-button" onClick={() => navigate("/historico")}>Consultar exercícios no histórico</button>}
                 {error && <small className="error">{error}</small>}
               </div>
               <strong>
@@ -818,11 +752,11 @@ function StudentApp({ role, nome, email }: { role: string; nome: string; email: 
   );
 }
 
-createRoot(document.getElementById("root")!).render(
-  <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ""}>
+const application = (
     <LegalBoundary>
       <App />
       {sessionStorage.getItem('jurissim_token') && <footer className="app-legal-footer"><LegalLinks /></footer>}
     </LegalBoundary>
-  </GoogleOAuthProvider>,
 );
+const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+createRoot(document.getElementById("root")!).render(clientId ? <GoogleOAuthProvider clientId={clientId}>{application}</GoogleOAuthProvider> : application);

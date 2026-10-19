@@ -1,8 +1,11 @@
+import { apiRequest } from './api';
 import { useEffect, useMemo, useState } from "react";
-import { decodeUserId } from "./jwt";
-import { Brand, SettingsModal } from "./shell";
 
-const api = import.meta.env.VITE_API_URL ?? "http://localhost:3333";
+import { Brand, SettingsModal } from "./shell";
+import { navigate, usePath } from "./navigation";
+import { ClassesPage, ExamsPage, ClassStudents } from "./class-exams";
+import { TeacherReports, StudentClassReport } from "./goals-reports";
+
 
 type Nivel = "BASICO" | "INTERMEDIARIO" | "AVANCADO";
 type Alternativa = { id?: string; texto: string; correta: boolean };
@@ -47,34 +50,12 @@ const disciplinasOab = [
   "Ética Profissional",
 ];
 
-async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${api}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
-        ...init?.headers,
-      },
-    });
-  } catch {
-    throw new Error("Não foi possível conectar ao servidor. Verifique se o backend está rodando.");
-  }
-  if (response.status === 204) return undefined as T;
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const mensagem = typeof body.erro === "string" ? body.erro : body.message;
-    throw new Error(mensagem ?? "Não foi possível concluir a operação.");
-  }
-  return body as T;
-}
+const call = apiRequest;
 
 const letra = (index: number) => String.fromCharCode(65 + index);
 
-export function ProfessorArea({ nome, email, role, onSair }: { nome: string; email: string; role: string; onSair: () => void }) {
-  const userId = decodeUserId(sessionStorage.getItem("jurissim_token") ?? "");
-  const [tela, setTela] = useState<Tela>({ nome: "painel" });
+export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: string; nome: string; email: string; role: string; onSair: () => void }) {
+  const path = usePath();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [questoes, setQuestoes] = useState<Questao[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,22 +75,30 @@ export function ProfessorArea({ nome, email, role, onSair }: { nome: string; ema
   };
 
   useEffect(() => {
-    if (window.location.pathname !== "/professor") window.history.replaceState({}, "", "/professor");
     carregar();
   }, []);
+
+  useEffect(() => {
+    if (!path.startsWith("/professor")) navigate("/professor", true);
+  }, [path]);
+  const editId = /^\/professor\/questoes\/([^/]+)\/editar$/.exec(path)?.[1];
+  const editQuestion = questoes.find(question => question.id === editId);
+  const tela: Tela = path === "/professor/questoes/nova" ? { nome: "nova" }
+    : editQuestion ? { nome: "editar", questao: editQuestion }
+    : path === "/professor/questoes" ? { nome: "questoes" } : { nome: "painel" };
 
   const podeAlterar = (questao: Questao) => role === "ADMIN" || questao.autorId === userId;
   const minhas = useMemo(() => questoes.filter((q) => q.autorId === userId), [questoes, userId]);
 
   const irPara = (destino: Tela) => {
     setAviso("");
-    setTela(destino);
+    navigate(destino.nome === "painel" ? "/professor" : destino.nome === "nova" ? "/professor/questoes/nova" : destino.nome === "editar" ? `/professor/questoes/${destino.questao.id}/editar` : "/professor/questoes");
     window.scrollTo?.(0, 0);
   };
 
   const aposSalvar = (mensagem: string) => {
     setAviso(mensagem);
-    setTela({ nome: "questoes" });
+    navigate("/professor/questoes");
     carregar();
   };
 
@@ -120,6 +109,18 @@ export function ProfessorArea({ nome, email, role, onSair }: { nome: string; ema
     nova: "Nova questão",
     editar: "Editar questão",
   };
+
+  const individualReport = /^\/professor\/relatorios\/turmas\/([^/]+)\/alunos\/([^/]+)$/.exec(path);
+  const reportRoute = /^\/professor\/(relatorios|desempenho)(?:\/turmas\/([^/]+))?$/.exec(path);
+  if (individualReport) return <StudentClassReport key={individualReport[1] + individualReport[2]} classId={individualReport[1]} studentId={individualReport[2]} />;
+  if (reportRoute) return <TeacherReports classId={reportRoute[2]} mode={reportRoute[1] === "desempenho" ? "performance" : "reports"} />;
+  const rosterRoute = /^\/professor\/turmas\/([^/]+)\/alunos$/.exec(path);
+  if (path === "/professor/turmas") return <ClassesPage teacher />;
+  if (path === "/professor/simulados") return <ExamsPage teacher />;
+  if (path === "/professor/alunos") return <ClassStudents />;
+  if (rosterRoute) return <ClassStudents classId={rosterRoute[1]} />;
+
+  if (editId && (!editQuestion || !podeAlterar(editQuestion))) return <section className="page"><h1>{loading ? "Carregando questão..." : "Questão indisponível para edição"}</h1><p className="muted">{error || "A edição exige autoria ou permissão administrativa, verificadas também pelo backend."}</p><button onClick={() => navigate("/professor/questoes")}>Voltar ao banco de questões</button></section>;
 
   return (
     <div className="shell professor-shell">
