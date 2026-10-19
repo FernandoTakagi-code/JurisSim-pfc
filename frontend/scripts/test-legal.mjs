@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 const browserPath = process.env.CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const profile = await mkdtemp(path.join(tmpdir(), 'jurissim-legal-'));
-const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5179', '--strictPort'], { windowsHide: true, stdio: 'ignore' });
+const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5179', '--strictPort'], { windowsHide: true, stdio: 'ignore', env: { ...process.env, VITE_API_URL: 'http://127.0.0.1:1', VITE_GOOGLE_CLIENT_ID: '' } });
 const browser = spawn(browserPath, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', 'about:blank'], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
 let socket;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -26,7 +26,7 @@ try {
     await sleep(100);
   }
   socket = new WebSocket(endpoint);
-  await new Promise(resolve => socket.addEventListener('open', resolve, { once: true }));
+  await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', () => reject(new Error('Unable to connect to local Chrome debugger')), { once: true }); });
   let nextId = 0;
   const pending = new Map();
   socket.addEventListener('message', event => {
@@ -35,6 +35,12 @@ try {
       const { resolve, reject, timer } = pending.get(message.id);
       pending.delete(message.id); clearTimeout(timer);
       if (message.error) reject(new Error(message.error.message)); else resolve(message.result);
+    }
+    if (message.method === 'Fetch.requestPaused') {
+      const allowed = message.params.request.url.startsWith('http://127.0.0.1:5179/');
+      void send(allowed ? 'Fetch.continueRequest' : 'Fetch.failRequest', {
+        requestId: message.params.requestId, ...(allowed ? {} : { errorReason: 'BlockedByClient' }),
+      }, message.sessionId).catch(() => {});
     }
   });
   const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
@@ -53,12 +59,21 @@ try {
   };
   const until = async expression => {
     for (let i = 0; i < 100; i++) { if (await evaluate(expression)) return; await sleep(50); }
-    throw new Error(`Condition failed: ${expression}`);
+    throw new Error(`Condition failed: ${expression}; UI: ${await evaluate('document.body.innerText.slice(0, 500)')}`);
   };
   const navigate = async suffix => {
     await cdp('Page.navigate', { url: `http://127.0.0.1:5179/${suffix}` });
     await until('!!document.querySelector(".auth-card")');
   };
+  await cdp('Page.enable');
+  await cdp('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
+  await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
+    window.fetch = async (url) => {
+      if (new URL(String(url)).pathname === '/students/me/overview') return new Response(JSON.stringify({ totals: { completedActivities: 0 }, latestDiagnosticId: null, evolution: [], recentActivities: [] }), { status: 200 });
+      if (new URL(String(url)).pathname === '/auth/session') return new Response(JSON.stringify({ user: { id: 'fixture-user', nome: 'Fixture', email: 'fixture@example.invalid', role: 'ALUNO', emailVerificado: true }, nextStep: 'DASHBOARD' }), { status: 200 });
+      throw new Error('Unexpected request in isolated legal test');
+    };
+  ` });
   await cdp('Emulation.setDeviceMetricsOverride', { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
   for (const [hash, title] of [['#/termos', 'Termos de Uso'], ['#/privacidade', 'Aviso de Privacidade']]) {
     await navigate(hash);
@@ -107,6 +122,7 @@ try {
   await evaluate('document.querySelector(".auth-submit").click()');
   assert.equal(await evaluate('window.requests.length'), 0);
   await evaluate(`const input = document.querySelector('input[placeholder="Digite seu nome completo"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Ana Teste'); input.dispatchEvent(new Event('input', { bubbles: true }));`);
+  await evaluate(`for (const [selector, value] of [['input[name=email]', 'registration@example.invalid'], ['input[name=new-password]', 'fixture-register-password'], ['input[name=confirm-password]', 'fixture-register-password']]) { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }`);
   for (const hash of ['#/termos', '#/privacidade']) {
     await evaluate(`document.querySelector('.legal-consent a[href="${hash}"]').click()`);
     await until('!!document.querySelector(".legal-page")');
@@ -121,14 +137,16 @@ try {
   assert.equal(await evaluate('window.requests[0].body.acceptance.accepted'), true);
   assert.ok(await evaluate('window.requests[0].body.acceptance.termsVersion && window.requests[0].body.acceptance.privacyVersion'));
   const token = `x.${Buffer.from(JSON.stringify({ role: 'ALUNO' })).toString('base64url')}.x`;
-  await evaluate(`sessionStorage.setItem('jurissim_token', '${token}')`);
+  await evaluate(`sessionStorage.setItem('jurissim_token', '${token}'); sessionStorage.setItem('jurissim_email_verificado', 'true');`);
   await evaluate("window.location.hash = ''");
   await until('!document.querySelector(".legal-page")');
   await evaluate("history.replaceState({}, '', '/desempenho')");
   await cdp('Page.reload');
   await until('!!document.querySelector(".app-legal-footer")');
-  await until('!!document.querySelector(".nav-bottom button")');
-  await evaluate(`[...document.querySelectorAll('.nav-bottom button')].find(button => button.textContent.includes('Config')).click()`);
+  await until('!!document.querySelector(".v0-sidebar nav button")');
+  await evaluate(`[...document.querySelectorAll('.v0-sidebar nav button')].find(button => button.textContent.includes('Config')).click()`);
+  await until('!!document.querySelector(".v0-tabs")');
+  await evaluate(`[...document.querySelectorAll('.v0-tabs button')].find(button => button.textContent.includes('Preferências')).click()`);
   await until("!!document.querySelector('#privacy-settings-title')");
   assert.equal(await evaluate(`document.querySelectorAll('#privacy-settings-title ~ .legal-links a[href="#/termos"], #privacy-settings-title ~ .legal-links a[href="#/privacidade"]').length`), 2);
   assert.equal(await evaluate(`document.querySelector('#privacy-settings-title').parentElement.textContent.includes('Em breve')`), false);
@@ -138,7 +156,7 @@ try {
     await evaluate('document.querySelector(".legal-back").click()');
     await until('!document.querySelector(".legal-page")');
   }
-  await evaluate(`[...document.querySelectorAll('button')].find(button => button.textContent.includes('Fechar')).click()`);
+  await evaluate(`[...document.querySelectorAll('.v0-sidebar nav button')].find(button => button.textContent.includes('Início')).click()`);
   for (const width of [1366, 390]) {
     await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 760 });
     for (const hash of ['#/termos', '#/privacidade']) {
@@ -167,6 +185,7 @@ try {
   await until('location.pathname === "/" && !!document.querySelector(".start-card")');
   await evaluate(`window.fetch = async (url, init = {}) => {
     const path = new URL(String(url)).pathname;
+    if (path === '/students/me/overview') return new Response(JSON.stringify({ totals: { completedActivities: 0 }, latestDiagnosticId: null, evolution: [], recentActivities: [] }), { status: 200 });
     const question = { id: 'q1', position: 1, statement: 'Questao de teste', discipline: 'Civil', topic: 'Contratos', difficulty: 'BASICO', alternatives: [{ id: 'a1', text: 'Alternativa A' }, { id: 'a2', text: 'Alternativa B' }], selectedOptionId: null };
     const trail = { id: 'trail1', disciplinaPrioritaria: 'Civil', assuntoPrioritario: 'Contratos', nivelRecomendado: 'BASICO', quantidadeRecomendada: 1, justificativa: 'Teste' };
     let data = {};
@@ -192,6 +211,10 @@ try {
   await until('document.querySelector(".result h1")?.textContent.includes("desempenho")');
   await evaluate('document.querySelector(".trail .primary").click()');
   await until('!!document.querySelector(".question input[type=radio]")');
+  await evaluate('history.pushState({}, "", "/desempenho"); window.dispatchEvent(new PopStateEvent("popstate"))');
+  await until('document.querySelector(".result h1")?.textContent.includes("desempenho")');
+  await evaluate('history.back()');
+  await until('!!document.querySelector(".question input[type=radio]")');
   await evaluate('document.querySelector(".question input[type=radio]").click()');
   await until('!document.querySelector(".question button.primary").disabled');
   await evaluate('document.querySelector(".question button.primary").click()');
@@ -205,6 +228,47 @@ try {
   await evaluate('document.querySelector(".result-dashboard-link").click()');
   await until('!!document.querySelector(".dashboard-page")');
   console.log('PASS: autofill separado; rota e responsividade do Dashboard; navegação Dashboard -> desempenho -> Dashboard -> estudar.');
+  // All auth calls are intercepted before app startup: no real delivery or DB writes.
+  await cdp('Page.enable');
+  const authStub = await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
+    window.authRequests = { resend: 0, confirm: 0 };
+    window.emailConfirmed = false;
+    window.fetch = async (url, init = {}) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/auth/session') return new Response(JSON.stringify({ user: { id: 'fixture-user', nome: 'Fixture', email: 'fixture@example.invalid', role: 'ALUNO', emailVerificado: window.emailConfirmed }, nextStep: 'DASHBOARD' }), { status: 200 });
+      if (path === '/auth/email-verification') {
+        window.authRequests.resend++;
+        window.resendAuthenticated = Boolean(init.headers.Authorization?.startsWith('Bearer '));
+        return new Response(JSON.stringify({ message: window.authRequests.resend === 1 ? 'Envio indisponível.' : 'Confirmação enviada.' }), { status: window.authRequests.resend === 1 ? 503 : 202 });
+      }
+      if (path === '/auth/email-verification/confirm') {
+        window.authRequests.confirm++;
+        return new Response(JSON.stringify({ message: 'E-mail confirmado com sucesso!' }), { status: 200 });
+      }
+      throw new Error('Unexpected request in isolated auth test');
+    };
+  ` });
+  await evaluate("sessionStorage.setItem('jurissim_email_verificado', 'false')");
+  await cdp('Page.navigate', { url: 'http://127.0.0.1:5179/dashboard' });
+  await until('document.querySelector("h1")?.textContent === "Confirme seu e-mail"');
+  await evaluate('document.querySelector("button.primary").click()');
+  await until('document.querySelector("small.error")?.textContent === "Envio indisponível."');
+  assert.equal(await evaluate('!!document.querySelector(".dashboard-page")'), false);
+  await evaluate('document.querySelector("button.primary").click()');
+  await until('document.querySelector(".recovery-notice")?.textContent === "Confirmação enviada."');
+  assert.equal(await evaluate('window.authRequests.resend'), 2);
+  assert.equal(await evaluate('window.resendAuthenticated'), true);
+  await evaluate('window.emailConfirmed = true; window.dispatchEvent(new Event("focus"))');
+  await until('!!document.querySelector(".dashboard-page")');
+  assert.equal(await evaluate("sessionStorage.getItem('jurissim_email_verificado')"), 'true');
+  await cdp('Page.navigate', { url: `http://127.0.0.1:5179/?auth-reset=1#/reset-password?token=${resetTokenPreview}` });
+  await until('document.querySelector("h2")?.textContent === "Defina uma nova senha"');
+  await cdp('Page.navigate', { url: `http://127.0.0.1:5179/?auth-verify=1#/verificar-email?token=${'b'.repeat(64)}` });
+  await until('document.querySelector(".recovery-notice")?.textContent === "E-mail confirmado com sucesso!"');
+  assert.equal(await evaluate('window.authRequests.confirm'), 1);
+  assert.equal(await evaluate('window.location.hash'), '');
+  await cdp('Page.removeScriptToEvaluateOnNewDocument', { identifier: authStub.identifier });
+  console.log('PASS: reenvio autenticado, falha de envio mantém bloqueio, confirmação em outra aba atualiza sessão e links de confirmação/redefinição abrem com sessão ativa.');
 } finally {
   socket?.close();
   browser.kill();
