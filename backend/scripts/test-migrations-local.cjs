@@ -186,7 +186,7 @@ async function main() {
   const runtimeUrl = `postgresql://${user}@127.0.0.1:${port}/jurissim_fresh?schema=public`;
   Object.assign(env, { DATABASE_URL: runtimeUrl, DIRECT_URL: runtimeUrl, SHADOW_DATABASE_URL: runtimeUrl,
     NODE_ENV: 'test', JWT_SECRET: 'local-postgres-stage3-test-key-over-32-characters',
-    GMAIL_USER: '', GMAIL_APP_PASSWORD: '', GOOGLE_CLIENT_ID: '', GROQ_API_KEY: '' });
+    GMAIL_USER: '', GMAIL_APP_PASSWORD: '', BREVO_SMTP_USER: '', BREVO_SMTP_KEY: '', GOOGLE_CLIENT_ID: '', GROQ_API_KEY: '' });
   console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-session-revocation-db.ts', data]));
   console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-student-history-db.ts', data]));
   console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-class-exams-db.ts', data]));

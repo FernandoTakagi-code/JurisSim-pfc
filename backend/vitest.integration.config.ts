@@ -17,6 +17,7 @@ export default defineConfig({
       TEST_DATABASE_URL: url, TEST_DIRECT_URL: url,
       JWT_SECRET: 'segredo-exclusivo-dos-testes-de-integracao-jurissim',
       GMAIL_USER: '', GMAIL_APP_PASSWORD: '', GOOGLE_CLIENT_ID: '', GROQ_API_KEY: '',
+      BREVO_SMTP_USER: '', BREVO_SMTP_KEY: '',
     },
   },
 });

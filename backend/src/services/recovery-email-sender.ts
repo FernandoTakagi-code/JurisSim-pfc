@@ -1,4 +1,4 @@
-import { GmailSmtpClient } from './gmail-smtp';
+import { BrevoSmtpClient } from './brevo-smtp';
 
 export type PasswordRecoveryEmail = {
   to: string;
@@ -21,22 +21,22 @@ export class UnconfiguredRecoveryEmailSender implements RecoveryEmailSender {
   }
 }
 
-// Envia o e-mail de verdade usando uma conta Gmail via SMTP (Nodemailer).
-// Requer GMAIL_USER e GMAIL_APP_PASSWORD configurados no .env.
-export class GmailRecoveryEmailSender implements RecoveryEmailSender {
+// Envia o e-mail de verdade usando o relay Brevo via SMTP (Nodemailer).
+// Requer BREVO_SMTP_USER e BREVO_SMTP_KEY configurados no .env.
+export class BrevoRecoveryEmailSender implements RecoveryEmailSender {
   readonly isConfigured: boolean;
-  private readonly smtp: GmailSmtpClient;
+  private readonly smtp: BrevoSmtpClient;
 
   constructor(
-    gmailUser = process.env.GMAIL_USER,
-    gmailAppPassword = process.env.GMAIL_APP_PASSWORD,
+    smtpUser = process.env.BREVO_SMTP_USER,
+    smtpKey = process.env.BREVO_SMTP_KEY,
   ) {
-    this.smtp = new GmailSmtpClient(gmailUser, gmailAppPassword);
+    this.smtp = new BrevoSmtpClient(smtpUser, smtpKey);
     this.isConfigured = this.smtp.isConfigured;
   }
 
   async sendPasswordRecovery({ to, resetUrl, expiresInMinutes }: PasswordRecoveryEmail): Promise<void> {
-    if (!this.isConfigured) throw new Error('Gmail recovery email sender is not configured.');
+    if (!this.isConfigured) throw new Error('Brevo recovery email sender is not configured.');
     const transporter = this.smtp.getTransporter();
     await transporter.sendMail({
       from: this.smtp.from,

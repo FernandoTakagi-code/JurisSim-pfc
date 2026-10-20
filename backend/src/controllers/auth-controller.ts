@@ -5,9 +5,9 @@ import { acceptanceSchema } from '../services/legal-acceptance';
 import { AuthService } from '../services/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { PasswordRecoveryService } from '../services/password-recovery-service';
-import { GmailRecoveryEmailSender } from '../services/recovery-email-sender';
+import { BrevoRecoveryEmailSender } from '../services/recovery-email-sender';
 import { EmailVerificationService } from '../services/email-verification-service';
-import { GmailEmailVerificationSender } from '../services/email-verification-sender';
+import { BrevoEmailVerificationSender } from '../services/email-verification-sender';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
 const emailSchema = z.string().trim().email('E-mail inválido').max(254);
@@ -48,8 +48,8 @@ const confirmEmailSchema = z.object({ token: z.string().min(20).max(512) });
 export class AuthController {
   constructor(
     private readonly service = new AuthService(),
-    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new GmailRecoveryEmailSender()),
-    private readonly emailVerification = new EmailVerificationService(undefined, new GmailEmailVerificationSender()),
+    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new BrevoRecoveryEmailSender()),
+    private readonly emailVerification = new EmailVerificationService(undefined, new BrevoEmailVerificationSender()),
   ) {}
 
   solicitarRecuperacaoSenha = async (request: Request, response: Response) => {

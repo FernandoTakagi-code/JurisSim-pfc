@@ -1,4 +1,4 @@
-import { GmailSmtpClient } from './gmail-smtp';
+import { BrevoSmtpClient } from './brevo-smtp';
 
 export type EmailVerificationEmail = {
   to: string;
@@ -19,22 +19,22 @@ export class UnconfiguredEmailVerificationSender implements EmailVerificationSen
   }
 }
 
-// Envia o e-mail de verdade usando uma conta Gmail via SMTP (Nodemailer).
-// Reaproveita GMAIL_USER e GMAIL_APP_PASSWORD já configurados no .env.
-export class GmailEmailVerificationSender implements EmailVerificationSender {
+// Envia o e-mail de verdade usando o relay Brevo via SMTP (Nodemailer).
+// Requer BREVO_SMTP_USER e BREVO_SMTP_KEY no ambiente privado do backend.
+export class BrevoEmailVerificationSender implements EmailVerificationSender {
   readonly isConfigured: boolean;
-  private readonly smtp: GmailSmtpClient;
+  private readonly smtp: BrevoSmtpClient;
 
   constructor(
-    gmailUser = process.env.GMAIL_USER,
-    gmailAppPassword = process.env.GMAIL_APP_PASSWORD,
+    smtpUser = process.env.BREVO_SMTP_USER,
+    smtpKey = process.env.BREVO_SMTP_KEY,
   ) {
-    this.smtp = new GmailSmtpClient(gmailUser, gmailAppPassword);
+    this.smtp = new BrevoSmtpClient(smtpUser, smtpKey);
     this.isConfigured = this.smtp.isConfigured;
   }
 
   async sendEmailVerification({ to, verifyUrl, expiresInMinutes }: EmailVerificationEmail): Promise<void> {
-    if (!this.isConfigured) throw new Error('Gmail email verification sender is not configured.');
+    if (!this.isConfigured) throw new Error('Brevo email verification sender is not configured.');
     const transporter = this.smtp.getTransporter();
     await transporter.sendMail({
       from: this.smtp.from,

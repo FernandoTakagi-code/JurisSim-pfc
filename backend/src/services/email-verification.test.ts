@@ -22,7 +22,7 @@ function dependencies(url = 'http://localhost:5173/') {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
 describe('envio e reenvio de confirmação', () => {
-  it('gera token seguro, persiste somente o hash e envia link sem barra duplicada, válido por 60 minutos', async () => {
+  it('gera token seguro, persiste somente o hash e envia link sem barra duplicada, válido por 30 minutos', async () => {
     vi.useFakeTimers();
     const now = new Date('2026-10-15T12:00:00Z');
     vi.setSystemTime(now);
@@ -36,8 +36,8 @@ describe('envio e reenvio de confirmação', () => {
     expect(url.pathname).toBe('/');
     expect(url.search).toBe('');
     expect(repository.createToken).toHaveBeenCalledWith('user-1', 'EMAIL_VERIFICATION',
-      createHash('sha256').update(raw).digest('hex'), new Date(now.getTime() + 60 * 60_000));
-    expect(message.expiresInMinutes).toBe(60);
+      createHash('sha256').update(raw).digest('hex'), new Date(now.getTime() + 30 * 60_000));
+    expect(message.expiresInMinutes).toBe(30);
     await service.requestVerification('user-1');
     expect(sender.sendEmailVerification).toHaveBeenCalledTimes(2);
     expect(repository.createToken.mock.calls[1][2] === repository.createToken.mock.calls[0][2]).toBe(false);

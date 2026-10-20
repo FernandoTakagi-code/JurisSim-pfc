@@ -1,108 +1,98 @@
-# E-mails e autenticação do JurisSim
+# E-mails do JurisSim com Brevo SMTP
 
-Os dois fluxos usam Nodemailer e Gmail SMTP (`smtp.gmail.com`, porta 587,
-STARTTLS obrigatório). Não é necessário criar variáveis `SMTP_*`.
+Cadastro, reenvio de confirmação e recuperação de senha usam Nodemailer com
+`smtp-relay.brevo.com:587`, STARTTLS obrigatório e TLS mínimo 1.2. O login SMTP
+é separado do remetente fixo `JurisSim <jurissimplataforma@gmail.com>`.
+Logs e debug do transporte permanecem desativados.
 
-A etapa 7 restringe o remetente à conta oficial, limita confirmação/recuperação a
-três emissões por hora por usuário, com intervalo mínimo de um minuto, e adiciona
-logout com revogação no servidor. Veja [a homologação local e as pendências reais](integration-stage7.md).
-Nenhum envio ou autenticação SMTP real foi realizado nessa etapa.
+Os prazos são centralizados em `backend/src/services/auth-token-policy.ts`:
+30 minutos para confirmação e 15 minutos para recuperação. Os serviços usam
+esses valores tanto no `expiresAt` quanto no texto e HTML dos e-mails.
+A política vale para novos tokens após reiniciar o backend; tokens já emitidos
+mantêm a expiração persistida, sem alteração retroativa no banco.
 
-## Configuração privada
+Referências: [configuração SMTP do Brevo](https://help.brevo.com/hc/en-us/articles/7924908994450-Send-transactional-emails-using-Brevo-SMTP)
+e [STARTTLS no Nodemailer](https://nodemailer.com/smtp).
 
-No `backend/.env`, configure:
+## Configuração privada local
 
-- `GMAIL_USER`: a conta oficial `jurissimplataforma@gmail.com`.
-- `GMAIL_APP_PASSWORD`: uma senha de app gerada **nessa mesma conta Google**.
-  Nunca use a senha normal da conta nem coloque a senha de app no Git ou no chat.
-- `APP_PUBLIC_URL`: URL base pública do **frontend**, sem fragmento ou query.
-  Para desenvolvimento local, `http://localhost:5173`. Em produção, use HTTPS.
-- Preserve `DATABASE_URL`, `DIRECT_URL` e `JWT_SECRET` existentes.
+1. Confira que `git check-ignore backend/.env` retorna `backend/.env` e que
+   `git ls-files backend/.env` não retorna nada. O arquivo já está ignorado.
+2. Abra `backend/.env` no editor local e acrescente as variáveis abaixo.
+   Se já existirem, revise os valores manualmente, sem criar linhas duplicadas.
 
-Para gerar a senha de app, entre na conta oficial, ative a verificação em duas
-etapas em Segurança e abra [Senhas de app](https://myaccount.google.com/apppasswords).
-Crie uma senha para o JurisSim e copie-a apenas para o ambiente privado do backend.
-Se essa opção não estiver disponível, confira as restrições da conta na
-[documentação do Google](https://support.google.com/accounts/answer/185833?hl=pt-BR).
+   ```dotenv
+   BREVO_SMTP_USER=bf0e5b001@smtp-brevo.com
+   BREVO_SMTP_KEY=
+   ```
 
-No `frontend/.env`, `VITE_API_URL` deve apontar para a API (localmente,
-`http://localhost:3333`). Sem essa variável, o código usa esse endereço local.
-Se acessar por domínio ou túnel, configure as URLs públicas corretas; `localhost`
-no navegador de outra pessoa aponta para o computador dela. Nunca coloque a senha
-SMTP ou o segredo JWT em variáveis `VITE_*`, pois elas são públicas.
+3. Cole a chave SMTP ativa **somente no editor local**, depois de
+   `BREVO_SMTP_KEY=`, entre aspas duplas. Preserve a chave exatamente como foi
+   fornecida. Não use a chave da API nem a senha da conta Brevo/Gmail.
+   Não coloque o segredo em comandos do terminal, chat, logs, testes ou Git.
+4. Preserve as credenciais existentes (`GMAIL_*`, banco, JWT e outras).
+   `GMAIL_USER` e `GMAIL_APP_PASSWORD` deixam de ser utilizadas; não há fallback
+   para Gmail. Nenhuma credencial existente foi modificada pela migração.
+5. Confira `APP_PUBLIC_URL`: origem do frontend sem query ou fragmento;
+   localmente `http://localhost:5173`, em produção uma URL HTTPS.
+   Nunca coloque a chave em variáveis `VITE_*`, que são públicas.
+6. Reinicie o backend quando estiver pronto para habilitar os fluxos reais.
+   Com SMTP configurado, cadastrar uma conta, reenviar a confirmação e pedir
+   recuperação de senha disparam mensagens reais. Aguarde autorização específica
+   antes de usar essas ações como teste.
 
-Reinicie backend e Vite após mudar os ambientes. Em builds publicados, reconstrua
-o frontend. O backend já habilita CORS e os endpoints usam o prefixo `/auth`.
+Host, porta, STARTTLS e remetente oficial ficam definidos no cliente Brevo;
+não é necessário criar variáveis para esses valores públicos. O exemplo
+versionado `backend/.env.example` mantém a chave vazia.
 
-## Verificação sem envio
+## Verificação local e autenticação
 
-Dentro de `backend`, execute `npm run email:verify` (no PowerShell, `npm.cmd run
-email:verify`). Esse comando verifica DNS, conexão, STARTTLS e autenticação SMTP,
-sem enviar mensagens nem mostrar credenciais. Uma conexão válida não comprova a
-entrega na caixa de entrada. Autorize separadamente um destinatário antes de
-qualquer teste real de envio.
+Dentro de `backend`, no PowerShell:
 
-## Fluxos e validação real pendente
+```powershell
+npm.cmd test
+npx.cmd tsc --noEmit
+npm.cmd run email:verify -- --offline
+```
 
-- Cadastro: gera token aleatório de 32 bytes, guarda apenas SHA-256 e envia o link
-  `/#/verificar-email?token=...`. Validade: 60 minutos. Falhas de envio ficam
-  explícitas na resposta do cadastro; a conta permanece não confirmada.
-- Reenvio: com sessão ativa, `POST /auth/email-verification`. Não use o botão como
-  teste antes de autorizar o envio: ele envia uma mensagem real ao titular da conta.
-- Confirmação: `POST /auth/email-verification/confirm`. O consumo do token, a
-  confirmação da conta e a auditoria ficam na mesma transação. Tokens expirados,
-  utilizados e de contas excluídas são recusados. A tela bloqueada consulta a
-  sessão ao recuperar foco para reconhecer uma confirmação em outra aba.
-- Recuperação: `POST /auth/password-recovery`, com resposta neutra para não revelar
-  contas. Token de 32 bytes, armazenado como SHA-256; validade de 30 minutos.
-  O link abre `/#/reset-password?token=...`. `POST /auth/password-reset` troca o hash
-  bcrypt e consome o token atomicamente. A redefinição não confirma o e-mail.
-- Após configurar a conta oficial, validar com destinatário autorizado: receber
-  os dois e-mails, abrir os links, confirmar a conta, entrar, redefinir a senha,
-  entrar com a nova senha e verificar a recusa da reutilização dos links.
+Os testes de envio usam transporte simulado e credenciais fictícias. As novas
+variáveis SMTP são isoladas das credenciais privadas no Vitest e no harness de
+banco descartável. O modo `--offline` verifica presença/configuração e URL do
+aplicativo, sem conexão SMTP nem autenticação. A saída mostra apenas estados,
+nunca os valores. Ele não comprova que a chave é aceita pelo Brevo.
 
-Não são necessárias migrations, seeds ou alterações manuais no Supabase para
-configurar o SMTP. Os testes automatizados isolam transporte e persistência;
-eles não comprovam entrega real de e-mails nem alteram o banco externo.
+Para uma etapa posterior, `npm.cmd run email:verify` verifica DNS, STARTTLS e
+autenticação reais, **sem enviar e-mail**. A resposta do provedor é omitida
+dos erros. Esse comando não comprova autorização do remetente nem entrega.
 
-## Resultado desta investigação — 15/10/2026
+## Fluxos e segurança preservados
 
-- O login foi aceito, conforme o relato confirmado pelo usuário; o impedimento
-  seguinte era a confirmação do e-mail. A ausência inicial da configuração de
-  envio explicava as respostas de indisponibilidade dos dois fluxos.
-- Na verificação posterior, `APP_PUBLIC_URL`, `GMAIL_USER` e
-  `GMAIL_APP_PASSWORD` estavam presentes. A URL do aplicativo correspondia ao
-  frontend local. `VITE_API_URL` estava ausente, usando o padrão local da API.
-- A conta SMTP configurada não correspondia à conta oficial informada. Nenhuma
-  credencial existente foi substituída. É necessário configurar conjuntamente
-  `GMAIL_USER` e a senha de app da conta oficial antes de validar esse remetente.
-- A conexão real Gmail, STARTTLS e autenticação passaram com as credenciais
-  disponíveis. Não houve envio real. Entrega, spam e links recebidos em caixas
-  reais ainda precisam de validação autorizada.
-- A consulta de leitura ao Supabase e a inspeção das tabelas/campos de autenticação
-  passaram durante esta investigação. Não houve alterações no banco.
-- Validação final: 142 testes em 13 suítes do backend aprovados; TypeScript de
-  backend e frontend aprovados; build do frontend e testes de navegador aprovados.
-  Os testes de navegador cobriram reenvio autenticado, falha de envio mantendo o
-  bloqueio, confirmação em outra aba e links com sessão ativa. SMTP e persistência
-  são isolados nos testes automatizados.
+- Cadastro e reenvio usam `EmailVerificationService`: token aleatório de 32
+  bytes, apenas SHA-256 persistido, validade de 30 minutos, link
+  `/#/verificar-email?token=...`. O reenvio exige sessão ativa em
+  `POST /auth/email-verification`. A falha de envio invalida o token; no cadastro,
+  a conta permanece não confirmada e a resposta informa a indisponibilidade.
+- `POST /auth/email-verification/confirm` consome o token, confirma a conta e
+  registra auditoria na mesma transação. Tokens expirados, usados e de contas
+  excluídas são recusados.
+- `POST /auth/password-recovery` mantém resposta neutra para não revelar contas.
+  Token de 32 bytes, SHA-256 persistido, validade de 15 minutos, link
+  `/#/reset-password?token=...`. Falha de envio invalida o token, sem expor erros
+  do SMTP. `POST /auth/password-reset` consome o token e troca a senha bcrypt
+  atomicamente; a redefinição não confirma o e-mail e revoga sessões anteriores.
+- Limites de três emissões por hora por usuário, intervalo mínimo de um minuto,
+  rate limiting HTTP e validação de URL permanecem nos serviços/repositórios.
 
-Arquivos alterados para os fluxos de e-mail nesta investigação:
+Nenhuma migration, seed ou alteração no banco externo é necessária para SMTP.
 
-- `backend/.env.example` e `backend/package.json`.
-- `backend/scripts/verify-email-config.ts`.
-- `backend/src/services/gmail-smtp.ts` e `gmail-smtp.test.ts`.
-- `backend/src/services/email-verification-sender.ts`,
-  `email-verification-service.ts` e `email-verification.test.ts`.
-- `backend/src/services/recovery-email-sender.ts`,
-  `password-recovery-service.ts`, `app-url.ts` e `legal-acceptance.test.ts`.
-- `backend/src/controllers/auth-controller.ts` e
-  `backend/src/repositories/auth-repository.ts`.
-- `frontend/src/auth-gate.tsx`, `frontend/src/main.tsx` e
-  `frontend/scripts/test-legal.mjs`.
-- Este documento, `docs/email-setup.md`.
+## Primeiro envio real pendente
 
-As alterações de testes/middleware da tarefa anterior e as alterações
-preexistentes em `backend/package-lock.json` e `frontend/vite.config.ts` foram
-preservadas. Não houve commit, push, merge, migrations ou seeds. Os componentes
-do dashboard não foram implementados nem redesenhados por esta tarefa.
+A implementação estará pronta para o primeiro envio após passar pelos testes
+simulados. Antes do envio autorizado, configure a chave local, confira no painel
+Brevo que o remetente oficial está validado e execute a verificação de conexão.
+Consulte as [instruções de validação de remetente do Brevo](https://help.brevo.com/hc/en-us/articles/208836149-Create-a-new-sender).
+
+Obtenha autorização específica para o destinatário e os fluxos a testar.
+Só então faça cadastro, reenvio e recuperação com a conta autorizada; confirme
+recebimento (inclusive spam), remetente, links, expiração e rejeição de reuso.
+Entrega e aceitação do remetente dependem da validação real com o Brevo.
