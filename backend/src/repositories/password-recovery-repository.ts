@@ -44,18 +44,21 @@ export class PasswordRecoveryRepository {
     });
   }
 
-  async isTokenUsable(tokenHash: string, now: Date) {
+  async getUsablePasswordHash(tokenHash: string, now: Date) {
     const token = await prisma.passwordRecoveryToken.findUnique({
       where: { tokenHash },
       select: { expiresAt: true, consumedAt: true, user: { select: { senhaHash: true, deletedAt: true } } },
     });
-    return Boolean(
-      token && !token.consumedAt && token.expiresAt > now &&
-      !token.user.deletedAt && token.user.senhaHash && token.user.senhaHash !== GOOGLE_PASSWORD_SENTINEL,
-    );
+    if (!token || token.consumedAt || token.expiresAt <= now || token.user.deletedAt ||
+      !token.user.senhaHash || token.user.senhaHash === GOOGLE_PASSWORD_SENTINEL) return null;
+    return token.user.senhaHash;
   }
 
-  consumeAndReset(tokenHash: string, senhaHash: string, now: Date) {
+  async isTokenUsable(tokenHash: string, now: Date) {
+    return Boolean(await this.getUsablePasswordHash(tokenHash, now));
+  }
+
+  consumeAndReset(tokenHash: string, senhaHash: string, now: Date, expectedCurrentPasswordHash?: string) {
     return prisma.$transaction(async tx => {
       const token = await tx.passwordRecoveryToken.findUnique({
         where: { tokenHash },
@@ -70,6 +73,7 @@ export class PasswordRecoveryRepository {
         select: { id: true, senhaHash: true },
       });
       if (!account?.senhaHash || account.senhaHash === GOOGLE_PASSWORD_SENTINEL) return false;
+      if (expectedCurrentPasswordHash && account.senhaHash !== expectedCurrentPasswordHash) return false;
 
       const claimed = await tx.passwordRecoveryToken.updateMany({
         where: { id: token.id, consumedAt: null, expiresAt: { gt: now } },

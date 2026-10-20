@@ -8,10 +8,10 @@ import { PasswordRecoveryService } from '../services/password-recovery-service';
 import { BrevoRecoveryEmailSender } from '../services/recovery-email-sender';
 import { EmailVerificationService } from '../services/email-verification-service';
 import { BrevoEmailVerificationSender } from '../services/email-verification-sender';
+import { passwordSchema } from '../services/password-policy';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
 const emailSchema = z.string().trim().email('E-mail inválido').max(254);
-const passwordSchema = z.string().min(6, 'Senha deve ter pelo menos 6 caracteres').refine(value => Buffer.byteLength(value, 'utf8') <= 72, 'A senha deve ter no máximo 72 bytes em UTF-8.');
 const perfilSchema = z.enum(['ALUNO', 'PROFESSOR']).optional();
 
 const registerSchema = z.object({
@@ -38,7 +38,7 @@ const recoveryRequestSchema = z.object({ email: emailSchema });
 const recoveryResetSchema = z.object({
   token: z.string().min(20).max(512),
   senha: passwordSchema,
-  confirmacaoSenha: z.string().min(6, 'Confirme a nova senha.'),
+  confirmacaoSenha: z.string().min(1, 'Confirme a nova senha.'),
 }).refine(data => data.senha === data.confirmacaoSenha, {
   path: ['confirmacaoSenha'],
   message: 'As senhas não coincidem.',

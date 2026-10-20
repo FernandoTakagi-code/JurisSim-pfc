@@ -3,8 +3,22 @@ import { endSession, establishSession, sessionDestination } from './auth-session
 import { useEffect, useState } from "react";
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { LegalLinks, legalAcceptance } from './legal';
+import { PASSWORD_MIN_LENGTH, passwordError, passwordRequirements, validPasswordConfirmation } from '../../backend/src/password-policy';
+import './password-policy.css';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+
+function PasswordRequirements({ value }: { value: string }) {
+  return <ul className="password-requirements" aria-label="Requisitos da senha">
+    {passwordRequirements.map(requirement => {
+      const satisfied = requirement.test(value);
+      return <li key={requirement.id} data-satisfied={satisfied}>
+        <span aria-hidden="true">{satisfied ? '✓' : '○'}</span>
+        <span className="sr-only">{satisfied ? 'Atendido: ' : 'Pendente: '}</span>{requirement.label}
+      </li>;
+    })}
+  </ul>;
+}
 
 function resetTokenFromHash() {
   const [route, query = ""] = window.location.hash.split("?");
@@ -213,7 +227,10 @@ export function AuthGate() {
     setError("");
     try {
       if ((mode === 'register' && registerSenha !== confirmacaoSenha) || (mode === 'reset' && newPassword !== confirmNewPassword)) throw new Error('As senhas não coincidem.');
-      if ((mode === 'register' || mode === 'reset') && new TextEncoder().encode(mode === 'register' ? registerSenha : newPassword).length > 72) throw new Error('A senha deve ter no máximo 72 bytes em UTF-8.');
+      if (mode === 'register' || mode === 'reset') {
+        const message = passwordError(mode === 'register' ? registerSenha : newPassword);
+        if (message) throw new Error(message);
+      }
       if (mode === "forgot") {
         const result = await post("/auth/password-recovery", { email: recoveryEmail });
         setRecoveryRequested(true);
@@ -334,7 +351,7 @@ export function AuthGate() {
               <span className="password-field">
                 <input
                   name={isLogin ? "current-password" : "new-password"}
-                  required minLength={isRegister ? 6 : 1} maxLength={isRegister ? 72 : 1024}
+                  required minLength={isRegister ? PASSWORD_MIN_LENGTH : 1} maxLength={isRegister ? 72 : 1024}
                   autoComplete={isLogin ? "current-password" : "new-password"}
                   type={showPassword ? "text" : "password"}
                   placeholder="Digite sua senha"
@@ -356,7 +373,7 @@ export function AuthGate() {
                 <span className="password-field">
                   <input
                     name="confirm-password"
-                    required minLength={6} maxLength={72}
+                    required minLength={PASSWORD_MIN_LENGTH} maxLength={72}
                     autoComplete="new-password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Digite sua senha novamente"
@@ -391,18 +408,22 @@ export function AuthGate() {
             {mode === "reset" && <>
               <label>
                 Nova senha
-                <span className="password-field"><input name="new-password" autoComplete="new-password" type={showPassword ? "text" : "password"} minLength={6} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "◉" : "◌"}</button></span>
+                <span className="password-field"><input name="new-password" autoComplete="new-password" placeholder="Digite uma nova senha" type={showPassword ? "text" : "password"} minLength={PASSWORD_MIN_LENGTH} required aria-describedby="reset-password-requirements" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "◉" : "◌"}</button></span>
               </label>
+              <div id="reset-password-requirements"><PasswordRequirements value={newPassword} /></div>
+              {newPassword && new TextEncoder().encode(newPassword).length > 72 && <p className="password-feedback" role="status">A senha deve ter no máximo 72 bytes em UTF-8.</p>}
               <label>
                 Confirme a nova senha
-                <span className="password-field"><input name="confirm-new-password" autoComplete="new-password" type={showPassword ? "text" : "password"} minLength={6} required value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "◉" : "◌"}</button></span>
+                <span className="password-field"><input name="confirm-new-password" autoComplete="new-password" placeholder="Repita a senha" type={showPassword ? "text" : "password"} minLength={PASSWORD_MIN_LENGTH} required aria-invalid={!!confirmNewPassword && newPassword !== confirmNewPassword} aria-describedby="reset-password-match" value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "◉" : "◌"}</button></span>
               </label>
+              <p id="reset-password-match" className="password-feedback" role="status">{confirmNewPassword && newPassword !== confirmNewPassword ? 'As senhas não coincidem.' : ''}</p>
             </>}
+            {isRegister && <PasswordRequirements value={registerSenha} />}
             {isRegister && <div className="legal-consent">
               <input id="legal-acceptance" type="checkbox" required checked={accepted} onChange={(event) => setAccepted(event.target.checked)} aria-labelledby="legal-consent-label" />
               <span id="legal-consent-label"><label htmlFor="legal-acceptance">Li e aceito </label>os <a href="#/termos">Termos de Uso</a> e a <a href="#/privacidade">Política de Privacidade</a>.</span>
             </div>}
-            <button type="submit" className="auth-submit" disabled={loading || (isRegister && !accepted) || (mode === "forgot" && (recoveryRequested || !recoveryEmail)) || (mode === "reset" && (!resetToken || !newPassword || newPassword !== confirmNewPassword))}>
+            <button type="submit" className="auth-submit" disabled={loading || (isRegister && (!accepted || !validPasswordConfirmation(registerSenha, confirmacaoSenha))) || (mode === "forgot" && (recoveryRequested || !recoveryEmail)) || (mode === "reset" && (!resetToken || !validPasswordConfirmation(newPassword, confirmNewPassword)))}>
               {loading ? "Aguarde..." : isLogin ? (perfil === "PROFESSOR" ? "Entrar como professor" : "Entrar como aluno") : isRegister ? (perfil === "PROFESSOR" ? "Criar conta de professor" : "Criar conta de aluno") : mode === "forgot" ? "Enviar instruções" : "Salvar nova senha"}
             </button>
             {error && <small className="error" role="alert">{error}</small>}

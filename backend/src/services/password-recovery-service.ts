@@ -5,8 +5,10 @@ import { GOOGLE_PASSWORD_SENTINEL } from '../repositories/auth-repository';
 import { PasswordRecoveryRepository } from '../repositories/password-recovery-repository';
 import type { RecoveryEmailSender } from './recovery-email-sender';
 import { isValidAppUrl } from './app-url';
+import { PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from './auth-token-policy';
+import { assertValidPassword } from './password-policy';
 
-export const PASSWORD_RECOVERY_TOKEN_TTL_MINUTES = 30;
+export { PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from './auth-token-policy';
 const NEUTRAL_RESPONSE = 'Se existir uma conta associada a este e-mail, enviaremos as instruções de recuperação.';
 
 export class PasswordRecoveryService {
@@ -47,13 +49,18 @@ export class PasswordRecoveryService {
 
   async resetPassword(token: string, senha: string, confirmacaoSenha: string) {
     if (senha !== confirmacaoSenha) throw new ApiError(400, 'As senhas não coincidem.');
+    assertValidPassword(senha);
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const now = new Date();
-    if (!await this.repository.isTokenUsable(tokenHash, now)) {
+    const currentPasswordHash = await this.repository.getUsablePasswordHash(tokenHash, now);
+    if (!currentPasswordHash) {
       throw new ApiError(400, 'Link inválido, expirado ou já utilizado.');
     }
+    if (await bcrypt.compare(senha, currentPasswordHash)) {
+      throw new ApiError(400, 'Por seguran\u00e7a, sua nova senha deve ser diferente da senha atual.');
+    }
     const senhaHash = await bcrypt.hash(senha, 10);
-    const completed = await this.repository.consumeAndReset(tokenHash, senhaHash, new Date());
+    const completed = await this.repository.consumeAndReset(tokenHash, senhaHash, new Date(), currentPasswordHash);
     if (!completed) throw new ApiError(400, 'Link inválido, expirado ou já utilizado.');
     return { message: 'Senha redefinida. Você já pode entrar com sua nova senha.' };
   }

@@ -118,7 +118,7 @@ describe('AuthService.register()', () => {
     const aceite = { accepted: true, termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion };
 
     // Act
-    const tentativa = service.register('Ana', 'teste@jurissim.local', 'senha-segura', 'ALUNO', aceite);
+    const tentativa = service.register('Ana', 'teste@jurissim.local', 'Senha-segura1!', 'ALUNO', aceite);
 
     // Assert
     await expect(tentativa).rejects.toMatchObject({ statusCode: 409, message: 'E-mail já cadastrado.' });

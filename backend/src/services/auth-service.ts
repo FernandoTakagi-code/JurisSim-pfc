@@ -5,6 +5,7 @@ import { acceptanceSchema } from './legal-acceptance';
 import { ApiError } from '../errors/api-error';
 import { AuthRepository, GOOGLE_PASSWORD_SENTINEL } from '../repositories/auth-repository';
 import versions from '../legal-versions.json';
+import { assertValidPassword } from './password-policy';
 
 
 export type PerfilAcesso = 'ALUNO' | 'PROFESSOR';
@@ -34,6 +35,7 @@ export class AuthService {
   constructor(private readonly repository = new AuthRepository()) {}
 
   async register(nome: string, email: string, senha: string, role: 'ALUNO' | 'PROFESSOR', acceptance?: unknown) {
+    assertValidPassword(senha);
     acceptanceSchema.parse(acceptance);
     if (await this.repository.findByEmail(email)) throw new ApiError(409, 'E-mail já cadastrado.');
     const senhaHash = await bcrypt.hash(senha, 10);

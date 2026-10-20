@@ -16,7 +16,7 @@ const acceptance = { accepted: true, termsVersion: versions.termsVersion, privac
 describe('aceite e auditoria', () => {
   it.each([undefined, false, {}, { ...acceptance, accepted: false }, { ...acceptance, accepted: 'true' }, { ...acceptance, termsVersion: 'antiga' }, { ...acceptance, privacyVersion: 'antiga' }])('rejeita aceite ausente ou inválido: %j', async (input) => {
     const repository = { findByEmail: vi.fn(), createUser: vi.fn() };
-    await expect(new AuthService(repository as never).register('Ana', 'ana@example.com', 'senha-segura', 'ALUNO', input)).rejects.toThrow();
+    await expect(new AuthService(repository as never).register('Ana', 'ana@example.com', 'Senha-segura1!', 'ALUNO', input)).rejects.toThrow();
     expect(repository.createUser).not.toHaveBeenCalled();
     expect(repository.findByEmail).not.toHaveBeenCalled();
   });
@@ -58,8 +58,8 @@ describe('cadastro HTTP no roteador oficial', () => {
   let base: string;
   beforeAll(async () => {
     // Never deliver real messages from an automated registration test.
-    vi.stubEnv('GMAIL_USER', '');
-    vi.stubEnv('GMAIL_APP_PASSWORD', '');
+    vi.stubEnv('BREVO_SMTP_USER', '');
+    vi.stubEnv('BREVO_SMTP_KEY', '');
     process.env.DATABASE_URL ||= 'postgresql://test:test@localhost:5432/test';
     process.env.DIRECT_URL ||= process.env.DATABASE_URL;
     process.env.JWT_SECRET = 'chave-apenas-de-testes-com-mais-de-32-caracteres';
@@ -80,7 +80,7 @@ describe('cadastro HTTP no roteador oficial', () => {
     db.findUnique.mockReset().mockResolvedValue(null);
     db.create.mockReset().mockImplementation(async ({ data }) => ({ ...data, id: 'user-http', sessionVersion: 0 }));
     // Preserve the minimum password length and case-sensitive email of the active API.
-    const body = { nome: 'Ana', email: 'Ana@example.com', senha: '123456', confirmacaoSenha: '123456', role: 'ALUNO' };
+    const body = { nome: 'Ana', email: 'Ana@example.com', senha: 'Fixture-password1!', confirmacaoSenha: 'Fixture-password1!', role: 'ALUNO' };
     for (const input of [undefined, { ...acceptance, accepted: false }, { ...acceptance, privacyVersion: 'antiga' }]) {
       const response = await fetch(`${base}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, acceptance: input }) });
       expect(response.status).toBeGreaterThanOrEqual(400);
@@ -113,7 +113,7 @@ describe('cadastro HTTP no roteador oficial', () => {
 
   it('não permite criar ADMIN pelo cadastro público', async () => {
     db.create.mockClear();
-    const response = await fetch(`${base}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: 'Admin', email: 'admin@example.com', senha: 'senha-segura', role: 'ADMIN', acceptance }) });
+    const response = await fetch(`${base}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: 'Admin', email: 'admin@example.com', senha: 'Senha-segura1!', role: 'ADMIN', acceptance }) });
     expect(response.status).toBe(400);
     expect(db.create).not.toHaveBeenCalled();
   });

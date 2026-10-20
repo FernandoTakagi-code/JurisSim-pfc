@@ -103,12 +103,40 @@ try {
   await until('!!document.querySelector(".auth-card")');
   assert.equal(await evaluate('document.querySelector("h2").textContent'), 'Defina uma nova senha');
   await evaluate(`window.fillRecoveryInput = (selector, value) => { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); };`);
-  await evaluate(`window.fillRecoveryInput('input[name=new-password]', 'senha-nova-segura'); window.fillRecoveryInput('input[name=confirm-new-password]', 'senha-nova-segura'); window.fetch = async (url, init) => { window.resetRequest = { url, body: JSON.parse(init.body) }; return new Response(JSON.stringify({ message: 'Senha redefinida. Você já pode entrar com sua nova senha.' }), { status: 200 }); };`);
+  assert.equal(await evaluate('document.querySelector("input[name=new-password]").placeholder'), 'Digite uma nova senha');
+  assert.equal(await evaluate('document.querySelector("input[name=confirm-new-password]").placeholder'), 'Repita a senha');
+  assert.equal(await evaluate('document.querySelectorAll(".password-requirements li").length'), 4);
+  await evaluate('window.resetRequests = 0; window.fetch = async () => { window.resetRequests++; throw new Error("Unexpected reset request"); };');
+  for (const password of ['joao', 'Ab1!', 'abcdef1!', 'Abcdefg!', 'Abcdefg1', 'Abcdefg1 ', 'A1!' + '?'.repeat(70)]) {
+    await evaluate(`window.fillRecoveryInput('input[name=new-password]', ${JSON.stringify(password)}); window.fillRecoveryInput('input[name=confirm-new-password]', ${JSON.stringify(password)});`);
+    await until('document.querySelector(".auth-submit").disabled');
+    await evaluate('document.querySelector(".auth-card").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))');
+    await until('!!document.querySelector("[role=alert]")');
+    assert.equal(await evaluate('window.resetRequests'), 0);
+  }
+  await evaluate(`window.fillRecoveryInput('input[name=new-password]', 'Valid-password1!'); window.fillRecoveryInput('input[name=confirm-new-password]', 'Other-password1!');`);
+  await until('document.querySelector("#reset-password-match").textContent === "As senhas n\\u00e3o coincidem."');
+  assert.equal(await evaluate('document.querySelector(".auth-submit").disabled'), true);
+  assert.equal(await evaluate('document.querySelectorAll(".password-requirements li[data-satisfied=true]").length'), 4);
+  await evaluate(`window.fillRecoveryInput('input[name=confirm-new-password]', 'Valid-password1!');`);
+  await until('!document.querySelector(".auth-submit").disabled');
+  assert.equal(await evaluate('document.querySelector("#reset-password-match").textContent'), '');
+  await evaluate(`window.fetch = async () => new Response(JSON.stringify({ message: 'Por seguran\\u00e7a, sua nova senha deve ser diferente da senha atual.' }), { status: 400 });`);
+  await evaluate(`window.fillRecoveryInput('input[name=new-password]', 'Current-password1!'); window.fillRecoveryInput('input[name=confirm-new-password]', 'Current-password1!'); document.querySelector('.auth-submit').click();`);
+  await until('document.querySelector("[role=alert]")?.textContent === "Por seguran\\u00e7a, sua nova senha deve ser diferente da senha atual."');
+  assert.equal(await evaluate('document.querySelectorAll(".password-requirements li[data-satisfied=true]").length'), 4);
+  assert.equal(await evaluate('document.querySelector("h2").textContent'), 'Defina uma nova senha');
+  for (const width of [360, 1366]) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width === 360 });
+    assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
+  }
+  console.log('PASS: pol?tica de senha em tempo real, confirma??o divergente, limite UTF-8, bloqueio de envio inv?lido e responsividade.');
+  await evaluate(`window.fillRecoveryInput('input[name=new-password]', 'Senha-nova-segura1!'); window.fillRecoveryInput('input[name=confirm-new-password]', 'Senha-nova-segura1!'); window.fetch = async (url, init) => { window.resetRequest = { url, body: JSON.parse(init.body) }; return new Response(JSON.stringify({ message: 'Senha redefinida. Você já pode entrar com sua nova senha.' }), { status: 200 }); };`);
   await evaluate('document.querySelector(".auth-submit").click()');
   await until('document.querySelector("h2").textContent === "Login" && !!document.querySelector(".recovery-notice")');
   assert.equal(await evaluate('window.resetRequest.url.endsWith("/auth/password-reset")'), true);
   assert.equal(await evaluate('window.resetRequest.body.token'), resetTokenPreview);
-  assert.equal(await evaluate('window.resetRequest.body.senha'), 'senha-nova-segura');
+  assert.equal(await evaluate('window.resetRequest.body.senha'), 'Senha-nova-segura1!');
   assert.equal(await evaluate('window.location.hash'), '');
   await navigate('');
   await evaluate(`const setInput = (selector, value) => { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }; setInput('input[name="email"]', 'login@example.com'); setInput('input[autocomplete="current-password"]', 'login-password');`);
@@ -122,7 +150,7 @@ try {
   await evaluate('document.querySelector(".auth-submit").click()');
   assert.equal(await evaluate('window.requests.length'), 0);
   await evaluate(`const input = document.querySelector('input[placeholder="Digite seu nome completo"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Ana Teste'); input.dispatchEvent(new Event('input', { bubbles: true }));`);
-  await evaluate(`for (const [selector, value] of [['input[name=email]', 'registration@example.invalid'], ['input[name=new-password]', 'fixture-register-password'], ['input[name=confirm-password]', 'fixture-register-password']]) { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }`);
+  await evaluate(`for (const [selector, value] of [['input[name=email]', 'registration@example.invalid'], ['input[name=new-password]', 'Fixture-register-password1!'], ['input[name=confirm-password]', 'Fixture-register-password1!']]) { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }`);
   for (const hash of ['#/termos', '#/privacidade']) {
     await evaluate(`document.querySelector('.legal-consent a[href="${hash}"]').click()`);
     await until('!!document.querySelector(".legal-page")');

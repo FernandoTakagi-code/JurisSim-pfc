@@ -17,7 +17,7 @@ import versions from '../legal-versions.json';
 let server: Server, base: string, hash: string, clock = 100;
 const secret = 'auth-stage7-http-fixture-secret-over-32-characters';
 const acceptance = { accepted: true, ...versions };
-const body = { nome: 'Fixture', email: 'fixture@example.invalid', senha: 'fixture-password', confirmacaoSenha: 'fixture-password', role: 'ALUNO', acceptance };
+const body = { nome: 'Fixture', email: 'fixture@example.invalid', senha: 'Fixture-password1!', confirmacaoSenha: 'Fixture-password1!', role: 'ALUNO', acceptance };
 const account = (role = 'ALUNO') => ({ id: 'fixture', nome: 'Fixture', email: body.email, role, senhaHash: hash, sessionVersion: 0, deletedAt: null, emailVerifiedAt: new Date() });
 const call = (path: string, data?: unknown, token?: string) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data ?? {}) });
 beforeAll(async () => { hash = await bcrypt.hash(body.senha, 4); });
@@ -78,8 +78,8 @@ describe('stage 7 authentication contracts', () => {
     expect(response.status).toBe(429); expect(response.headers.get('retry-after')).toBe('1'); clock += 1000; expect((await call('/rate')).status).toBe(200);
   });
   it('enforces production login quota before further credential work', async () => {
-    for (let i = 0; i < 30; i++) expect((await call('/auth/login', { email: 'missing@example.invalid', senha: 'fixture-password' })).status).toBe(401);
-    expect((await call('/auth/login', { email: 'other@example.invalid', senha: 'fixture-password' })).status).toBe(429); expect(mocks.find).toHaveBeenCalledTimes(30);
+    for (let i = 0; i < 30; i++) expect((await call('/auth/login', { email: 'missing@example.invalid', senha: 'Fixture-password1!' })).status).toBe(401);
+    expect((await call('/auth/login', { email: 'other@example.invalid', senha: 'Fixture-password1!' })).status).toBe(429); expect(mocks.find).toHaveBeenCalledTimes(30);
   });
   it('rejects malformed JSON without logging its body or returning it', async () => {
     const response = await fetch(base + '/auth/password-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"private":"unfinished' });

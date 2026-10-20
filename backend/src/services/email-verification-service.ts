@@ -3,8 +3,7 @@ import { ApiError } from '../errors/api-error';
 import { AuthRepository } from '../repositories/auth-repository';
 import { EmailVerificationSender, UnconfiguredEmailVerificationSender } from './email-verification-sender';
 import { isValidAppUrl } from './app-url';
-
-const EMAIL_VERIFICATION_TOKEN_TTL_MINUTES = 60;
+import { EMAIL_VERIFICATION_TOKEN_TTL_MINUTES } from './auth-token-policy';
 
 export class EmailVerificationService {
   constructor(

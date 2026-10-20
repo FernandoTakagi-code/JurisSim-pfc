@@ -86,8 +86,8 @@ beforeAll(async () => {
   vi.stubEnv('DATABASE_URL', 'postgresql://test:test@127.0.0.1:1/test');
   vi.stubEnv('DIRECT_URL', 'postgresql://test:test@127.0.0.1:1/test');
   vi.stubEnv('APP_PUBLIC_URL', 'http://localhost:5173');
-  vi.stubEnv('GMAIL_USER', 'jurissimplataforma@gmail.com');
-  vi.stubEnv('GMAIL_APP_PASSWORD', 'local-fixture-only');
+  vi.stubEnv('BREVO_SMTP_USER', 'fixture@smtp-brevo.com');
+  vi.stubEnv('BREVO_SMTP_KEY', 'local-fixture-only');
   vi.stubEnv('GOOGLE_CLIENT_ID', 'local-fixture-google-client');
   passwordHash = await bcrypt.hash('fixture-password', 4);
   const listen = vi.spyOn(express.application, 'listen').mockImplementation(function (this: express.Express) {
@@ -254,7 +254,7 @@ describe('exceções limitadas e continuidade dos fluxos', () => {
     expect(await missing.json()).toEqual(await recovery.json());
     expect(mocks.sendMail).toHaveBeenCalledTimes(1);
     mocks.recoveryFind.mockResolvedValue({ id: 'fixture-recovery-row', userId, consumedAt: null, expiresAt: new Date(Date.now() + 60_000), user: { senhaHash: passwordHash } });
-    const reset = await call('POST', '/auth/password-reset', undefined, { token: 'r'.repeat(43), senha: 'fixture-new-password', confirmacaoSenha: 'fixture-new-password' });
+    const reset = await call('POST', '/auth/password-reset', undefined, { token: 'r'.repeat(43), senha: 'Fixture-new-password1!', confirmacaoSenha: 'Fixture-new-password1!' });
     expect(reset.status).toBe(200);
     expect(account!.emailVerifiedAt).toBeNull();
     expect((await call('GET', '/questoes', bearer)).status).toBe(401);
@@ -291,8 +291,40 @@ describe('revogação de sessões após redefinir senha', () => {
       row.consumedAt = new Date();
       return { count: 1 };
     });
-    return { token: 'r'.repeat(43), senha: 'fixture-new-password', confirmacaoSenha: 'fixture-new-password' };
+    return { token: 'r'.repeat(43), senha: 'Fixture-new-password1!', confirmacaoSenha: 'Fixture-new-password1!' };
   }
+
+  it.each(['joao', 'Ab1!', 'abcdef1!', 'Abcdefg!', 'Abcdefg1', 'Abcdefg1 '])('recusa senha fraca %# sem efeitos e permite usar o mesmo token depois', async senha => {
+    account!.emailVerifiedAt = new Date();
+    const before = { ...account! };
+    const bearer = token();
+    const body = recoveryLink();
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const response = await call('POST', '/auth/password-reset', undefined, { ...body, senha, confirmacaoSenha: senha });
+      expect(response.status).toBe(400);
+      expect((await response.json()).message).toMatch(/^A senha deve/);
+      expect(account).toEqual(before);
+      expect(mocks.recoveryFind).not.toHaveBeenCalled();
+      expect(mocks.recoveryClaim).not.toHaveBeenCalled();
+      expect(mocks.userUpdateMany).not.toHaveBeenCalled();
+      expect(mocks.auditCreate).not.toHaveBeenCalled();
+      expect(log).not.toHaveBeenCalled();
+      expect((await call('GET', '/auth/session', bearer)).status).toBe(200);
+      expect((await call('POST', '/auth/password-reset', undefined, body)).status).toBe(200);
+      expect(account!.sessionVersion).toBe(1);
+      expect((await call('POST', '/auth/password-reset', undefined, body)).status).toBe(400);
+    } finally { log.mockRestore(); }
+  });
+
+  it('recusa confirmação divergente sem consumir o token', async () => {
+    const body = recoveryLink();
+    expect((await call('POST', '/auth/password-reset', undefined, { ...body, confirmacaoSenha: 'Other-valid1!' })).status).toBe(400);
+    expect(mocks.recoveryFind).not.toHaveBeenCalled();
+    expect(mocks.recoveryClaim).not.toHaveBeenCalled();
+    expect(mocks.userUpdateMany).not.toHaveBeenCalled();
+    expect((await call('POST', '/auth/password-reset', undefined, body)).status).toBe(200);
+  });
 
   it.each(roles)('revoga JWTs novos e legados de %s, inclusive sessão limitada e reenvio', async role => {
     account!.role = role;

@@ -98,8 +98,9 @@ para serviço/configuração indisponível. Respostas da área `/auth` recebem
 
 ## Tokens e limites
 
-Confirmação: 32 bytes aleatórios, SHA-256 no banco, validade de 60 minutos.
-Recuperação: 32 bytes aleatórios, SHA-256 no banco, validade de 30 minutos. Os
+Política atualizada em 20/10/2026, centralizada em `auth-token-policy.ts`:
+confirmação: 32 bytes aleatórios, SHA-256 no banco, validade de 30 minutos.
+Recuperação: 32 bytes aleatórios, SHA-256 no banco, validade de 15 minutos. Os
 links usam fragmento (`/#/...`), sem credencial em query HTTP. URLs de base são
 validadas e serializadas antes de compor os links.
 
