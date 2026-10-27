@@ -38,6 +38,37 @@ function classify(error: unknown): Diagnostic {
   return { tipo: 'ErroNaoClassificado' };
 }
 
+export type LocalDashboardErrorDiagnostic = {
+  method: 'GET';
+  path: '/students/me/overview' | '/diagnostics/:attemptId/result';
+  errorClass: string;
+  prismaCode?: string;
+};
+
+// Narrow, explicit opt-in for reproducing the two dashboard reads. Express
+// route templates are used so attempt IDs and query strings never enter logs.
+export function localDashboardErrorDiagnostic(error: unknown, request: Request): LocalDashboardErrorDiagnostic | undefined {
+  if (process.env.NODE_ENV !== 'development' || process.env.LOCAL_DASHBOARD_ERROR_DIAGNOSTICS !== '1') return;
+  if (!loopback.has(request.socket?.localAddress ?? '') || !loopback.has(request.socket?.remoteAddress ?? '')) return;
+
+  let path: LocalDashboardErrorDiagnostic['path'] | undefined;
+  if (request.method === 'GET' && request.baseUrl === '/students/me' && request.route?.path === '/overview') {
+    path = '/students/me/overview';
+  } else if (request.method === 'GET' && request.baseUrl === '/diagnostics' && request.route?.path === '/:attemptId/result') {
+    path = '/diagnostics/:attemptId/result';
+  }
+  if (!path) return;
+
+  const classified = classify(error);
+  const errorClass = classified.tipo;
+  return {
+    method: 'GET',
+    path,
+    errorClass,
+    ...(classified.codigo ? { prismaCode: classified.codigo } : {}),
+  };
+}
+
 // Temporary opt-in. Nothing here connects to Prisma or reads private .env files.
 export function passwordResetDiagnostic(error: unknown, request: Request): Diagnostic | undefined {
   if (process.env.NODE_ENV !== 'development' || process.env.PASSWORD_RESET_DIAGNOSTICS !== '1') return;

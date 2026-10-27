@@ -16,7 +16,7 @@ const acceptance = { accepted: true, termsVersion: versions.termsVersion, privac
 describe('aceite e auditoria', () => {
   it.each([undefined, false, {}, { ...acceptance, accepted: false }, { ...acceptance, accepted: 'true' }, { ...acceptance, termsVersion: 'antiga' }, { ...acceptance, privacyVersion: 'antiga' }])('rejeita aceite ausente ou inválido: %j', async (input) => {
     const repository = { findByEmail: vi.fn(), createUser: vi.fn() };
-    await expect(new AuthService(repository as never).register('Ana', 'ana@example.com', 'Senha-segura1!', 'ALUNO', input)).rejects.toThrow();
+    await expect(new AuthService(repository as never).register('Ana', 'ana@example.com', 'Senha-segura1!', input)).rejects.toThrow();
     expect(repository.createUser).not.toHaveBeenCalled();
     expect(repository.findByEmail).not.toHaveBeenCalled();
   });
@@ -31,12 +31,13 @@ describe('aceite e auditoria', () => {
   it('cria conta e evento de auditoria em uma escrita aninhada no repositório oficial', async () => {
     const { AuthRepository } = await import('../repositories/auth-repository');
     db.create.mockReset().mockResolvedValue({ id: 'user-1' });
-    await new AuthRepository().createUser('Ana', 'ana@example.com', 'hash', 'ALUNO', acceptance);
+    await new AuthRepository().createUser('Ana', 'ana@example.com', 'hash', acceptance);
     expect(db.create).toHaveBeenCalledTimes(1);
     for (const [args] of db.create.mock.calls) {
       expect(args.data.legalAcceptedAt).toBeInstanceOf(Date);
       expect(args.data.termsVersion).toBe(versions.termsVersion);
       expect(args.data.privacyVersion).toBe(versions.privacyVersion);
+      expect(args.data.role).toBe('ALUNO');
       expect(args.data.auditLogs.create.map((event: { action: string }) => event.action)).toEqual(['ACEITE_TERMOS_E_PRIVACIDADE', 'USUARIO_CADASTRADO']);
       expect(JSON.stringify(args.data.auditLogs)).not.toMatch(/senha|hash|token|email/);
     }
@@ -80,7 +81,7 @@ describe('cadastro HTTP no roteador oficial', () => {
     db.findUnique.mockReset().mockResolvedValue(null);
     db.create.mockReset().mockImplementation(async ({ data }) => ({ ...data, id: 'user-http', sessionVersion: 0 }));
     // Preserve the minimum password length and case-sensitive email of the active API.
-    const body = { nome: 'Ana', email: 'Ana@example.com', senha: 'Fixture-password1!', confirmacaoSenha: 'Fixture-password1!', role: 'ALUNO' };
+    const body = { nome: 'Ana', email: 'Ana@example.com', senha: 'Fixture-password1!', confirmacaoSenha: 'Fixture-password1!' };
     for (const input of [undefined, { ...acceptance, accepted: false }, { ...acceptance, privacyVersion: 'antiga' }]) {
       const response = await fetch(`${base}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, acceptance: input }) });
       expect(response.status).toBeGreaterThanOrEqual(400);
@@ -95,12 +96,13 @@ describe('cadastro HTTP no roteador oficial', () => {
       message: 'Conta criada, mas não foi possível enviar a confirmação de e-mail. Entre e solicite o reenvio.',
     });
     expect(JSON.stringify(result)).not.toMatch(/senhaHash|123456/);
-    expect(result.usuario).toEqual({ id: 'user-http', nome: body.nome, email: body.email, role: body.role });
+    expect(result.usuario).toEqual({ id: 'user-http', nome: body.nome, email: body.email, role: 'ALUNO' });
     const payload = jwt.verify(result.token, process.env.JWT_SECRET!, { algorithms: ['HS256'] }) as jwt.JwtPayload;
     expect(payload.id === 'user-http' && payload.role === 'ALUNO' && payload.sessionVersion === 0 && payload.sub === undefined).toBe(true);
     expect(db.create).toHaveBeenCalledTimes(1);
     expect(db.create.mock.calls[0][0].data.auditLogs.create.map((event: { action: string }) => event.action)).toEqual(['ACEITE_TERMOS_E_PRIVACIDADE', 'USUARIO_CADASTRADO']);
     const saved = db.create.mock.calls[0][0].data;
+    expect(saved.role).toBe('ALUNO');
     expect(await bcrypt.compare(body.senha, saved.senhaHash)).toBe(true);
     expect(bcrypt.getRounds(saved.senhaHash)).toBe(10);
     db.findUnique.mockResolvedValue({ ...saved, id: 'user-http', emailVerifiedAt: null, deletedAt: null, sessionVersion: 0 });
@@ -111,9 +113,9 @@ describe('cadastro HTTP no roteador oficial', () => {
     expect(await session.json()).toEqual({ user: { id: 'user-http', nome: body.nome, email: body.email, role: 'ALUNO', emailVerificado: false }, nextStep: 'DIAGNOSTIC' });
   });
 
-  it('não permite criar ADMIN pelo cadastro público', async () => {
+  it.each(['PROFESSOR', 'ADMIN'])('rejeita role %s enviada diretamente no cadastro público', async role => {
     db.create.mockClear();
-    const response = await fetch(`${base}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: 'Admin', email: 'admin@example.com', senha: 'Senha-segura1!', role: 'ADMIN', acceptance }) });
+    const response = await fetch(`${base}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: 'Tentativa', email: 'tentativa@example.com', senha: 'Senha-segura1!', role, acceptance }) });
     expect(response.status).toBe(400);
     expect(db.create).not.toHaveBeenCalled();
   });

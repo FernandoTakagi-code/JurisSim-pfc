@@ -1,23 +1,8 @@
 import { Response } from 'express';
-import { z } from 'zod';
 import { QuestaoService } from '../services/QuestaoService';
 import { AuthenticatedRequest } from '../middlewares/auth-middleware';
-
-const alternativaSchema = z.object({
-  texto: z.string().min(1, 'Texto da alternativa é obrigatório'),
-  correta: z.boolean(),
-});
-
-const criarQuestaoSchema = z.object({
-  enunciado: z.string().min(10, 'Enunciado muito curto'),
-  disciplina: z.string().min(1),
-  assunto: z.string().min(1),
-  nivel: z.enum(['BASICO', 'INTERMEDIARIO', 'AVANCADO']),
-  fundamentacaoJuridica: z.string().min(1),
-  publica: z.boolean(),
-  turmaId: z.string().trim().min(1).optional(),
-  alternativas: z.array(alternativaSchema).min(2),
-});
+import { criarQuestaoSchema } from '../schemas/questao-schemas';
+import { z } from 'zod';
 const atualizarQuestaoSchema = criarQuestaoSchema.partial().strict().refine(
   (dados) => Object.keys(dados).length > 0,
   { message: 'Informe ao menos um campo para atualizar.' },

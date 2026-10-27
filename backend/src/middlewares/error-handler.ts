@@ -1,10 +1,14 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { ApiError } from '../errors/api-error';
-import { passwordResetDiagnostic } from './password-reset-diagnostics';
+import { localDashboardErrorDiagnostic, passwordResetDiagnostic } from './password-reset-diagnostics';
 
 export const errorHandler: ErrorRequestHandler = (error, request, response, _next) => {
   if (error instanceof ApiError) {
+    if (error.statusCode >= 500) {
+      const diagnostic = localDashboardErrorDiagnostic(error, request);
+      if (diagnostic) console.error(diagnostic);
+    }
     if (error.retryAfter) response.set('Retry-After', String(error.retryAfter));
     response.status(error.statusCode).json({ message: error.message });
     return;
@@ -18,7 +22,7 @@ export const errorHandler: ErrorRequestHandler = (error, request, response, _nex
     return;
   }
 
-  const diagnostic = passwordResetDiagnostic(error, request);
+  const diagnostic = localDashboardErrorDiagnostic(error, request) ?? passwordResetDiagnostic(error, request);
   console.error(diagnostic ?? 'Erro interno do servidor.');
   response.status(500).json({ message: 'Erro interno do servidor.' });
 };

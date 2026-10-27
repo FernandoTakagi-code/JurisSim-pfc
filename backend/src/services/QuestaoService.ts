@@ -20,7 +20,7 @@ export class QuestaoService {
     return QuestaoRepository.criar(dados, actorId, actorRole);
   }
 
-  private static validarAlternativas(alternativas: DadosCriarQuestao['alternativas']) {
+  static validarAlternativas(alternativas: DadosCriarQuestao['alternativas']) {
     const corretas = alternativas.filter((a) => a.correta);
     if (corretas.length !== 1) {
       throw new ApiError(400, 'A questão deve ter exatamente uma alternativa correta');

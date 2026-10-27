@@ -140,6 +140,33 @@ async function create() {
 }
 
 describe('CRUD completo de questões por HTTP', () => {
+  it('calcula fingerprint no cadastro manual e traduz colisão única sem salvar a questão', async () => {
+    const saved = await create();
+    expect(saved.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect([...records.values()][0].fingerprint).toBe(saved.fingerprint);
+
+    db.$transaction.mockRejectedValueOnce(prismaError('P2002'));
+    const response = await call('POST', '', body);
+    expect(response.status).toBe(409);
+    expect((await response.json()).message).toMatch(/conteúdo/i);
+    expect(records.size).toBe(1);
+  });
+
+  it('recalcula fingerprint após edição e rejeita colisão sem alterar a questão', async () => {
+    const question = await create();
+    const originalFingerprint = question.fingerprint;
+    const edited = await call('PUT', `/${question.id}`, { assunto: 'Responsabilidade civil' });
+    expect(edited.status).toBe(200);
+    const updated = await edited.json();
+    expect(updated.fingerprint).not.toBe(originalFingerprint);
+
+    db.questao.update.mockRejectedValueOnce(prismaError('P2002'));
+    const conflict = await call('PUT', `/${question.id}`, { assunto: 'Conteúdo já existente' });
+    expect(conflict.status).toBe(409);
+    expect((await conflict.json()).message).toMatch(/conteúdo/i);
+    expect(records.get(question.id)?.assunto).toBe('Responsabilidade civil');
+  });
+
   it.each(['PROFESSOR', 'ADMIN'])('%s cria, visualiza, edita alternativas e exclui questão não utilizada', async role => {
     const created = await call('POST', '', { ...body, autorId: 'forjado' }, role);
     expect(created.status).toBe(201);
@@ -148,6 +175,19 @@ describe('CRUD completo de questões por HTTP', () => {
     const list = await call('GET', '', undefined, role);
     expect(list.status).toBe(200);
     expect((await list.json())[0].id).toBe(q.id);
+    const listQuery = db.questao.findMany.mock.calls[0][0];
+    expect(listQuery).toHaveProperty('select.alternativas.select', {
+      id: true, texto: true, correta: true, questaoId: true,
+    });
+    for (const field of [
+      'fonteNome', 'fonteReferencia', 'licencaOuAutorizacao', 'loteImportacaoId', 'fingerprint', 'origem',
+      'revisaoJuridicaEm', 'revisorJuridicoId', 'revisaoPedagogicaEm', 'revisorPedagogicoId',
+      'liberadaAcervoEm', 'liberadaAcervoPorId', 'situacaoDireitos', 'direitosVerificadosEm',
+      'direitosVerificadosPorId', 'oabExame', 'oabEdicao', 'oabTipoProva', 'oabNumeroQuestao',
+      'fonteOficialUrl', 'situacaoQuestaoOficial',
+    ]) {
+      expect(listQuery.select).not.toHaveProperty(field);
+    }
     const detail = await call('GET', `/${q.id}`, undefined, role);
     expect(detail.status).toBe(200);
     expect((await detail.json()).alternativas[0].correta).toBe(true);

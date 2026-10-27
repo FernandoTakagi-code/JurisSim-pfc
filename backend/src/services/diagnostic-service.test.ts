@@ -17,6 +17,7 @@ function attempt(overrides: Record<string, unknown> = {}) {
 function serviceWith(currentAttempt: ReturnType<typeof attempt>) {
   const repository = {
     findAttempt: vi.fn().mockResolvedValue(currentAttempt),
+    findAttemptForResult: vi.fn().mockResolvedValue(currentAttempt),
     saveAnswer: vi.fn().mockResolvedValue(undefined),
   };
   return { service: new DiagnosticService(repository as never), repository };
@@ -75,5 +76,57 @@ describe('regras do diagnostico', () => {
     const { service } = serviceWith(currentAttempt);
     const result = await service.getResult('attempt-1', 'student-1');
     expect(result.result.overallPercentage).toBe(5);
+  });
+
+  it('tentativa finalizada sem questoes retorna conflito controlado sem expor erro interno', async () => {
+    const { service } = serviceWith(attempt({ finalizadoEm: new Date(), questoes: [] }));
+
+    await expect(service.getResult('attempt-1', 'student-1')).rejects.toMatchObject({
+      name: 'ApiError',
+      statusCode: 409,
+      message: 'O resultado nao pode ser calculado porque esta tentativa nao possui questoes.',
+    });
+  });
+
+  it('calculo direto com lista vazia lança erro generico', async () => {
+    const { analyzeDiagnostic } = await import('./adaptive-engine');
+
+    expect(() => analyzeDiagnostic([])).toThrow('Nao e possivel analisar um diagnostico sem respostas.');
+  });
+
+  it('respostas ausentes em vinculos antigos sao contabilizadas como incorretas', async () => {
+    const currentAttempt = attempt({
+      finalizadoEm: new Date(),
+      questoes: [{
+        id: 'legacy-link-1', posicao: 1, questaoId: 'question-1', resposta: null,
+        questao: { id: 'question-1', enunciado: 'Pergunta', disciplina: 'Civil', assunto: 'Contratos', nivel: 'BASICO', alternativas: [] },
+      }],
+    });
+    const { service } = serviceWith(currentAttempt);
+
+    const { result } = await service.getResult('attempt-1', 'student-1');
+
+    expect(result.totalQuestions).toBe(1);
+    expect(result.correctAnswers).toBe(0);
+    expect(result.overallPercentage).toBe(0);
+  });
+
+  it('consulta resultado apenas para o aluno proprietario e retorna 404 quando nao pertence a ele', async () => {
+    const { service, repository } = serviceWith(attempt({ finalizadoEm: new Date() }));
+    repository.findAttemptForResult.mockResolvedValueOnce(null as never);
+
+    await expect(service.getResult('attempt-1', 'other-student')).rejects.toMatchObject({ statusCode: 404 });
+    expect(repository.findAttemptForResult).toHaveBeenCalledWith('attempt-1', 'other-student');
+  });
+
+  it('getTrail continua recuperando a trilha da consulta especifica de resultado', async () => {
+    const trail = {
+      id: 'trail-1', simuladoId: 'attempt-1', disciplinaPrioritaria: 'Civil', assuntoPrioritario: 'Contratos',
+      nivelRecomendado: 'BASICO', quantidadeRecomendada: 15, justificativa: 'Priorize Civil.',
+      createdAt: new Date(), simuladoGeradoId: null,
+    };
+    const { service } = serviceWith(attempt({ finalizadoEm: new Date(), trilhaAdaptativa: trail }));
+
+    await expect(service.getTrail('attempt-1', 'student-1')).resolves.toEqual(trail);
   });
 });

@@ -454,13 +454,20 @@ export function ExamsPage({ teacher }: { teacher: boolean }) {
     <section className="page class-exams-page">
       <p className="gold">SIMULADOS</p>
       <h1>
-        {teacher ? "Simulados do professor" : "Simulados das minhas turmas"}
+        {teacher ? "Simulados do professor" : "Simulados"}
       </h1>
       <p className="muted">
         {teacher
           ? "Selecione questões autorizadas e publique para suas turmas. Publicados ficam bloqueados para edição."
           : "Somente simulados publicados para turmas em que você está matriculado."}
       </p>
+      {!teacher && <section className="panel individual-exams-section" aria-labelledby="individual-exams-title">
+        <p className="gold">PREPARAÇÃO INDIVIDUAL</p>
+        <h2 id="individual-exams-title">Simulados individuais da OAB</h2>
+        <p className="muted">O catálogo de provas oficiais ainda não está disponível. Você pode praticar por disciplina com questões elegíveis.</p>
+        <div className="class-actions"><button className="primary" onClick={() => navigate('/questoes')}>Praticar por disciplina</button><span className="muted">Nenhum simulado oficial publicado no momento.</span></div>
+      </section>}
+      {!teacher && <div className="class-section-heading"><p className="gold">AVALIAÇÕES DE TURMA</p><h2>Simulados das minhas turmas</h2><p className="muted">Somente avaliações publicadas nas turmas em que você está matriculado.</p></div>}
       {teacher && !editing && (
         <button className="primary" onClick={() => setEditing("new")}>
           Criar simulado

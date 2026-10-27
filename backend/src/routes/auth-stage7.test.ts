@@ -17,7 +17,7 @@ import versions from '../legal-versions.json';
 let server: Server, base: string, hash: string, clock = 100;
 const secret = 'auth-stage7-http-fixture-secret-over-32-characters';
 const acceptance = { accepted: true, ...versions };
-const body = { nome: 'Fixture', email: 'fixture@example.invalid', senha: 'Fixture-password1!', confirmacaoSenha: 'Fixture-password1!', role: 'ALUNO', acceptance };
+const body = { nome: 'Fixture', email: 'fixture@example.invalid', senha: 'Fixture-password1!', confirmacaoSenha: 'Fixture-password1!', acceptance };
 const account = (role = 'ALUNO') => ({ id: 'fixture', nome: 'Fixture', email: body.email, role, senhaHash: hash, sessionVersion: 0, deletedAt: null, emailVerifiedAt: new Date() });
 const call = (path: string, data?: unknown, token?: string) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data ?? {}) });
 beforeAll(async () => { hash = await bcrypt.hash(body.senha, 4); });
@@ -39,7 +39,7 @@ describe('stage 7 authentication contracts', () => {
     const response = await call('/auth/register', { ...body, nome: ' Fixture ', email: ' fixture@example.invalid ', sessionVersion: 100, emailVerifiedAt: new Date() });
     expect(response.status).toBe(201); expect(response.headers.get('cache-control')).toBe('no-store');
     expect(mocks.create.mock.calls[0][0]).toBe('Fixture'); expect(mocks.create.mock.calls[0][1]).toBe(body.email);
-    expect(await bcrypt.compare(body.senha, mocks.create.mock.calls[0][2])).toBe(true); expect(mocks.create.mock.calls[0][3]).toBe('ALUNO');
+    expect(await bcrypt.compare(body.senha, mocks.create.mock.calls[0][2])).toBe(true); expect(mocks.create.mock.calls[0][3]).toMatchObject({ accepted: true, termsVersion: acceptance.termsVersion, privacyVersion: acceptance.privacyVersion });
     expect(JSON.stringify(await response.json())).not.toContain('senhaHash');
   });
   it.each(['existing', 'concurrent'])('returns 409 for %s duplicate email', async mode => {

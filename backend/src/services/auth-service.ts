@@ -6,6 +6,8 @@ import { ApiError } from '../errors/api-error';
 import { AuthRepository, GOOGLE_PASSWORD_SENTINEL } from '../repositories/auth-repository';
 import versions from '../legal-versions.json';
 import { assertValidPassword } from './password-policy';
+import { isInitialDiagnosticRequired } from '../config/initial-diagnostic-feature';
+import { localEmailVerificationCapture } from './local-email-capture';
 
 
 export type PerfilAcesso = 'ALUNO' | 'PROFESSOR';
@@ -34,13 +36,13 @@ const jwtPayloadSchema = z.object({
 export class AuthService {
   constructor(private readonly repository = new AuthRepository()) {}
 
-  async register(nome: string, email: string, senha: string, role: 'ALUNO' | 'PROFESSOR', acceptance?: unknown) {
+  async register(nome: string, email: string, senha: string, acceptance?: unknown) {
     assertValidPassword(senha);
     acceptanceSchema.parse(acceptance);
     if (await this.repository.findByEmail(email)) throw new ApiError(409, 'E-mail já cadastrado.');
     const senhaHash = await bcrypt.hash(senha, 10);
     try {
-      const user = await this.repository.createUser(nome, email, senhaHash, role, acceptance);
+      const user = await this.repository.createUser(nome, email, senhaHash, acceptance);
       return this.loginResponse(user);
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') throw new ApiError(409, 'E-mail já cadastrado.');
@@ -121,13 +123,30 @@ export class AuthService {
     return { message: 'Conta excluída com sucesso.' };
   }
 
-  async session(userId: string) {
+  async session(userId: string, localDemoRequested = false) {
     const user = await this.repository.findById(userId);
     if (!user || user.deletedAt) throw new ApiError(401, 'Sessão inválida.');
     const emailVerificado = Boolean(user.emailVerifiedAt);
+    const diagnosticRequired = isInitialDiagnosticRequired();
+    const localDemoRuntimeEnabled = localEmailVerificationCapture.isLocalDiagnosticDemoEnabled;
+    const initialDiagnosticCompleted = user.role === 'ALUNO' && diagnosticRequired
+      ? await this.repository.hasCompletedInitialDiagnostic(userId)
+      : undefined;
+    const demoAvailable = user.role === 'ALUNO' && diagnosticRequired &&
+      initialDiagnosticCompleted === false && localDemoRuntimeEnabled;
+    const demoActive = Boolean(demoAvailable && localDemoRequested);
+    const nextStep = user.role !== 'ALUNO'
+      ? 'PROFESSOR'
+      : diagnosticRequired
+        ? demoActive || initialDiagnosticCompleted ? 'DASHBOARD' : 'INITIAL_DIAGNOSTIC'
+        : await this.repository.hasCompletedDiagnostic(userId) ? 'DASHBOARD' : 'DIAGNOSTIC';
     return {
       user: { id: user.id, nome: user.nome, email: user.email, role: user.role, emailVerificado },
-      nextStep: user.role !== 'ALUNO' ? 'PROFESSOR' : await this.repository.hasCompletedDiagnostic(userId) ? 'DASHBOARD' : 'DIAGNOSTIC',
+      nextStep,
+      ...(localDemoRuntimeEnabled ? {
+        localDiagnosticDemoAvailable: Boolean(demoAvailable),
+        localDiagnosticDemoActive: demoActive,
+      } : {}),
     };
   }
 

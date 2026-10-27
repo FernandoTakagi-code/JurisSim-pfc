@@ -12,10 +12,17 @@ export default async function setup() {
     await assertDisposableDatabase(client);
     const expected = fs.readdirSync(path.resolve('prisma/migrations'))
       .filter(name => fs.existsSync(path.resolve('prisma/migrations', name, 'migration.sql'))).sort();
+    const requiredQuestionMigrations = [
+      '20261021100000_question_import_provenance',
+      '20261021110000_initial_diagnostic_identity',
+      '20261021120000_question_eligibility_metadata',
+      '20261021130000_question_practice_sessions',
+    ];
     const applied = await client.$queryRaw<{ migration_name: string }[]>`
       SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`;
-    if (expected.length !== 12 || JSON.stringify(applied.map(row => row.migration_name)) !== JSON.stringify(expected)) {
-      throw new Error('O banco descartável precisa das 12 migrations reais; o setup não cria nem redefine seu schema.');
+    if (JSON.stringify(expected.slice(-requiredQuestionMigrations.length)) !== JSON.stringify(requiredQuestionMigrations)
+      || JSON.stringify(applied.map(row => row.migration_name)) !== JSON.stringify(expected)) {
+      throw new Error('O banco descartável precisa conter todas as migrations locais aplicadas, na ordem atual; o setup não cria nem redefine seu schema.');
     }
   } finally { await client.$disconnect(); }
 }

@@ -39,12 +39,16 @@ async function request(route: string, body?: unknown, token?: string, status = 2
 }
 async function main() {
   const url = new URL(process.env.DATABASE_URL ?? '');
-  assert.equal(url.hostname, '127.0.0.1'); assert.equal(url.username, 'jurissim_migration_test'); assert.equal(url.password, '');
-  assert.equal(url.pathname, '/jurissim_fresh'); assert.ok(url.port && url.port !== '5432'); assert.equal(process.env.DIRECT_URL, url.toString());
+  assert.equal(url.hostname, '127.0.0.1'); assert.equal(url.username, 'jurissim_migration_test'); assert.equal(url.password, process.env.JURISSIM_TEST_DB_PASSWORD);
+  assert.equal(url.pathname, `/${process.env.JURISSIM_TEST_FRESH_DATABASE}`); assert.ok(url.port && url.port !== '5432'); assert.equal(process.env.DIRECT_URL, url.toString());
   assert.equal(process.env.GMAIL_USER, ''); assert.equal(process.env.GMAIL_APP_PASSWORD, ''); assert.equal(process.env.GOOGLE_CLIENT_ID, ''); assert.equal(process.env.NODE_ENV, 'test');
   const expected = fs.realpathSync(process.argv[2] ?? '');
   assert.equal(path.dirname(path.dirname(expected)).toLowerCase(), fs.realpathSync(os.tmpdir()).toLowerCase()); assert.ok(path.basename(path.dirname(expected)).startsWith('jurissim-migrations-'));
-  const [cluster] = await prisma.$queryRaw<{ data_directory: string }[]>`SELECT current_setting('data_directory') AS data_directory`;
+  const [cluster] = await prisma.$queryRaw<{ data_directory: string; database: string; owner: string; port: number; address: string }[]>`
+    SELECT current_setting('data_directory') AS data_directory, current_database() AS database,
+      current_user AS owner, inet_server_port() AS port, inet_server_addr()::text AS address`;
+  assert.equal(cluster.database, process.env.JURISSIM_TEST_FRESH_DATABASE);
+  assert.equal(cluster.owner, 'jurissim_migration_test'); assert.equal(cluster.port, Number(url.port)); assert.equal(cluster.address, '127.0.0.1');
   assert.equal(fs.realpathSync(cluster.data_directory).toLowerCase(), expected.toLowerCase());
   process.env.APP_PUBLIC_URL = frontendOrigin;
 
@@ -147,12 +151,16 @@ async function main() {
   await request('/reports/classes', undefined, teacherToken, 403, 'GET'); await prisma.user.update({ where: { email: teacherEmail }, data: { role: 'PROFESSOR' } });
   pass('deleted-account issuance/recovery and changed roles cannot bypass authorization; goals, photos and reports keep existing guards');
 
-  // Chrome communicates with this actual local server, not window.fetch mocks.
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(process.execPath, [path.resolve('../frontend/scripts/test-auth-local.mjs')], { cwd: path.resolve('../frontend'), windowsHide: true, env: { ...process.env, JURISSIM_TEST_API: base, JURISSIM_TEST_MAIL_KEY: fixtureKey }, stdio: ['ignore', 'pipe', 'pipe'] });
-    child.stdout.on('data', chunk => process.stdout.write(chunk)); child.stderr.on('data', chunk => process.stderr.write(chunk)); child.on('error', reject);
-    child.on('close', code => code === 0 ? resolve() : reject(new Error('Local authentication browser test failed')));
-  });
+  if (process.env.JURISSIM_RUN_BROWSER_TEST === '1') {
+    // Browser/Vite validation is an explicit opt-in phase, separate from database checks.
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(process.execPath, [path.resolve('../frontend/scripts/test-auth-local.mjs')], { cwd: path.resolve('../frontend'), windowsHide: true, env: { ...process.env, JURISSIM_TEST_API: base, JURISSIM_TEST_MAIL_KEY: fixtureKey }, stdio: ['ignore', 'pipe', 'pipe'] });
+      child.stdout.on('data', chunk => process.stdout.write(chunk)); child.stderr.on('data', chunk => process.stderr.write(chunk)); child.on('error', reject);
+      child.on('close', code => code === 0 ? resolve() : reject(new Error('Local authentication browser test failed')));
+    });
+  } else {
+    console.log('SKIP: browser/Vite stage is separate from the PostgreSQL integration run.');
+  }
   console.log(`PostgreSQL stage7 authentication integration: ${checks} scenarios passed.`);
 }
 main().catch(error => { console.error('Isolated stage7 validation failed:', error.message); process.exitCode = 1; }).finally(async () => { if (server) await new Promise<void>(resolve => server!.close(() => resolve())); await prisma.$disconnect(); });

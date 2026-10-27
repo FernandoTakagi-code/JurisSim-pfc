@@ -1,17 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { ApiError } from '../errors/api-error';
-import { DiagnosticRepository } from '../repositories/diagnostic-repository';
+import { diagnosticAttemptSelect, DiagnosticRepository, type DiagnosticResultAttempt } from '../repositories/diagnostic-repository';
 import type { AnsweredQuestion } from '../types/diagnostic';
 import { analyzeDiagnostic } from './adaptive-engine';
 import { gerarJustificativaComIA } from './feedback-service';
 
-type Attempt = Prisma.SimuladoGetPayload<{
-  include: {
-    questoes: { include: { questao: { include: { alternativas: true } }; resposta: true } };
-    desempenhosDiagnostico: true;
-    trilhaAdaptativa: true;
-  };
-}>;
+type Attempt = Prisma.SimuladoGetPayload<{ select: typeof diagnosticAttemptSelect }>;
 
 export class DiagnosticService {
   constructor(private readonly repository = new DiagnosticRepository()) {}
@@ -71,8 +65,11 @@ export class DiagnosticService {
   }
 
   async getResult(attemptId: string, studentId: string) {
-    const attempt = await this.getAttemptOrFail(attemptId, studentId);
+    const attempt = await this.getResultAttemptOrFail(attemptId, studentId);
     if (!attempt.finalizadoEm) throw new ApiError(409, 'Finalize o diagnostico antes de consultar o resultado.');
+    if (attempt.questoes.length === 0) {
+      throw new ApiError(409, 'O resultado nao pode ser calculado porque esta tentativa nao possui questoes.');
+    }
     const result = analyzeDiagnostic(this.answeredQuestions(attempt));
     if (attempt.trilhaAdaptativa?.justificativa) {
       result.trail.reason = attempt.trilhaAdaptativa.justificativa;
@@ -87,13 +84,24 @@ export class DiagnosticService {
     return attempt.trilhaAdaptativa;
   }
 
-  private answeredQuestions(attempt: Attempt): AnsweredQuestion[] {
+  private answeredQuestions(attempt: {
+    questoes: {
+      questao: { disciplina: string; assunto: string; nivel: AnsweredQuestion['difficulty'] };
+      resposta: { correta: boolean } | null;
+    }[];
+  }): AnsweredQuestion[] {
     return attempt.questoes.map(({ questao, resposta }) => ({
       discipline: questao.disciplina,
       topic: questao.assunto,
       difficulty: questao.nivel,
       isCorrect: resposta?.correta ?? false,
     }));
+  }
+
+  private async getResultAttemptOrFail(attemptId: string, studentId: string): Promise<DiagnosticResultAttempt> {
+    const attempt = await this.repository.findAttemptForResult(attemptId, studentId);
+    if (!attempt) throw new ApiError(404, 'Diagnostico nao encontrado.');
+    return attempt;
   }
 
   private async getAttemptOrFail(attemptId: string, studentId: string) {

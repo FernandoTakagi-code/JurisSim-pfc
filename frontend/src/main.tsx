@@ -4,17 +4,21 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 import { AuthGate } from "./auth-gate";
 import { apiRequest } from './api';
-import { useSession, refreshSession, endSession, logoutSession, sessionDestination } from './auth-session';
+import { useSession, refreshSession, endSession, logoutSession, sessionDestination, setLocalDiagnosticDemoMode } from './auth-session';
 import { EmailConfirmationGate } from './email-confirmation-gate';
-import { QuestoesPage } from "./QuestoesPage";
+import { QuestionPracticePage } from './question-practice';
 import { LegalBoundary, LegalLinks } from './legal';
 import { Brand, SettingsModal } from "./shell";
 import { ProfessorArea } from "./ProfessorArea";
 import { IntegrationShell } from "./integration-shell";
+import { QuestionImportPreview } from "./question-import-preview";
+import { InitialDiagnosticPage } from "./initial-diagnostic";
 import { navigate as navigateTo, usePath } from "./navigation";
+import { sessionRedirectTarget } from './auth-routing';
 import { ClassesPage, ExamsPage, ClassExamAttempt } from "./class-exams";
 import { GoalsPage } from "./goals-reports";
 import { useStudentProgress, ProgressStatus, Evolution, RecentActivities, PerformanceIndicators, StudentHistory, PersistedResult } from "./student-progress";
+import { StudyTrail } from "./study-trail";
 
 
 type Alternative = { id: string; text: string };
@@ -69,17 +73,17 @@ function Sidebar({
   onOpenSettings,
   onSair,
 }: {
-  active: "dashboard" | "diagnostico" | "questoes" | "desempenho";
-  onNavigate: (view: "diagnostico" | "questoes") => void;
+  active: "dashboard" | "estudar" | "diagnostico" | "questoes" | "desempenho";
+  onNavigate: (view: "estudar" | "diagnostico" | "questoes") => void;
   role: string | null;
   onDashboard: () => void;
   onPerformance: () => void;
   onOpenSettings: () => void;
   onSair: () => void;
 }) {
-  const items: [string, string, "diagnostico" | "questoes" | null][] = [
+  const items: [string, string, "estudar" | "diagnostico" | "questoes" | null][] = [
     ["⌂", "Início", null],
-    ["▤", "Estudar", "diagnostico"],
+    ["▤", "Estudar", "estudar"],
     ["?", "Questões", "questoes"],
     ["▥", "Meu desempenho", null],
   ];
@@ -119,6 +123,7 @@ function Sidebar({
 }
 
 function App() {
+  const path = usePath();
   const [authLink, setAuthLink] = useState(() => /^#\/(verificar-email|reset-password)(\?|$)/.test(window.location.hash));
   useEffect(() => {
     const update = () => setAuthLink(/^#\/(verificar-email|reset-password)(\?|$)/.test(window.location.hash));
@@ -133,27 +138,50 @@ function App() {
     document.addEventListener('visibilitychange', refresh);
     return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [authLink]);
+  const activeSession = auth.session;
+  const redirectTarget = auth.status === 'ready' && activeSession ? sessionRedirectTarget(activeSession, path) : null;
+  useEffect(() => {
+    if (redirectTarget) navigateTo(redirectTarget, true);
+  }, [redirectTarget]);
   if (authLink || (auth.status === 'anonymous' && !sessionStorage.getItem('jurissim_token'))) return <AuthGate />;
   if (auth.status === 'error') return <main className="page"><p className="error" role="alert">{auth.message}</p><button onClick={() => void refreshSession().catch(() => {})}>Tentar novamente</button><button onClick={() => void logoutSession()}>Sair</button></main>;
-  if (auth.status !== 'ready' || !auth.session) return <p className="muted" role="status">Validando sessão...</p>;
+  if (auth.status !== 'ready' || !auth.session || redirectTarget) return <SessionValidationScreen />;
   const { user } = auth.session;
   const sair = async () => { if (!await logoutSession()) return; if (user.role !== 'ALUNO') sessionStorage.setItem('jurissim_perfil', 'PROFESSOR'); window.location.assign('/'); };
   if (!user.emailVerificado) return <EmailConfirmationGate email={user.email} onSair={sair} />;
+  if (user.role === 'ADMIN' && path === '/professor/questoes/importar') return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair}><QuestionImportPreview role={user.role} /></IntegrationShell>;
   if (user.role === 'PROFESSOR' || user.role === 'ADMIN') return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair}><ProfessorArea userId={user.id} nome={user.nome} email={user.email} role={user.role} onSair={sair} /></IntegrationShell>;
-  return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair}><StudentApp role={user.role} nome={user.nome} email={user.email} initialDestination={sessionDestination(auth.session)} /></IntegrationShell>;
+  if (auth.session.nextStep === 'INITIAL_DIAGNOSTIC') return <main className="mandatory-diagnostic-screen">
+    <header className="mandatory-diagnostic-header"><span className="mandatory-diagnostic-brand-mark" aria-hidden="true"><img src="/brand/jurissim-logo.png" alt="" /></span><button type="button" onClick={() => void sair()}>Sair</button></header>
+    <div className="mandatory-diagnostic-content"><InitialDiagnosticPage mandatory studentId={user.id} localDemoAvailable={auth.session.localDiagnosticDemoAvailable} onEnterDemo={() => { setLocalDiagnosticDemoMode(true); void refreshSession(true).catch(() => setLocalDiagnosticDemoMode(false)); }} onBack={() => { void refreshSession().then(session => { if (session.nextStep === 'DASHBOARD') navigateTo('/trilha', true); }).catch(() => {}); }} /></div>
+    <footer className="app-legal-footer"><LegalLinks /></footer>
+  </main>;
+  const localDemoActive = user.role === 'ALUNO' && auth.session.localDiagnosticDemoActive === true;
+  const exitLocalDemo = () => { void refreshSession(true).catch(() => {}); };
+  return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair} localDiagnosticDemoActive={localDemoActive} onExitLocalDemo={exitLocalDemo}><StudentApp userId={user.id} role={user.role} nome={user.nome} email={user.email} initialDestination={sessionDestination(auth.session)} /></IntegrationShell>;
 }
 
-function StudentApp({ role, nome, email, initialDestination }: { role: string; nome: string; email: string; initialDestination: string }) {
+function SessionValidationScreen() {
+  return <main className="session-validation" role="status" aria-live="polite">
+    <div className="session-validation-card">
+      <span className="session-validation-mark" aria-hidden="true">J</span>
+      <span className="session-validation-spinner" aria-hidden="true" />
+      <strong>JurisSim</strong>
+      <span>Preparando seu ambiente de estudos…</span>
+    </div>
+  </main>;
+}
+function StudentApp({ userId, role, nome, email, initialDestination }: { userId: string; role: string; nome: string; email: string; initialDestination: string }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const route = usePath();
-  const view = route === "/questoes" ? "questoes" : "diagnostico";
+  const view = route.startsWith("/questoes") ? "questoes" : "diagnostico";
   const [id, setId] = useState<string>();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState<string>();
   const [currentResult, setResult] = useState<Result>();
   const progress = useStudentProgress();
-  const result = currentResult ?? (["/dashboard", "/desempenho", "/trilha"].includes(route) ? progress.latestResult : undefined);
+  const result = currentResult ?? (["/dashboard", "/desempenho", "/trilha", "/estudar"].includes(route) ? progress.latestResult : undefined);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [trailId, setTrailId] = useState<string>();
@@ -168,24 +196,18 @@ function StudentApp({ role, nome, email, initialDestination }: { role: string; n
   };
 
   const navigate = navigateTo;
-  const navigateView = (destination: "diagnostico" | "questoes") => navigate(destination === "questoes" ? "/questoes" : "/");
-  const startStudying = () => {
-    setId(undefined);
-    setQuestions([]);
-    setResult(undefined);
-    setTrailId(undefined);
-    setTrailQuestions([]);
-    setTrailResult(undefined);
-    setIndex(0);
-    setTrailIndex(0);
-    navigate("/");
-  };
+  const navigateView = (destination: "estudar" | "diagnostico" | "questoes") => navigate(
+    destination === "questoes" ? "/questoes" : destination === "diagnostico" ? "/diagnostico" : "/estudar",
+  );
   useEffect(() => {
     if (route.startsWith("/professor")) {
       const destination = initialDestination;
       navigateTo(destination, true);
     }
   }, [route, role, initialDestination]);
+
+  if (route === "/diagnostico-inicial") return <InitialDiagnosticPage studentId={userId} onBack={() => navigate("/")} />;
+  const practiceRoute = /^\/questoes\/pratica\/([^/]+)$/.exec(route);
 
 
   const classAttemptRoute = /^\/simulados\/tentativas\/([^/]+)$/.exec(route);
@@ -195,9 +217,9 @@ function StudentApp({ role, nome, email, initialDestination }: { role: string; n
   if (classAttemptRoute) return <ClassExamAttempt key={classAttemptRoute[1]} id={classAttemptRoute[1]} onCompleted={() => void progress.refresh()} />;
   const resultRoute = /^\/resultados\/(diagnostico|trilha)\/([^/]+)$/.exec(route);
   if (route === "/historico") return <StudentHistory />;
+  if (route === "/estudar") return <StudyTrail mode="study" userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
+  if (route === "/trilha") return <StudyTrail mode="trail" userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
   if (resultRoute) return <PersistedResult type={resultRoute[1] as "diagnostico" | "trilha"} id={resultRoute[2]} />;
-
-  if (route === "/trilha" && !result) return <section className="page"><h1>Minha trilha adaptativa</h1><p className="muted">Nenhuma trilha carregada nesta sessão. Conclua um diagnóstico para receber sua recomendação real.</p><button className="primary" onClick={startStudying}>Iniciar diagnóstico</button></section>;
 
   if (route === "/dashboard" && role === "ALUNO") {
     const firstName = nome.trim().split(/\s+/)[0] || "estudante";
@@ -205,14 +227,19 @@ function StudentApp({ role, nome, email, initialDestination }: { role: string; n
     const trail = result?.trail;
     return (
       <div className="shell">
-        <Sidebar active="dashboard" onNavigate={(destination) => destination === "diagnostico" ? startStudying() : navigateView(destination)} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
+        <Sidebar active="dashboard" onNavigate={navigateView} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
         <main className="content">
           <header><span>Início</span><b>Olá, {firstName}</b></header>
           <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refresh()} />
+          {progress.resultError && <div className="study-notice" role="alert"><p>O resumo da conta foi carregado, mas o resultado do diagnóstico antigo está indisponível: {progress.resultError}</p><button className="outline-button" onClick={() => void progress.refresh()}>Tentar novamente</button></div>}
           <section className="page dashboard-page">
             <div className="dashboard-heading">
               <div><p className="gold">JURISSIM · OAB</p><h1>Seu espaço de estudos</h1><p className="muted">Acompanhe seu preparo e continue de onde parou.</p></div>
-              <button className="primary" onClick={startStudying}>Estudar agora <b>→</b></button>
+              <div className="dashboard-heading-actions">
+                <button className="primary" onClick={() => navigate("/estudar")}>Estudar agora <b>→</b></button>
+                <button className="text-button" onClick={() => navigate("/trilha")}>Minha Trilha de Estudos</button>
+                <button className="text-button" onClick={() => navigate("/diagnostico-inicial")}>Conhecer o novo diagnóstico</button>
+              </div>
             </div>
             <article className="dashboard-recommendation">
               <div className="recommendation-icon">✦</div>
@@ -265,7 +292,7 @@ function StudentApp({ role, nome, email, initialDestination }: { role: string; n
             <p className="gold">SEU DESEMPENHO</p>
             <h1>{progress.data?.totals.completedActivities ? "Seu desempenho" : "Dados ainda indisponíveis"}</h1>
             <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refresh()} />
-            <p className="muted">Nenhum diagnóstico concluído foi encontrado na sua conta.</p>
+            {progress.resultError ? <p className="error" role="alert">O resultado do diagnóstico antigo está indisponível: {progress.resultError}</p> : <p className="muted">Nenhum diagnóstico concluído foi encontrado na sua conta.</p>}
             <PerformanceIndicators data={progress.data} />
             <button className="primary" onClick={() => navigate("/dashboard")}>Ir para o Dashboard <b>→</b></button>
           </section>
@@ -282,7 +309,7 @@ function StudentApp({ role, nome, email, initialDestination }: { role: string; n
     );
   }
 
-  if (view === "questoes") {
+  if (view === "questoes" || practiceRoute) {
     return (
       <div className="shell">
         <Sidebar active="questoes" onNavigate={navigateView} role={role} onDashboard={() => navigate("/dashboard")} onPerformance={() => navigate("/desempenho")} onOpenSettings={() => setSettingsOpen(true)} onSair={sair} />
@@ -290,7 +317,7 @@ function StudentApp({ role, nome, email, initialDestination }: { role: string; n
           <header>
             Banco de questões <TopBar nome={nome} />
           </header>
-          <QuestoesPage role={role} />
+          <QuestionPracticePage key={practiceRoute?.[1] ?? 'chooser'} attemptId={practiceRoute?.[1]} initialDiscipline={new URLSearchParams(window.location.search).get('disciplina') ?? undefined} />
         </main>
         {settingsOpen && (
           <SettingsModal
@@ -366,7 +393,7 @@ function StudentApp({ role, nome, email, initialDestination }: { role: string; n
       const response = await call<{ questions: Question[] }>(
         `/trilhas/attempts/${attempt.id}/questions`,
       );
-      if (route === "/desempenho") navigate("/");
+      if (route === "/desempenho") navigate("/diagnostico");
       setResult({ ...result, trail: { ...result.trail, simuladoGeradoId: attempt.id } });
       setTrailId(attempt.id);
       setTrailQuestions(response.questions);
@@ -755,7 +782,6 @@ function StudentApp({ role, nome, email, initialDestination }: { role: string; n
 const application = (
     <LegalBoundary>
       <App />
-      {sessionStorage.getItem('jurissim_token') && <footer className="app-legal-footer"><LegalLinks /></footer>}
     </LegalBoundary>
 );
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();

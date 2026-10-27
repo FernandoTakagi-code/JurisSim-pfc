@@ -32,6 +32,12 @@ model User {
   turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
   avaliacoesCriadas   Avaliacao[]
   profilePhotos       ProfilePhoto[]
+  lotesQuestoesImportadas LoteImportacao[]
+  diagnosticoInicial DiagnosticoInicial?
+  questoesRevisadasJuridicamente Questao[] @relation("RevisorJuridicoQuestao")
+  questoesRevisadasPedagogicamente Questao[] @relation("RevisorPedagogicoQuestao")
+  questoesLiberadasAcervo Questao[] @relation("LiberadorAcervoQuestao")
+  questoesDireitosVerificados Questao[] @relation("VerificadorDireitosQuestao")
 }
 
 // At most one private photo per user (primary key). List relation allows atomic
@@ -96,12 +102,53 @@ model Questao {
   createdAt             DateTime          @default(now())
   turmaId               String?
   autorId               String
+  fonteNome             String?
+  fonteReferencia       String?
+  licencaOuAutorizacao  String?
+  loteImportacaoId      String?
+  // Historical records remain NULL until a duplicate-aware, reviewed backfill.
+  fingerprint           String?           @unique(map: "Questao_fingerprint_key")
+  origem                OrigemQuestao?
+  revisaoJuridicaEm     DateTime?
+  revisorJuridicoId     String?
+  revisaoPedagogicaEm   DateTime?
+  revisorPedagogicoId   String?
+  liberadaAcervoEm      DateTime?
+  liberadaAcervoPorId   String?
+  situacaoDireitos      SituacaoDireitos?
+  direitosVerificadosEm DateTime?
+  direitosVerificadosPorId String?
+  oabExame              String?
+  oabEdicao             String?
+  oabTipoProva          String?
+  oabNumeroQuestao      Int?
+  fonteOficialUrl       String?
+  situacaoQuestaoOficial SituacaoQuestaoOficial?
   alternativas          Alternativa[]
   autor                 User              @relation(fields: [autorId], references: [id])
+  revisorJuridico       User?             @relation("RevisorJuridicoQuestao", fields: [revisorJuridicoId], references: [id], onDelete: Restrict)
+  revisorPedagogico     User?             @relation("RevisorPedagogicoQuestao", fields: [revisorPedagogicoId], references: [id], onDelete: Restrict)
+  liberadorAcervo       User?             @relation("LiberadorAcervoQuestao", fields: [liberadaAcervoPorId], references: [id], onDelete: Restrict)
+  verificadorDireitos   User?             @relation("VerificadorDireitosQuestao", fields: [direitosVerificadosPorId], references: [id], onDelete: Restrict)
   turma                 Turma?            @relation(fields: [turmaId], references: [id])
+  loteImportacao        LoteImportacao?   @relation(fields: [loteImportacaoId], references: [id], onDelete: Restrict)
   diagnosticos          QuestaoSimulado[]
   respostas             Resposta[]
   avaliacoes            AvaliacaoQuestao[]
+
+  @@index([origem, disciplina, nivel], map: "Questao_origem_disciplina_nivel_idx")
+}
+
+model LoteImportacao {
+  id              String    @id @default(uuid())
+  administradorId String
+  importadoEm     DateTime  @default(now())
+  arquivoHash     String    @db.Char(64)
+  totalQuestoes   Int
+  administrador   User      @relation(fields: [administradorId], references: [id], onDelete: Restrict)
+  questoes        Questao[]
+
+  @@index([administradorId, importadoEm])
 }
 
 model Alternativa {
@@ -109,7 +156,10 @@ model Alternativa {
   texto     String
   correta   Boolean
   questaoId String
+  letra     LetraAlternativa?
   questao   Questao @relation(fields: [questaoId], references: [id])
+
+  @@unique([questaoId, letra], map: "Alternativa_questaoId_letra_key")
 }
 
 model Simulado {
@@ -127,12 +177,39 @@ model Simulado {
   aluno                  User                    @relation(fields: [alunoId], references: [id])
   trilhaOrigem           TrilhaAdaptativa?       @relation("TrilhaGerouExercicios")
   trilhaAdaptativa       TrilhaAdaptativa?       @relation("TrilhaDoDiagnostico")
+  diagnosticoInicial     DiagnosticoInicial?     @relation("DiagnosticoInicialSimulado")
+  sessaoPratica          SessaoPratica?          @relation("SessaoPraticaSimulado")
 
   @@index([alunoId, iniciadoEm, id])
   @@index([alunoId, finalizadoEm, id])
   @@unique([avaliacaoId, alunoId])
+  // Supports a composite FK that guarantees the initial diagnostic belongs to its recorded student.
+  @@unique([id, alunoId], map: "Simulado_id_alunoId_key")
 }
 
+model DiagnosticoInicial {
+  id         String   @id @default(uuid())
+  alunoId    String   @unique
+  simuladoId String   @unique
+  aluno      User     @relation(fields: [alunoId], references: [id], onDelete: Restrict)
+  simulado   Simulado @relation("DiagnosticoInicialSimulado", fields: [simuladoId, alunoId], references: [id, alunoId], onDelete: Restrict)
+
+  // Prisma requires a unique key matching the composite one-to-one relation.
+  // The individual simuladoId unique constraint remains an explicit invariant.
+  @@unique([simuladoId, alunoId], map: "DiagnosticoInicial_simuladoId_alunoId_key")
+}
+
+model SessaoPratica {
+  id         String   @id @default(uuid())
+  simuladoId String   @unique
+  alunoId    String
+  disciplina String
+  criadaEm   DateTime @default(now())
+  simulado   Simulado @relation("SessaoPraticaSimulado", fields: [simuladoId, alunoId], references: [id, alunoId], onDelete: Restrict)
+
+  @@unique([simuladoId, alunoId], map: "SessaoPratica_simuladoId_alunoId_key")
+  @@index([alunoId, criadaEm])
+}
 model Avaliacao {
   id String @id @default(uuid())
   titulo String
@@ -255,6 +332,31 @@ enum Nivel {
   BASICO
   INTERMEDIARIO
   AVANCADO
+}
+
+enum OrigemQuestao {
+  IA
+  OAB_OFICIAL
+  PROFESSOR
+}
+
+enum SituacaoDireitos {
+  NAO_VERIFICADO
+  AUTORIZADA
+  DOMINIO_PUBLICO_VERIFICADO
+  NEGADA
+}
+
+enum SituacaoQuestaoOficial {
+  VALIDA
+  ANULADA
+}
+
+enum LetraAlternativa {
+  A
+  B
+  C
+  D
 }
 
 enum TipoSimulado {

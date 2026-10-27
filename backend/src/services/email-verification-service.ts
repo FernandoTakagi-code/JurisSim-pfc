@@ -28,6 +28,7 @@ export class EmailVerificationService {
     const verifyUrl = `${new URL(this.publicAppUrl).toString().replace(/\/$/, '')}/#/verificar-email?token=${encodeURIComponent(token)}`;
     try {
       await this.emailSender.sendEmailVerification({
+        userId,
         to: user.email,
         verifyUrl,
         expiresInMinutes: EMAIL_VERIFICATION_TOKEN_TTL_MINUTES,

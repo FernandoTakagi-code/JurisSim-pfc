@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { LegalLinks, legalAcceptance } from './legal';
 import { PASSWORD_MIN_LENGTH, passwordError, passwordRequirements, validPasswordConfirmation } from '../../backend/src/password-policy';
+import { validateRegistration } from './registration-validation';
+import { INITIAL_DIAGNOSTIC_ATTEMPT_COUNT, INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT } from '../../backend/src/services/initial-diagnostic-config';
 import './password-policy.css';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
@@ -67,13 +69,7 @@ function PerfilSwitch({ perfil, onChange, disabled }: { perfil: Perfil; onChange
 function VisualPanel() {
   return (
     <section className="auth-pitch">
-      <div className="auth-brand">
-        <b>⚖</b>
-        <span>
-          <strong>JurisSim</strong>
-          <small>Plataforma adaptativa de preparação para o Exame da OAB</small>
-        </span>
-      </div>
+      <img className="auth-brand-logo" src="/brand/jurissim-logo.png" alt="JurisSim — Educação Jurídica" />
       <div className="auth-pitch-copy">
         <p>DIAGNÓSTICO INTELIGENTE</p>
         <h1>
@@ -86,16 +82,16 @@ function VisualPanel() {
       </div>
       <div className="auth-stats">
         <div>
-          <b>5</b>
-          <small>Matérias</small>
+          <b>{INITIAL_DIAGNOSTIC_QUESTION_COUNT}</b>
+          <small>Questões do diagnóstico</small>
         </div>
         <div>
-          <b>2.000+</b>
-          <small>Questões</small>
+          <b>{INITIAL_DIAGNOSTIC_DISCIPLINES.length}</b>
+          <small>Disciplinas avaliadas</small>
         </div>
         <div>
-          <b>94%</b>
-          <small>Evolução</small>
+          <b>{INITIAL_DIAGNOSTIC_ATTEMPT_COUNT}</b>
+          <small>Avaliação inicial única</small>
         </div>
       </div>
     </section>
@@ -130,6 +126,7 @@ export function AuthGate() {
   const [verifyMessage, setVerifyMessage] = useState("");
 
   const post = (path: string, body: object) => apiRequest<any>(path, { method: 'POST', body: JSON.stringify(body) }, { authenticated: false });
+  const googlePerfil = mode === "register" ? "ALUNO" : perfil;
 
   useEffect(() => {
     const consumeLink = () => {
@@ -185,7 +182,7 @@ export function AuthGate() {
       const result = await post("/auth/google", {
         credential: credentialResponse.credential,
         nonce: googleNonce,
-        perfil,
+        perfil: googlePerfil,
       });
       if (result.requiresAcceptance) {
         setPendingGoogleCredential(credentialResponse.credential);
@@ -209,7 +206,7 @@ export function AuthGate() {
         credential: pendingGoogleCredential,
         nonce: googleNonce,
         acceptance: legalAcceptance,
-        perfil,
+        perfil: googlePerfil,
       });
       if (result.requiresAcceptance) throw new Error("Confirme o aceite para continuar.");
       setPendingGoogleCredential(undefined);
@@ -255,7 +252,6 @@ export function AuthGate() {
           email: registerEmail,
           senha: registerSenha,
           confirmacaoSenha,
-          role: perfil,
           acceptance: legalAcceptance,
         });
         setMode("login");
@@ -298,12 +294,46 @@ export function AuthGate() {
     );
   }
 
+  if (pendingGoogleCredential) {
+    return (
+      <main className="google-consent-page">
+        <section className="google-consent-card" aria-labelledby="google-legal-title">
+          <img className="google-consent-logo" src="/brand/jurissim-logo.png" alt="JurisSim — Educação Jurídica" />
+          <div className="google-consent-mark" aria-hidden="true">✓</div>
+          <p className="google-consent-eyebrow">SEU ACESSO AO JURISSIM</p>
+          <h1 id="google-legal-title">Antes de começar, precisamos do seu aceite</h1>
+          <p className="google-consent-intro">Para criar sua conta e continuar, consulte e aceite os documentos que explicam as regras de uso da plataforma e como seus dados são tratados.</p>
+          <nav className="google-consent-documents" aria-label="Documentos legais">
+            <a href="#/termos"><span><small>DOCUMENTO 01</small><strong>Termos de Uso</strong></span><b aria-hidden="true">↗</b></a>
+            <a href="#/privacidade"><span><small>DOCUMENTO 02</small><strong>Política de Privacidade</strong></span><b aria-hidden="true">↗</b></a>
+          </nav>
+          <label className="google-consent-check">
+            <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
+            <span>Li e aceito os Termos de Uso e a Política de Privacidade</span>
+          </label>
+          {error && <small className="error" role="alert">{error}</small>}
+          <button className="auth-submit google-consent-submit" type="button" disabled={!accepted || loading} onClick={acceptGoogleLegal}>
+            {loading ? "Aguarde..." : "Aceitar e continuar"}
+          </button>
+          <button className="google-consent-cancel" type="button" disabled={loading} onClick={() => { setPendingGoogleCredential(undefined); setAccepted(false); setError(""); }}>
+            Cancelar e voltar ao login
+          </button>
+          <p className="google-consent-footnote">Seu aceite será registrado junto às versões atuais dos documentos.</p>
+        </section>
+      </main>
+    );
+  }
+
   const isLogin = mode === "login";
   const isRegister = mode === "register";
   const isRecovery = mode === "forgot" || mode === "reset";
   const email = isLogin ? loginEmail : registerEmail;
   const senha = isLogin ? loginSenha : registerSenha;
-  const title = mode === "register" ? "Crie sua conta" : mode === "forgot" ? "Esqueci minha senha" : mode === "reset" ? "Defina uma nova senha" : "Login";
+  const registrationValidation = validateRegistration({
+    name: nome, email: registerEmail, password: registerSenha,
+    confirmation: confirmacaoSenha, accepted,
+  });
+  const title = mode === "register" ? "Crie sua conta de estudante" : mode === "forgot" ? "Esqueci minha senha" : mode === "reset" ? "Defina uma nova senha" : "Login";
   return (
     <main className="auth-layout">
       <VisualPanel />
@@ -314,10 +344,10 @@ export function AuthGate() {
             <p>
               {isRecovery ? "Recupere o acesso à sua conta JurisSim." : isLogin
                 ? perfil === "PROFESSOR" ? "Acesse a área do professor" : "Acesse sua área de estudos"
-                : perfil === "PROFESSOR" ? "Cadastre-se para criar questões para seus alunos" : "Comece sua preparação para a OAB"}
+                : "Crie sua conta de estudante e comece sua preparação para a OAB."}
             </p>
           </header>
-          {!isRecovery && <PerfilSwitch disabled={loading} perfil={perfil} onChange={(valor) => { setPerfil(valor); setError(""); setPendingGoogleCredential(undefined); setAccepted(false); }} />}
+          {isLogin && <PerfilSwitch disabled={loading} perfil={perfil} onChange={(valor) => { setPerfil(valor); setError(""); setPendingGoogleCredential(undefined); setAccepted(false); }} />}
           <form className="auth-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
             {isRegister && (
               <>
@@ -326,11 +356,14 @@ export function AuthGate() {
                   <input
                     name="name"
                     required minLength={2} maxLength={120}
+                    aria-invalid={!!nome && !!registrationValidation.name}
+                    aria-describedby={nome && registrationValidation.name ? "registration-name-error" : undefined}
                     autoComplete="name"
                     placeholder="Digite seu nome completo"
                     value={nome}
                     onChange={(event) => setNome(event.target.value)}
                   />
+                  {nome && registrationValidation.name && <small id="registration-name-error" className="error" role="status">{registrationValidation.name}</small>}
                 </label>
               </>
             )}
@@ -339,12 +372,15 @@ export function AuthGate() {
               <input
                 name="email"
                 required maxLength={254}
+                aria-invalid={isRegister && !!registerEmail && !!registrationValidation.email}
+                aria-describedby={isRegister ? "registration-email-error" : undefined}
                 autoComplete="email"
                 type="email"
                 placeholder="Digite seu e-mail"
                 value={email}
                 onChange={(event) => isLogin ? setLoginEmail(event.target.value) : setRegisterEmail(event.target.value)}
               />
+              {isRegister && registerEmail && registrationValidation.email && <small id="registration-email-error" className="error" role="status">{registrationValidation.email}</small>}
             </label>}
             {(isLogin || isRegister) && <label>
               Sua senha
@@ -374,6 +410,8 @@ export function AuthGate() {
                   <input
                     name="confirm-password"
                     required minLength={PASSWORD_MIN_LENGTH} maxLength={72}
+                    aria-invalid={!!confirmacaoSenha && !!registrationValidation.confirmation}
+                    aria-describedby={confirmacaoSenha ? "registration-password-match" : undefined}
                     autoComplete="new-password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Digite sua senha novamente"
@@ -419,12 +457,15 @@ export function AuthGate() {
               <p id="reset-password-match" className="password-feedback" role="status">{confirmNewPassword && newPassword !== confirmNewPassword ? 'As senhas não coincidem.' : ''}</p>
             </>}
             {isRegister && <PasswordRequirements value={registerSenha} />}
+            {isRegister && registerSenha && registrationValidation.password && <p className="password-feedback" role="status">{registrationValidation.password}</p>}
+            {isRegister && (registerSenha || confirmacaoSenha) && <p id="registration-password-match" className="password-feedback" role="status">{registrationValidation.confirmation}</p>}
             {isRegister && <div className="legal-consent">
               <input id="legal-acceptance" type="checkbox" required checked={accepted} onChange={(event) => setAccepted(event.target.checked)} aria-labelledby="legal-consent-label" />
               <span id="legal-consent-label"><label htmlFor="legal-acceptance">Li e aceito </label>os <a href="#/termos">Termos de Uso</a> e a <a href="#/privacidade">Política de Privacidade</a>.</span>
             </div>}
-            <button type="submit" className="auth-submit" disabled={loading || (isRegister && (!accepted || !validPasswordConfirmation(registerSenha, confirmacaoSenha))) || (mode === "forgot" && (recoveryRequested || !recoveryEmail)) || (mode === "reset" && (!resetToken || !validPasswordConfirmation(newPassword, confirmNewPassword)))}>
-              {loading ? "Aguarde..." : isLogin ? (perfil === "PROFESSOR" ? "Entrar como professor" : "Entrar como aluno") : isRegister ? (perfil === "PROFESSOR" ? "Criar conta de professor" : "Criar conta de aluno") : mode === "forgot" ? "Enviar instruções" : "Salvar nova senha"}
+            {isRegister && registrationValidation.firstError && <p id="registration-feedback" className="password-feedback" role="status" aria-live="polite">{registrationValidation.firstError}</p>}
+            <button type="submit" className="auth-submit" disabled={loading || (isRegister && !registrationValidation.valid) || (mode === "forgot" && (recoveryRequested || !recoveryEmail)) || (mode === "reset" && (!resetToken || !validPasswordConfirmation(newPassword, confirmNewPassword)))}>
+              {loading ? "Aguarde..." : isLogin ? (perfil === "PROFESSOR" ? "Entrar como professor" : "Entrar como aluno") : isRegister ? "Criar conta de estudante" : mode === "forgot" ? "Enviar instruções" : "Salvar nova senha"}
             </button>
             {error && <small className="error" role="alert">{error}</small>}
             {mode === "reset" && recoveryNotice && <p className="recovery-notice" role="status">{recoveryNotice}</p>}
@@ -439,21 +480,6 @@ export function AuthGate() {
               onSuccess={handleGoogleSuccess}
               onError={() => setError("Não foi possível entrar com o Google.")}
             />}
-            {!isRecovery && googleClientId && pendingGoogleCredential && <section className="google-legal-consent" aria-labelledby="google-legal-title">
-              <h3 id="google-legal-title">Antes de criar sua conta</h3>
-              <p>Leia e aceite os documentos para concluir seu cadastro no JurisSim.</p>
-              <div className="google-legal-links"><LegalLinks /></div>
-              <label className="google-legal-check">
-                <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
-                Li e aceito os Termos de Uso e o Aviso de Privacidade.
-              </label>
-              <button className="auth-submit" type="button" disabled={!accepted || loading} onClick={acceptGoogleLegal}>
-                {loading ? "Aguarde..." : "Aceitar e continuar"}
-              </button>
-              <button className="text-button" type="button" disabled={loading} onClick={() => { setPendingGoogleCredential(undefined); setAccepted(false); }}>
-                Cancelar e voltar ao login
-              </button>
-            </section>}
           </form>
           {!isRecovery && <p className="auth-switch">
             {isLogin ? "Ainda não tem uma conta?" : "Já possui uma conta?"}{" "}

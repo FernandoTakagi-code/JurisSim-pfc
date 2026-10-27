@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../errors/api-error';
 import { GOOGLE_PASSWORD_SENTINEL } from '../../repositories/auth-repository';
 import { AuthService } from '../../services/auth-service';
@@ -118,10 +118,73 @@ describe('AuthService.register()', () => {
     const aceite = { accepted: true, termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion };
 
     // Act
-    const tentativa = service.register('Ana', 'teste@jurissim.local', 'Senha-segura1!', 'ALUNO', aceite);
+    const tentativa = service.register('Ana', 'teste@jurissim.local', 'Senha-segura1!', aceite);
 
     // Assert
     await expect(tentativa).rejects.toMatchObject({ statusCode: 409, message: 'E-mail já cadastrado.' });
     expect(repositorio.createUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthService.session() diagnostic routing', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  const student = { id: 'student-session', nome: 'Aluno Teste', email: 'aluno@local.test', role: 'ALUNO', emailVerifiedAt: new Date(), deletedAt: null };
+  const repository = () => ({
+    findById: vi.fn().mockResolvedValue(student),
+    hasCompletedDiagnostic: vi.fn().mockResolvedValue(true),
+    hasCompletedInitialDiagnostic: vi.fn().mockResolvedValue(false),
+  });
+
+  it('preserves the existing diagnostic destination while the new requirement is off', async () => {
+    vi.stubEnv('INITIAL_DIAGNOSTIC_REQUIRED', 'false');
+    vi.stubEnv('INITIAL_DIAGNOSTIC_API_ENABLED', 'false');
+    const repo = repository();
+    const result = await new AuthService(repo as never).session(student.id);
+    expect(result.nextStep).toBe('DASHBOARD');
+    expect(repo.hasCompletedDiagnostic).toHaveBeenCalledWith(student.id);
+    expect(repo.hasCompletedInitialDiagnostic).not.toHaveBeenCalled();
+  });
+
+  it('routes an incomplete required assessment even while the assessment API is disabled', async () => {
+    vi.stubEnv('INITIAL_DIAGNOSTIC_REQUIRED', 'true');
+    vi.stubEnv('INITIAL_DIAGNOSTIC_API_ENABLED', 'false');
+    const repo = repository();
+    const result = await new AuthService(repo as never).session(student.id);
+    expect(result.nextStep).toBe('INITIAL_DIAGNOSTIC');
+    expect(repo.hasCompletedInitialDiagnostic).toHaveBeenCalledWith(student.id);
+    expect(repo.hasCompletedDiagnostic).not.toHaveBeenCalled();
+  });
+
+  it('allows an explicit local demo session without marking the initial diagnostic complete', async () => {
+    vi.stubEnv('INITIAL_DIAGNOSTIC_REQUIRED', 'true');
+    vi.stubEnv('INITIAL_DIAGNOSTIC_API_ENABLED', 'false');
+    const { localEmailVerificationCapture } = await import('../../services/local-email-capture');
+    vi.spyOn(localEmailVerificationCapture, 'isLocalDiagnosticDemoEnabled', 'get').mockReturnValue(true);
+    const repo = repository();
+    const result = await new AuthService(repo as never).session(student.id, true);
+    expect(result.nextStep).toBe('DASHBOARD');
+    expect(result.localDiagnosticDemoAvailable).toBe(true);
+    expect(result.localDiagnosticDemoActive).toBe(true);
+    expect(repo.hasCompletedInitialDiagnostic).toHaveBeenCalledOnce();
+    expect(repo.hasCompletedDiagnostic).not.toHaveBeenCalled();
+  });
+
+  it('sends students with a completed initial diagnostic to the dashboard', async () => {
+    vi.stubEnv('INITIAL_DIAGNOSTIC_REQUIRED', 'true');
+    vi.stubEnv('INITIAL_DIAGNOSTIC_API_ENABLED', 'true');
+    const repo = repository();
+    repo.hasCompletedInitialDiagnostic.mockResolvedValue(true);
+    expect((await new AuthService(repo as never).session(student.id)).nextStep).toBe('DASHBOARD');
+  });
+
+  it('does not query either diagnostic for teachers or administrators', async () => {
+    vi.stubEnv('INITIAL_DIAGNOSTIC_REQUIRED', 'true');
+    vi.stubEnv('INITIAL_DIAGNOSTIC_API_ENABLED', 'true');
+    const repo = repository();
+    repo.findById.mockResolvedValue({ ...student, role: 'PROFESSOR' });
+    expect((await new AuthService(repo as never).session(student.id)).nextStep).toBe('PROFESSOR');
+    expect(repo.hasCompletedDiagnostic).not.toHaveBeenCalled();
+    expect(repo.hasCompletedInitialDiagnostic).not.toHaveBeenCalled();
   });
 });

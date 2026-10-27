@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 const browserPath = process.env.CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const profile = await mkdtemp(path.join(tmpdir(), 'jurissim-legal-'));
-const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5179', '--strictPort'], { windowsHide: true, stdio: 'ignore', env: { ...process.env, VITE_API_URL: 'http://127.0.0.1:1', VITE_GOOGLE_CLIENT_ID: '' } });
+const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5179', '--strictPort'], { windowsHide: true, stdio: 'ignore', env: { ...process.env, VITE_API_URL: 'http://127.0.0.1:1', VITE_GOOGLE_CLIENT_ID: '', VITE_QUESTION_PRACTICE_UI_ENABLED: 'false' } });
 const browser = spawn(browserPath, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', 'about:blank'], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
 let socket;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -69,7 +69,11 @@ try {
   await cdp('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
   await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.fetch = async (url) => {
-      if (new URL(String(url)).pathname === '/students/me/overview') return new Response(JSON.stringify({ totals: { completedActivities: 0 }, latestDiagnosticId: null, evolution: [], recentActivities: [] }), { status: 200 });
+      if (new URL(String(url)).pathname === '/students/me/overview') {
+        const hasLegacyResult = sessionStorage.getItem('test_legacy_result_error') === 'true';
+        return new Response(JSON.stringify({ totals: { completedActivities: 0 }, latestDiagnosticId: hasLegacyResult ? 'diagnostic-500' : null, evolution: [], recentActivities: [] }), { status: 200 });
+      }
+      if (new URL(String(url)).pathname === '/diagnostics/diagnostic-500/result') return new Response(JSON.stringify({ message: 'Erro interno do servidor.' }), { status: 500 });
       if (new URL(String(url)).pathname === '/auth/session') return new Response(JSON.stringify({ user: { id: 'fixture-user', nome: 'Fixture', email: 'fixture@example.invalid', role: 'ALUNO', emailVerificado: true }, nextStep: 'DASHBOARD' }), { status: 200 });
       throw new Error('Unexpected request in isolated legal test');
     };
@@ -151,6 +155,21 @@ try {
   assert.equal(await evaluate('window.requests.length'), 0);
   await evaluate(`const input = document.querySelector('input[placeholder="Digite seu nome completo"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Ana Teste'); input.dispatchEvent(new Event('input', { bubbles: true }));`);
   await evaluate(`for (const [selector, value] of [['input[name=email]', 'registration@example.invalid'], ['input[name=new-password]', 'Fixture-register-password1!'], ['input[name=confirm-password]', 'Fixture-register-password1!']]) { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }`);
+  assert.equal(await evaluate('document.querySelector(".auth-submit").disabled'), true);
+  assert.equal(await evaluate('!!document.querySelector("#registration-email-error")'), false, '.invalid is syntactically accepted by registration validation');
+  await evaluate(`const invalidEmailField = document.querySelector('input[name=email]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(invalidEmailField, 'not-an-email'); invalidEmailField.dispatchEvent(new Event('input', { bubbles: true }));`);
+  assert.equal(await evaluate('document.querySelector("#registration-email-error")?.textContent.includes("v\u00e1lido")'), true);
+  await evaluate(`const validEmailField = document.querySelector('input[name=email]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(validEmailField, 'registration@example.invalid'); validEmailField.dispatchEvent(new Event('input', { bubbles: true }));`);
+  await evaluate(`for (const selector of ['input[name=new-password]', 'input[name=confirm-password]']) { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'A1!' + 'é'.repeat(35)); input.dispatchEvent(new Event('input', { bubbles: true })); }`);
+  assert.equal(await evaluate('document.querySelectorAll(".password-requirements li[data-satisfied=true]").length'), 4);
+  assert.equal(await evaluate('document.querySelector(".auth-submit").disabled'), true);
+  assert.equal(await evaluate('document.querySelector(".password-feedback").textContent.includes("72 bytes")'), true);
+  await evaluate(`for (const [selector, value] of [['input[name=new-password]', 'Fixture-register-password1!'], ['input[name=confirm-password]', 'Other-register-password1!']]) { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }`);
+  assert.equal(await evaluate('document.querySelector(".auth-submit").disabled'), true);
+  assert.equal(await evaluate('document.querySelector("#registration-password-match").textContent'), 'As senhas n\u00e3o coincidem.');
+  await evaluate(`const confirmationField = document.querySelector('input[name=confirm-password]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(confirmationField, 'Fixture-register-password1!'); confirmationField.dispatchEvent(new Event('input', { bubbles: true }));`);
+  assert.equal(await evaluate('document.querySelector(".auth-submit").disabled'), true);
+  assert.equal(await evaluate('document.querySelector("#registration-feedback").textContent.toLowerCase().includes("aceite")'), true);
   for (const hash of ['#/termos', '#/privacidade']) {
     await evaluate(`document.querySelector('.legal-consent a[href="${hash}"]').click()`);
     await until('!!document.querySelector(".legal-page")');
@@ -201,8 +220,13 @@ try {
   }
   console.log('PASS: documentos públicos; links de login/cadastro; preservação do formulário; bloqueio sem aceite; envio com versões; links após login; desktop/mobile sem overflow.');
   console.log(`Screenshots: ${profile}`);
+  await evaluate("sessionStorage.setItem('test_legacy_result_error', 'true')");
   await cdp('Page.navigate', { url: 'http://127.0.0.1:5179/dashboard' });
   await until('!!document.querySelector(".dashboard-page")');
+  await until('document.querySelector(".dashboard-page").closest("main").querySelector("[role=alert]")?.textContent.includes("diagnóstico antigo está indisponível")');
+  assert.equal(await evaluate('!!document.querySelector(".dashboard-page")'), true);
+  await evaluate("sessionStorage.removeItem('test_legacy_result_error'); document.querySelector('.content > .study-notice button').click()");
+  await until('!document.querySelector(".content > .study-notice[role=alert]")');
   assert.equal(await evaluate('document.querySelector(".dashboard-heading h1").textContent'), 'Seu espaço de estudos');
   assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
   await evaluate('document.querySelector(".dashboard-panel .text-button").click()');
@@ -210,7 +234,17 @@ try {
   await evaluate('document.querySelector(".page .primary").click()');
   await until('location.pathname === "/dashboard" && !!document.querySelector(".dashboard-page")');
   await evaluate('document.querySelector(".dashboard-heading .primary").click()');
-  await until('location.pathname === "/" && !!document.querySelector(".start-card")');
+  await until('location.pathname === "/questoes" && !!document.querySelector(".practice-picker")');
+  await evaluate(`document.querySelector('#practice-discipline').value = 'Direito Penal'; document.querySelector('#practice-discipline').dispatchEvent(new Event('change', { bubbles: true })); document.querySelectorAll('.practice-quantity input')[1].click()`);
+  await until('document.querySelector("#practice-discipline").value === "Direito Penal" && document.querySelectorAll(".practice-quantity input")[1].checked');
+  assert.equal(await evaluate('document.querySelector(".practice-picker .primary").disabled'), true);
+  assert.match(await evaluate('document.querySelector(".practice-picker [role=status]").textContent'), /indisponível até a validação/i);
+  await evaluate('history.pushState({}, "", "/simulados"); window.dispatchEvent(new PopStateEvent("popstate"))');
+  await until('!!document.querySelector("#individual-exams-title") && !!document.querySelector(".class-section-heading")');
+  await evaluate('history.pushState({}, "", "/questoes"); window.dispatchEvent(new PopStateEvent("popstate"))');
+  await until('!!document.querySelector(".practice-picker")');
+  await evaluate('history.pushState({}, "", "/diagnostico"); window.dispatchEvent(new PopStateEvent("popstate"))');
+  await until('location.pathname === "/diagnostico" && !!document.querySelector(".start-card")');
   await evaluate(`window.fetch = async (url, init = {}) => {
     const path = new URL(String(url)).pathname;
     if (path === '/students/me/overview') return new Response(JSON.stringify({ totals: { completedActivities: 0 }, latestDiagnosticId: null, evolution: [], recentActivities: [] }), { status: 200 });
@@ -255,7 +289,7 @@ try {
   await until('document.querySelector(".result h1")?.textContent.includes("desempenho")');
   await evaluate('document.querySelector(".result-dashboard-link").click()');
   await until('!!document.querySelector(".dashboard-page")');
-  console.log('PASS: autofill separado; rota e responsividade do Dashboard; navegação Dashboard -> desempenho -> Dashboard -> estudar.');
+  console.log('PASS: autofill separado; erro do resultado antigo não descarta o overview; rota e responsividade do Dashboard; navegação Dashboard -> desempenho -> Dashboard -> estudar.');
   // All auth calls are intercepted before app startup: no real delivery or DB writes.
   await cdp('Page.enable');
   const authStub = await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `

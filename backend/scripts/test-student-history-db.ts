@@ -31,14 +31,18 @@ async function login(email: string) {
 async function main() {
   const url = new URL(process.env.DATABASE_URL ?? '');
   assert.equal(url.hostname, '127.0.0.1'); assert.equal(url.username, 'jurissim_migration_test');
-  assert.equal(url.pathname, '/jurissim_fresh'); assert.equal(url.password, '');
+  assert.equal(url.pathname, `/${process.env.JURISSIM_TEST_FRESH_DATABASE}`); assert.equal(url.password, process.env.JURISSIM_TEST_DB_PASSWORD);
   assert.ok(url.port && url.port !== '5432'); assert.equal(process.env.DIRECT_URL, url.toString());
   assert.equal(process.env.GMAIL_USER, ''); assert.equal(process.env.GMAIL_APP_PASSWORD, '');
   assert.equal(process.env.GROQ_API_KEY, '');
   const expected = fs.realpathSync(process.argv[2] ?? '');
   assert.equal(path.dirname(path.dirname(expected)).toLowerCase(), fs.realpathSync(os.tmpdir()).toLowerCase());
   assert.ok(path.basename(path.dirname(expected)).startsWith('jurissim-migrations-'));
-  const [cluster] = await prisma.$queryRaw<{ data_directory: string }[]>`SELECT current_setting('data_directory') AS data_directory`;
+  const [cluster] = await prisma.$queryRaw<{ data_directory: string; database: string; owner: string; port: number; address: string }[]>`
+    SELECT current_setting('data_directory') AS data_directory, current_database() AS database,
+      current_user AS owner, inet_server_port() AS port, inet_server_addr()::text AS address`;
+  assert.equal(cluster.database, process.env.JURISSIM_TEST_FRESH_DATABASE);
+  assert.equal(cluster.owner, 'jurissim_migration_test'); assert.equal(cluster.port, Number(url.port)); assert.equal(cluster.address, '127.0.0.1');
   assert.equal(fs.realpathSync(cluster.data_directory).toLowerCase(), expected.toLowerCase());
 
   const password = await bcrypt.hash('history-fixture-password', 4);

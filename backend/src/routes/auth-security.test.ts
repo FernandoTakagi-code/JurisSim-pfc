@@ -79,6 +79,9 @@ function call(method: string, route: string, bearer?: string, body?: unknown) {
     ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), 'Content-Type': 'application/json',
   }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 }
+function callFromOrigin(method: string, route: string, origin: string, headers: Record<string, string> = {}, body?: unknown) {
+  return fetch(`${base}${route}`, { method, headers: { Origin: origin, ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+}
 
 beforeAll(async () => {
   // Isolate credentials even when this suite is run from a configured shell.
@@ -86,6 +89,7 @@ beforeAll(async () => {
   vi.stubEnv('DATABASE_URL', 'postgresql://test:test@127.0.0.1:1/test');
   vi.stubEnv('DIRECT_URL', 'postgresql://test:test@127.0.0.1:1/test');
   vi.stubEnv('APP_PUBLIC_URL', 'http://localhost:5173');
+  vi.stubEnv('CORS_ORIGINS', 'http://localhost:5173,https://staging.jurissim.test');
   vi.stubEnv('BREVO_SMTP_USER', 'fixture@smtp-brevo.com');
   vi.stubEnv('BREVO_SMTP_KEY', 'local-fixture-only');
   vi.stubEnv('GOOGLE_CLIENT_ID', 'local-fixture-google-client');
@@ -132,6 +136,75 @@ beforeEach(() => {
   mocks.sendMail.mockResolvedValue({});
   mocks.questionList.mockResolvedValue([]);
   mocks.questionCreate.mockResolvedValue({ id: resourceId });
+});
+
+describe('CORS do servidor e autenticação independente de Origin', () => {
+  it.each(['http://localhost:5173', 'https://staging.jurissim.test'])('reflete apenas a origem autorizada %s', async origin => {
+    const response = await callFromOrigin('GET', '/health', origin);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('access-control-allow-origin')).toBe(origin);
+    expect(response.headers.get('vary')).toContain('Origin');
+  });
+
+  it('não libera CORS para origem desconhecida e mantém a proteção das rotas protegidas', async () => {
+    const health = await callFromOrigin('GET', '/health', 'https://attacker.example');
+    expect(health.status).toBe(200);
+    expect(health.headers.get('access-control-allow-origin')).toBeNull();
+
+    const protectedRoute = await callFromOrigin('GET', '/questoes', 'https://attacker.example');
+    expect(protectedRoute.status).toBe(401);
+    expect(protectedRoute.headers.get('access-control-allow-origin')).toBeNull();
+
+    const authRoute = await callFromOrigin('POST', '/auth/login', 'https://attacker.example', { 'Content-Type': 'application/json' }, {});
+    expect(authRoute.status).toBe(403);
+  });
+
+  it('responde ao preflight permitido com os métodos e cabeçalhos necessários ao frontend', async () => {
+    const response = await callFromOrigin('OPTIONS', '/questoes', 'http://localhost:5173', {
+      'Access-Control-Request-Method': 'PUT',
+      'Access-Control-Request-Headers': 'authorization,content-type',
+    });
+    expect(response.status).toBe(204);
+    expect(response.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
+    expect(response.headers.get('access-control-allow-methods')?.toUpperCase()).toContain('PUT');
+    const allowedHeaders = response.headers.get('access-control-allow-headers')?.toLowerCase() ?? '';
+    expect(allowedHeaders).toContain('authorization');
+    expect(allowedHeaders).toContain('content-type');
+  });
+
+  it.each([
+    { method: 'TRACE', headers: 'authorization' },
+    { method: 'PUT', headers: 'x-unapproved-header' },
+    { method: 'PUT', headers: 'authorization', origin: 'https://attacker.example' },
+  ])('recusa preflight inválido %#', async ({ method, headers, origin = 'http://localhost:5173' }) => {
+    const response = await callFromOrigin('OPTIONS', '/questoes', origin, {
+      'Access-Control-Request-Method': method,
+      'Access-Control-Request-Headers': headers,
+    });
+    expect(response.status).toBe(403);
+    expect(response.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('mantém clientes sem Origin e o login local funcionando sem enfraquecer autenticação', async () => {
+    const loginWithoutOrigin = await call('POST', '/auth/login', undefined, { email: account!.email, senha: 'fixture-password' });
+    expect(loginWithoutOrigin.status).toBe(200);
+    expect(loginWithoutOrigin.headers.get('access-control-allow-origin')).toBeNull();
+
+    const loginFromLocal = await callFromOrigin('POST', '/auth/login', 'http://localhost:5173',
+      { 'Content-Type': 'application/json' }, { email: account!.email, senha: 'fixture-password' });
+    expect(loginFromLocal.status).toBe(200);
+    expect(loginFromLocal.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
+
+    const protectedWithoutOrigin = await call('GET', '/questoes');
+    expect(protectedWithoutOrigin.status).toBe(401);
+
+    const optionsWithoutOrigin = await callFromOrigin('OPTIONS', '/questoes', '', {
+      'Access-Control-Request-Method': 'PUT',
+      'Access-Control-Request-Headers': 'authorization,content-type',
+    });
+    expect(optionsWithoutOrigin.status).not.toBe(403);
+    expect(optionsWithoutOrigin.headers.get('access-control-allow-origin')).toBeNull();
+  });
 });
 
 describe('confirmação obrigatória em todas as operações protegidas', () => {

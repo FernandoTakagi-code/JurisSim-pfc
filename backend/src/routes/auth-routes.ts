@@ -3,16 +3,14 @@ import { AuthController } from '../controllers/auth-controller';
 import { requireAuth, requireLimitedAuth } from '../middlewares/auth-middleware';
 import { authRateLimit } from '../middlewares/auth-rate-limit';
 import { ApiError } from '../errors/api-error';
+import { isAllowedCorsOrigin } from '../config/cors-policy';
 
 export function createAuthRoutes(controller = new AuthController()) {
   const authRoutes = Router();
   authRoutes.use((_req, res, next) => { res.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' }); next(); });
   authRoutes.use((req, _res, next) => {
-    const origin = req.get('origin'), publicUrl = process.env.APP_PUBLIC_URL;
-    if (origin && (publicUrl || process.env.NODE_ENV === 'production')) {
-      try { if (origin !== new URL(publicUrl ?? '').origin) return next(new ApiError(403, 'Origem não autorizada.')); }
-      catch { return next(new ApiError(503, 'Autenticação temporariamente indisponível.')); }
-    }
+    const origin = req.get('origin');
+    if (origin && !isAllowedCorsOrigin(origin)) return next(new ApiError(403, 'Origem não autorizada.'));
     next();
   });
   authRoutes.post('/register', authRateLimit(15, 3600000), controller.register);

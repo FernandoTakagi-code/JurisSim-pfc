@@ -8,7 +8,10 @@ import { PasswordRecoveryService } from '../services/password-recovery-service';
 import { BrevoRecoveryEmailSender } from '../services/recovery-email-sender';
 import { EmailVerificationService } from '../services/email-verification-service';
 import { BrevoEmailVerificationSender } from '../services/email-verification-sender';
+import { isLocalEmailCaptureRequested, localEmailVerificationCapture } from '../services/local-email-capture';
+import type { LocalEmailVerificationCapture } from '../services/local-email-capture';
 import { passwordSchema } from '../services/password-policy';
+import { ApiError } from '../errors/api-error';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
 const emailSchema = z.string().trim().email('E-mail inválido').max(254);
@@ -19,7 +22,9 @@ const registerSchema = z.object({
   email: emailSchema,
   senha: passwordSchema,
   confirmacaoSenha: z.string().optional(),
-  role: z.enum(['PROFESSOR', 'ALUNO']),
+  // The public registration endpoint may only request a student account.
+  // The repository assigns ALUNO itself and does not trust this field.
+  role: z.literal('ALUNO').optional(),
   acceptance: acceptanceSchema,
 }).refine(data => data.confirmacaoSenha === undefined || data.senha === data.confirmacaoSenha, { message: 'As senhas não coincidem.', path: ['confirmacaoSenha'] });
 const loginSchema = z.object({
@@ -49,7 +54,9 @@ export class AuthController {
   constructor(
     private readonly service = new AuthService(),
     private readonly passwordRecovery = new PasswordRecoveryService(undefined, new BrevoRecoveryEmailSender()),
-    private readonly emailVerification = new EmailVerificationService(undefined, new BrevoEmailVerificationSender()),
+    private readonly emailVerification = new EmailVerificationService(undefined,
+      isLocalEmailCaptureRequested() ? localEmailVerificationCapture : new BrevoEmailVerificationSender()),
+    private readonly localEmailCapture: LocalEmailVerificationCapture = localEmailVerificationCapture,
   ) {}
 
   solicitarRecuperacaoSenha = async (request: Request, response: Response) => {
@@ -77,12 +84,14 @@ export class AuthController {
       response.status(400).json({ message: 'Verifique os dados e aceite as versões atuais dos Termos de Uso e da Política de Privacidade.', erro: parsed.error.format() });
       return;
     }
-    const { nome, email, senha, role, acceptance } = parsed.data;
-    const resultado = await this.service.register(nome, email, senha, role, acceptance);
+    const { nome, email, senha, acceptance } = parsed.data;
+    const resultado = await this.service.register(nome, email, senha, acceptance);
     let emailVerification;
     try {
       const verification = await this.emailVerification.requestVerification(resultado.usuario.id);
-      emailVerification = { status: 'sent', message: verification.message };
+      emailVerification = isLocalEmailCaptureRequested()
+        ? { status: 'captured', message: 'Conta criada. Entre e use “Reenviar e-mail de confirmação” para obter o link local.' }
+        : { status: 'sent', message: verification.message };
     } catch {
       console.error('Não foi possível enviar a confirmação de e-mail após o cadastro.');
       emailVerification = {
@@ -138,7 +147,7 @@ export class AuthController {
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {
-    response.json(await this.service.session(request.auth!.userId));
+    response.json(await this.service.session(request.auth!.userId, request.get('x-jurissim-local-demo') === 'true'));
   };
 
   atualizarNome = async (request: AuthenticatedRequest, response: Response) => {
@@ -161,8 +170,24 @@ export class AuthController {
   };
 
   solicitarConfirmacaoEmail = async (request: AuthenticatedRequest, response: Response) => {
-    const result = await this.emailVerification.requestVerification(request.auth!.userId);
-    response.status(202).json(result);
+    const userId = request.auth!.userId;
+    let result: { message: string };
+    try {
+      result = await this.emailVerification.requestVerification(userId);
+    } catch (error) {
+      const pendingLocalLink = isLocalEmailCaptureRequested() && error instanceof ApiError && error.statusCode === 429
+        ? this.localEmailCapture.takeVerificationLink(userId)
+        : undefined;
+      if (pendingLocalLink) {
+        response.status(202).json({ message: 'Link de confirmacao local disponivel para esta conta.', localVerificationUrl: pendingLocalLink });
+        return;
+      }
+      throw error;
+    }
+    const localVerificationUrl = this.localEmailCapture.takeVerificationLink(userId);
+    response.status(202).json(localVerificationUrl
+      ? { message: 'Link de confirmação local disponível para esta conta.', localVerificationUrl }
+      : result);
   };
 
   confirmarEmail = async (request: Request, response: Response) => {

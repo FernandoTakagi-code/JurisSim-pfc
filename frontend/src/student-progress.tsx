@@ -26,7 +26,7 @@ export type StudyResult = {
 };
 type Activity = {
   id: string;
-  type: "DIAGNOSTICO" | "PERSONALIZADO" | "AVALIACAO";
+  type: "DIAGNOSTICO" | "PERSONALIZADO" | "AVALIACAO" | "PRATICA";
   startedAt: string;
   finalizedAt: string | null;
   totalQuestions: number;
@@ -42,6 +42,7 @@ type Overview = {
     completedDiagnostics: number;
     completedTrails: number;
     completedExams?: number;
+    completedPractices?: number;
     totalQuestions: number;
     answeredQuestions: number;
     correctAnswers: number;
@@ -58,8 +59,8 @@ const formatDate = (value: string) =>
     timeStyle: "short",
   });
 const typeLabel = (type: Activity["type"]) =>
-  type === "DIAGNOSTICO" ? "Diagnóstico" : type === "AVALIACAO" ? "Simulado de turma" : "Trilha de exercícios";
-const resultPath = (item: Activity) => item.type === "AVALIACAO" ? `/simulados/tentativas/${item.id}` : `/resultados/${item.type === "DIAGNOSTICO" ? "diagnostico" : "trilha"}/${item.id}`;
+  type === "DIAGNOSTICO" ? "Diagnóstico" : type === "AVALIACAO" ? "Simulado de turma" : type === "PRATICA" ? "Prática individual" : "Trilha de exercícios";
+const resultPath = (item: Activity) => item.type === "AVALIACAO" ? `/simulados/tentativas/${item.id}` : item.type === "PRATICA" ? `/questoes/pratica/${item.id}` : `/resultados/${item.type === "DIAGNOSTICO" ? "diagnostico" : "trilha"}/${item.id}`;
 const errorMessage = (cause: unknown) =>
   cause instanceof Error
     ? cause.message
@@ -71,14 +72,26 @@ export function useStudentProgress() {
   const latest = useRef<StudyResult | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [resultError, setResultError] = useState("");
   const revision = useRef(0);
   const refresh = useCallback(async () => {
     const current = ++revision.current;
     setLoading(true);
     setError("");
+    setResultError("");
+    let overview: Overview;
     try {
-      const overview = await apiRequest<Overview>("/students/me/overview");
-      const result = overview.latestDiagnosticId
+      overview = await apiRequest<Overview>("/students/me/overview");
+    } catch (cause) {
+      if (current === revision.current) setError(errorMessage(cause));
+      if (current === revision.current) setLoading(false);
+      return;
+    }
+    if (current !== revision.current) return;
+    setData(overview);
+    let result: StudyResult | undefined;
+    try {
+      result = overview.latestDiagnosticId
         ? latest.current?.id === overview.latestDiagnosticId
           ? latest.current
           : await apiRequest<StudyResult>(
@@ -87,10 +100,13 @@ export function useStudentProgress() {
         : undefined;
       if (current !== revision.current) return;
       latest.current = result;
-      setData(overview);
       setLatestResult(result);
     } catch (cause) {
-      if (current === revision.current) setError(errorMessage(cause));
+      if (current === revision.current) {
+        latest.current = undefined;
+        setLatestResult(undefined);
+        setResultError(errorMessage(cause));
+      }
     } finally {
       if (current === revision.current) setLoading(false);
     }
@@ -101,7 +117,7 @@ export function useStudentProgress() {
       revision.current++;
     };
   }, [refresh]);
-  return { data, latestResult, loading, error, refresh };
+  return { data, latestResult, loading, error, resultError, refresh };
 }
 
 export function ProgressStatus({
@@ -338,7 +354,7 @@ export function StudentHistory() {
           <p className="muted">
             Seu histórico aparecerá aqui quando você iniciar um diagnóstico.
           </p>
-          <button className="primary" onClick={() => navigate("/")}>
+          <button className="primary" onClick={() => navigate("/estudar")}>
             Estudar
           </button>
         </article>

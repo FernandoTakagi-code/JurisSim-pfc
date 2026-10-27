@@ -1,6 +1,7 @@
 import { BrevoSmtpClient } from './brevo-smtp';
 
 export type EmailVerificationEmail = {
+  userId?: string;
   to: string;
   verifyUrl: string;
   expiresInMinutes: number;

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 const origin = 'http://127.0.0.1:5181';
 const profile = await mkdtemp(path.join(tmpdir(), 'jurissim-session-'));
 const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5181', '--strictPort'], {
-  windowsHide: true, stdio: 'ignore', env: { ...process.env, VITE_API_URL: 'http://127.0.0.1:1', VITE_GOOGLE_CLIENT_ID: '' },
+  windowsHide: true, stdio: 'ignore', env: { ...process.env, VITE_API_URL: 'http://127.0.0.1:1', VITE_GOOGLE_CLIENT_ID: '', VITE_INITIAL_DIAGNOSTIC_UI_ENABLED: 'false', VITE_QUESTION_PRACTICE_UI_ENABLED: 'false' },
 });
 const browser = spawn(process.env.CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', 'about:blank',
@@ -246,6 +246,34 @@ try {
   assert.equal(await evaluate('document.querySelector(".dashboard-heading h1").textContent'), 'Seu espaço de estudos');
   pass('aluno usa sessão do servidor e mantém dashboard original mesmo com URL de professor e JWT de ADMIN');
 
+  const initialDiagnosticSession = { ...user(), nextStep: 'INITIAL_DIAGNOSTIC' };
+  await boot({ session: initialDiagnosticSession }, '/dashboard');
+  await until('location.pathname === "/diagnostico-inicial" && !!document.querySelector(".initial-diagnostic-intro")');
+  assert.equal(await evaluate('!!document.querySelector(".mandatory-diagnostic-screen")'), true);
+  assert.equal(await evaluate('!!document.querySelector(".v0-sidebar")'), false);
+  assert.match(await evaluate('document.querySelector(".initial-diagnostic-notice").textContent'), /temporariamente indisponível/i);
+  assert.equal(await evaluate('document.querySelectorAll(".app-legal-footer a[href*=termos], .app-legal-footer a[href*=privacidade]").length'), 2);
+  assert.equal(await evaluate('document.querySelector(".initial-diagnostic-primary").disabled'), true);
+  assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/initial-diagnostic")'), false);
+  for (const width of [360, 768, 1366]) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width === 360 });
+    assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
+  }
+  await cdp('Emulation.clearDeviceMetricsOverride');
+  pass('nextStep INITIAL_DIAGNOSTIC shows a standalone unavailable screen without navigation or API calls');
+
+  for (const protectedPath of ['/dashboard', '/questoes', '/simulados', '/turmas', '/desempenho', '/trilha', '/metas', '/historico', '/resultados/diagnostico/legacy-id', '/questoes/pratica/practice-id', '/simulados/tentativas/exam-id']) {
+    await boot({ session: initialDiagnosticSession }, protectedPath);
+    await until('location.pathname === "/diagnostico-inicial" && !!document.querySelector(".mandatory-diagnostic-screen")');
+    assert.equal(await evaluate('!!document.querySelector(".v0-sidebar")'), false, `direct route ${protectedPath} must not render student navigation`);
+  }
+  pass('direct navigation to dashboard, study, classes, exams, results, practice, and history routes returns to the mandatory assessment');
+
+  await boot({ session: { ...user(), nextStep: 'DIAGNOSTIC' } }, '/');
+  await until('location.pathname === "/" && !!document.querySelector(".start-card")');
+  assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/initial-diagnostic")'), false);
+  pass('legacy nextStep DIAGNOSTIC preserves the old flow and does not call the new diagnostic API');
+
   for (const role of ['PROFESSOR', 'ADMIN']) {
     await boot({ session: user(role) }, '/dashboard', 'ALUNO');
     await until('!!document.querySelector(".professor-shell") && location.pathname === "/professor"');
@@ -475,7 +503,9 @@ try {
   await boot({ session: user() });
   await until('!!document.querySelector(".dashboard-page")');
   await go('/questoes');
-  await until('!!document.querySelector(".question-item") || document.querySelector(".heading h1")?.textContent.includes("Questões cadastradas")');
+  await until('!!document.querySelector(".practice-page h1")');
+  assert.equal(await evaluate('document.querySelector(".practice-picker .primary").disabled'), true);
+  assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/question-practice")'), false);
   await evaluate('history.back()');
   await until('location.pathname === "/dashboard" && !!document.querySelector(".dashboard-page")');
   await evaluate('history.forward()');
@@ -543,6 +573,52 @@ try {
   await reloadDocument();
   await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "70%"');
   pass('dashboard original restaura último diagnóstico, evolução e atividade após recarga, sem refetch ao navegar pelo perfil');
+  await go('/trilha'); await until('!!document.querySelector(".study-trail-page")');
+  await evaluate('window.studyContent = await import("/src/study-content.ts")');
+  assert.equal(await evaluate('window.studyContent.studyModules.length'), 27);
+  assert.deepEqual(await evaluate('Object.fromEntries(window.studyContent.studyDisciplines.map(d => [d, window.studyContent.studyModules.filter(m => m.discipline === d).length]))'), { 'Direito Constitucional': 5, 'Direito Civil': 6, 'Direito Penal': 5, 'Direito Administrativo': 5, 'Direito do Trabalho': 6 });
+  assert.equal(await evaluate('document.querySelector("#study-trail-title").textContent'), 'Minha Trilha de Estudos');
+  assert.equal(await evaluate('document.querySelectorAll(".study-discipline-panel button").length'), 5);
+  assert.equal(await evaluate('document.querySelectorAll(".study-module-card").length'), 5);
+  assert.equal(await evaluate('document.querySelector(".study-adaptive-note").textContent.includes("Direito Civil")'), true);
+  await clickText('.study-discipline-panel button', 'Direito Civil');
+  assert.equal(await evaluate('document.querySelectorAll(".study-module-card").length'), 6);
+  await evaluate('[...document.querySelectorAll(".study-module-card")].find(button => button.textContent.includes("Contratos")).focus()');
+  assert.equal(await evaluate('document.activeElement.textContent.includes("Contratos")'), true);
+  await evaluate('[...document.querySelectorAll(".study-module-card")].find(button => button.textContent.includes("Contratos")).click()');
+  await until('!!document.querySelector(".study-module-detail")');
+  assert.equal(await evaluate('document.querySelector(".study-module-detail h2").textContent'), 'Contratos');
+  assert.equal(await evaluate('document.querySelectorAll(".study-module-detail section").length >= 5'), true);
+  assert.equal(await evaluate('document.querySelectorAll(".study-sources a").length > 0'), true);
+  await clickText('.study-module-detail summary', 'Revisar: perguntas');
+  assert.equal(await evaluate('document.querySelector(".study-review").open'), true);
+  await clickText('.study-module-actions button', 'Marcar módulo como estudado');
+  assert.equal(await evaluate('document.querySelector(".study-progress-card > strong").textContent.includes("1")'), true);
+  assert.equal(await evaluate('JSON.parse(localStorage.getItem("jurissim-learning-progress:fixture-user")).completed.includes("civil-contratos")'), true);
+  for (const width of [1366, 768, 390]) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 760 });
+    assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
+  }
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
+  await reloadDocument(); await until('!!document.querySelector(".study-trail-page")');
+  assert.equal(await evaluate('document.querySelector(".study-progress-card > strong").textContent.includes("1")'), true);
+  await clickText('.study-discipline-panel button', 'Direito Civil');
+  await clickText('.study-module-card', 'Contratos'); await until('!!document.querySelector(".study-module-detail")');
+  await clickText('.study-module-actions button', 'Ir ao banco de questões'); await until('!!document.querySelector(".practice-picker")');
+  assert.equal(await evaluate('document.querySelector("#practice-discipline").value'), 'Direito Civil');
+  assert.equal(await evaluate('document.querySelector(".practice-picker .primary").disabled'), true);
+  assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/question-practice")'), false);
+  pass('trilha realista: cinco matérias, 27 módulos, recomendação do resultado existente, progresso local persistente e prática respeita feature flag');
+
+  const noDiagnosticUser = user(); noDiagnosticUser.user.id = 'fixture-no-diagnostic-user';
+  await boot({ session: noDiagnosticUser }, '/trilha'); await until('!!document.querySelector(".study-trail-page")');
+  assert.equal(await evaluate('document.querySelector(".study-adaptive-note").textContent.includes("Trilha inicial organizada por matéria")'), true);
+  assert.equal(await evaluate('document.querySelectorAll(".study-discipline-panel button").length'), 5);
+  assert.equal(await evaluate('document.querySelector(".study-progress-card > strong").textContent.includes("0")'), true);
+  assert.deepEqual(await evaluate('JSON.parse(localStorage.getItem("jurissim-learning-progress:fixture-no-diagnostic-user")).completed'), []);
+  pass('aluno sem diagnóstico recebe trilha inicial sem métricas inventadas e progresso separado por conta');
+
+  await boot(populated, '/dashboard'); await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "70%"');
   await go('/desempenho'); await until('!!document.querySelector(".study-indicators")');
   assert.equal(await evaluate('[...document.querySelectorAll(".study-indicators dl div")].find(item => item.querySelector("dt").textContent === "Respostas erradas").querySelector("dd").textContent'), '3');
   assert.equal(await evaluate('[...document.querySelectorAll(".study-indicators dl div")].find(item => item.querySelector("dt").textContent === "Não respondidas").querySelector("dd").textContent'), '2');

@@ -180,3 +180,6 @@
     flex-direction: column;
   }
 }
+.individual-exams-section { margin: 1.25rem 0 2rem; padding: clamp(1.1rem, 2.5vw, 1.75rem); }
+.individual-exams-section h2, .class-section-heading h2 { margin: .35rem 0; }
+.class-section-heading { margin: 2rem 0 1rem; }

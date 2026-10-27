@@ -44,9 +44,9 @@ describe('rejects invalid passwords before any effect', () => {
     expect(log).not.toHaveBeenCalled();
   });
 
-  it.each(['ALUNO', 'PROFESSOR'] as const)('refuses weak registration for %s even when service is invoked directly', async role => {
+  it('refuses weak registration even when service is invoked directly', async () => {
     const repository = { findByEmail: vi.fn(), createUser: vi.fn() };
-    await expect(new AuthService(repository as never).register('Fixture', 'fixture@example.invalid', 'joao', role)).rejects.toMatchObject({ statusCode: 400 });
+    await expect(new AuthService(repository as never).register('Fixture', 'fixture@example.invalid', 'joao')).rejects.toMatchObject({ statusCode: 400 });
     expect(repository.findByEmail).not.toHaveBeenCalled();
     expect(repository.createUser).not.toHaveBeenCalled();
   });

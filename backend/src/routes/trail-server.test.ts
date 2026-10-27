@@ -18,7 +18,10 @@ vi.mock('../repositories/auth-repository', async importOriginal => ({
     recordLogin = mocks.recordLogin;
   },
 }));
-vi.mock('../repositories/diagnostic-repository', () => ({ DiagnosticRepository: class { findAttempt = mocks.diagnostic; } }));
+vi.mock('../repositories/diagnostic-repository', () => ({ DiagnosticRepository: class {
+  findAttempt = mocks.diagnostic;
+  findAttemptForResult = mocks.diagnostic;
+} }));
 vi.mock('../repositories/trail-repository', () => ({ TrailRepository: class {
   findTrilha = mocks.trail;
   findQuestionsForTrail = mocks.questions;

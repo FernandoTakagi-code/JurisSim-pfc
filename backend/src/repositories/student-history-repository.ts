@@ -1,14 +1,15 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { isQuestionPracticeSchemaEnabled } from '../config/question-practice-feature';
 
 export type ActivitySummary = {
-  id: string; type: 'DIAGNOSTICO' | 'PERSONALIZADO' | 'AVALIACAO'; startedAt: Date; finalizedAt: Date | null;
+  id: string; type: 'DIAGNOSTICO' | 'PERSONALIZADO' | 'AVALIACAO' | 'PRATICA'; startedAt: Date; finalizedAt: Date | null;
   totalQuestions: number; answeredQuestions: number; correctAnswers: number | null;
   incorrectAnswers: number | null; unansweredQuestions: number; overallPercentage: number | null;
 };
 export type HistoryCursor = { startedAt: string; id: string };
 export type StudyTotals = {
-  completedActivities: number; completedDiagnostics: number; completedTrails: number; completedExams: number;
+  completedActivities: number; completedDiagnostics: number; completedTrails: number; completedExams: number; completedPractices: number;
   totalQuestions: number; answeredQuestions: number; correctAnswers: number;
   incorrectAnswers: number; unansweredQuestions: number;
 };
@@ -22,7 +23,11 @@ const counts = Prisma.sql`LEFT JOIN LATERAL (
   FROM "QuestaoSimulado" q LEFT JOIN "Resposta" r ON r."questaoSimuladoId" = q.id
   WHERE q."simuladoId" = s.id
 ) c ON true`;
-const summary = Prisma.sql`s.id, s.tipo AS type, s."iniciadoEm" AS "startedAt", s."finalizadoEm" AS "finalizedAt",
+const practiceEnabled = isQuestionPracticeSchemaEnabled;
+const historyType = () => practiceEnabled()
+  ? Prisma.sql`CASE WHEN EXISTS (SELECT 1 FROM "SessaoPratica" p WHERE p."simuladoId" = s.id) THEN 'PRATICA' ELSE s.tipo::text END`
+  : Prisma.sql`s.tipo::text`;
+const summary = () => Prisma.sql`s.id, ${historyType()} AS type, s."iniciadoEm" AS "startedAt", s."finalizadoEm" AS "finalizedAt",
   c.total AS "totalQuestions", c.answered AS "answeredQuestions",
   CASE WHEN s."finalizadoEm" IS NOT NULL THEN c.correct ELSE NULL END AS "correctAnswers",
   CASE WHEN s."finalizadoEm" IS NOT NULL THEN c.incorrect ELSE NULL END AS "incorrectAnswers",
@@ -37,8 +42,9 @@ export class StudentHistoryRepository {
       prisma.$queryRaw<StudyTotals[]>(Prisma.sql`
         SELECT count(*)::int AS "completedActivities",
           count(*) FILTER (WHERE s.tipo = 'DIAGNOSTICO')::int AS "completedDiagnostics",
-          count(*) FILTER (WHERE s.tipo = 'PERSONALIZADO')::int AS "completedTrails",
+          count(*) FILTER (WHERE s.tipo = 'PERSONALIZADO' ${practiceEnabled() ? Prisma.sql`AND NOT EXISTS (SELECT 1 FROM "SessaoPratica" p WHERE p."simuladoId" = s.id)` : Prisma.empty})::int AS "completedTrails",
           count(*) FILTER (WHERE s.tipo = 'AVALIACAO')::int AS "completedExams",
+          ${practiceEnabled() ? Prisma.sql`count(*) FILTER (WHERE EXISTS (SELECT 1 FROM "SessaoPratica" p WHERE p."simuladoId" = s.id))::int` : Prisma.sql`0::int`} AS "completedPractices",
           coalesce(sum(c.total), 0)::int AS "totalQuestions",
           coalesce(sum(c.answered), 0)::int AS "answeredQuestions",
           coalesce(sum(c.correct), 0)::int AS "correctAnswers",
@@ -46,7 +52,7 @@ export class StudentHistoryRepository {
           coalesce(sum(c.total - c.answered), 0)::int AS "unansweredQuestions"
         FROM "Simulado" s ${counts} WHERE s."alunoId" = ${studentId} AND s."finalizadoEm" IS NOT NULL`),
       prisma.$queryRaw<ActivitySummary[]>(Prisma.sql`
-        SELECT ${summary} FROM (
+        SELECT ${summary()} FROM (
           SELECT * FROM "Simulado" WHERE "alunoId" = ${studentId} AND tipo = 'DIAGNOSTICO'
           AND "finalizadoEm" IS NOT NULL
           AND EXISTS (SELECT 1 FROM "QuestaoSimulado" q WHERE q."simuladoId" = "Simulado".id)
@@ -64,7 +70,7 @@ export class StudentHistoryRepository {
 
   private historyQuery(studentId: string, limit: number, cursor?: HistoryCursor, diagnosticsOnly = false) {
     return prisma.$queryRaw<ActivitySummary[]>(Prisma.sql`
-      SELECT ${summary} FROM (
+      SELECT ${summary()} FROM (
         SELECT * FROM "Simulado" WHERE "alunoId" = ${studentId}
         ${diagnosticsOnly ? Prisma.sql`AND tipo = 'DIAGNOSTICO'` : Prisma.empty}
         ${cursor ? Prisma.sql`AND ("iniciadoEm", id) < (${cursor.startedAt}::timestamp(3), ${cursor.id})` : Prisma.empty}

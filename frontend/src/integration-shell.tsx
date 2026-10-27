@@ -5,6 +5,7 @@ import { LegalLinks } from "./legal";
 import { navigate, usePath } from "./navigation";
 import "./integration-shell.css";
 import { PhotoProvider, ProfileAvatar, ProfilePhotoEditor } from "./profile-photo";
+import { setLocalDiagnosticDemoMode } from "./auth-session";
 
 // Adapted from NavItem, UserProfileDropdown and ProfileSettings in the aluno
 // v0 export. Routing, account data and mutations belong to the existing app.
@@ -33,10 +34,14 @@ export function IntegrationShell({
   user,
   children,
   onSair,
+  localDiagnosticDemoActive = false,
+  onExitLocalDemo,
 }: {
   user: User;
   children: ReactNode;
   onSair: () => void;
+  localDiagnosticDemoActive?: boolean;
+  onExitLocalDemo?: () => void;
 }) {
   const path = usePath();
   const teacher = user.role !== "ALUNO";
@@ -68,15 +73,16 @@ export function IntegrationShell({
         { path: base + "/turmas", label: "Turmas", icon: "users" },
         { path: base + "/alunos", label: "Alunos", icon: "users" },
         { path: base + "/simulados", label: "Simulados", icon: "file" },
+        ...(user.role === "ADMIN" ? [{ path: "/professor/questoes/importar", label: "Importar questões", icon: "file" }] : []),
       ]
     : [
         { path: "/dashboard", label: "Início", icon: "home" },
-        { path: "/", label: "Estudar", icon: "book" },
+        { path: "/estudar", label: "Estudar", icon: "book" },
         { path: "/turmas", label: "Minhas turmas", icon: "users" },
         { path: "/simulados", label: "Simulados", icon: "file" },
         { path: "/questoes", label: "Questões", icon: "file" },
         { path: "/desempenho", label: "Meu desempenho", icon: "chart" },
-        { path: "/trilha", label: "Minha trilha adaptativa", icon: "target" },
+        { path: "/trilha", label: "Minha Trilha de Estudos", icon: "target" },
       ];
   const secondary: Item[] = teacher
     ? [
@@ -201,9 +207,7 @@ export function IntegrationShell({
             onClick={() => navigate(teacher ? base : "/dashboard")}
             title="JurisSim — início"
           >
-            <span className="v0-logo">
-              <Icon name="book" />
-            </span>
+            <span className="v0-logo" aria-hidden="true"><img src="/brand/jurissim-logo.png" alt="" /></span>
             <span>
               <strong>
                 Juris<span>Sim</span>
@@ -272,7 +276,8 @@ export function IntegrationShell({
             <Icon name="menu" />
           </button>
           <div className="v0-breadcrumb">
-            JurisSim <span>/</span> <b>{title}</b>
+            <span className="v0-header-mark" aria-hidden="true"><img src="/brand/jurissim-logo.png" alt="" /></span>
+            <span className="v0-header-brand-name">JurisSim</span><span>/</span> <b>{title}</b>
           </div>
           <div
             className="v0-user-menu"
@@ -316,6 +321,10 @@ export function IntegrationShell({
             )}
           </div>
         </header>
+        {localDiagnosticDemoActive && user.role === 'ALUNO' && <div className="v0-demo-banner" role="status">
+          <span>Modo de demonstração local — diagnóstico pendente</span>
+          <button type="button" onClick={() => { setLocalDiagnosticDemoMode(false); onExitLocalDemo?.(); }}>Voltar ao diagnóstico obrigatório</button>
+        </div>}
         <div className="v0-original" hidden={utility}>
           {children}
         </div>
@@ -331,7 +340,7 @@ export function IntegrationShell({
             onSair={onSair}
           />
         )}
-
+        <footer className="app-legal-footer"><LegalLinks /></footer>
       </div>
     </div></PhotoProvider>
   );

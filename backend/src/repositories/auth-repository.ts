@@ -20,11 +20,11 @@ export class AuthRepository {
   findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } }); }
   findByIdWithSenha(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, senhaHash: true } }); }
 
-  createUser(nome: string, email: string, senhaHash: string, role: 'ALUNO' | 'PROFESSOR', acceptance: unknown) {
+  createUser(nome: string, email: string, senhaHash: string, acceptance: unknown) {
     const legal = acceptanceData(acceptance);
     return prisma.user.create({
       data: {
-        nome, email, senhaHash, role, ...legal,
+        nome, email, senhaHash, role: 'ALUNO', ...legal,
         auditLogs: { create: [
           legal.auditLogs.create,
           { action: 'USUARIO_CADASTRADO' as AuditAction, occurredAt: legal.legalAcceptedAt },
@@ -67,6 +67,12 @@ export class AuthRepository {
     return prisma.auditLog.create({ data: { action: action as AuditAction, userId } });
   }
   async hasCompletedDiagnostic(usuarioId: string) { return Boolean(await prisma.simulado.findFirst({ where: { alunoId: usuarioId, tipo: 'DIAGNOSTICO', finalizadoEm: { not: null }}, select: { id: true } })); }
+  async hasCompletedInitialDiagnostic(usuarioId: string) {
+    return Boolean(await prisma.diagnosticoInicial.findFirst({
+      where: { alunoId: usuarioId, simulado: { is: { finalizadoEm: { not: null } } } },
+      select: { id: true },
+    }));
+  }
 
   createToken(userId: string, type: AuthTokenType, tokenHash: string, expiresAt: Date) {
     if (type !== 'EMAIL_VERIFICATION') return prisma.authToken.create({ data: { userId, type, tokenHash, expiresAt } });

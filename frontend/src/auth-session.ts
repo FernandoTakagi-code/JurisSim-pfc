@@ -1,9 +1,12 @@
 import { useSyncExternalStore } from 'react';
 import { ApiError, apiRequest, onAuthorizationFailure } from './api';
+export { sessionDestination } from './auth-routing';
 
 export type Session = {
   user: { id: string; nome: string; email: string; role: 'ALUNO' | 'PROFESSOR' | 'ADMIN'; emailVerificado: boolean };
-  nextStep: 'PROFESSOR' | 'DASHBOARD' | 'DIAGNOSTIC';
+  nextStep: 'PROFESSOR' | 'DASHBOARD' | 'DIAGNOSTIC' | 'INITIAL_DIAGNOSTIC';
+  localDiagnosticDemoAvailable?: boolean;
+  localDiagnosticDemoActive?: boolean;
 };
 type State = { status: 'anonymous' | 'loading' | 'ready' | 'error'; session: Session | null; message?: string };
 let state: State = { status: 'anonymous', session: null };
@@ -12,7 +15,7 @@ let pending: { token: string; promise: Promise<Session> } | undefined;
 let revision = 0;
 const currentToken = () => sessionStorage.getItem('jurissim_token');
 function update(next: State) { state = next; listeners.forEach(listener => listener()); }
-const keys = ['jurissim_token', 'jurissim_next_step', 'jurissim_user_name', 'jurissim_email', 'jurissim_email_verificado'];
+const keys = ['jurissim_token', 'jurissim_next_step', 'jurissim_user_name', 'jurissim_email', 'jurissim_email_verificado', 'jurissim_local_diagnostic_demo'];
 export function endSession() {
   revision++;
   pending = undefined;
@@ -31,15 +34,15 @@ function validSession(value: Session): boolean {
   const user = value?.user;
   return Boolean(user && typeof user.id === 'string' && user.id && typeof user.nome === 'string' && typeof user.email === 'string' &&
     ['ALUNO', 'PROFESSOR', 'ADMIN'].includes(user.role) && typeof user.emailVerificado === 'boolean' &&
-    ['PROFESSOR', 'DASHBOARD', 'DIAGNOSTIC'].includes(value.nextStep));
+    (value.localDiagnosticDemoAvailable === undefined || typeof value.localDiagnosticDemoAvailable === 'boolean') &&
+    (value.localDiagnosticDemoActive === undefined || typeof value.localDiagnosticDemoActive === 'boolean') &&
+    ['PROFESSOR', 'DASHBOARD', 'DIAGNOSTIC', 'INITIAL_DIAGNOSTIC'].includes(value.nextStep));
 }
-export function sessionDestination(session: Session) {
-  return session.user.role !== 'ALUNO' ? '/professor' : session.nextStep === 'DASHBOARD' ? '/dashboard' : '/';
-}
-export function refreshSession(): Promise<Session> {
+
+export function refreshSession(force = false): Promise<Session> {
   const token = currentToken();
   if (!token) { endSession(); return Promise.reject(new Error('Autenticação obrigatória.')); }
-  if (pending?.token === token) return pending.promise;
+  if (pending?.token === token && !force) return pending.promise;
   const requestRevision = ++revision;
   if (state.status !== 'ready') update({ status: 'loading', session: null });
   const promise = apiRequest<Session>('/auth/session', {}, { token }).then(session => {
@@ -65,6 +68,10 @@ export async function establishSession(token: string) {
   const session = await refreshSession();
   sessionStorage.removeItem('jurissim_logout_notice');
   return session;
+}
+export function setLocalDiagnosticDemoMode(enabled: boolean) {
+  if (enabled) sessionStorage.setItem('jurissim_local_diagnostic_demo', 'true');
+  else sessionStorage.removeItem('jurissim_local_diagnostic_demo');
 }
 onAuthorizationFailure((status, token, path) => {
   if (token !== currentToken()) return; // Ignore delayed responses from a previous login.
