@@ -24,13 +24,17 @@ const initialDiagnosticMigration = '20261021110000_initial_diagnostic_identity';
 const questionEligibilityMigration = '20261021120000_question_eligibility_metadata';
 const questionPracticeMigration = '20261021130000_question_practice_sessions';
 const questionPracticeTopicMigration = '20261028120000_question_practice_topic';
-const requiredQuestionMigrations = [questionImportMigration, initialDiagnosticMigration, questionEligibilityMigration, questionPracticeMigration, questionPracticeTopicMigration];
+const diagnosticReviewSnapshotMigration = '20261030120000_diagnostic_review_snapshot';
+const requiredQuestionMigrations = [questionImportMigration, initialDiagnosticMigration, questionEligibilityMigration, questionPracticeMigration, questionPracticeTopicMigration, diagnosticReviewSnapshotMigration];
 const pgBin = process.argv[2];
 const preflightOnly = process.argv[3] === '--preflight-only';
 const startupDiagnosticOnly = process.argv[3] === '--startup-diagnostic-only';
+// Same disposable cluster and migration checks, but only the Vitest integration suite
+// (skips the standalone scripts/test-*-db.ts scenario runners).
+const integrationSuiteOnly = process.argv[3] === '--integration-suite-only';
 if (!pgBin || (process.argv.length !== 3
-  && !(process.argv.length === 4 && (preflightOnly || startupDiagnosticOnly)))) {
-  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only]');
+  && !(process.argv.length === 4 && (preflightOnly || startupDiagnosticOnly || integrationSuiteOnly)))) {
+  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only]');
   process.exit(1);
 }
 const resolvedPgBin = path.resolve(pgBin);
@@ -467,12 +471,12 @@ async function main() {
     PGDATABASE: freshDatabase, JURISSIM_TEST_DB_PASSWORD: testPassword,
     JURISSIM_TEST_PGPASSFILE: emptyPasswordFile, JURISSIM_TEST_DATA_DIR: data,
     JURISSIM_TEST_FRESH_DATABASE: freshDatabase });
-  console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-session-revocation-db.ts', data]));
-  console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-student-history-db.ts', data]));
-  console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-class-exams-db.ts', data]));
-  console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-goals-reports-db.ts', data]));
-  console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-profile-photo-db.ts', data]));
-  console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-auth-stage7-db.ts', data]));
+  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-session-revocation-db.ts', data]));
+  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-student-history-db.ts', data]));
+  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-class-exams-db.ts', data]));
+  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-goals-reports-db.ts', data]));
+  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-profile-photo-db.ts', data]));
+  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-auth-stage7-db.ts', data]));
 
   // Separate database for main's suite, within this same freshly created cluster.
   sql('postgres', `CREATE DATABASE ${quote(integrationDatabase)};`);
@@ -488,8 +492,8 @@ async function main() {
     PGDATABASE: integrationDatabase, JURISSIM_TEST_DATA_DIR: data,
     JURISSIM_TEST_DB_PASSWORD: testPassword, JURISSIM_TEST_PGPASSFILE: emptyPasswordFile,
     JURISSIM_TEST_CAPABILITY: capability, JURISSIM_TEST_INTEGRATION_DATABASE: integrationDatabase });
-  console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-question-import-db.ts', data]));
-  console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-initial-diagnostic-db.ts', data]));
+  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-question-import-db.ts', data]));
+  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-initial-diagnostic-db.ts', data]));
   console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts']));
   assertNoDrift(integrationDatabase);
 }
