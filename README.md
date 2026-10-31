@@ -88,8 +88,8 @@ O sistema JurisSim é modelado em 6 processos principais:
 #### Fluxo Simplificado:
 
 ```
-Aluno Login → Simulado Diagnóstico → Calcular Métricas → 
-Motor Adaptativo (Análise de Desempenho) → Gerar Trilha → 
+Aluno Login → Simulado Diagnóstico → Calcular Métricas →
+Motor Adaptativo (Análise de Desempenho) → Gerar Trilha →
 Simulado Personalizado → Atualizar Progresso
 ```
 

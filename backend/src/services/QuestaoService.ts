@@ -15,12 +15,12 @@ interface DadosCriarQuestao {
 }
 
 export class QuestaoService {
-  static async criar(dados: DadosCriarQuestao, actorId: string) {
+  static async criar(dados: DadosCriarQuestao, actorId: string, actorRole: string) {
     this.validarAlternativas(dados.alternativas);
-    return QuestaoRepository.criar(dados, actorId);
+    return QuestaoRepository.criar(dados, actorId, actorRole);
   }
 
-  private static validarAlternativas(alternativas: DadosCriarQuestao['alternativas']) {
+  static validarAlternativas(alternativas: DadosCriarQuestao['alternativas']) {
     const corretas = alternativas.filter((a) => a.correta);
     if (corretas.length !== 1) {
       throw new ApiError(400, 'A questão deve ter exatamente uma alternativa correta');
@@ -34,16 +34,10 @@ export class QuestaoService {
   static async listar(
     filtros: { disciplina?: string; assunto?: string; nivel?: Nivel; turmaId?: string },
     papelUsuario: string,
-    usuarioId?: string,
+    usuarioId: string,
     somenteMinhas = false,
   ) {
-    const ehProfessor = papelUsuario === 'PROFESSOR' || papelUsuario === 'ADMIN';
-    const questoes = await QuestaoRepository.listar({
-      ...filtros,
-      // Professores também enxergam as próprias questões privadas.
-      autorId: ehProfessor ? usuarioId : undefined,
-      somenteDoAutor: ehProfessor && somenteMinhas,
-    });
+    const questoes = await QuestaoRepository.listar(filtros, usuarioId, papelUsuario, somenteMinhas);
 
     if (papelUsuario === 'ALUNO') {
       return questoes.map((questao) => ({
@@ -58,8 +52,8 @@ export class QuestaoService {
     return questoes;
   }
 
-  static async buscarPorId(id: string, papelUsuario: string) {
-    const questao = await QuestaoRepository.buscarPorId(id);
+  static async buscarPorId(id: string, papelUsuario: string, usuarioId: string) {
+    const questao = await QuestaoRepository.buscarPorId(id, usuarioId, papelUsuario);
 
     if (!questao) {
       throw new ApiError(404, 'Questão não encontrada');
@@ -78,12 +72,12 @@ export class QuestaoService {
     return questao;
   }
 
-  static async atualizar(id: string, dados: Partial<Omit<DadosCriarQuestao, 'autorId'>>, actorId: string) {
+  static async atualizar(id: string, dados: Partial<Omit<DadosCriarQuestao, 'autorId'>>, actorId: string, actorRole: string) {
     if (dados.alternativas) this.validarAlternativas(dados.alternativas);
-    return QuestaoRepository.atualizar(id, dados, actorId);
+    return QuestaoRepository.atualizar(id, dados, actorId, actorRole);
   }
 
-  static async remover(id: string, actorId: string) {
-    return QuestaoRepository.remover(id, actorId);
+  static async remover(id: string, actorId: string, actorRole: string) {
+    return QuestaoRepository.remover(id, actorId, actorRole);
   }
 }

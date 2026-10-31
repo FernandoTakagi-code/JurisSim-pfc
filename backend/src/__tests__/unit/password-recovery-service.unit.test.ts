@@ -5,7 +5,7 @@ import { PasswordRecoveryService, PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from '..
 
 // Teste unitário: repositório e envio de e-mail são dublês injetados pelo construtor.
 const APP_URL = 'http://localhost:5173';
-const RESPOSTA_NEUTRA = 'Se existir uma conta associada a este e-mail, enviaremos as instruções de recuperação.';
+const RESPOSTA_NEUTRA = 'Se existir uma conta associada a este e-mail, voce recebera instrucoes caso o envio seja concluido. Se nao receber a mensagem, tente novamente mais tarde.';
 
 function criarDependencias(conta: { id: string; senhaHash: string | null } | null) {
   const repositorio = {
@@ -13,6 +13,7 @@ function criarDependencias(conta: { id: string; senhaHash: string | null } | nul
     createToken: vi.fn().mockResolvedValue('token-id-1'),
     invalidateToken: vi.fn().mockResolvedValue(undefined),
     isTokenUsable: vi.fn().mockResolvedValue(true),
+    getUsablePasswordHash: vi.fn().mockResolvedValue(conta?.senhaHash ?? null),
     consumeAndReset: vi.fn().mockResolvedValue(true),
   };
   const emailSender = {
@@ -119,18 +120,18 @@ describe('PasswordRecoveryService.resetPassword()', () => {
 
     // Assert
     await expect(tentativa).rejects.toMatchObject({ statusCode: 400, message: 'As senhas não coincidem.' });
-    expect(repositorio.isTokenUsable).not.toHaveBeenCalled();
+    expect(repositorio.getUsablePasswordHash).not.toHaveBeenCalled();
     expect(repositorio.consumeAndReset).not.toHaveBeenCalled();
   });
 
   it('deveRecusarTokenExpiradoOuJaUtilizado', async () => {
     // Arrange
     const { repositorio, emailSender } = criarDependencias(null);
-    repositorio.isTokenUsable.mockResolvedValue(false);
+    repositorio.getUsablePasswordHash.mockResolvedValue(null);
     const service = new PasswordRecoveryService(repositorio as never, emailSender, APP_URL);
 
     // Act
-    const tentativa = service.resetPassword('token-expirado', 'nova-senha', 'nova-senha');
+    const tentativa = service.resetPassword('token-expirado', 'Nova-senha1!', 'Nova-senha1!');
 
     // Assert
     await expect(tentativa).rejects.toMatchObject({ statusCode: 400, message: 'Link inválido, expirado ou já utilizado.' });

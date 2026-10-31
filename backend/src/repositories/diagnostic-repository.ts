@@ -2,11 +2,102 @@ import { AuditAction, Prisma, TipoMetricaDiagnostico } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import type { AdaptiveResult } from '../types/diagnostic';
 
-const attemptDetails = {
-  questoes: { orderBy: { posicao: 'asc' }, include: { questao: { include: { alternativas: true } }, resposta: true } },
-  desempenhosDiagnostico: true,
-  trilhaAdaptativa: true,
-} satisfies Prisma.SimuladoInclude;
+export const diagnosticAttemptSelect = {
+  id: true,
+  alunoId: true,
+  iniciadoEm: true,
+  finalizadoEm: true,
+  questoes: {
+    orderBy: { posicao: 'asc' },
+    select: {
+      id: true,
+      posicao: true,
+      questaoId: true,
+      conteudoSnapshot: true,
+      questao: {
+        select: {
+          id: true,
+          enunciado: true,
+          disciplina: true,
+          assunto: true,
+          nivel: true,
+          fundamentacaoJuridica: true,
+          alternativas: { select: { id: true, letra: true, texto: true, correta: true } },
+        },
+      },
+      resposta: { select: { correta: true, alternativaEscolhidaId: true } },
+    },
+  },
+  desempenhosDiagnostico: {
+    select: {
+      id: true,
+      simuladoId: true,
+      tipo: true,
+      disciplina: true,
+      assunto: true,
+      nivel: true,
+      acertos: true,
+      totalQuestoes: true,
+      percentual: true,
+    },
+  },
+  trilhaAdaptativa: {
+    select: {
+      id: true,
+      simuladoId: true,
+      disciplinaPrioritaria: true,
+      assuntoPrioritario: true,
+      nivelRecomendado: true,
+      quantidadeRecomendada: true,
+      justificativa: true,
+      createdAt: true,
+      simuladoGeradoId: true,
+    },
+  },
+} satisfies Prisma.SimuladoSelect;
+
+export const diagnosticResultSelect = {
+  id: true,
+  alunoId: true,
+  finalizadoEm: true,
+  questoes: {
+    orderBy: { posicao: 'asc' },
+    select: {
+      questao: { select: { disciplina: true, assunto: true, nivel: true } },
+      resposta: { select: { correta: true } },
+    },
+  },
+  desempenhosDiagnostico: {
+    select: {
+      id: true,
+      simuladoId: true,
+      tipo: true,
+      disciplina: true,
+      assunto: true,
+      nivel: true,
+      acertos: true,
+      totalQuestoes: true,
+      percentual: true,
+    },
+  },
+  trilhaAdaptativa: {
+    select: {
+      id: true,
+      simuladoId: true,
+      disciplinaPrioritaria: true,
+      assuntoPrioritario: true,
+      nivelRecomendado: true,
+      quantidadeRecomendada: true,
+      justificativa: true,
+      createdAt: true,
+      simuladoGeradoId: true,
+    },
+  },
+} satisfies Prisma.SimuladoSelect;
+
+export type DiagnosticResultAttempt = Prisma.SimuladoGetPayload<{
+  select: typeof diagnosticResultSelect;
+}>;
 
 export class DiagnosticRepository {
   async findStudent(studentId: string) {
@@ -14,7 +105,7 @@ export class DiagnosticRepository {
   }
 
   async findQuestionsForDiagnostic(quantity: number) {
-    return prisma.questao.findMany({ take: quantity, where: { publica: true }, orderBy: { createdAt: 'asc' } });
+    return prisma.questao.findMany({ take: quantity, where: { publica: true }, orderBy: { createdAt: 'asc' }, select: { id: true } });
   }
 
   async createAttempt(studentId: string, questionIds: string[]) {
@@ -24,7 +115,7 @@ export class DiagnosticRepository {
           tipo: 'DIAGNOSTICO', alunoId: studentId,
           questoes: { create: questionIds.map((questaoId, index) => ({ questaoId, posicao: index + 1 })) },
         },
-        include: attemptDetails,
+        select: { id: true, iniciadoEm: true, questoes: { select: { id: true } } },
       });
       await tx.auditLog.create({ data: { userId: studentId, action: 'DIAGNOSTICO_INICIADO' as AuditAction, resourceId: attempt.id } });
       return attempt;
@@ -32,7 +123,17 @@ export class DiagnosticRepository {
   }
 
   async findAttempt(attemptId: string, studentId: string) {
-    return prisma.simulado.findFirst({ where: { id: attemptId, alunoId: studentId, tipo: 'DIAGNOSTICO' }, include: attemptDetails });
+    return prisma.simulado.findFirst({
+      where: { id: attemptId, alunoId: studentId, tipo: 'DIAGNOSTICO' },
+      select: diagnosticAttemptSelect,
+    });
+  }
+
+  async findAttemptForResult(attemptId: string, studentId: string) {
+    return prisma.simulado.findFirst({
+      where: { id: attemptId, alunoId: studentId, tipo: 'DIAGNOSTICO' },
+      select: diagnosticResultSelect,
+    });
   }
 
   async saveAnswer(simuladoId: string, questaoId: string, questaoSimuladoId: string, alternativaEscolhidaId: string, correta: boolean) {
@@ -71,7 +172,7 @@ export class DiagnosticRepository {
           },
         },
       },
-      include: attemptDetails,
+      select: diagnosticAttemptSelect,
     });
     await tx.auditLog.create({ data: { userId: studentId, action: 'DIAGNOSTICO_FINALIZADO' as AuditAction, resourceId: attemptId } });
     return attempt;

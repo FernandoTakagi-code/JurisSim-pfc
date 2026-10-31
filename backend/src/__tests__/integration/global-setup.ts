@@ -1,32 +1,30 @@
-import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { PrismaClient } from '@prisma/client';
+import { assertDisposableDatabase, disposableDatabaseConfig } from './disposable-database';
 
-// Executado uma única vez antes dos testes de integração.
-// Recria o banco de TESTE do zero a partir do schema.prisma, garantindo que
-// nenhum teste dependa de dados cadastrados previamente.
-export default function setup() {
-  const url = process.env.TEST_DATABASE_URL;
-  if (!url) {
-    throw new Error(
-      'Defina TEST_DATABASE_URL no backend/.env para rodar os testes de integração. ' +
-      'Ex.: postgresql://postgres:postgres@localhost:5432/jurissim_test',
-    );
-  }
-
-  // Trava de segurança: o banco é APAGADO a cada execução, então só aceitamos
-  // bancos/schemas cujo nome contenha "test".
-  const parsed = new URL(url);
-  const database = parsed.pathname.replace(/^\//, '');
-  const schema = parsed.searchParams.get('schema') ?? 'public';
-  if (!/test/i.test(database) && !/test/i.test(schema)) {
-    throw new Error(
-      `Recusado: o banco "${database}" (schema "${schema}") não parece ser de teste. ` +
-      'Use um banco ou schema com "test" no nome, pois ele será apagado.',
-    );
-  }
-
-  execSync('npx prisma db push --force-reset --skip-generate', {
-    cwd: process.cwd(),
-    stdio: 'inherit',
-    env: { ...process.env, DATABASE_URL: url, DIRECT_URL: process.env.TEST_DIRECT_URL ?? url },
-  });
+// Verify the cluster already created/migrated by the local harness.
+// No reset, migration command, dotenv, or destructive SQL here.
+export default async function setup() {
+  const config = disposableDatabaseConfig();
+  const client = new PrismaClient({ datasourceUrl: config.url });
+  try {
+    await assertDisposableDatabase(client);
+    const expected = fs.readdirSync(path.resolve('prisma/migrations'))
+      .filter(name => fs.existsSync(path.resolve('prisma/migrations', name, 'migration.sql'))).sort();
+    const requiredQuestionMigrations = [
+      '20261021100000_question_import_provenance',
+      '20261021110000_initial_diagnostic_identity',
+      '20261021120000_question_eligibility_metadata',
+      '20261021130000_question_practice_sessions',
+      '20261028120000_question_practice_topic',
+      '20261030120000_diagnostic_review_snapshot',
+    ];
+    const applied = await client.$queryRaw<{ migration_name: string }[]>`
+      SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`;
+    if (JSON.stringify(expected.slice(-requiredQuestionMigrations.length)) !== JSON.stringify(requiredQuestionMigrations)
+      || JSON.stringify(applied.map(row => row.migration_name)) !== JSON.stringify(expected)) {
+      throw new Error('O banco descartável precisa conter todas as migrations locais aplicadas, na ordem atual; o setup não cria nem redefine seu schema.');
+    }
+  } finally { await client.$disconnect(); }
 }

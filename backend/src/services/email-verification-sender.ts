@@ -1,4 +1,7 @@
+import { createBrevoEmailTransport, createBrevoSmtpTransport, type TransactionalEmailTransport } from './brevo-email-transport';
+
 export type EmailVerificationEmail = {
+  userId?: string;
   to: string;
   verifyUrl: string;
   expiresInMinutes: number;
@@ -17,37 +20,27 @@ export class UnconfiguredEmailVerificationSender implements EmailVerificationSen
   }
 }
 
-// Envia o e-mail de verdade usando uma conta Gmail via SMTP (Nodemailer).
-// Reaproveita GMAIL_USER e GMAIL_APP_PASSWORD já configurados no .env.
-export class GmailEmailVerificationSender implements EmailVerificationSender {
+// A API v3 HTTPS é o transporte padrão. SMTP permanece disponível por seleção explícita.
+export class BrevoEmailVerificationSender implements EmailVerificationSender {
   readonly isConfigured: boolean;
-  private transporter?: import('nodemailer').Transporter;
+  private readonly transport: TransactionalEmailTransport;
 
   constructor(
-    private readonly gmailUser = process.env.GMAIL_USER,
-    private readonly gmailAppPassword = process.env.GMAIL_APP_PASSWORD,
+    smtpUser?: string,
+    smtpKey?: string,
   ) {
-    this.isConfigured = Boolean(this.gmailUser && this.gmailAppPassword);
-  }
-
-  private async getTransporter() {
-    if (!this.transporter) {
-      const nodemailer = await import('nodemailer');
-      this.transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: this.gmailUser, pass: this.gmailAppPassword },
-      });
-    }
-    return this.transporter;
+    this.transport = smtpUser !== undefined || smtpKey !== undefined
+      ? createBrevoSmtpTransport(smtpUser, smtpKey)
+      : createBrevoEmailTransport();
+    this.isConfigured = this.transport.isConfigured;
   }
 
   async sendEmailVerification({ to, verifyUrl, expiresInMinutes }: EmailVerificationEmail): Promise<void> {
-    if (!this.isConfigured) throw new Error('Gmail email verification sender is not configured.');
-    const transporter = await this.getTransporter();
-    await transporter.sendMail({
-      from: `"JurisSim" <${this.gmailUser}>`,
+    if (!this.isConfigured) throw new Error('Brevo email verification sender is not configured.');
+    await this.transport.send({
       to,
       subject: 'Confirme seu e-mail — JurisSim',
+      text: `Confirme seu e-mail no JurisSim: ${verifyUrl}\nEste link expira em ${expiresInMinutes} minutos. Se você não se cadastrou, ignore esta mensagem.`,
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2 style="color: #0b1f3a;">Confirme seu e-mail</h2>

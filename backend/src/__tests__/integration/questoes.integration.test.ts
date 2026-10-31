@@ -6,7 +6,7 @@ import {
 } from './helpers';
 
 // Testes de integração: rotas Express reais + controllers + services + repositories
-// + PostgreSQL de TESTE (recriado pelo global-setup e limpo antes de cada teste).
+// + PostgreSQL descartável criado e migrado pelo harness local.
 let server: Server;
 let baseUrl: string;
 
@@ -90,8 +90,9 @@ describe('QuestaoRepository (persistência com PostgreSQL de teste)', () => {
     const criada = await QuestaoRepository.criar(
       { ...dados, nivel: 'INTERMEDIARIO', autorId: professor.id, alternativas },
       professor.id,
+      'PROFESSOR',
     );
-    const recuperada = await QuestaoRepository.buscarPorId(criada.id);
+    const recuperada = await QuestaoRepository.buscarPorId(criada.id, professor.id, 'PROFESSOR');
 
     // Assert
     expect(recuperada).not.toBeNull();
@@ -102,22 +103,25 @@ describe('QuestaoRepository (persistência com PostgreSQL de teste)', () => {
     expect(logs[0]).toMatchObject({ action: 'QUESTAO_CRIADA', userId: professor.id });
   });
 
-  it('deveListarApenasQuestoesPublicasQuandoNaoHaAutorInformado', async () => {
+  it('deveListarApenasQuestoesPublicasParaAlunoSemTurma', async () => {
     // Arrange - uma questão pública (prof. A) e uma privada (prof. B)
     const professorA = await criarUsuario('PROFESSOR');
     const professorB = await criarUsuario('PROFESSOR');
+    const aluno = await criarUsuario('ALUNO');
     const { alternativas, ...dados } = questaoValida();
-    await QuestaoRepository.criar({ ...dados, nivel: 'BASICO', publica: true, autorId: professorA.id, alternativas }, professorA.id);
-    await QuestaoRepository.criar({ ...dados, nivel: 'BASICO', publica: false, autorId: professorB.id, alternativas }, professorB.id);
+    await QuestaoRepository.criar({ ...dados, nivel: 'BASICO', publica: true, autorId: professorA.id, alternativas }, professorA.id, 'PROFESSOR');
+    await QuestaoRepository.criar({ ...dados, enunciado: `${dados.enunciado} Versão privada distinta.`, nivel: 'BASICO', publica: false, autorId: professorB.id, alternativas }, professorB.id, 'PROFESSOR');
 
     // Act
-    const visaoPublica = await QuestaoRepository.listar({});
-    const visaoDoProfessorB = await QuestaoRepository.listar({ autorId: professorB.id });
+    const visaoPublica = await QuestaoRepository.listar({}, aluno.id, 'ALUNO');
+    const visaoDoProfessorB = await QuestaoRepository.listar({}, professorB.id, 'PROFESSOR');
 
     // Assert
     expect(visaoPublica).toHaveLength(1);
     expect(visaoPublica[0].autorId).toBe(professorA.id);
     expect(visaoDoProfessorB).toHaveLength(2);
+    expect(await QuestaoRepository.listar({}, professorA.id, 'PROFESSOR')).toHaveLength(1);
+    expect(await QuestaoRepository.listar({}, professorB.id, 'PROFESSOR', true)).toHaveLength(1);
   });
 });
 

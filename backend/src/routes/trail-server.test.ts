@@ -5,20 +5,23 @@ import { once } from 'node:events';
 import bcrypt from 'bcrypt';
 
 const mocks = vi.hoisted(() => ({
-  user: vi.fn(), recordLogin: vi.fn(), diagnostic: vi.fn(), trail: vi.fn(), questions: vi.fn(),
+  user: vi.fn(), findByIdForAuth: vi.fn(), recordLogin: vi.fn(), diagnostic: vi.fn(), trail: vi.fn(), questions: vi.fn(),
   create: vi.fn(), attempt: vi.fn(), answer: vi.fn(), finalize: vi.fn(), level: vi.fn(),
 }));
 // Only persistence is mocked: use the actual server, login, middleware,
 // routers, controllers, services and adaptive engine.
-vi.mock('../repositories/auth-repository', () => ({
-  GOOGLE_PASSWORD_SENTINEL: '!GOOGLE_OAUTH_ACCOUNT!',
+vi.mock('../repositories/auth-repository', async importOriginal => ({
+  ...await importOriginal<typeof import('../repositories/auth-repository')>(),
   AuthRepository: class {
     findByEmail = mocks.user;
+    findByIdForAuth = mocks.findByIdForAuth;
     recordLogin = mocks.recordLogin;
-    findByIdForAuth = async (id: string) => ({ id, role: 'ALUNO', deletedAt: null });
   },
 }));
-vi.mock('../repositories/diagnostic-repository', () => ({ DiagnosticRepository: class { findAttempt = mocks.diagnostic; } }));
+vi.mock('../repositories/diagnostic-repository', () => ({ DiagnosticRepository: class {
+  findAttempt = mocks.diagnostic;
+  findAttemptForResult = mocks.diagnostic;
+} }));
 vi.mock('../repositories/trail-repository', () => ({ TrailRepository: class {
   findTrilha = mocks.trail;
   findQuestionsForTrail = mocks.questions;
@@ -58,12 +61,17 @@ let server: Server | undefined;
 let base: string;
 let token: string;
 const otherTokens: Record<string, string> = {};
+const otherIds: Record<string, string> = {
+  ALUNO: '00000000-0000-4000-8000-000000000091',
+  PROFESSOR: '00000000-0000-4000-8000-000000000092',
+  ADMIN: '00000000-0000-4000-8000-000000000093',
+};
 
 beforeAll(async () => {
   process.env.JWT_SECRET = 'chave-apenas-de-teste-das-rotas-de-trilhas';
   process.env.DATABASE_URL ||= 'postgresql://test:test@localhost:5432/test';
   process.env.DIRECT_URL ||= process.env.DATABASE_URL;
-  mocks.user.mockResolvedValue({ id: ids.user, nome: 'Aluno', email: 'aluno@example.com', role: 'ALUNO', senhaHash: await bcrypt.hash('senha-teste', 4) });
+  mocks.user.mockResolvedValue({ id: ids.user, nome: 'Aluno', email: 'aluno@example.com', role: 'ALUNO', sessionVersion: 0, senhaHash: await bcrypt.hash('senha-teste', 4) });
   // Import server.ts itself so removing its app.use('/trilhas', ...) breaks this test.
   // Replace only listen's port/bind address; no production changes for testability.
   const listen = vi.spyOn(express.application, 'listen').mockImplementation(function (this: express.Express) {
@@ -82,7 +90,7 @@ beforeAll(async () => {
   expect(response.status).toBe(200);
   token = (await response.json()).token;
   for (const role of ['ALUNO', 'PROFESSOR', 'ADMIN']) {
-    mocks.user.mockResolvedValue({ id: '00000000-0000-4000-8000-000000000099', nome: 'Outro usuário', email: 'outro@example.com', role, senhaHash: await bcrypt.hash('senha-teste', 4) });
+    mocks.user.mockResolvedValue({ id: otherIds[role], nome: 'Outro usuário', email: 'outro@example.com', role, sessionVersion: 0, senhaHash: await bcrypt.hash('senha-teste', 4) });
     const otherLogin = await fetch(`${base}/auth/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'outro@example.com', senha: 'senha-teste' }),
@@ -95,6 +103,10 @@ beforeAll(async () => {
 afterAll(async () => { if (server) await new Promise<void>(resolve => server!.close(() => resolve())); });
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.findByIdForAuth.mockImplementation(async (id: string) => {
+    const role = id === ids.user ? 'ALUNO' : Object.keys(otherIds).find(role => otherIds[role] === id);
+    return role ? { id, role, deletedAt: null, emailVerifiedAt: new Date(), sessionVersion: 0 } : null;
+  });
   mocks.diagnostic.mockResolvedValue({ ...attempt(true), id: ids.diagnostic, finalizadoEm: new Date(), trilhaAdaptativa: trail });
   mocks.trail.mockResolvedValue(trail);
   mocks.questions.mockResolvedValue([{ id: ids.question }]);

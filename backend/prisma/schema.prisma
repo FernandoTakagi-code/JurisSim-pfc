@@ -13,6 +13,7 @@ model User {
   nome                String
   email               String       @unique
   senhaHash           String?
+  sessionVersion      Int          @default(0)
   role                Role
   createdAt           DateTime     @default(now())
   nivelAtual          Nivel?
@@ -29,6 +30,25 @@ model User {
   simulados           Simulado[]
   turmasComoAluno     Turma[]      @relation("AlunoTurmas")
   turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
+  avaliacoesCriadas   Avaliacao[]
+  profilePhotos       ProfilePhoto[]
+  lotesQuestoesImportadas LoteImportacao[]
+  diagnosticoInicial DiagnosticoInicial?
+  questoesRevisadasJuridicamente Questao[] @relation("RevisorJuridicoQuestao")
+  questoesRevisadasPedagogicamente Questao[] @relation("RevisorPedagogicoQuestao")
+  questoesLiberadasAcervo Questao[] @relation("LiberadorAcervoQuestao")
+  questoesDireitosVerificados Questao[] @relation("VerificadorDireitosQuestao")
+}
+
+// At most one private photo per user (primary key). List relation allows atomic
+// deleteMany during account anonymization even if no photo has been chosen.
+model ProfilePhoto {
+  userId    String @id
+  avatarId  String?
+  image     Bytes?
+  version   String @default(uuid())
+  updatedAt DateTime @updatedAt
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AuthToken {
@@ -63,6 +83,9 @@ model Turma {
   nome          String
   codigoConvite String    @unique
   createdAt     DateTime  @default(now())
+  archivedAt    DateTime?
+  conviteExpiraEm DateTime?
+  avaliacoes    Avaliacao[]
   questoes      Questao[]
   alunos        User[]    @relation("AlunoTurmas")
   professores   User[]    @relation("ProfessorTurmas")
@@ -79,11 +102,53 @@ model Questao {
   createdAt             DateTime          @default(now())
   turmaId               String?
   autorId               String
+  fonteNome             String?
+  fonteReferencia       String?
+  licencaOuAutorizacao  String?
+  loteImportacaoId      String?
+  // Historical records remain NULL until a duplicate-aware, reviewed backfill.
+  fingerprint           String?           @unique(map: "Questao_fingerprint_key")
+  origem                OrigemQuestao?
+  revisaoJuridicaEm     DateTime?
+  revisorJuridicoId     String?
+  revisaoPedagogicaEm   DateTime?
+  revisorPedagogicoId   String?
+  liberadaAcervoEm      DateTime?
+  liberadaAcervoPorId   String?
+  situacaoDireitos      SituacaoDireitos?
+  direitosVerificadosEm DateTime?
+  direitosVerificadosPorId String?
+  oabExame              String?
+  oabEdicao             String?
+  oabTipoProva          String?
+  oabNumeroQuestao      Int?
+  fonteOficialUrl       String?
+  situacaoQuestaoOficial SituacaoQuestaoOficial?
   alternativas          Alternativa[]
   autor                 User              @relation(fields: [autorId], references: [id])
+  revisorJuridico       User?             @relation("RevisorJuridicoQuestao", fields: [revisorJuridicoId], references: [id], onDelete: Restrict)
+  revisorPedagogico     User?             @relation("RevisorPedagogicoQuestao", fields: [revisorPedagogicoId], references: [id], onDelete: Restrict)
+  liberadorAcervo       User?             @relation("LiberadorAcervoQuestao", fields: [liberadaAcervoPorId], references: [id], onDelete: Restrict)
+  verificadorDireitos   User?             @relation("VerificadorDireitosQuestao", fields: [direitosVerificadosPorId], references: [id], onDelete: Restrict)
   turma                 Turma?            @relation(fields: [turmaId], references: [id])
+  loteImportacao        LoteImportacao?   @relation(fields: [loteImportacaoId], references: [id], onDelete: Restrict)
   diagnosticos          QuestaoSimulado[]
   respostas             Resposta[]
+  avaliacoes            AvaliacaoQuestao[]
+
+  @@index([origem, disciplina, nivel], map: "Questao_origem_disciplina_nivel_idx")
+}
+
+model LoteImportacao {
+  id              String    @id @default(uuid())
+  administradorId String
+  importadoEm     DateTime  @default(now())
+  arquivoHash     String    @db.Char(64)
+  totalQuestoes   Int
+  administrador   User      @relation(fields: [administradorId], references: [id], onDelete: Restrict)
+  questoes        Questao[]
+
+  @@index([administradorId, importadoEm])
 }
 
 model Alternativa {
@@ -91,7 +156,10 @@ model Alternativa {
   texto     String
   correta   Boolean
   questaoId String
+  letra     LetraAlternativa?
   questao   Questao @relation(fields: [questaoId], references: [id])
+
+  @@unique([questaoId, letra], map: "Alternativa_questaoId_letra_key")
 }
 
 model Simulado {
@@ -101,12 +169,75 @@ model Simulado {
   finalizadoEm           DateTime?
   tempoLimiteSegundos    Int?
   alunoId                String
+  avaliacaoId            String?
+  avaliacao              Avaliacao? @relation(fields: [avaliacaoId], references: [id], onDelete: Restrict)
   desempenhosDiagnostico DesempenhoDiagnostico[]
   questoes               QuestaoSimulado[]
   respostas              Resposta[]
   aluno                  User                    @relation(fields: [alunoId], references: [id])
   trilhaOrigem           TrilhaAdaptativa?       @relation("TrilhaGerouExercicios")
   trilhaAdaptativa       TrilhaAdaptativa?       @relation("TrilhaDoDiagnostico")
+  diagnosticoInicial     DiagnosticoInicial?     @relation("DiagnosticoInicialSimulado")
+  sessaoPratica          SessaoPratica?          @relation("SessaoPraticaSimulado")
+
+  @@index([alunoId, iniciadoEm, id])
+  @@index([alunoId, finalizadoEm, id])
+  @@unique([avaliacaoId, alunoId])
+  // Supports a composite FK that guarantees the initial diagnostic belongs to its recorded student.
+  @@unique([id, alunoId], map: "Simulado_id_alunoId_key")
+}
+
+model DiagnosticoInicial {
+  id         String   @id @default(uuid())
+  alunoId    String   @unique
+  simuladoId String   @unique
+  aluno      User     @relation(fields: [alunoId], references: [id], onDelete: Restrict)
+  simulado   Simulado @relation("DiagnosticoInicialSimulado", fields: [simuladoId, alunoId], references: [id, alunoId], onDelete: Restrict)
+
+  // Prisma requires a unique key matching the composite one-to-one relation.
+  // The individual simuladoId unique constraint remains an explicit invariant.
+  @@unique([simuladoId, alunoId], map: "DiagnosticoInicial_simuladoId_alunoId_key")
+}
+
+model SessaoPratica {
+  id         String   @id @default(uuid())
+  simuladoId String   @unique
+  alunoId    String
+  disciplina String
+  assunto    String?
+  criadaEm   DateTime @default(now())
+  simulado   Simulado @relation("SessaoPraticaSimulado", fields: [simuladoId, alunoId], references: [id, alunoId], onDelete: Restrict)
+
+  @@unique([simuladoId, alunoId], map: "SessaoPratica_simuladoId_alunoId_key")
+  @@index([alunoId, criadaEm])
+}
+model Avaliacao {
+  id String @id @default(uuid())
+  titulo String
+  descricao String @default("")
+  duracaoSegundos Int?
+  createdAt DateTime @default(now())
+  publishedAt DateTime?
+  autorId String
+  autor User @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  turmas Turma[]
+  questoes AvaliacaoQuestao[]
+  tentativas Simulado[]
+
+  @@index([autorId, createdAt, id])
+}
+
+model AvaliacaoQuestao {
+  id String @id @default(uuid())
+  avaliacaoId String
+  questaoId String
+  posicao Int
+  avaliacao Avaliacao @relation(fields: [avaliacaoId], references: [id], onDelete: Restrict)
+  questao Questao @relation(fields: [questaoId], references: [id], onDelete: Restrict)
+
+  @@unique([avaliacaoId, questaoId])
+  @@unique([avaliacaoId, posicao])
+  @@index([questaoId])
 }
 
 model Resposta {
@@ -121,6 +252,8 @@ model Resposta {
   questao                Questao          @relation(fields: [questaoId], references: [id])
   questaoSimulado        QuestaoSimulado? @relation("RespostaDiagnostico", fields: [questaoSimuladoId], references: [id])
   simulado               Simulado         @relation(fields: [simuladoId], references: [id])
+
+  @@index([simuladoId, respondidoEm])
 }
 
 model QuestaoSimulado {
@@ -128,6 +261,8 @@ model QuestaoSimulado {
   posicao    Int
   simuladoId String
   questaoId  String
+  // Optional historical content snapshot. NULL for attempts created before this field.
+  conteudoSnapshot Json? @db.JsonB
   questao    Questao   @relation(fields: [questaoId], references: [id])
   simulado   Simulado  @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
   resposta   Resposta? @relation("RespostaDiagnostico")
@@ -159,6 +294,8 @@ model MetaDiaria {
   cumprida           Boolean  @default(false)
   alunoId            String
   aluno              User     @relation(fields: [alunoId], references: [id])
+
+  @@index([alunoId, data, id])
 }
 
 model TrilhaAdaptativa {
@@ -200,9 +337,35 @@ enum Nivel {
   AVANCADO
 }
 
+enum OrigemQuestao {
+  IA
+  OAB_OFICIAL
+  PROFESSOR
+}
+
+enum SituacaoDireitos {
+  NAO_VERIFICADO
+  AUTORIZADA
+  DOMINIO_PUBLICO_VERIFICADO
+  NEGADA
+}
+
+enum SituacaoQuestaoOficial {
+  VALIDA
+  ANULADA
+}
+
+enum LetraAlternativa {
+  A
+  B
+  C
+  D
+}
+
 enum TipoSimulado {
   DIAGNOSTICO
   PERSONALIZADO
+  AVALIACAO
 }
 
 enum TipoMetricaDiagnostico {
@@ -227,6 +390,9 @@ enum AuditAction {
   QUESTAO_CRIADA
   QUESTAO_ATUALIZADA
   QUESTAO_EXCLUIDA
+  // Preserve values introduced by the historical password-recovery migration.
+  PASSWORD_RECOVERY_REQUESTED
+  PASSWORD_RECOVERY_COMPLETED
   EMAIL_CONFIRMADO
   SENHA_REDEFINIDA
   CONTA_EXCLUIDA

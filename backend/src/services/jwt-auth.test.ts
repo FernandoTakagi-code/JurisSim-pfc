@@ -6,14 +6,16 @@ import jwt from 'jsonwebtoken';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 
 const mocks = vi.hoisted(() => ({
-  findByEmail: vi.fn(), findById: vi.fn(), recordLogin: vi.fn(), hasCompletedDiagnostic: vi.fn(), start: vi.fn(), createQuestion: vi.fn(),
+  findByEmail: vi.fn(), findById: vi.fn(), findByIdForAuth: vi.fn(), recordLogin: vi.fn(), hasCompletedDiagnostic: vi.fn(), start: vi.fn(), createQuestion: vi.fn(),
 }));
-vi.mock('../repositories/auth-repository', () => ({ GOOGLE_PASSWORD_SENTINEL: '!GOOGLE_OAUTH_ACCOUNT!', AuthRepository: class {
+vi.mock('../repositories/auth-repository', async importOriginal => ({
+  ...await importOriginal<typeof import('../repositories/auth-repository')>(),
+  AuthRepository: class {
   findByEmail = mocks.findByEmail;
   findById = mocks.findById;
+  findByIdForAuth = mocks.findByIdForAuth;
   recordLogin = mocks.recordLogin;
   hasCompletedDiagnostic = mocks.hasCompletedDiagnostic;
-  findByIdForAuth = async (id: string) => ({ id, role: 'ALUNO', deletedAt: null });
 } }));
 // Keep the real diagnostic router/controller; isolate database/business operations.
 vi.mock('./diagnostic-service', () => ({ DiagnosticService: class { start = mocks.start; } }));
@@ -21,6 +23,11 @@ vi.mock('./QuestaoService', () => ({ QuestaoService: class { static criar = mock
 
 const secret = 'chave-exclusiva-de-testes-jwt-com-mais-de-32-caracteres';
 const userId = '00000000-0000-4000-8000-000000000001';
+const accounts = [
+  { id: userId, email: 'aluno@example.com', role: 'ALUNO' },
+  { id: '00000000-0000-4000-8000-000000000002', email: 'professor@example.com', role: 'PROFESSOR' },
+  { id: '00000000-0000-4000-8000-000000000003', email: 'admin@example.com', role: 'ADMIN' },
+];
 let server: Server;
 let base: string;
 
@@ -30,10 +37,12 @@ beforeAll(async () => {
   process.env.DIRECT_URL ||= process.env.DATABASE_URL;
   const senhaHash = await bcrypt.hash('senha-de-teste', 4);
   mocks.findByEmail.mockImplementation(async (email: string) => ({
-    id: userId, nome: 'Teste', email, senhaHash,
-    role: email === 'admin@example.com' ? 'ADMIN' : email === 'professor@example.com' ? 'PROFESSOR' : 'ALUNO',
+    ...accounts.find(account => account.email === email), nome: 'Teste', sessionVersion: 0, senhaHash,
   }));
-  mocks.findById.mockResolvedValue({ id: userId, nome: 'Teste', email: 'aluno@example.com', role: 'ALUNO' });
+  mocks.findById.mockResolvedValue({ id: userId, nome: 'Teste', email: 'aluno@example.com', role: 'ALUNO', emailVerifiedAt: new Date() });
+  mocks.findByIdForAuth.mockImplementation(async (id: string) => accounts.some(account => account.id === id)
+    ? { ...accounts.find(account => account.id === id), deletedAt: null, emailVerifiedAt: new Date(), sessionVersion: 0 }
+    : null);
   mocks.hasCompletedDiagnostic.mockResolvedValue(false);
   mocks.start.mockResolvedValue({ id: 'diagnostic-test', questoes: [{}], iniciadoEm: new Date() });
   const { authRoutes } = await import('../routes/auth-routes');
@@ -115,7 +124,10 @@ describe('JWT do login e consumidores', () => {
     });
     expect(response.status).toBe(status);
     if (status === 403) expect(mocks.createQuestion).not.toHaveBeenCalled();
-    else expect(mocks.createQuestion).toHaveBeenCalledWith(expect.objectContaining({ autorId: userId }), userId);
+    else {
+      const actorId = accounts.find(account => account.email === email)!.id;
+      expect(mocks.createQuestion).toHaveBeenCalledWith(expect.objectContaining({ autorId: actorId }), actorId, accounts.find(account => account.email === email)!.role);
+    }
   });
 
   it('sessão mantém próximo passo DASHBOARD após diagnóstico concluído', async () => {
@@ -142,17 +154,45 @@ const invalidTokens: [string, () => string | undefined][] = [
   ['role inválida', () => jwt.sign({ id: userId, role: 'ROOT' }, secret)],
 ];
 
+describe('validação da conta nas rotas protegidas', () => {
+  it.each([
+    { label: 'inexistente', account: null },
+    { label: 'excluída', account: { id: userId, role: 'ALUNO', deletedAt: new Date() } },
+  ])('recusa JWT válido de conta $label antes de acessar dados protegidos', async ({ account }) => {
+    const token = await login();
+    mocks.findByIdForAuth.mockClear();
+    mocks.findById.mockClear();
+    mocks.start.mockClear();
+    mocks.createQuestion.mockClear();
+    for (const endpoint of ['/auth/session', '/diagnostics', '/questoes']) {
+      mocks.findByIdForAuth.mockResolvedValueOnce(account);
+      const response = await fetch(`${base}${endpoint}`, {
+        method: endpoint === '/auth/session' ? 'GET' : 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(response.status).toBe(401);
+    }
+    expect(mocks.findByIdForAuth).toHaveBeenCalledTimes(3);
+    expect(mocks.findByIdForAuth).toHaveBeenCalledWith(userId);
+    expect(mocks.findById).not.toHaveBeenCalled();
+    expect(mocks.start).not.toHaveBeenCalled();
+    expect(mocks.createQuestion).not.toHaveBeenCalled();
+  });
+});
+
 describe('rejeição de JWT inválido sem acessar a rota protegida', () => {
   it.each(invalidTokens)('%s retorna 401 nas sessões e diagnóstico', async (_label, generate) => {
     const token = generate();
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     mocks.start.mockClear();
     mocks.findById.mockClear();
+    mocks.findByIdForAuth.mockClear();
     for (const endpoint of ['/auth/session', '/diagnostics']) {
       const response = await fetch(`${base}${endpoint}`, { method: endpoint === '/diagnostics' ? 'POST' : 'GET', headers });
       expect(response.status).toBe(401);
     }
     expect(mocks.start).not.toHaveBeenCalled();
     expect(mocks.findById).not.toHaveBeenCalled();
+    expect(mocks.findByIdForAuth).not.toHaveBeenCalled();
   });
 });

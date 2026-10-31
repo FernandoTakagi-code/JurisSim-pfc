@@ -1,12 +1,12 @@
+import { apiRequest } from './api';
 import { useState } from "react";
 import { LegalLinks } from "./legal";
 
-const api = import.meta.env.VITE_API_URL ?? "http://localhost:3333";
 
 export function Brand() {
   return (
     <div className="brand">
-      <b>⚖</b>
+      <b className="brand-compact-logo" aria-hidden="true"><img src="/brand/jurissim-logo.png" alt="" /></b>
       <span>
         <strong>JurisSim</strong>
         <small>Plataforma adaptativa para o Exame da OAB.</small>
@@ -34,16 +34,7 @@ export function SettingsModal({
     setSalvando(true);
     setErro("");
     try {
-      const response = await fetch(`${api}/auth/nome`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("jurissim_token") ?? ""}`,
-        },
-        body: JSON.stringify({ nome: nomeEditavel }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.erro ?? "Não foi possível salvar.");
+      const body = await apiRequest<{ usuario: { nome: string } }>('/auth/nome', { method: 'PUT', body: JSON.stringify({ nome: nomeEditavel }) });
       sessionStorage.setItem("jurissim_user_name", body.usuario.nome);
       window.location.reload();
     } catch (cause) {

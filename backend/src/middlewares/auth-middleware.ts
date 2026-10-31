@@ -11,6 +11,15 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export async function requireAuth(request: AuthenticatedRequest, _response: Response, next: NextFunction) {
+  return authenticate(request, next, false);
+}
+
+// Explicit exception for session inspection and confirmation resend only.
+export async function requireLimitedAuth(request: AuthenticatedRequest, _response: Response, next: NextFunction) {
+  return authenticate(request, next, true);
+}
+
+async function authenticate(request: AuthenticatedRequest, next: NextFunction, allowUnverified: boolean) {
   const [scheme, token] = request.header('authorization')?.split(' ') ?? [];
   if (scheme !== 'Bearer' || !token) {
     return next(new ApiError(401, 'Autenticacao obrigatoria.'));
@@ -18,10 +27,13 @@ export async function requireAuth(request: AuthenticatedRequest, _response: Resp
   try {
     const payload = service.verifyToken(token);
     const user = await repository.findByIdForAuth(payload.id);
-    if (!user || user.deletedAt) {
+    if (!user || user.deletedAt || payload.sessionVersion !== user.sessionVersion) {
       return next(new ApiError(401, 'Sessão inválida.'));
     }
-    request.auth = { userId: payload.id, role: payload.role };
+    if (!allowUnverified && !user.emailVerifiedAt) {
+      return next(new ApiError(403, 'Confirme seu e-mail para acessar este recurso.'));
+    }
+    request.auth = { userId: user.id, role: user.role };
     next();
   } catch (error) {
     next(error);

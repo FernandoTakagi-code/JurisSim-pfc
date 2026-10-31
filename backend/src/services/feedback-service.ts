@@ -33,8 +33,8 @@ Escreva um feedback curto (máximo 3 frases), em português, direto ao aluno, ex
 
     const texto = completion.choices[0]?.message?.content?.trim();
     return texto && texto.length > 0 ? texto : null;
-  } catch (error) {
-    console.error('Erro ao gerar feedback com IA:', error);
+  } catch {
+    console.error('Erro ao gerar feedback com IA.');
     return null;
   }
 }

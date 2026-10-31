@@ -63,6 +63,22 @@ export class TrailService {
     return { level: result.level, overallPercentage: result.overallPercentage, recommendation: result.recommendation };
   }
 
+  async getResult(attemptId: string, userId: string) {
+    const attempt = await this.getAttemptOrFail(attemptId, userId);
+    if (!attempt.finalizadoEm) throw new ApiError(409, 'Finalize a trilha antes de consultar o resultado.');
+    const result = analyzeDiagnostic(this.answeredQuestions(attempt));
+    const answered = attempt.questoes.filter(question => question.resposta).length;
+    return {
+      id: attempt.id, finalizedAt: attempt.finalizadoEm, level: result.level,
+      overallPercentage: result.overallPercentage, recommendation: result.recommendation,
+      totalQuestions: result.totalQuestions, correctAnswers: result.correctAnswers,
+      answeredQuestions: answered, incorrectAnswers: answered - result.correctAnswers,
+      unansweredQuestions: result.totalQuestions - answered,
+      performances: result.performances.map(metric => ({ tipo: metric.metricType,
+        disciplina: metric.discipline, percentual: metric.percentage })), trail: null,
+    };
+  }
+
   private answeredQuestions(attempt: Attempt): AnsweredQuestion[] {
     return attempt.questoes.map(({ questao, resposta }) => ({
       discipline: questao.disciplina, topic: questao.assunto, difficulty: questao.nivel, isCorrect: resposta?.correta ?? false,

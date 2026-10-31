@@ -46,12 +46,12 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     repositorio.criar.mockResolvedValue({ id: 'questao-1', ...dados } as never);
 
     // Act
-    const questao = await QuestaoService.criar(dados, PROFESSOR_ID);
+    const questao = await QuestaoService.criar(dados, PROFESSOR_ID, 'PROFESSOR');
 
     // Assert
     expect(questao).toMatchObject({ id: 'questao-1', disciplina: 'Direito Civil' });
     expect(repositorio.criar).toHaveBeenCalledTimes(1);
-    expect(repositorio.criar).toHaveBeenCalledWith(dados, PROFESSOR_ID);
+    expect(repositorio.criar).toHaveBeenCalledWith(dados, PROFESSOR_ID, 'PROFESSOR');
   });
 
   it.each([
@@ -63,7 +63,7 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     const dados = dadosQuestao(gabarito.map((correta, i) => ({ texto: `Alternativa ${i + 1}`, correta })));
 
     // Act
-    const tentativa = QuestaoService.criar(dados, PROFESSOR_ID);
+    const tentativa = QuestaoService.criar(dados, PROFESSOR_ID, 'PROFESSOR');
 
     // Assert
     await expect(tentativa).rejects.toBeInstanceOf(ApiError);
@@ -83,10 +83,10 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     repositorio.criar.mockResolvedValue({ id: 'questao-2', ...dados } as never);
 
     // Act
-    await QuestaoService.criar(dados, PROFESSOR_ID);
+    await QuestaoService.criar(dados, PROFESSOR_ID, 'PROFESSOR');
 
     // Assert
-    expect(repositorio.criar).toHaveBeenCalledWith(expect.objectContaining({ alternativas: dados.alternativas }), PROFESSOR_ID);
+    expect(repositorio.criar).toHaveBeenCalledWith(expect.objectContaining({ alternativas: dados.alternativas }), PROFESSOR_ID, 'PROFESSOR');
   });
 
   it('deveRecusarQuestaoComApenasUmaAlternativaMesmoQueSejaCorreta', async () => {
@@ -94,7 +94,7 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     const dados = dadosQuestao([{ texto: 'Única alternativa', correta: true }]);
 
     // Act
-    const tentativa = QuestaoService.criar(dados, PROFESSOR_ID);
+    const tentativa = QuestaoService.criar(dados, PROFESSOR_ID, 'PROFESSOR');
 
     // Assert
     await expect(tentativa).rejects.toMatchObject({
@@ -127,9 +127,7 @@ describe('QuestaoService.listar() - visibilidade por perfil', () => {
       { id: 'alt-1', texto: 'Alternativa A' },
       { id: 'alt-2', texto: 'Alternativa B' },
     ]);
-    expect(repositorio.listar).toHaveBeenCalledWith(
-      expect.objectContaining({ autorId: undefined, somenteDoAutor: false }),
-    );
+    expect(repositorio.listar).toHaveBeenCalledWith({}, 'aluno-1', 'ALUNO', false);
   });
 
   it('deveFiltrarSomenteAsQuestoesDoProfessorQuandoSolicitado', async () => {
@@ -141,10 +139,6 @@ describe('QuestaoService.listar() - visibilidade por perfil', () => {
 
     // Assert
     expect(questao.alternativas[0]).toHaveProperty('correta', true);
-    expect(repositorio.listar).toHaveBeenCalledWith({
-      disciplina: 'Direito Civil',
-      autorId: PROFESSOR_ID,
-      somenteDoAutor: true,
-    });
+    expect(repositorio.listar).toHaveBeenCalledWith({ disciplina: 'Direito Civil' }, PROFESSOR_ID, 'PROFESSOR', true);
   });
 });

@@ -13,3 +13,4 @@ diagnosticRoutes.put('/:attemptId/answers/:questionId', controller.answer);
 diagnosticRoutes.post('/:attemptId/finalize', controller.finalize);
 diagnosticRoutes.get('/:attemptId/result', controller.getResult);
 diagnosticRoutes.get('/:attemptId/trail', controller.getTrail);
+diagnosticRoutes.get('/:attemptId/review', controller.getReview);

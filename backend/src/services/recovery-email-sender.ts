@@ -1,3 +1,5 @@
+import { createBrevoEmailTransport, createBrevoSmtpTransport, type TransactionalEmailTransport } from './brevo-email-transport';
+
 export type PasswordRecoveryEmail = {
   to: string;
   resetUrl: string;
@@ -19,48 +21,27 @@ export class UnconfiguredRecoveryEmailSender implements RecoveryEmailSender {
   }
 }
 
-export class ConsoleRecoveryEmailSender implements RecoveryEmailSender {
-  readonly isConfigured = true;
-
-  async sendPasswordRecovery({ to, resetUrl, expiresInMinutes }: PasswordRecoveryEmail): Promise<void> {
-    console.log('\n===== E-MAIL DE RECUPERAÇÃO DE SENHA (SIMULADO) =====');
-    console.log(`Para: ${to}`);
-    console.log(`Link: ${resetUrl}`);
-    console.log(`Expira em: ${expiresInMinutes} minutos`);
-    console.log('======================================================\n');
-  }
-}
-// Envia o e-mail de verdade usando uma conta Gmail via SMTP (Nodemailer).
-// Requer GMAIL_USER e GMAIL_APP_PASSWORD configurados no .env.
-export class GmailRecoveryEmailSender implements RecoveryEmailSender {
+// A API v3 HTTPS é o transporte padrão. SMTP permanece disponível por seleção explícita.
+export class BrevoRecoveryEmailSender implements RecoveryEmailSender {
   readonly isConfigured: boolean;
-  private transporter?: import('nodemailer').Transporter;
+  private readonly transport: TransactionalEmailTransport;
 
   constructor(
-    private readonly gmailUser = process.env.GMAIL_USER,
-    private readonly gmailAppPassword = process.env.GMAIL_APP_PASSWORD,
+    smtpUser?: string,
+    smtpKey?: string,
   ) {
-    this.isConfigured = Boolean(this.gmailUser && this.gmailAppPassword);
-  }
-
-  private async getTransporter() {
-    if (!this.transporter) {
-      const nodemailer = await import('nodemailer');
-      this.transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: this.gmailUser, pass: this.gmailAppPassword },
-      });
-    }
-    return this.transporter;
+    this.transport = smtpUser !== undefined || smtpKey !== undefined
+      ? createBrevoSmtpTransport(smtpUser, smtpKey)
+      : createBrevoEmailTransport();
+    this.isConfigured = this.transport.isConfigured;
   }
 
   async sendPasswordRecovery({ to, resetUrl, expiresInMinutes }: PasswordRecoveryEmail): Promise<void> {
-    if (!this.isConfigured) throw new Error('Gmail recovery email sender is not configured.');
-    const transporter = await this.getTransporter();
-    await transporter.sendMail({
-      from: `"JurisSim" <${this.gmailUser}>`,
+    if (!this.isConfigured) throw new Error('Brevo recovery email sender is not configured.');
+    await this.transport.send({
       to,
       subject: 'Recuperação de senha — JurisSim',
+      text: `Redefina sua senha no JurisSim: ${resetUrl}\nEste link expira em ${expiresInMinutes} minutos. Se você não solicitou a alteração, ignore esta mensagem.`,
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2 style="color: #0b1f3a;">Recuperação de senha</h2>

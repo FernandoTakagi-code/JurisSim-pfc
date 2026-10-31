@@ -1,0 +1,1712 @@
+{
+  "catalogId": "oab-eou-47-fase1-tipo1",
+  "title": "47º Exame de Ordem Unificado — 1ª fase — Caderno Tipo 1 (Branca)",
+  "exam": {
+    "organization": "Conselho Federal da OAB",
+    "number": 47,
+    "examId": "18197",
+    "phase": "1ª fase — prova objetiva",
+    "type": 1,
+    "typeLabel": "Branca",
+    "examDate": "2026-09-06"
+  },
+  "sources": {
+    "officialListing": "https://examedeordem.oab.org.br/EditaisProvas?NumeroExame=18197",
+    "caderno_tipo_1": {
+      "label": "Caderno oficial Tipo 1 — Branca",
+      "url": "https://s.oab.org.br/arquivos/2026/09/7d502f11-d906-4378-bd43-27e0c854b981.pdf"
+    },
+    "gabarito_definitivo_tipo_1": {
+      "label": "Gabarito definitivo oficial — Tipo 1",
+      "url": "https://s.oab.org.br/arquivos/2026/09/572dc8e2-78a0-4e37-b6de-20709e2c59ab.pdf"
+    }
+  },
+  "rights": {
+    "licenseVerified": false,
+    "publicationStatus": "BLOQUEADO_ATE_DOCUMENTACAO_DE_DIREITOS",
+    "note": "Metadados apenas; conteúdo integral não coletado nem liberado para publicação."
+  },
+  "questionCount": 80,
+  "questions": [
+    {
+      "id": "oab-eou-47-fase1-tipo1-q001",
+      "questionNumber": 1,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q002",
+      "questionNumber": 2,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q003",
+      "questionNumber": 3,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q004",
+      "questionNumber": 4,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q005",
+      "questionNumber": 5,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q006",
+      "questionNumber": 6,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q007",
+      "questionNumber": 7,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q008",
+      "questionNumber": 8,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q009",
+      "questionNumber": 9,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q010",
+      "questionNumber": 10,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q011",
+      "questionNumber": 11,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q012",
+      "questionNumber": 12,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q013",
+      "questionNumber": 13,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q014",
+      "questionNumber": 14,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q015",
+      "questionNumber": 15,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q016",
+      "questionNumber": 16,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q017",
+      "questionNumber": 17,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q018",
+      "questionNumber": 18,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q019",
+      "questionNumber": 19,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q020",
+      "questionNumber": 20,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q021",
+      "questionNumber": 21,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q022",
+      "questionNumber": 22,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q023",
+      "questionNumber": 23,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q024",
+      "questionNumber": 24,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q025",
+      "questionNumber": 25,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q026",
+      "questionNumber": 26,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q027",
+      "questionNumber": 27,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q028",
+      "questionNumber": 28,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q029",
+      "questionNumber": 29,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q030",
+      "questionNumber": 30,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q031",
+      "questionNumber": 31,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q032",
+      "questionNumber": 32,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q033",
+      "questionNumber": 33,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q034",
+      "questionNumber": 34,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q035",
+      "questionNumber": 35,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q036",
+      "questionNumber": 36,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q037",
+      "questionNumber": 37,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q038",
+      "questionNumber": 38,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q039",
+      "questionNumber": 39,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q040",
+      "questionNumber": 40,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q041",
+      "questionNumber": 41,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q042",
+      "questionNumber": 42,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q043",
+      "questionNumber": 43,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q044",
+      "questionNumber": 44,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q045",
+      "questionNumber": 45,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q046",
+      "questionNumber": 46,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q047",
+      "questionNumber": 47,
+      "definitiveAnswer": null,
+      "status": "ANULADA",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q048",
+      "questionNumber": 48,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q049",
+      "questionNumber": 49,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q050",
+      "questionNumber": 50,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q051",
+      "questionNumber": 51,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q052",
+      "questionNumber": 52,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q053",
+      "questionNumber": 53,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q054",
+      "questionNumber": 54,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q055",
+      "questionNumber": 55,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q056",
+      "questionNumber": 56,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q057",
+      "questionNumber": 57,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q058",
+      "questionNumber": 58,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q059",
+      "questionNumber": 59,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q060",
+      "questionNumber": 60,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q061",
+      "questionNumber": 61,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q062",
+      "questionNumber": 62,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q063",
+      "questionNumber": 63,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q064",
+      "questionNumber": 64,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q065",
+      "questionNumber": 65,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q066",
+      "questionNumber": 66,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q067",
+      "questionNumber": 67,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q068",
+      "questionNumber": 68,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q069",
+      "questionNumber": 69,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q070",
+      "questionNumber": 70,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q071",
+      "questionNumber": 71,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q072",
+      "questionNumber": 72,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q073",
+      "questionNumber": 73,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q074",
+      "questionNumber": 74,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q075",
+      "questionNumber": 75,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q076",
+      "questionNumber": 76,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q077",
+      "questionNumber": 77,
+      "definitiveAnswer": "B",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q078",
+      "questionNumber": 78,
+      "definitiveAnswer": "D",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q079",
+      "questionNumber": 79,
+      "definitiveAnswer": "C",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    },
+    {
+      "id": "oab-eou-47-fase1-tipo1-q080",
+      "questionNumber": 80,
+      "definitiveAnswer": "A",
+      "status": "GABARITO_DEFINITIVO",
+      "contentStatus": "NAO_COLETADO_DIREITOS_PENDENTES",
+      "statement": null,
+      "alternatives": {
+        "A": null,
+        "B": null,
+        "C": null,
+        "D": null
+      },
+      "discipline": null,
+      "subject": null,
+      "difficulty": null,
+      "sourceRefs": [
+        "caderno_tipo_1",
+        "gabarito_definitivo_tipo_1"
+      ]
+    }
+  ]
+}

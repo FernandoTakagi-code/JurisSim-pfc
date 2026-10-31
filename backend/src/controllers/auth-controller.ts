@@ -5,35 +5,45 @@ import { acceptanceSchema } from '../services/legal-acceptance';
 import { AuthService } from '../services/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { PasswordRecoveryService } from '../services/password-recovery-service';
-import { GmailRecoveryEmailSender } from '../services/recovery-email-sender';
+import { BrevoRecoveryEmailSender } from '../services/recovery-email-sender';
 import { EmailVerificationService } from '../services/email-verification-service';
-import { GmailEmailVerificationSender } from '../services/email-verification-sender';
+import { BrevoEmailVerificationSender } from '../services/email-verification-sender';
+import { isLocalEmailCaptureRequested, localEmailVerificationCapture } from '../services/local-email-capture';
+import type { LocalEmailVerificationCapture } from '../services/local-email-capture';
+import { passwordSchema } from '../services/password-policy';
+import { ApiError } from '../errors/api-error';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
+const emailSchema = z.string().trim().email('E-mail inválido').max(254);
+const perfilSchema = z.enum(['ALUNO', 'PROFESSOR']).optional();
 
 const registerSchema = z.object({
-  nome: z.string().min(2, 'Nome muito curto'),
-  email: z.string().email('E-mail inválido'),
-  senha: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
-  role: z.enum(['PROFESSOR', 'ALUNO']),
+  nome: z.string().trim().min(2, 'Nome muito curto').max(120),
+  email: emailSchema,
+  senha: passwordSchema,
+  confirmacaoSenha: z.string().optional(),
+  // The public registration endpoint may only request a student account.
+  // The repository assigns ALUNO itself and does not trust this field.
+  role: z.literal('ALUNO').optional(),
   acceptance: acceptanceSchema,
-});
+}).refine(data => data.confirmacaoSenha === undefined || data.senha === data.confirmacaoSenha, { message: 'As senhas não coincidem.', path: ['confirmacaoSenha'] });
 const loginSchema = z.object({
-  email: z.string().email('E-mail inválido'),
-  senha: z.string().min(1, 'Senha é obrigatória'),
-  perfil: z.enum(['ALUNO', 'PROFESSOR']).optional(),
+  email: emailSchema,
+  senha: z.string().min(1, 'Senha é obrigatória').max(1024),
+  perfil: perfilSchema,
 });
 const googleSchema = z.object({
   credential: z.string().min(1, 'Credencial do Google não fornecida.'),
   acceptance: acceptanceSchema.optional(),
-  perfil: z.enum(['ALUNO', 'PROFESSOR']).optional(),
+  perfil: perfilSchema,
+  nonce: z.string().regex(/^[a-f0-9]{64}$/),
 });
 const nomeSchema = z.object({ nome: z.string().min(2, 'Nome muito curto') });
-const recoveryRequestSchema = z.object({ email: z.string().email('E-mail inválido.') });
+const recoveryRequestSchema = z.object({ email: emailSchema });
 const recoveryResetSchema = z.object({
   token: z.string().min(20).max(512),
-  senha: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.'),
-  confirmacaoSenha: z.string().min(6, 'Confirme a nova senha.'),
+  senha: passwordSchema,
+  confirmacaoSenha: z.string().min(1, 'Confirme a nova senha.'),
 }).refine(data => data.senha === data.confirmacaoSenha, {
   path: ['confirmacaoSenha'],
   message: 'As senhas não coincidem.',
@@ -43,8 +53,10 @@ const confirmEmailSchema = z.object({ token: z.string().min(20).max(512) });
 export class AuthController {
   constructor(
     private readonly service = new AuthService(),
-    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new GmailRecoveryEmailSender()),
-    private readonly emailVerification = new EmailVerificationService(undefined, new GmailEmailVerificationSender()),
+    private readonly passwordRecovery = new PasswordRecoveryService(undefined, new BrevoRecoveryEmailSender()),
+    private readonly emailVerification = new EmailVerificationService(undefined,
+      isLocalEmailCaptureRequested() ? localEmailVerificationCapture : new BrevoEmailVerificationSender()),
+    private readonly localEmailCapture: LocalEmailVerificationCapture = localEmailVerificationCapture,
   ) {}
 
   solicitarRecuperacaoSenha = async (request: Request, response: Response) => {
@@ -72,10 +84,25 @@ export class AuthController {
       response.status(400).json({ message: 'Verifique os dados e aceite as versões atuais dos Termos de Uso e da Política de Privacidade.', erro: parsed.error.format() });
       return;
     }
-    const { nome, email, senha, role, acceptance } = parsed.data;
-    const resultado = await this.service.register(nome, email, senha, role, acceptance);
-    this.emailVerification.requestVerification(resultado.usuario.id).catch(() => {});
-    response.status(201).json(resultado);
+    const { nome, email, senha, acceptance } = parsed.data;
+    const resultado = await this.service.register(nome, email, senha, acceptance);
+    let emailVerification;
+    try {
+      const verification = await this.emailVerification.requestVerification(resultado.usuario.id);
+      emailVerification = isLocalEmailCaptureRequested()
+        ? { status: 'captured', message: 'Conta criada. Entre e use “Reenviar e-mail de confirmação” para obter o link local.' }
+        : { status: 'accepted', message: verification.message };
+    } catch (error) {
+      console.error('Não foi possível enviar a confirmação de e-mail após o cadastro.');
+      const deliveryUnknown = error instanceof ApiError && error.message.includes('O provedor não confirmou');
+      emailVerification = {
+        status: 'unavailable',
+        message: deliveryUnknown
+          ? 'Conta criada. O recebimento do e-mail não foi confirmado; confira a caixa de entrada e o spam antes de pedir outro link.'
+          : 'Conta criada, mas não foi possível enviar a confirmação de e-mail. Entre e solicite o reenvio.',
+      };
+    }
+    response.status(201).json({ ...resultado, emailVerification });
   };
 
   login = async (request: Request, response: Response) => {
@@ -85,7 +112,7 @@ export class AuthController {
       response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
       return;
     }
-      response.json(await this.service.login(parsed.data.email, parsed.data.senha, parsed.data.perfil));
+    response.json(await this.service.login(parsed.data.email, parsed.data.senha, parsed.data.perfil));
   };
 
   google = async (request: Request, response: Response) => {
@@ -110,16 +137,21 @@ export class AuthController {
       response.status(401).json({ message: 'Token do Google inválido.' });
       return;
     }
-    if (!payload?.email || payload.email_verified !== true) {
+    if (!payload?.email || payload.email_verified !== true || payload.nonce !== parsed.data.nonce) {
       response.status(401).json({ message: 'Não foi possível obter o e-mail da conta Google.' });
       return;
     }
-    const nomeSugerido = payload.name ?? payload.given_name ?? payload.email.split('@')[0];
-      response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance, parsed.data.perfil));
+    const emailVerificado = payload.email.trim().toLowerCase();
+    const nomeSugerido = payload.name ?? payload.given_name ?? emailVerificado.split('@')[0];
+    response.json(await this.service.loginWithGoogle(emailVerificado, nomeSugerido, parsed.data.acceptance, parsed.data.perfil));
+  };
+
+  logout = async (request: AuthenticatedRequest, response: Response) => {
+    response.json(await this.service.logout(request.auth!.userId));
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {
-    response.json(await this.service.session(request.auth!.userId));
+    response.json(await this.service.session(request.auth!.userId, request.get('x-jurissim-local-demo') === 'true'));
   };
 
   atualizarNome = async (request: AuthenticatedRequest, response: Response) => {
@@ -142,8 +174,24 @@ export class AuthController {
   };
 
   solicitarConfirmacaoEmail = async (request: AuthenticatedRequest, response: Response) => {
-    const result = await this.emailVerification.requestVerification(request.auth!.userId);
-    response.status(202).json(result);
+    const userId = request.auth!.userId;
+    let result: { message: string };
+    try {
+      result = await this.emailVerification.requestVerification(userId);
+    } catch (error) {
+      const pendingLocalLink = isLocalEmailCaptureRequested() && error instanceof ApiError && error.statusCode === 429
+        ? this.localEmailCapture.takeVerificationLink(userId)
+        : undefined;
+      if (pendingLocalLink) {
+        response.status(202).json({ message: 'Link de confirmacao local disponivel para esta conta.', localVerificationUrl: pendingLocalLink });
+        return;
+      }
+      throw error;
+    }
+    const localVerificationUrl = this.localEmailCapture.takeVerificationLink(userId);
+    response.status(202).json(localVerificationUrl
+      ? { message: 'Link de confirmação local disponível para esta conta.', localVerificationUrl }
+      : result);
   };
 
   confirmarEmail = async (request: Request, response: Response) => {

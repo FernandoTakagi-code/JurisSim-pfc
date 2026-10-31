@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { Nivel, PrismaClient, Role } from '@prisma/client';
+import { createSeedAccountIfMissing } from '../src/services/seed-account-upsert';
 
 const prisma = new PrismaClient();
 
@@ -78,16 +79,14 @@ function ensureLocalDatabase() {
 async function main() {
   ensureLocalDatabase();
 
-  await prisma.user.upsert({
-    where: { email: 'autor.teste@jurissim.local' },
-    update: { id: TEST_AUTHOR_ID, nome: 'Autor de Questoes Local', senhaHash: 'senha-nao-utilizada-em-testes', role: Role.PROFESSOR },
-    create: { id: TEST_AUTHOR_ID, nome: 'Autor de Questoes Local', email: 'autor.teste@jurissim.local', senhaHash: 'senha-nao-utilizada-em-testes', role: Role.PROFESSOR },
+  await createSeedAccountIfMissing(prisma, 'autor.teste@jurissim.local', {
+    id: TEST_AUTHOR_ID, nome: 'Autor de Questoes Local', email: 'autor.teste@jurissim.local',
+    senhaHash: 'senha-nao-utilizada-em-testes', role: Role.PROFESSOR,
   });
 
-  await prisma.user.upsert({
-    where: { email: 'aluno.teste@jurissim.local' },
-    update: { id: TEST_STUDENT_ID, nome: 'Aluno de Teste Local', senhaHash: 'senha-nao-utilizada-em-testes', role: Role.ALUNO },
-    create: { id: TEST_STUDENT_ID, nome: 'Aluno de Teste Local', email: 'aluno.teste@jurissim.local', senhaHash: 'senha-nao-utilizada-em-testes', role: Role.ALUNO },
+  await createSeedAccountIfMissing(prisma, 'aluno.teste@jurissim.local', {
+    id: TEST_STUDENT_ID, nome: 'Aluno de Teste Local', email: 'aluno.teste@jurissim.local',
+    senhaHash: 'senha-nao-utilizada-em-testes', role: Role.ALUNO,
   });
 
   for (const [index, question] of questions.entries()) {

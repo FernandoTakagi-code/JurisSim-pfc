@@ -7,6 +7,10 @@ frontend/tsconfig.tsbuildinfo
 .env
 .env.local
 
+# Migration backup paths, destination fingerprints and integrity plans stay local.
+/backend/.local/
+/backend/scripts/dashboard-migrations-plan.json
+
 
 dist/
 build/

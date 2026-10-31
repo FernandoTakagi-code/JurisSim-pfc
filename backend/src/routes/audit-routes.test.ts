@@ -3,14 +3,16 @@ import express from 'express';
 import type { Server } from 'node:http';
 import jwt from 'jsonwebtoken';
 
-const db = vi.hoisted(() => ({ findMany: vi.fn() }));
-vi.mock('../lib/prisma', () => ({ prisma: {
-  auditLog: db,
-  user: { findUnique: async ({ where }: { where: { id: string } }) => ({ id: where.id, role: 'ADMIN', deletedAt: null }) },
-} }));
+const db = vi.hoisted(() => ({ findMany: vi.fn(), userFindUnique: vi.fn() }));
+vi.mock('../lib/prisma', () => ({ prisma: { auditLog: { findMany: db.findMany }, user: { findUnique: db.userFindUnique } } }));
 
 const secret = 'chave-exclusiva-de-testes-audit-com-mais-de-32-caracteres';
 const userId = '00000000-0000-4000-8000-000000000001';
+const accounts = [
+  { id: userId, role: 'ADMIN' },
+  { id: '00000000-0000-4000-8000-000000000002', role: 'PROFESSOR' },
+  { id: '00000000-0000-4000-8000-000000000003', role: 'ALUNO' },
+];
 let server: Server;
 let base: string;
 
@@ -25,10 +27,15 @@ beforeAll(async () => {
   base = `http://127.0.0.1:${(server.address() as { port: number }).port}/audit-logs`;
 });
 afterAll(async () => { if (server) await new Promise<void>(resolve => server.close(() => resolve())); });
-beforeEach(() => { db.findMany.mockReset().mockResolvedValue([]); });
+beforeEach(() => {
+  db.findMany.mockReset().mockResolvedValue([]);
+  db.userFindUnique.mockReset().mockImplementation(async ({ where }) => accounts.some(account => account.id === where.id)
+    ? { ...accounts.find(account => account.id === where.id), deletedAt: null, emailVerifiedAt: new Date(), sessionVersion: 0 }
+    : null);
+});
 
 function headers(role?: string): Record<string, string> {
-  return role ? { Authorization: `Bearer ${jwt.sign({ id: userId, role }, secret, { expiresIn: '1h' })}` } : {};
+  return role ? { Authorization: `Bearer ${jwt.sign({ id: accounts.find(account => account.role === role)!.id, role }, secret, { expiresIn: '1h' })}` } : {};
 }
 
 describe('GET /audit-logs', () => {

@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { AuthService } from './auth-service';
-import { PASSWORD_RECOVERY_TOKEN_TTL_MINUTES, PasswordRecoveryService } from './password-recovery-service';
+import { PasswordRecoveryService } from './password-recovery-service';
 import { PasswordRecoveryRepository } from '../repositories/password-recovery-repository';
 import { GOOGLE_PASSWORD_SENTINEL } from '../repositories/auth-repository';
+import { EmailDeliveryFailure } from './email-delivery-failure';
 
 const db = vi.hoisted(() => ({
   userFindUnique: vi.fn(), userUpdateMany: vi.fn(),
@@ -28,6 +29,7 @@ function recoveryDependencies(account: { id: string; senhaHash: string | null } 
     createToken: vi.fn().mockResolvedValue('recovery-row-1'),
     invalidateToken: vi.fn().mockResolvedValue(undefined),
     isTokenUsable: vi.fn().mockResolvedValue(true),
+    getUsablePasswordHash: vi.fn().mockResolvedValue(account?.senhaHash ?? null),
     consumeAndReset: vi.fn().mockResolvedValue(true),
   };
   const sender = { isConfigured: true, sendPasswordRecovery: vi.fn().mockResolvedValue(undefined) };
@@ -72,7 +74,8 @@ describe('solicitação de recuperação', () => {
     expect(tokenHash).not.toBe(rawToken);
     expect(userId).toBe('user-1');
     expect(createdAt).toEqual(now);
-    expect(expiresAt.getTime() - createdAt.getTime()).toBe(PASSWORD_RECOVERY_TOKEN_TTL_MINUTES * 60_000);
+    expect(expiresAt.getTime() - createdAt.getTime()).toBe(15 * 60_000);
+    expect(message.expiresInMinutes).toBe(15);
     expect(message.to).toBe(email);
     expect(message.resetUrl).not.toContain(rawToken + '&');
   });
@@ -95,15 +98,25 @@ describe('solicitação de recuperação', () => {
     expect(log).not.toHaveBeenCalledWith(expect.stringContaining(email));
     log.mockRestore();
   });
+
+  it('preserva o token quando o resultado do envio é indeterminado para evitar invalidar link entregue', async () => {
+    const { service, repository, sender } = recoveryDependencies();
+    sender.sendPasswordRecovery.mockRejectedValue(new EmailDeliveryFailure('indeterminate', 'request_deadline'));
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(service.requestRecovery(email)).resolves.toMatch(/^Se existir uma conta associada/);
+    expect(repository.invalidateToken).not.toHaveBeenCalled();
+    expect(warning).toHaveBeenCalledWith('Resultado do envio de recuperacao indeterminado; token preservado.');
+    warning.mockRestore();
+  });
 });
 
 describe('consumo atômico e redefinição', () => {
   let storedToken: { id: string; userId: string; expiresAt: Date; consumedAt: Date | null } | null;
-  let account: { id: string; senhaHash: string | null } | null;
+  let account: { id: string; senhaHash: string | null; sessionVersion: number } | null;
 
   beforeEach(() => {
     storedToken = { id: 'recovery-row-1', userId: 'user-1', expiresAt: new Date(now.getTime() + 60_000), consumedAt: null };
-    account = { id: 'user-1', senhaHash: '$2b$10$traditional-hash' };
+    account = { id: 'user-1', senhaHash: '$2b$10$traditional-hash', sessionVersion: 0 };
     db.tokenFindUnique.mockReset().mockImplementation(async () => storedToken);
     db.userFindUnique.mockReset().mockImplementation(async () => account);
     db.tokenUpdateMany.mockReset().mockImplementation(async () => {
@@ -111,13 +124,14 @@ describe('consumo atômico e redefinição', () => {
       storedToken = { ...storedToken, consumedAt: now };
       return { count: 1 };
     });
-    db.userUpdateMany.mockReset().mockImplementation(async ({ data }: { data: { senhaHash: string } }) => {
+    db.userUpdateMany.mockReset().mockImplementation(async ({ data }: { data: { senhaHash: string; sessionVersion: { increment: number } } }) => {
       if (!account || account.senhaHash === GOOGLE_PASSWORD_SENTINEL) return { count: 0 };
-      account = { ...account, senhaHash: data.senhaHash };
+      account = { ...account, senhaHash: data.senhaHash, sessionVersion: account.sessionVersion + data.sessionVersion.increment };
       return { count: 1 };
     });
     db.auditCreate.mockReset().mockResolvedValue({});
     db.transaction.mockReset().mockImplementation((work: (tx: unknown) => Promise<unknown>) => work({
+      $queryRaw: async () => [{ id: 'user-1' }],
       passwordRecoveryToken: { count: db.tokenCount, create: db.tokenCreate, findUnique: db.tokenFindUnique, updateMany: db.tokenUpdateMany },
       user: { findUnique: db.userFindUnique, updateMany: db.userUpdateMany },
       auditLog: { create: db.auditCreate },
@@ -135,7 +149,7 @@ describe('consumo atômico e redefinição', () => {
     expect(db.userUpdateMany).not.toHaveBeenCalled();
   });
 
-  it('consome o token, troca somente o hash da senha e audita em uma transação', async () => {
+  it('consome o token, troca a senha, revoga sessões e audita em uma transação', async () => {
     const repository = new PasswordRecoveryRepository();
     expect(await repository.consumeAndReset('token-hash', 'new-password-hash', now)).toBe(true);
     expect(db.transaction).toHaveBeenCalledOnce();
@@ -143,15 +157,24 @@ describe('consumo atômico e redefinição', () => {
       where: { id: 'recovery-row-1', consumedAt: null, expiresAt: { gt: now } },
       data: { consumedAt: now },
     }));
-    expect(db.userUpdateMany).toHaveBeenCalledWith({ where: { id: 'user-1', senhaHash: '$2b$10$traditional-hash' }, data: { senhaHash: 'new-password-hash' } });
+    expect(db.userUpdateMany).toHaveBeenCalledWith({ where: { id: 'user-1', senhaHash: '$2b$10$traditional-hash', deletedAt: null }, data: { senhaHash: 'new-password-hash', sessionVersion: { increment: 1 } } });
     expect(db.auditCreate).toHaveBeenCalledWith({ data: { userId: 'user-1', action: 'SENHA_REDEFINIDA', occurredAt: now } });
     expect(storedToken?.consumedAt).toEqual(now);
     expect(account?.senhaHash).toBe('new-password-hash');
+    expect(account?.sessionVersion).toBe(1);
+  });
+
+  it('does not consume token if account password changed since the initial comparison', async () => {
+    const repository = new PasswordRecoveryRepository();
+    expect(await repository.consumeAndReset('token-hash', 'new-password-hash', now, 'stale-current-hash')).toBe(false);
+    expect(db.tokenUpdateMany).not.toHaveBeenCalled();
+    expect(db.userUpdateMany).not.toHaveBeenCalled();
+    expect(account?.sessionVersion).toBe(0);
   });
 
   it('não altera senha de conta Google nem consome seu token', async () => {
     const repository = new PasswordRecoveryRepository();
-    account = { id: 'user-1', senhaHash: GOOGLE_PASSWORD_SENTINEL };
+    account = { id: 'user-1', senhaHash: GOOGLE_PASSWORD_SENTINEL, sessionVersion: 0 };
     expect(await repository.consumeAndReset('token-hash', 'new-password-hash', now)).toBe(false);
     expect(db.tokenUpdateMany).not.toHaveBeenCalled();
     expect(db.userUpdateMany).not.toHaveBeenCalled();
@@ -159,29 +182,66 @@ describe('consumo atômico e redefinição', () => {
 
   it('usa o hash bcrypt padrão e permite login tradicional com a nova senha', async () => {
     process.env.JWT_SECRET = 'chave-de-teste-da-recuperacao-com-mais-de-32-caracteres';
-    const { repository, service } = recoveryDependencies();
+    const currentPassword = 'Senha-atual-fixture1!';
+    const currentPasswordHash = await bcrypt.hash(currentPassword, 4);
+    const { repository, service } = recoveryDependencies({ id: 'user-1', senhaHash: currentPasswordHash });
     const resetToken = 'x'.repeat(43);
     let savedHash = '';
     repository.consumeAndReset.mockImplementation(async (_tokenHash: string, passwordHash: string) => {
       savedHash = passwordHash;
       return true;
     });
-    await service.resetPassword(resetToken, 'nova-senha-segura', 'nova-senha-segura');
-    expect(await bcrypt.compare('nova-senha-segura', savedHash)).toBe(true);
+    await service.resetPassword(resetToken, 'Nova-senha-segura1!', 'Nova-senha-segura1!');
+    expect(await bcrypt.compare('Nova-senha-segura1!', savedHash)).toBe(true);
+    expect(await bcrypt.compare(currentPassword, savedHash)).toBe(false);
     expect(bcrypt.getRounds(savedHash)).toBe(10);
     const authRepository = {
-      findByEmail: vi.fn().mockResolvedValue({ id: 'user-1', nome: 'Aluno', email, role: 'ALUNO', senhaHash: savedHash }),
+      findByEmail: vi.fn().mockResolvedValue({ id: 'user-1', nome: 'Aluno', email, role: 'ALUNO', sessionVersion: 1, senhaHash: savedHash }),
       recordLogin: vi.fn().mockResolvedValue(undefined),
     };
-    await expect(new AuthService(authRepository as never).login(email, 'nova-senha-segura')).resolves.toHaveProperty('token');
+    await expect(new AuthService(authRepository as never).login(email, 'Nova-senha-segura1!')).resolves.toHaveProperty('token');
+    await expect(new AuthService(authRepository as never).login(email, currentPassword)).rejects.toMatchObject({ statusCode: 401 });
+    expect(repository.consumeAndReset).toHaveBeenCalledOnce();
+    expect(repository.consumeAndReset).toHaveBeenCalledWith(expect.any(String), savedHash, expect.any(Date), currentPasswordHash);
+  });
+
+  it('rejeita reutilizar a senha atual e mantem senha e token utilizaveis', async () => {
+    const currentPassword = 'Senha-atual-fixture1!';
+    const currentPasswordHash = await bcrypt.hash(currentPassword, 4);
+    const { repository, service } = recoveryDependencies({ id: 'user-1', senhaHash: currentPasswordHash });
+    const token = 'same-password-token-fixture';
+    let tokenUsable = true;
+    let sessionVersion = 0;
+    let savedHash = '';
+    repository.getUsablePasswordHash.mockImplementation(async () => tokenUsable ? currentPasswordHash : null);
+    repository.consumeAndReset.mockImplementation(async (_tokenHash: string, passwordHash: string) => {
+      savedHash = passwordHash;
+      tokenUsable = false;
+      sessionVersion++;
+      return true;
+    });
+    await expect(service.resetPassword(token, currentPassword, currentPassword)).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Por seguran\u00e7a, sua nova senha deve ser diferente da senha atual.',
+    });
+    expect(await bcrypt.compare(currentPassword, currentPasswordHash)).toBe(true);
+    expect(repository.consumeAndReset).not.toHaveBeenCalled();
+    expect(sessionVersion).toBe(0);
+    expect(await repository.getUsablePasswordHash('token-hash', new Date())).toBe(currentPasswordHash);
+
+    await service.resetPassword(token, 'Senha-realmente-nova1!', 'Senha-realmente-nova1!');
+    expect(await bcrypt.compare('Senha-realmente-nova1!', savedHash)).toBe(true);
+    expect(await bcrypt.compare(currentPassword, savedHash)).toBe(false);
+    expect(sessionVersion).toBe(1);
+    expect(await repository.getUsablePasswordHash('token-hash', new Date())).toBeNull();
   });
 
   it('rejeita tentativa de reutilizar o token e confirmação divergente', async () => {
     const { repository, service } = recoveryDependencies();
-    repository.isTokenUsable.mockResolvedValue(false);
+    repository.getUsablePasswordHash.mockResolvedValue(null);
     repository.consumeAndReset.mockResolvedValue(false);
-    await expect(service.resetPassword('x'.repeat(43), 'nova-senha', 'nova-senha')).rejects.toMatchObject({ statusCode: 400 });
-    await expect(service.resetPassword('x'.repeat(43), 'nova-senha', 'outra-senha')).rejects.toThrow('As senhas não coincidem.');
+    await expect(service.resetPassword('x'.repeat(43), 'Nova-senha1!', 'Nova-senha1!')).rejects.toMatchObject({ statusCode: 400 });
+    await expect(service.resetPassword('x'.repeat(43), 'Nova-senha1!', 'outra-senha')).rejects.toThrow('As senhas não coincidem.');
     expect(repository.consumeAndReset).not.toHaveBeenCalled();
   });
 });
