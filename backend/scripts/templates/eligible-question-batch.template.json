@@ -1,0 +1,52 @@
+{
+  "questions": [
+    {
+      "enunciado": "",
+      "disciplina": "",
+      "assunto": "",
+      "nivel": "",
+      "fundamentacaoJuridica": "",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "", "correta": false },
+        { "letra": "B", "texto": "", "correta": false },
+        { "letra": "C", "texto": "", "correta": false },
+        { "letra": "D", "texto": "", "correta": false }
+      ],
+      "source": { "name": "", "reference": "", "licenseOrAuthorization": "" },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "enunciado": "",
+      "disciplina": "",
+      "assunto": "",
+      "nivel": "",
+      "fundamentacaoJuridica": "",
+      "origem": "OAB_OFICIAL",
+      "alternativas": [
+        { "letra": "A", "texto": "", "correta": false },
+        { "letra": "B", "texto": "", "correta": false },
+        { "letra": "C", "texto": "", "correta": false },
+        { "letra": "D", "texto": "", "correta": false }
+      ],
+      "source": { "name": "", "reference": "", "licenseOrAuthorization": "" },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" },
+      "oab": {
+        "exam": "", "edition": "", "examType": "", "questionNumber": 0,
+        "officialUrl": "", "officialStatus": "", "rightsStatus": "",
+        "rightsVerifiedById": "", "rightsVerifiedAt": "", "rightsEvidenceRef": ""
+      }
+    }
+  ],
+  "practiceTopics": [
+    { "disciplina": "Direito Constitucional", "assunto": "" },
+    { "disciplina": "Direito Civil", "assunto": "" },
+    { "disciplina": "Direito Penal", "assunto": "" },
+    { "disciplina": "Direito Administrativo", "assunto": "" },
+    { "disciplina": "Direito do Trabalho", "assunto": "" }
+  ]
+}

@@ -30,7 +30,7 @@ async function main() {
   assert.ok(path.basename(path.dirname(expected)).startsWith('jurissim-migrations-'));
   const [cluster] = await prisma.$queryRaw<{ data_directory: string; database: string; owner: string; port: number; address: string }[]>`
     SELECT current_setting('data_directory') AS data_directory, current_database() AS database,
-      current_user AS owner, inet_server_port() AS port, inet_server_addr()::text AS address`;
+      current_user AS owner, inet_server_port() AS port, host(inet_server_addr()) AS address`;
   assert.equal(cluster.database, process.env.JURISSIM_TEST_FRESH_DATABASE);
   assert.equal(cluster.owner, 'jurissim_migration_test'); assert.equal(cluster.port, Number(url.port)); assert.equal(cluster.address, '127.0.0.1');
   assert.equal(fs.realpathSync(cluster.data_directory).toLowerCase(), expected.toLowerCase());
@@ -83,6 +83,8 @@ async function main() {
   const carolExpired = await attempt(next, 'carol'); await attempt(next, 'dave');
   await prisma.simulado.update({ where: { id: carolExpired }, data: { iniciadoEm: new Date(Date.now() - 7200000) } });
   const bAttempt = await attempt(onlyB, 'alice', [true, true]);
+  await prisma.user.update({ where: { id: users.alice.id }, data: { nivelAtual: 'BASICO' } });
+  await prisma.user.update({ where: { id: users.carol.id }, data: { nivelAtual: 'AVANCADO' } });
   const report = await request(`/reports/classes/${classA}`, a);
   assert.equal(report.summary.publishedExams, 2); assert.equal(report.summary.participants, 3); assert.equal(report.summary.participationPercentage, 75);
   assert.equal(report.summary.startedAttempts, 5); assert.equal(report.summary.completedAttempts, 3);
@@ -91,6 +93,8 @@ async function main() {
   assert.equal(report.summary.correctAnswers, 3); assert.equal(report.summary.incorrectAnswers, 1); assert.equal(report.summary.unansweredQuestions, 2);
   assert.equal(report.summary.meanCorrectAnswers, 1); assert.equal(report.summary.meanIncorrectAnswers, 0.33);
   assert.deepEqual(report.evolution.map((p: { meanPercentage: number }) => p.meanPercentage), [25, 100]);
+  assert.deepEqual(report.levelDistribution, [{ level: 'AVANCADO', students: 1 }, { level: 'BASICO', students: 1 }]);
+  assert.deepEqual(report.disciplineMetrics, [{ discipline: 'Report Civil', totalQuestions: 6, correctAnswers: 3, percentage: 50 }]);
   assert.ok(!JSON.stringify(report).includes(users.bob.id) && !JSON.stringify(report).includes('Private B report exam'));
   assert.equal(report.students.items.find((s: { id: string }) => s.id === users.eve.id).meanPercentage, null);
   pass('class report has real participation, attempts, averages, errors and evolution; shared exams exclude students from the other class');

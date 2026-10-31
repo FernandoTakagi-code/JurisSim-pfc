@@ -3,8 +3,10 @@ import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { assertDisposableDatabase } from '../src/__tests__/integration/disposable-database';
 import { PrismaInitialDiagnosticRepository } from '../src/repositories/prisma-initial-diagnostic-repository';
+import { PrismaInitialDiagnosticResolutionRepository } from '../src/repositories/prisma-initial-diagnostic-resolution-repository';
 import { INITIAL_DIAGNOSTIC_COMPOSITION } from '../src/services/initial-diagnostic-composition';
 import { InitialDiagnosticService } from '../src/services/initial-diagnostic-service';
+import { InitialDiagnosticResolutionService } from '../src/services/initial-diagnostic-resolution-service';
 
 // This script is intentionally reachable only through the disposable-database
 // harness. It never loads dotenv or accepts an arbitrary database URL.
@@ -33,7 +35,7 @@ async function main() {
   const candidates: { id: string; discipline: string; level: string; origin: string }[] = [];
   for (const slot of INITIAL_DIAGNOSTIC_COMPOSITION) {
     for (let n = 0; n < slot.quantity; n++) {
-      const questionId = id(`eligible-${candidates.length + 1}`);
+      const questionId = randomUUID();
       const official = slot.origin === 'OAB_OFICIAL';
       candidates.push({ id: questionId, discipline: slot.discipline, level: slot.level, origin: slot.origin });
       await db.questao.create({ data: {
@@ -139,6 +141,23 @@ async function main() {
   assert.equal(await db.diagnosticoInicial.count({ where: { alunoId: concurrentStudentId } }), 1);
   assert.equal(await db.simulado.count({ where: { alunoId: concurrentStudentId, tipo: 'DIAGNOSTICO' } }), 1);
   console.log('PASS: concurrent requests converge to one initial diagnostic identity and Simulado');
+
+  const resolution = new InitialDiagnosticResolutionService(new PrismaInitialDiagnosticResolutionRepository(prisma));
+  const diagnosticQuestions = await resolution.getQuestions(studentId, created.attempt.id);
+  for (const [index, question] of diagnosticQuestions.entries()) {
+    const alternatives = await db.alternativa.findMany({ where: { questaoId: question.id }, orderBy: { letra: 'asc' } });
+    const chosen = alternatives.find((alternative: { correta: boolean }) => alternative.correta === (index !== 0));
+    const saved = await resolution.saveAnswer(studentId, created.attempt.id, question.id, chosen.id);
+    assert.equal(saved.correct, index !== 0, 'feedback correctness must come from the persisted alternative');
+    assert.ok(saved.explanation.length > 0, 'immediate feedback must include the reviewed question foundation');
+  }
+  const adaptiveResult = await resolution.finalize(studentId, created.attempt.id);
+  assert.equal(adaptiveResult.totalQuestions, 30);
+  assert.ok(adaptiveResult.performances.some((metric: { tipo: string }) => metric.tipo === 'DISCIPLINA'));
+  assert.ok(adaptiveResult.trail && adaptiveResult.trail.disciplinaPrioritaria);
+  assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: studentId } })).nivelAtual, adaptiveResult.level);
+  assert.equal(await db.trilhaAdaptativa.count({ where: { simuladoId: created.attempt.id } }), 1);
+  console.log('PASS: initial diagnostic persists immediate per-question feedback, adaptive metrics/trail and current level atomically');
 }
 
 main().catch(error => {

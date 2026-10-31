@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BrevoSmtpClient } from './brevo-smtp';
+import { EmailDeliveryFailure } from './email-delivery-failure';
 import { BrevoEmailVerificationSender } from './email-verification-sender';
 import { BrevoRecoveryEmailSender } from './recovery-email-sender';
 
@@ -9,7 +10,7 @@ vi.mock('nodemailer', () => ({ default: { createTransport: mocks.createTransport
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.createTransport.mockReturnValue({ sendMail: mocks.sendMail, verify: mocks.verify });
-  mocks.sendMail.mockResolvedValue({});
+  mocks.sendMail.mockResolvedValue({ accepted: ['recipient@example.com'], rejected: [] });
   mocks.verify.mockResolvedValue(true);
 });
 
@@ -25,7 +26,8 @@ describe('Brevo SMTP compartilhado (transporte simulado)', () => {
       host: 'smtp-relay.brevo.com', port: 587, secure: false, requireTLS: true,
       tls: { minVersion: 'TLSv1.2' },
       auth: { user: 'fixture@smtp-brevo.com', pass: 'opaque fixture key' },
-      connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 20_000,
+      pool: true, maxConnections: 1, maxMessages: 100, maxRequeues: 0,
+      dnsTimeout: 3_000, connectionTimeout: 8_000, greetingTimeout: 5_000, socketTimeout: 10_000,
       logger: false, debug: false,
     }));
     expect(mocks.verify).toHaveBeenCalledTimes(2);
@@ -80,5 +82,56 @@ describe('Brevo SMTP compartilhado (transporte simulado)', () => {
     await expect(recovery.sendPasswordRecovery({ to: 'recipient@example.com', resetUrl: 'https://app.example/', expiresInMinutes: 15 })).rejects.toThrow('not configured');
     expect(mocks.createTransport).not.toHaveBeenCalled();
     expect(mocks.sendMail).not.toHaveBeenCalled();
+  });
+
+  it('rejects when SMTP does not accept the recipient', async () => {
+    mocks.sendMail.mockResolvedValueOnce({ accepted: [], rejected: ['recipient@example.com'] });
+    const sender = new BrevoEmailVerificationSender('fixture@smtp-brevo.com', 'test-password');
+    await expect(sender.sendEmailVerification({ to: 'recipient@example.com', verifyUrl: 'https://app.example/verify', expiresInMinutes: 30 }))
+      .rejects.toMatchObject({ outcome: 'not_accepted', stage: 'smtp' });
+  });
+
+  it('records only a sanitized timeout category and never retries an ambiguous send', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const timeout = Object.assign(new Error('password=secret recipient=private@example.com'), { code: 'ETIMEDOUT' });
+    mocks.sendMail.mockRejectedValueOnce(timeout);
+    const sender = new BrevoRecoveryEmailSender('fixture@smtp-brevo.com', 'test-password');
+    await expect(sender.sendPasswordRecovery({ to: 'private@example.com', resetUrl: 'https://app.example/reset?token=secret', expiresInMinutes: 15 }))
+      .rejects.toMatchObject({ outcome: 'indeterminate', stage: 'unknown' });
+    expect(mocks.sendMail).toHaveBeenCalledOnce();
+    expect(warning).toHaveBeenCalledWith('email.smtp.failed', expect.objectContaining({ outcome: 'indeterminate', stage: 'unknown' }));
+    expect(JSON.stringify(warning.mock.calls)).not.toContain('secret');
+    expect(JSON.stringify(warning.mock.calls)).not.toContain('private@example.com');
+    warning.mockRestore();
+  });
+
+  it.each([
+    [{ timeoutType: 'CONNECT_TIMEOUT' }, 'not_accepted', 'connect'],
+    [{ timeoutType: 'GREETING_TIMEOUT' }, 'not_accepted', 'greeting'],
+    [{ timeoutType: 'UPGRADE_TIMEOUT' }, 'not_accepted', 'starttls'],
+    [{ timeoutType: 'SOCKET_TIMEOUT', command: 'DATA' }, 'indeterminate', 'smtp'],
+  ])('classifies SMTP timeout phase without exposing provider details', async (metadata, outcome, stage) => {
+    mocks.sendMail.mockRejectedValueOnce(Object.assign(new Error('private details'), metadata));
+    const smtp = new BrevoSmtpClient('fixture@smtp-brevo.com', 'test-password');
+    await expect(smtp.send({ to: 'recipient@example.com' }, 'recipient@example.com'))
+      .rejects.toMatchObject({ outcome, stage });
+  });
+
+  it('returns promptly at the request deadline and blocks a duplicate while SMTP result is unknown', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    let resolveSend!: (value: { accepted: string[]; rejected: string[] }) => void;
+    mocks.sendMail.mockReturnValueOnce(new Promise(resolve => { resolveSend = resolve; }));
+    const smtp = new BrevoSmtpClient('fixture@smtp-brevo.com', 'test-password', 10);
+    await expect(smtp.send({ to: 'recipient@example.com' }, 'recipient@example.com'))
+      .rejects.toMatchObject({ outcome: 'indeterminate', stage: 'request_deadline' });
+    await expect(smtp.send({ to: 'recipient@example.com' }, 'recipient@example.com'))
+      .rejects.toBeInstanceOf(EmailDeliveryFailure);
+    expect(mocks.sendMail).toHaveBeenCalledOnce();
+    resolveSend({ accepted: ['recipient@example.com'], rejected: [] });
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(info).toHaveBeenCalledWith('email.smtp.late_accepted', expect.objectContaining({ provider: 'brevo' }));
+    warning.mockRestore();
+    info.mockRestore();
   });
 });

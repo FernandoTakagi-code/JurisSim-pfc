@@ -157,6 +157,16 @@ describe('initial diagnostic API feature gate and ownership', () => {
     expect(JSON.stringify(body)).not.toContain('correct');
   });
 
+  it('returns only answer persistence confirmation before finalization', async () => {
+    process.env.TEST_INITIAL_DIAGNOSTIC_ENABLED = 'true';
+    const response = await request('PUT', `/${attemptId}/answers/${questionId}`, studentToken, { selectedOptionId: questionId });
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ questionId, selectedOptionId: 'option-id' });
+    expect(JSON.stringify(body)).not.toMatch(/correct|explanation|gabarito/i);
+    expect(mocks.saveAnswer).toHaveBeenCalledExactlyOnceWith(studentId, attemptId, questionId, questionId);
+  });
+
   it('requires authentication when enabled', async () => {
     process.env.TEST_INITIAL_DIAGNOSTIC_ENABLED = 'true';
     expect((await post()).status).toBe(401);

@@ -229,6 +229,7 @@
 .practice-results h2 { font-size: 1.1rem; line-height: 1.45; }
 .practice-correct { color: #176b45; font-weight: 650; }
 .practice-incorrect { color: #a33a35; }
+.jurissim-demo-global-banner { position:sticky; top:0; z-index:2000; padding:10px 16px; color:#fff; background:#7a2500; border-bottom:2px solid #f0bf54; font-size:13px; font-weight:800; line-height:1.4; text-align:center; }
 @media (max-width: 600px) { .practice-picker { padding: 1rem; } .practice-question footer > button { flex: 1 1 100%; } }
 
 /* Local demonstration is server-authorized and remains visibly pending. */

@@ -5,6 +5,38 @@ import { ApiError } from '../errors/api-error';
 export type GoalInput = { date: string; targetQuestions: number };
 type Tx = Prisma.TransactionClient;
 const dayOf = (date: Date) => date.toISOString().slice(0, 10);
+export const STUDY_TIME_ZONE = 'America/Sao_Paulo';
+export function studyStreak(days: readonly string[], today: string) {
+  const active = [...new Set(days)].sort();
+  if (!active.length) return { current: 0, longest: 0, lastActivityDate: null as string | null };
+  const previousDate = (date: string) => {
+    const [year, month, day] = date.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day - 1)).toISOString().slice(0, 10);
+  };
+  let longest = 1, run = 1;
+  for (let i = 1; i < active.length; i++) {
+    run = previousDate(active[i]) === active[i - 1] ? run + 1 : 1;
+    longest = Math.max(longest, run);
+  }
+  const latest = active[active.length - 1];
+  let current = 0;
+  if (latest === today || latest === previousDate(today)) {
+    current = 1;
+    for (let i = active.length - 1; i > 0 && previousDate(active[i]) === active[i - 1]; i--) current++;
+  }
+  return { current, longest, lastActivityDate: latest };
+}
+
+async function activitySummary(tx: Tx, studentId: string) {
+  const rows = await tx.$queryRaw<{ day: string; total: number }[]>(Prisma.sql`
+    SELECT to_char((r."respondidoEm" AT TIME ZONE 'UTC') AT TIME ZONE ${STUDY_TIME_ZONE}, 'YYYY-MM-DD') AS day,
+      count(*)::int AS total FROM "Resposta" r JOIN "Simulado" s ON s.id=r."simuladoId"
+      JOIN "QuestaoSimulado" q ON q.id=r."questaoSimuladoId" AND q."simuladoId"=s.id AND q."questaoId"=r."questaoId"
+    WHERE s."alunoId"=${studentId} GROUP BY day ORDER BY day`);
+  const todayRows = await tx.$queryRaw<{ day: string }[]>(Prisma.sql`SELECT to_char(CURRENT_TIMESTAMP AT TIME ZONE ${STUDY_TIME_ZONE}, 'YYYY-MM-DD') AS day`);
+  return { days: rows.map(row => row.day), totalQuestions: rows.reduce((sum, row) => sum + row.total, 0),
+    streak: studyStreak(rows.map(row => row.day), todayRows[0]?.day ?? new Date().toISOString().slice(0, 10)) };
+}
 
 async function counts(tx: Tx, studentId: string, days: string[]) {
   if (!days.length) return new Map<string, number>();
@@ -42,6 +74,19 @@ async function mutate<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
 }
 
 export class StudyGoalService {
+  async dashboard(studentId: string) {
+    return prisma.$transaction(async tx => {
+      const summary = await activitySummary(tx, studentId);
+      const todayDate = (await tx.$queryRaw<{ day: string }[]>(Prisma.sql`SELECT to_char(CURRENT_TIMESTAMP AT TIME ZONE ${STUDY_TIME_ZONE}, 'YYYY-MM-DD') AS day`))[0]?.day;
+      const [goal, user] = await Promise.all([
+        todayDate ? tx.metaDiaria.findFirst({ where: { alunoId: studentId, data: new Date(todayDate + 'T00:00:00.000Z') }, orderBy: { id: 'desc' } }) : null,
+        tx.user.findUnique({ where: { id: studentId }, select: { nivelAtual: true } }),
+      ]);
+      const count = todayDate ? (await counts(tx, studentId, [todayDate])).get(todayDate) ?? 0 : 0;
+      return { timezone: STUDY_TIME_ZONE, streak: summary.streak, totalAnsweredQuestions: summary.totalQuestions,
+        todayAnsweredQuestions: count, todayGoal: goal ? dto(goal, count) : null, currentLevel: user?.nivelAtual ?? null };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
   list(studentId: string, page: number, status?: 'pending' | 'completed') {
     return prisma.$transaction(async tx => {
       const goals = await tx.metaDiaria.findMany({ where: { alunoId: studentId, ...(status ? { cumprida: status === 'completed' } : {}) },

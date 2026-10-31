@@ -7,9 +7,11 @@ import type { RecoveryEmailSender } from './recovery-email-sender';
 import { isValidAppUrl } from './app-url';
 import { PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from './auth-token-policy';
 import { assertValidPassword } from './password-policy';
+import { performance } from 'node:perf_hooks';
+import { isIndeterminateEmailDelivery } from './email-delivery-failure';
 
 export { PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from './auth-token-policy';
-const NEUTRAL_RESPONSE = 'Se existir uma conta associada a este e-mail, enviaremos as instruções de recuperação.';
+const NEUTRAL_RESPONSE = 'Se existir uma conta associada a este e-mail, voce recebera instrucoes caso o envio seja concluido. Se nao receber a mensagem, tente novamente mais tarde.';
 
 export class PasswordRecoveryService {
   constructor(
@@ -26,11 +28,15 @@ export class PasswordRecoveryService {
     const account = await this.repository.findAccount(email);
     if (!account?.senhaHash || account.deletedAt || account.senhaHash === GOOGLE_PASSWORD_SENTINEL) return NEUTRAL_RESPONSE;
 
+    const generationStartedAt = performance.now();
     const token = randomBytes(32).toString('base64url');
     const tokenHash = createHash('sha256').update(token).digest('hex');
+    console.info('email.token.generated', { flow: 'password_recovery', elapsedMs: Math.round(performance.now() - generationStartedAt) });
     const now = new Date();
     const expiresAt = new Date(now.getTime() + PASSWORD_RECOVERY_TOKEN_TTL_MINUTES * 60 * 1000);
+    const persistenceStartedAt = performance.now();
     const tokenId = await this.repository.createToken(account.id, tokenHash, now, expiresAt);
+    console.info('email.token.persisted', { flow: 'password_recovery', elapsedMs: Math.round(performance.now() - persistenceStartedAt) });
     if (!tokenId) return NEUTRAL_RESPONSE;
 
     const resetUrl = `${new URL(this.publicAppUrl!).toString().replace(/\/$/, '')}/#/reset-password?token=${encodeURIComponent(token)}`;
@@ -40,9 +46,13 @@ export class PasswordRecoveryService {
         resetUrl,
         expiresInMinutes: PASSWORD_RECOVERY_TOKEN_TTL_MINUTES,
       });
-    } catch {
-      await this.repository.invalidateToken(tokenId, new Date());
-      console.error('Falha no envio do e-mail de recuperação de senha.');
+    } catch (error) {
+      if (isIndeterminateEmailDelivery(error)) {
+        console.warn('Resultado do envio de recuperacao indeterminado; token preservado.');
+      } else {
+        await this.repository.invalidateToken(tokenId, new Date());
+        console.error('Falha no envio do e-mail de recupera\u00e7\u00e3o de senha.');
+      }
     }
     return NEUTRAL_RESPONSE;
   }
@@ -57,12 +67,11 @@ export class PasswordRecoveryService {
       throw new ApiError(400, 'Link inválido, expirado ou já utilizado.');
     }
     if (await bcrypt.compare(senha, currentPasswordHash)) {
-      throw new ApiError(400, 'Por seguran\u00e7a, sua nova senha deve ser diferente da senha atual.');
+      throw new ApiError(400, 'Por segurança, sua nova senha deve ser diferente da senha atual.');
     }
     const senhaHash = await bcrypt.hash(senha, 10);
     const completed = await this.repository.consumeAndReset(tokenHash, senhaHash, new Date(), currentPasswordHash);
     if (!completed) throw new ApiError(400, 'Link inválido, expirado ou já utilizado.');
     return { message: 'Senha redefinida. Você já pode entrar com sua nova senha.' };
   }
-
 }

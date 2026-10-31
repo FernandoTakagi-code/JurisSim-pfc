@@ -52,7 +52,9 @@ type Overview = {
   evolution: Activity[];
   recentActivities: Activity[];
   latestDiagnosticId: string | null;
+  learning?: { disciplines: { discipline: string; total: number; correct: number; percentage: number | null }[]; priorityTopic: { discipline: string; topic: string; total: number; percentage: number } | null; trailProgress: { id: string; discipline: string; topic: string | null; finalizedAt: string | null; total: number; answered: number; completed: boolean }[] };
 };
+type StudyDashboard = { streak: { current: number; longest: number; lastActivityDate: string | null }; totalAnsweredQuestions: number; todayAnsweredQuestions: number; todayGoal: { targetQuestions: number; progressPercentage: number } | null; currentLevel: string | null };
 const formatDate = (value: string) =>
   new Date(value).toLocaleString("pt-BR", {
     dateStyle: "short",
@@ -69,6 +71,7 @@ const errorMessage = (cause: unknown) =>
 export function useStudentProgress() {
   const [data, setData] = useState<Overview>();
   const [latestResult, setLatestResult] = useState<StudyResult>();
+  const [studyDashboard, setStudyDashboard] = useState<StudyDashboard>();
   const latest = useRef<StudyResult | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -81,7 +84,12 @@ export function useStudentProgress() {
     setResultError("");
     let overview: Overview;
     try {
-      overview = await apiRequest<Overview>("/students/me/overview");
+      const [overviewResponse, dashboardResponse] = await Promise.all([
+        apiRequest<Overview>("/students/me/overview"),
+        apiRequest<StudyDashboard>("/goals/dashboard"),
+      ]);
+      overview = overviewResponse;
+      setStudyDashboard(dashboardResponse);
     } catch (cause) {
       if (current === revision.current) setError(errorMessage(cause));
       if (current === revision.current) setLoading(false);
@@ -117,7 +125,7 @@ export function useStudentProgress() {
       revision.current++;
     };
   }, [refresh]);
-  return { data, latestResult, loading, error, resultError, refresh };
+  return { data, latestResult, studyDashboard, loading, error, resultError, refresh };
 }
 
 export function ProgressStatus({
@@ -190,6 +198,7 @@ export function RecentActivities({ items }: { items?: Activity[] }) {
             {typeLabel(item.type)} · {formatDate(item.startedAt)}
           </span>
           {item.finalizedAt ? (
+            <>
             <button
               className="text-button"
               onClick={() =>
@@ -200,6 +209,8 @@ export function RecentActivities({ items }: { items?: Activity[] }) {
             >
               Ver resultado
             </button>
+            {item.type === "DIAGNOSTICO" && <button className="outline-button" onClick={() => navigate(`/resultados/diagnostico/${item.id}/correcao`)}>Ver correção completa</button>}
+            </>
           ) : (
             <small>
               Em andamento · {item.answeredQuestions}/{item.totalQuestions}{" "}
@@ -250,6 +261,8 @@ export function PerformanceIndicators({ data }: { data?: Overview }) {
           ["Trilhas concluídas", totals.completedTrails],
           ["Simulados de turma concluídos", totals.completedExams ?? 0],
           ["Respostas registradas", totals.answeredQuestions],
+          ["Questões respondidas", totals.answeredQuestions],
+          ["Taxa de acerto nas respostas", totals.answeredQuestions ? `${Number((100 * totals.correctAnswers / totals.answeredQuestions).toFixed(2))}%` : "Sem respostas"],
           ["Acertos", totals.correctAnswers],
           ["Respostas erradas", totals.incorrectAnswers],
           ["Não respondidas", totals.unansweredQuestions],
@@ -401,6 +414,7 @@ export function StudentHistory() {
                     >
                       Ver resultado
                     </button>
+                    {item.type === "DIAGNOSTICO" && <button className="outline-button" onClick={() => navigate(`/resultados/diagnostico/${item.id}/correcao`)}>Ver correção completa</button>}
                   </div>
                 )}
               </li>
@@ -524,6 +538,7 @@ export function PersistedResult({
                 </div>
               ))}
           </article>
+          {type === "diagnostico" && <button className="primary diagnostic-review-launch" onClick={() => navigate(`/resultados/diagnostico/${id}/correcao`)}>Ver correção completa</button>}
         </>
       )}
       <div className="study-pagination">

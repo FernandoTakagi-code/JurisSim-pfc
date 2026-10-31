@@ -1,0 +1,32 @@
+.diagnostic-review { width: min(100%, 1040px); margin: 0 auto; padding: 36px 24px 60px; color: var(--v0-text); }
+.diagnostic-review-header { display:flex; justify-content:space-between; align-items:center; gap:20px; margin-bottom:22px; }
+.diagnostic-review-header h1 { margin:6px 0; }
+.diagnostic-review-header p:last-child { color:var(--v0-muted); margin:0; }
+.diagnostic-review-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:20px 0; }
+.diagnostic-review-summary>div { display:grid; gap:4px; padding:14px 17px; border:1px solid var(--v0-border); border-radius:11px; background:var(--v0-panel); }
+.diagnostic-review-summary strong { font-size:24px; }
+.diagnostic-review-summary span { color:var(--v0-muted); font-size:12px; }
+.review-summary-correct strong { color:#18794e; }.review-summary-incorrect strong { color:#b42318; }.review-summary-unanswered strong { color:#8a6200; }
+.diagnostic-review-nav { display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); gap:8px; margin:20px 0; }
+.diagnostic-review-nav button { min-height:38px; border:1px solid var(--v0-border); border-radius:8px; background:var(--v0-panel); color:var(--v0-text); font-weight:750; cursor:pointer; }
+.diagnostic-review-nav .review-nav-correct { border-color:#6bb58b; background:#e8f5ed; color:#155b38; }
+.diagnostic-review-nav .review-nav-incorrect { border-color:#e49b95; background:#fff0ee; color:#8b211a; }
+.diagnostic-review-nav .review-nav-unanswered { border-color:#d2b765; background:#fff8df; color:#785800; }
+.diagnostic-review-nav button.is-current { outline:3px solid #102957; outline-offset:2px; }
+.diagnostic-review-question { padding:22px; border:1px solid var(--v0-border); border-radius:15px; background:var(--v0-panel); }
+.diagnostic-review-question-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.diagnostic-review-question-heading p { margin:0 0 5px; color:var(--v0-muted); font-size:12px; }.diagnostic-review-question-heading h2 { margin:0; font-size:20px; }
+.review-status { padding:7px 11px; border-radius:99px; font-size:12px; }.review-status.is-correct { color:#155b38; background:#e8f5ed; }.review-status.is-incorrect { color:#8b211a; background:#fff0ee; }.review-status.is-unanswered { color:#785800; background:#fff8df; }
+.diagnostic-review-legacy-note { margin:16px 0 0; padding:11px 13px; border-radius:8px; background:#fff8df; color:#785800; font-size:12px; }
+.diagnostic-review-statement { margin:22px 0; font-size:16px; line-height:1.7; white-space:pre-wrap; }
+.diagnostic-review-options { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+.review-option { display:grid; grid-template-columns:32px minmax(0,1fr) auto; align-items:start; gap:10px; padding:13px; border:1px solid var(--v0-border); border-radius:10px; line-height:1.55; }
+.review-option>b { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#102957; background:#eadbb8; }
+.review-option small { color:var(--v0-muted); font-weight:700; text-align:right; }
+.review-option.is-answer { border-color:#51a875; background:#edfaf2; }.review-option.is-wrong-selection { border-color:#d76d65; background:#fff2f0; }.review-option.is-unavailable { color:var(--v0-muted); border-style:dashed; }
+.diagnostic-review-explanation { margin-top:20px; padding:16px; border-left:4px solid #bd9652; border-radius:6px; background:color-mix(in srgb,#d9b56d 10%,var(--v0-panel)); }
+.diagnostic-review-explanation h3 { margin:0 0 8px; font-size:15px; }.diagnostic-review-explanation p { margin:0; white-space:pre-wrap; line-height:1.65; }
+.diagnostic-review-controls { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:20px; }.diagnostic-review-controls span { color:var(--v0-muted); font-size:12px; }
+.diagnostic-review-launch { display:inline-flex; align-items:center; justify-content:center; min-height:46px; margin:16px 12px 0 0; padding:12px 20px; font-weight:800; box-shadow:0 8px 20px #10295724; }
+.diagnostic-review :is(button):focus-visible { outline:3px solid #bd9652; outline-offset:2px; }.diagnostic-review :is(button):disabled { opacity:.5; cursor:not-allowed; }
+@media(max-width:640px) { .diagnostic-review { padding:24px 15px 40px; }.diagnostic-review-header { align-items:flex-start; flex-direction:column; }.diagnostic-review-summary { gap:7px; }.diagnostic-review-summary>div { padding:10px; }.diagnostic-review-summary strong { font-size:20px; }.diagnostic-review-nav { grid-template-columns:repeat(6,minmax(0,1fr)); }.diagnostic-review-question { padding:15px; }.review-option { grid-template-columns:30px 1fr; }.review-option small { grid-column:2; text-align:left; }.diagnostic-review-controls { display:grid; grid-template-columns:1fr 1fr; }.diagnostic-review-controls span { grid-column:1/-1; grid-row:1; text-align:center; } }

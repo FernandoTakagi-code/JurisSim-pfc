@@ -18,7 +18,7 @@ let server: Server | undefined;
 let base: string;
 const secret = 'local-postgres-stage3-test-key-over-32-characters';
 const oldPassword = 'fixture-original-password';
-const newPassword = 'fixture-replacement-password';
+const newPassword = 'Fixture-replacement-password1!';
 let checks = 0;
 function pass(message: string) { checks++; console.log(`PASS DB: ${message}`); }
 function request(method: string, route: string, bearer?: string, body?: unknown) {
@@ -59,7 +59,7 @@ async function main() {
   assert.equal(path.dirname(path.dirname(expectedData)).toLowerCase(), fs.realpathSync(os.tmpdir()).toLowerCase());
   const [cluster] = await prisma.$queryRaw<{ data_directory: string; database: string; owner: string; port: number; address: string }[]>`
     SELECT current_setting('data_directory') AS data_directory, current_database() AS database,
-      current_user AS owner, inet_server_port() AS port, inet_server_addr()::text AS address`;
+      current_user AS owner, inet_server_port() AS port, host(inet_server_addr()) AS address`;
   assert.equal(cluster.database, process.env.JURISSIM_TEST_FRESH_DATABASE);
   assert.equal(cluster.owner, 'jurissim_migration_test'); assert.equal(cluster.port, Number(url.port)); assert.equal(cluster.address, '127.0.0.1');
   assert.equal(fs.realpathSync(cluster.data_directory).toLowerCase(), expectedData.toLowerCase());
@@ -171,7 +171,11 @@ async function main() {
   console.log(`PostgreSQL revocation integration: ${checks} scenarios passed.`);
 }
 
-main().catch(() => { console.error('PostgreSQL revocation integration failed; sensitive details omitted.'); process.exitCode = 1; })
+main().catch(error => {
+  const message = error instanceof Error ? error.message : 'Unknown failure';
+  console.error(`PostgreSQL revocation integration failed; ${message.replace(/postgres(?:ql)?:\/\/[^\s@]+@/gi, 'postgresql://[REDACTED]@')}`);
+  process.exitCode = 1;
+})
   .finally(async () => {
     if (server) await new Promise<void>(resolve => server!.close(() => resolve()));
     await prisma.$disconnect();

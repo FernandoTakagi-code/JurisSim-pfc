@@ -23,7 +23,8 @@ const questionImportMigration = '20261021100000_question_import_provenance';
 const initialDiagnosticMigration = '20261021110000_initial_diagnostic_identity';
 const questionEligibilityMigration = '20261021120000_question_eligibility_metadata';
 const questionPracticeMigration = '20261021130000_question_practice_sessions';
-const requiredQuestionMigrations = [questionImportMigration, initialDiagnosticMigration, questionEligibilityMigration, questionPracticeMigration];
+const questionPracticeTopicMigration = '20261028120000_question_practice_topic';
+const requiredQuestionMigrations = [questionImportMigration, initialDiagnosticMigration, questionEligibilityMigration, questionPracticeMigration, questionPracticeTopicMigration];
 const pgBin = process.argv[2];
 const preflightOnly = process.argv[3] === '--preflight-only';
 const startupDiagnosticOnly = process.argv[3] === '--startup-diagnostic-only';
@@ -51,7 +52,7 @@ function prismaModelSignature(dmmf) {
 const installedModels = new Map(installedPrisma.dmmf.datamodel.models.map(model => [model.name, new Set(model.fields.map(field => field.name))]));
 for (const [modelName, requiredFields] of Object.entries({
   DiagnosticoInicial: ['alunoId', 'simuladoId'],
-  SessaoPratica: ['simuladoId', 'alunoId', 'disciplina'],
+  SessaoPratica: ['simuladoId', 'alunoId', 'disciplina', 'assunto'],
   Questao: ['origem', 'revisaoJuridicaEm', 'revisaoPedagogicaEm', 'liberadaAcervoEm', 'situacaoDireitos', 'oabNumeroQuestao'],
   Alternativa: ['letra'],
 })) {
@@ -88,7 +89,7 @@ const env = Object.fromEntries(Object.entries(process.env)
   .filter(([key]) => allowedEnvironment.has(key.toUpperCase())));
 Object.assign(env, {
   NODE_ENV: 'test', NODE_OPTIONS: '',
-  JWT_SECRET: 'local-postgres-stage4-test-key-over-32-characters',
+  JWT_SECRET: 'local-postgres-stage3-test-key-over-32-characters',
   GMAIL_USER: '', GMAIL_APP_PASSWORD: '', BREVO_SMTP_USER: '', BREVO_SMTP_KEY: '',
   GOOGLE_CLIENT_ID: '', GROQ_API_KEY: '', APP_PUBLIC_URL: 'http://127.0.0.1:5173',
   PRISMA_HIDE_UPDATE_MESSAGE: 'true',
@@ -208,9 +209,11 @@ function identityGuard(database) {
     IF replace(current_setting('data_directory'), chr(92), '/') <> ${sqlLiteral(expectedDirectory)}
       OR current_database() <> ${sqlLiteral(database)}
       OR current_user <> ${sqlLiteral(user)}
-      OR inet_server_addr()::text <> '127.0.0.1'
+      OR host(inet_server_addr()) <> '127.0.0.1'
       OR inet_server_port() <> ${Number(port)} THEN
-      RAISE EXCEPTION 'Refusing database command: PostgreSQL cluster identity mismatch.';
+      RAISE EXCEPTION 'Refusing database command: PostgreSQL cluster identity mismatch (data_ok=%, db_ok=%, user_ok=%, addr_ok=%, port_ok=%).',
+        replace(current_setting('data_directory'), chr(92), '/') = ${sqlLiteral(expectedDirectory)}, current_database() = ${sqlLiteral(database)},
+        current_user = ${sqlLiteral(user)}, host(inet_server_addr()) = '127.0.0.1', inet_server_port() = ${Number(port)};
     END IF;
   END $harness_identity$;`;
 }
@@ -336,7 +339,7 @@ async function main() {
   if (startResult.error || startResult.status !== 0) {
     throw new Error(`pg_ctl start failed (exit=${startResult.status}; error=${startResult.error ?? 'none'}). stdout: ${startResult.stdout.trim() || '[empty]'}; stderr: ${startResult.stderr.trim() || '[empty]'}; PostgreSQL log: ${log}`);
   }
-  assert.equal(sql('postgres', 'SHOW data_directory;').replaceAll('\\', '/'), data.replaceAll('\\', '/'), 'Unexpected PostgreSQL cluster');
+  assert.equal(sql('postgres', 'SHOW data_directory;').replaceAll('\\', '/'), path.resolve(data).replaceAll('\\', '/'), 'Unexpected PostgreSQL cluster');
   console.log(`PASS: temporary cluster identity verified in ${data}`);
   if (startupDiagnosticOnly) {
     console.log('Startup diagnostic complete. No databases beyond the initdb default were created; no migrations or integration tests ran.');

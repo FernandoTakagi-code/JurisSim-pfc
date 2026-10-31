@@ -64,6 +64,19 @@ const totalsJson = Prisma.sql`jsonb_build_object(
   'incorrectAnswers', coalesce(sum(a.incorrect) FILTER (WHERE a."finalizadoEm" IS NOT NULL), 0),
   'unansweredQuestions', coalesce(sum(a.unanswered) FILTER (WHERE a."finalizadoEm" IS NOT NULL), 0))`;
 
+const levelDistribution = Prisma.sql`coalesce((SELECT jsonb_agg(jsonb_build_object('level', levels.level, 'students', levels.students) ORDER BY levels.level)
+  FROM (SELECT u."nivelAtual"::text AS level, count(DISTINCT u.id)::int AS students FROM roster r
+    JOIN "User" u ON u.id = r.id WHERE u."nivelAtual" IS NOT NULL GROUP BY u."nivelAtual") levels), '[]'::jsonb)`;
+
+const disciplineMetrics = Prisma.sql`coalesce((SELECT jsonb_agg(jsonb_build_object('discipline', metric.discipline, 'totalQuestions', metric.total,
+  'correctAnswers', metric.correct, 'percentage', round(100.0 * metric.correct / nullif(metric.total, 0), 2)) ORDER BY metric.discipline)
+  FROM (SELECT q.disciplina AS discipline, count(*)::int AS total,
+    count(*) FILTER (WHERE r.correta = true)::int AS correct
+    FROM roster student JOIN "Simulado" s ON s."alunoId" = student.id AND s.tipo = 'AVALIACAO' AND s."finalizadoEm" IS NOT NULL
+    JOIN exams e ON e.id = s."avaliacaoId" JOIN "QuestaoSimulado" sq ON sq."simuladoId" = s.id
+    JOIN "Questao" q ON q.id = sq."questaoId" LEFT JOIN "Resposta" r ON r."questaoSimuladoId" = sq.id
+    GROUP BY q.disciplina) metric), '[]'::jsonb)`;
+
 export class ClassReportService {
   async classes(actor: Actor, page: number) {
     if (!['PROFESSOR', 'ADMIN'].includes(actor.role)) throw new ApiError(403, 'Relatórios exclusivos de professores.');
@@ -82,7 +95,7 @@ export class ClassReportService {
     return prisma.$transaction(async tx => {
       const turma = await this.authorize(tx, actor, classId);
       const [row] = await tx.$queryRaw<{ report: Record<string, unknown> }[]>(Prisma.sql`${scope(classId)}
-        SELECT jsonb_build_object('summary', (SELECT ${totalsJson} FROM attempts a),
+        SELECT jsonb_build_object('summary', (SELECT ${totalsJson} FROM attempts a), 'levelDistribution', ${levelDistribution}, 'disciplineMetrics', ${disciplineMetrics},
           'exams', (SELECT coalesce(jsonb_agg(v.item ORDER BY v."publishedAt" DESC, v.id DESC), '[]'::jsonb) FROM (
             SELECT ${examJson} AS item, p."publishedAt", p.id FROM per_exam p ORDER BY p."publishedAt" DESC, p.id DESC LIMIT 21 OFFSET ${(examPage - 1) * 20}
           ) v),

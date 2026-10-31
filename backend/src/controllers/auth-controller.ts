@@ -91,12 +91,15 @@ export class AuthController {
       const verification = await this.emailVerification.requestVerification(resultado.usuario.id);
       emailVerification = isLocalEmailCaptureRequested()
         ? { status: 'captured', message: 'Conta criada. Entre e use “Reenviar e-mail de confirmação” para obter o link local.' }
-        : { status: 'sent', message: verification.message };
-    } catch {
+        : { status: 'accepted', message: verification.message };
+    } catch (error) {
       console.error('Não foi possível enviar a confirmação de e-mail após o cadastro.');
+      const deliveryUnknown = error instanceof ApiError && error.message.includes('O provedor não confirmou');
       emailVerification = {
         status: 'unavailable',
-        message: 'Conta criada, mas não foi possível enviar a confirmação de e-mail. Entre e solicite o reenvio.',
+        message: deliveryUnknown
+          ? 'Conta criada. O recebimento do e-mail não foi confirmado; confira a caixa de entrada e o spam antes de pedir outro link.'
+          : 'Conta criada, mas não foi possível enviar a confirmação de e-mail. Entre e solicite o reenvio.',
       };
     }
     response.status(201).json({ ...resultado, emailVerification });
@@ -138,8 +141,9 @@ export class AuthController {
       response.status(401).json({ message: 'Não foi possível obter o e-mail da conta Google.' });
       return;
     }
-    const nomeSugerido = payload.name ?? payload.given_name ?? payload.email.split('@')[0];
-    response.json(await this.service.loginWithGoogle(payload.email, nomeSugerido, parsed.data.acceptance, parsed.data.perfil));
+    const emailVerificado = payload.email.trim().toLowerCase();
+    const nomeSugerido = payload.name ?? payload.given_name ?? emailVerificado.split('@')[0];
+    response.json(await this.service.loginWithGoogle(emailVerificado, nomeSugerido, parsed.data.acceptance, parsed.data.perfil));
   };
 
   logout = async (request: AuthenticatedRequest, response: Response) => {

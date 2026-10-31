@@ -1,98 +1,38 @@
-# E-mails do JurisSim com Brevo SMTP
+﻿# E-mails do JurisSim com Brevo
 
-Cadastro, reenvio de confirmação e recuperação de senha usam Nodemailer com
-`smtp-relay.brevo.com:587`, STARTTLS obrigatório e TLS mínimo 1.2. O login SMTP
-é separado do remetente fixo `JurisSim <jurissimplataforma@gmail.com>`.
-Logs e debug do transporte permanecem desativados.
+## API transacional v3 (transporte principal)
 
-Os prazos são centralizados em `backend/src/services/auth-token-policy.ts`:
-30 minutos para confirmação e 15 minutos para recuperação. Os serviços usam
-esses valores tanto no `expiresAt` quanto no texto e HTML dos e-mails.
-A política vale para novos tokens após reiniciar o backend; tokens já emitidos
-mantêm a expiração persistida, sem alteração retroativa no banco.
+O backend usa por padrão `POST https://api.brevo.com/v3/smtp/email`. Configure no arquivo local não versionado `backend/.env` ou no gerenciador de segredos do ambiente:
 
-Referências: [configuração SMTP do Brevo](https://help.brevo.com/hc/en-us/articles/7924908994450-Send-transactional-emails-using-Brevo-SMTP)
-e [STARTTLS no Nodemailer](https://nodemailer.com/smtp).
-
-## Configuração privada local
-
-1. Confira que `git check-ignore backend/.env` retorna `backend/.env` e que
-   `git ls-files backend/.env` não retorna nada. O arquivo já está ignorado.
-2. Abra `backend/.env` no editor local e acrescente as variáveis abaixo.
-   Se já existirem, revise os valores manualmente, sem criar linhas duplicadas.
-
-   ```dotenv
-   BREVO_SMTP_USER=bf0e5b001@smtp-brevo.com
-   BREVO_SMTP_KEY=
-   ```
-
-3. Cole a chave SMTP ativa **somente no editor local**, depois de
-   `BREVO_SMTP_KEY=`, entre aspas duplas. Preserve a chave exatamente como foi
-   fornecida. Não use a chave da API nem a senha da conta Brevo/Gmail.
-   Não coloque o segredo em comandos do terminal, chat, logs, testes ou Git.
-4. Preserve as credenciais existentes (`GMAIL_*`, banco, JWT e outras).
-   `GMAIL_USER` e `GMAIL_APP_PASSWORD` deixam de ser utilizadas; não há fallback
-   para Gmail. Nenhuma credencial existente foi modificada pela migração.
-5. Confira `APP_PUBLIC_URL`: origem do frontend sem query ou fragmento;
-   localmente `http://localhost:5173`, em produção uma URL HTTPS.
-   Nunca coloque a chave em variáveis `VITE_*`, que são públicas.
-6. Reinicie o backend quando estiver pronto para habilitar os fluxos reais.
-   Com SMTP configurado, cadastrar uma conta, reenviar a confirmação e pedir
-   recuperação de senha disparam mensagens reais. Aguarde autorização específica
-   antes de usar essas ações como teste.
-
-Host, porta, STARTTLS e remetente oficial ficam definidos no cliente Brevo;
-não é necessário criar variáveis para esses valores públicos. O exemplo
-versionado `backend/.env.example` mantém a chave vazia.
-
-## Verificação local e autenticação
-
-Dentro de `backend`, no PowerShell:
-
-```powershell
-npm.cmd test
-npx.cmd tsc --noEmit
-npm.cmd run email:verify -- --offline
+```dotenv
+BREVO_EMAIL_TRANSPORT=api
+BREVO_API_KEY=sua-chave-privada-da-api
 ```
 
-Os testes de envio usam transporte simulado e credenciais fictícias. As novas
-variáveis SMTP são isoladas das credenciais privadas no Vitest e no harness de
-banco descartável. O modo `--offline` verifica presença/configuração e URL do
-aplicativo, sem conexão SMTP nem autenticação. A saída mostra apenas estados,
-nunca os valores. Ele não comprova que a chave é aceita pelo Brevo.
+Use a chave de API transacional do Brevo, não a chave SMTP nem a senha da conta. O remetente fixo é `JurisSim <jurissimplataforma@gmail.com>` e precisa estar autorizado no Brevo. A chave nunca é impressa; logs registram duração, resultado, etapa e `messageId`, sem destinatário ou conteúdo.
 
-Para uma etapa posterior, `npm.cmd run email:verify` verifica DNS, STARTTLS e
-autenticação reais, **sem enviar e-mail**. A resposta do provedor é omitida
-dos erros. Esse comando não comprova autorização do remetente nem entrega.
+Timeout, falha de rede, HTTP 408/5xx ou resposta sem `messageId` são resultado indeterminado. Não há retry nem fallback para SMTP nesses casos. HTTP 429 é tratado como limite do provedor. Consulte os eventos transacionais antes de qualquer novo envio.
 
-## Fluxos e segurança preservados
+## SMTP alternativo explícito
 
-- Cadastro e reenvio usam `EmailVerificationService`: token aleatório de 32
-  bytes, apenas SHA-256 persistido, validade de 30 minutos, link
-  `/#/verificar-email?token=...`. O reenvio exige sessão ativa em
-  `POST /auth/email-verification`. A falha de envio invalida o token; no cadastro,
-  a conta permanece não confirmada e a resposta informa a indisponibilidade.
-- `POST /auth/email-verification/confirm` consome o token, confirma a conta e
-  registra auditoria na mesma transação. Tokens expirados, usados e de contas
-  excluídas são recusados.
-- `POST /auth/password-recovery` mantém resposta neutra para não revelar contas.
-  Token de 32 bytes, SHA-256 persistido, validade de 15 minutos, link
-  `/#/reset-password?token=...`. Falha de envio invalida o token, sem expor erros
-  do SMTP. `POST /auth/password-reset` consome o token e troca a senha bcrypt
-  atomicamente; a redefinição não confirma o e-mail e revoga sessões anteriores.
-- Limites de três emissões por hora por usuário, intervalo mínimo de um minuto,
-  rate limiting HTTP e validação de URL permanecem nos serviços/repositórios.
+SMTP só é usado se `BREVO_EMAIL_TRANSPORT=smtp` estiver selecionado:
 
-Nenhuma migration, seed ou alteração no banco externo é necessária para SMTP.
+```dotenv
+BREVO_EMAIL_TRANSPORT=smtp
+BREVO_SMTP_USER=seu-login-smtp
+BREVO_SMTP_KEY=sua-chave-smtp
+```
 
-## Primeiro envio real pendente
+Usa `smtp-relay.brevo.com:587`, STARTTLS obrigatório e TLS mínimo 1.2. Não é fallback automático da API.
 
-A implementação estará pronta para o primeiro envio após passar pelos testes
-simulados. Antes do envio autorizado, configure a chave local, confira no painel
-Brevo que o remetente oficial está validado e execute a verificação de conexão.
-Consulte as [instruções de validação de remetente do Brevo](https://help.brevo.com/hc/en-us/articles/208836149-Create-a-new-sender).
+## Segurança e testes
 
-Obtenha autorização específica para o destinatário e os fluxos a testar.
-Só então faça cadastro, reenvio e recuperação com a conta autorizada; confirme
-recebimento (inclusive spam), remetente, links, expiração e rejeição de reuso.
-Entrega e aceitação do remetente dependem da validação real com o Brevo.
+Nunca coloque credenciais em comandos, chat, logs, Git ou variáveis `VITE_*`. Preserve as outras variáveis privadas de `backend/.env`; reinicie o backend após atualizar o ambiente. O remetente oficial está fixado no código e deve ser autorizado no painel do Brevo.
+
+Os testes de envio usam fetch/Nodemailer simulados. `npm.cmd run email:verify -- --offline` verifica somente configuração SMTP legada sem conectar; `npm.cmd run email:verify` verifica DNS/STARTTLS/autenticação SMTP sem enviar e-mail. Nenhum desses comandos valida a chave API.
+
+Os fluxos mantêm os tokens e as expirações existentes: confirmação 30 minutos e recuperação 15 minutos. Falha comprovada invalida o token. Resultado indeterminado preserva o token, não confirma sucesso e orienta conferir inbox/spam antes de pedir outro link. Rate limiting, resposta neutra de recuperação e consumo único permanecem ativos.
+
+## Um único teste real
+
+Antes do teste, esclareça a tentativa anterior nos logs transacionais do Brevo. Confira também a autorização do remetente e use uma conta/destinatário de teste autorizado. Configure `BREVO_EMAIL_TRANSPORT=api` e `BREVO_API_KEY` localmente, reinicie o backend e faça uma única chamada autenticada a `POST /auth/email-verification` para uma conta ainda não confirmada. Não repita se a resposta for indeterminada. Verifique `messageId` nos logs e o status de entrega no Brevo; depois confira inbox/spam. Não copie o link/token para logs ou mensagens.

@@ -73,6 +73,7 @@ try {
         const hasLegacyResult = sessionStorage.getItem('test_legacy_result_error') === 'true';
         return new Response(JSON.stringify({ totals: { completedActivities: 0 }, latestDiagnosticId: hasLegacyResult ? 'diagnostic-500' : null, evolution: [], recentActivities: [] }), { status: 200 });
       }
+      if (new URL(String(url)).pathname === '/goals/dashboard') return new Response(JSON.stringify({ streak: { current: 0, longest: 0, lastActivityDate: null }, totalAnsweredQuestions: 0, todayAnsweredQuestions: 0, todayGoal: null, currentLevel: null }), { status: 200 });
       if (new URL(String(url)).pathname === '/diagnostics/diagnostic-500/result') return new Response(JSON.stringify({ message: 'Erro interno do servidor.' }), { status: 500 });
       if (new URL(String(url)).pathname === '/auth/session') return new Response(JSON.stringify({ user: { id: 'fixture-user', nome: 'Fixture', email: 'fixture@example.invalid', role: 'ALUNO', emailVerificado: true }, nextStep: 'DASHBOARD' }), { status: 200 });
       throw new Error('Unexpected request in isolated legal test');
@@ -234,6 +235,8 @@ try {
   await evaluate('document.querySelector(".page .primary").click()');
   await until('location.pathname === "/dashboard" && !!document.querySelector(".dashboard-page")');
   await evaluate('document.querySelector(".dashboard-heading .primary").click()');
+  await until('location.pathname === "/estudar" && !!document.querySelector(".study-trail-page")');
+  await evaluate('document.querySelector(".study-questions-cta button").click()');
   await until('location.pathname === "/questoes" && !!document.querySelector(".practice-picker")');
   await evaluate(`document.querySelector('#practice-discipline').value = 'Direito Penal'; document.querySelector('#practice-discipline').dispatchEvent(new Event('change', { bubbles: true })); document.querySelectorAll('.practice-quantity input')[1].click()`);
   await until('document.querySelector("#practice-discipline").value === "Direito Penal" && document.querySelectorAll(".practice-quantity input")[1].checked');
@@ -247,7 +250,7 @@ try {
   await until('location.pathname === "/diagnostico" && !!document.querySelector(".start-card")');
   await evaluate(`window.fetch = async (url, init = {}) => {
     const path = new URL(String(url)).pathname;
-    if (path === '/students/me/overview') return new Response(JSON.stringify({ totals: { completedActivities: 0 }, latestDiagnosticId: null, evolution: [], recentActivities: [] }), { status: 200 });
+    if (path === '/students/me/overview') return new Response(JSON.stringify({ totals: { completedActivities: 1, completedDiagnostics: 1, completedTrails: 0, totalQuestions: 1, answeredQuestions: 1, correctAnswers: 1, incorrectAnswers: 0, unansweredQuestions: 0 }, latestDiagnosticId: 'diagnostic1', evolution: [], recentActivities: [] }), { status: 200 });
     const question = { id: 'q1', position: 1, statement: 'Questao de teste', discipline: 'Civil', topic: 'Contratos', difficulty: 'BASICO', alternatives: [{ id: 'a1', text: 'Alternativa A' }, { id: 'a2', text: 'Alternativa B' }], selectedOptionId: null };
     const trail = { id: 'trail1', disciplinaPrioritaria: 'Civil', assuntoPrioritario: 'Contratos', nivelRecomendado: 'BASICO', quantidadeRecomendada: 1, justificativa: 'Teste' };
     let data = {};
@@ -268,7 +271,7 @@ try {
   await until('document.querySelector(".result h1")?.textContent.includes("desempenho")');
   await evaluate('document.querySelector(".result-dashboard-link").click()');
   await until('!!document.querySelector(".dashboard-page")');
-  assert.equal(await evaluate('document.querySelector(".dashboard-stats article:nth-child(2) strong").textContent'), '100%');
+  assert.equal(await evaluate('document.querySelector(".dashboard-stats article:nth-child(2) strong").textContent'), '1');
   await evaluate('document.querySelector(".dashboard-panel .text-button").click()');
   await until('document.querySelector(".result h1")?.textContent.includes("desempenho")');
   await evaluate('document.querySelector(".trail .primary").click()');

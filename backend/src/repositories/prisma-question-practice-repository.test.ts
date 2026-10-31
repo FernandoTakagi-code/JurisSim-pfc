@@ -59,7 +59,7 @@ describe('PrismaQuestionPracticeRepository isolation contract', () => {
       questoes: [candidate('q1'), candidate('q2')].map((q, index) => ({ posicao: index + 1, questao: q, resposta: null })),
     });
     const repository = new PrismaQuestionPracticeRepository(fakeDb as never);
-    const created = await repository.createAttempt('student-1', 'Direito Civil', [candidate('q1') as never, candidate('q2') as never]);
+    const created = await repository.createAttempt('student-1', 'Direito Civil', null, [candidate('q1') as never, candidate('q2') as never]);
     expect(created.questions.map(question => question.position)).toEqual([1, 2]);
     expect(fakeDb.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'ReadCommitted' });
     expect(fakeDb.simulado.create).toHaveBeenCalledWith({ data: { tipo: 'PERSONALIZADO', alunoId: 'student-1' }, select: { id: true } });
@@ -73,7 +73,7 @@ describe('PrismaQuestionPracticeRepository isolation contract', () => {
     fakeDb.questaoSimulado.createMany.mockRejectedValue(new Error('simulated link failure'));
     fakeDb.$queryRaw.mockResolvedValueOnce([{ id: 'student-1' }]).mockResolvedValueOnce([]);
     const repository = new PrismaQuestionPracticeRepository(fakeDb as never);
-    await expect(repository.createAttempt('student-1', 'Direito Civil', [candidate('q1') as never])).rejects.toThrow('simulated link failure');
+    await expect(repository.createAttempt('student-1', 'Direito Civil', null, [candidate('q1') as never])).rejects.toThrow('simulated link failure');
     expect(fakeDb.$executeRaw).not.toHaveBeenCalled();
   });
 });

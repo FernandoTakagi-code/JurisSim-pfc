@@ -17,6 +17,7 @@ const attemptId = '00000000-0000-4000-8000-000000000101';
 let server: Server; let base: string; let studentToken: string; let teacherToken: string;
 
 const controller = {
+  topics: vi.fn((_req: Request, res: Response) => res.json({ topics: [] })),
   start: vi.fn((_req: Request, res: Response) => res.status(201).json({ attempt: { id: attemptId } })),
   get: vi.fn((_req: Request, res: Response) => res.json({ attempt: { id: attemptId } })),
   answer: vi.fn((_req: Request, res: Response) => res.json({ saved: true })),

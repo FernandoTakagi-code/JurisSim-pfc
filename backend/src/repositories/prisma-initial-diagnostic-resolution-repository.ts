@@ -6,6 +6,7 @@ import type {
   InitialDiagnosticResolutionAttempt,
   InitialDiagnosticResolutionRepository,
 } from '../services/initial-diagnostic-resolution-service';
+import { readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
 
 const attemptInclude = {
   simulado: {
@@ -35,23 +36,36 @@ function toResolutionAttempt(identity: InitialIdentity, studentId: string): Init
     id: simulado.id,
     state: simulado.finalizadoEm ? 'COMPLETED' : 'IN_PROGRESS',
     finalizedAt: simulado.finalizadoEm,
-    questions: simulado.questoes.map(link => ({
+    questions: simulado.questoes.map(link => {
+      const snapshot = readDiagnosticQuestionSnapshot(link.conteudoSnapshot);
+      const content = snapshot ?? {
+        statement: link.questao.enunciado,
+        explanation: link.questao.fundamentacaoJuridica,
+        discipline: link.questao.disciplina,
+        topic: link.questao.assunto,
+        difficulty: link.questao.nivel,
+        alternatives: link.questao.alternativas.map(alternative => ({
+          id: alternative.id, letter: alternative.letra, text: alternative.texto, correct: alternative.correta,
+        })),
+      };
+      return {
       questionId: link.questaoId,
       position: link.posicao,
-      statement: link.questao.enunciado,
-      discipline: link.questao.disciplina,
-      topic: link.questao.assunto,
-      difficulty: link.questao.nivel,
-      alternatives: link.questao.alternativas.map(alternative => ({
+      statement: content.statement,
+      explanation: content.explanation,
+      discipline: content.discipline,
+      topic: content.topic,
+      difficulty: content.difficulty as InitialDiagnosticResolutionAttempt['questions'][number]['difficulty'],
+      alternatives: content.alternatives.map(alternative => ({
         id: alternative.id,
-        letter: alternative.letra,
-        text: alternative.texto,
-        correct: alternative.correta,
+        letter: alternative.letter,
+        text: alternative.text,
+        correct: alternative.correct,
       })),
       selectedAlternativeId: link.resposta?.alternativaEscolhidaId ?? null,
       answeredAt: link.resposta?.respondidoEm ?? null,
       correct: link.resposta?.correta ?? false,
-    })),
+    }; }),
     performances: simulado.desempenhosDiagnostico,
     trail: simulado.trilhaAdaptativa,
   };
@@ -103,7 +117,8 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
       if (attempt.state === 'COMPLETED') return 'FINALIZED' as const;
       const link = identity.simulado.questoes.find(question => question.questaoId === questionId);
       if (!link) return 'QUESTION_NOT_FOUND' as const;
-      const alternative = link.questao.alternativas.find(option => option.id === alternativeId);
+      const question = attempt.questions.find(item => item.questionId === questionId);
+      const alternative = question?.alternatives.find(option => option.id === alternativeId);
       if (!alternative) return 'ALTERNATIVE_NOT_FOUND' as const;
 
       await tx.resposta.upsert({
@@ -113,11 +128,11 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
           questaoId: questionId,
           questaoSimuladoId: link.id,
           alternativaEscolhidaId: alternative.id,
-          correta: alternative.correta,
+          correta: alternative.correct,
         },
         update: {
           alternativaEscolhidaId: alternative.id,
-          correta: alternative.correta,
+          correta: alternative.correct,
           respondidoEm: new Date(),
         },
         select: { id: true },
@@ -155,6 +170,7 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
           },
           select: { id: true },
         });
+        await tx.user.update({ where: { id: studentId }, data: { nivelAtual: result.level }, select: { id: true } });
         await tx.auditLog.create({
           data: { userId: studentId, action: 'DIAGNOSTICO_FINALIZADO' as AuditAction, resourceId: attemptId },
           select: { id: true },

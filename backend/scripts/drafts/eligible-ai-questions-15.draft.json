@@ -1,0 +1,323 @@
+{
+  "_draftMetadata": {
+    "generatedBy": "OpenAI Codex AI assistant",
+    "generatedAt": "2026-10-30T06:50:18Z",
+    "humanAuthor": null,
+    "method": "Rascunhos originais assistidos por IA, redigidos a partir dos dispositivos oficiais citados; nenhuma questão de prova OAB foi usada como fonte.",
+    "reviewStatus": {
+      "legal": "PENDENTE_REVISÃO_JURÍDICA",
+      "pedagogical": "PENDENTE_REVISÃO_PEDAGÓGICA",
+      "release": "PENDENTE_LIBERAÇÃO_ADMINISTRATIVA",
+      "eligibleForImport": false
+    }
+  },
+  "questions": [
+    {
+      "_draftSlot": "IA-DC-B-01",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Um grupo de moradores pretende realizar uma reunião pacífica, sem armas, em uma praça aberta ao público. Não há outra reunião previamente convocada para o mesmo local e horário. Segundo a Constituição Federal, qual condição se aplica?",
+      "disciplina": "Direito Constitucional",
+      "assunto": "Direito de reunião",
+      "nivel": "BASICO",
+      "fundamentacaoJuridica": "Justificativa: a reunião em local aberto ao público independe de autorização, mas exige prévio aviso à autoridade competente e não pode frustrar reunião anteriormente convocada para o mesmo local. Fundamentação: Constituição Federal, art. 5º, XVI.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "O grupo deve obter autorização prévia do Poder Executivo, ainda que a reunião seja pacífica.", "correta": false },
+        { "letra": "B", "texto": "A reunião independe de autorização, desde que haja prévio aviso à autoridade competente e não seja frustrada outra reunião anteriormente convocada para o mesmo local.", "correta": true },
+        { "letra": "C", "texto": "A reunião é permitida sem aviso prévio, mesmo que impeça outra reunião já convocada para o local.", "correta": false },
+        { "letra": "D", "texto": "A reunião em praça pública depende de autorização judicial, mas dispensa aviso à autoridade administrativa.", "correta": false }
+      ],
+      "source": { "name": "Constituição Federal de 1988 — texto atualizado, Câmara dos Deputados", "reference": "Art. 5º, XVI — https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-DC-B-02",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Após um órgão público negar o pedido de acesso de Luana a informações pessoais a seu respeito mantidas em um banco de dados de caráter público, ela pretende buscar judicialmente esse acesso. Qual remédio constitucional é adequado para essa finalidade?",
+      "disciplina": "Direito Constitucional",
+      "assunto": "Habeas data",
+      "nivel": "BASICO",
+      "fundamentacaoJuridica": "Justificativa: o habeas data pode ser usado para assegurar o conhecimento de informações relativas à própria pessoa do impetrante constantes de registros ou bancos de dados governamentais ou de caráter público. Fundamentação: Constituição Federal, art. 5º, LXXII, alínea a.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "Habeas corpus, pois toda negativa de acesso a documento público ameaça a liberdade de locomoção.", "correta": false },
+        { "letra": "B", "texto": "Ação popular, ajuizada por qualquer interessado para consultar seus dados pessoais.", "correta": false },
+        { "letra": "C", "texto": "Habeas data, para assegurar o conhecimento de informações relativas à própria impetrante em banco de dados de caráter público.", "correta": true },
+        { "letra": "D", "texto": "Mandado de injunção, porque a negativa individual equivale à ausência de norma regulamentadora.", "correta": false }
+      ],
+      "source": { "name": "Constituição Federal de 1988 — texto atualizado, Câmara dos Deputados", "reference": "Art. 5º, LXXII, alínea a — https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-DC-I-01",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Uma pessoa não consegue exercer uma liberdade prevista na Constituição porque ainda falta norma regulamentadora indispensável. Qual instrumento constitucional foi previsto para enfrentar essa omissão normativa?",
+      "disciplina": "Direito Constitucional",
+      "assunto": "Mandado de injunção",
+      "nivel": "INTERMEDIARIO",
+      "fundamentacaoJuridica": "Justificativa: a Constituição prevê mandado de injunção quando a falta de norma regulamentadora torna inviável o exercício de direitos e liberdades constitucionais ou de prerrogativas ligadas à nacionalidade, soberania e cidadania. Fundamentação: Constituição Federal, art. 5º, LXXI.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "Mandado de injunção, pois o enunciado apresenta omissão regulamentadora que inviabiliza o exercício de liberdade constitucional.", "correta": true },
+        { "letra": "B", "texto": "Habeas corpus, porque sua finalidade geral é suprir qualquer omissão legislativa.", "correta": false },
+        { "letra": "C", "texto": "Ação popular, que é o instrumento próprio para criar a norma regulamentadora ausente.", "correta": false },
+        { "letra": "D", "texto": "Habeas data, destinado a assegurar o exercício de direitos sem norma regulamentadora.", "correta": false }
+      ],
+      "source": { "name": "Constituição Federal de 1988 — texto atualizado, Câmara dos Deputados", "reference": "Art. 5º, LXXI — https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-CIV-B-01",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Uma criança nasceu com vida após uma gestação durante a qual já havia sido concebida. De acordo com o Código Civil, qual afirmação descreve a regra sobre personalidade civil e os direitos do nascituro?",
+      "disciplina": "Direito Civil",
+      "assunto": "Personalidade civil e direitos do nascituro",
+      "nivel": "BASICO",
+      "fundamentacaoJuridica": "Justificativa: o Código Civil estabelece que a personalidade civil começa com o nascimento com vida e ressalva, desde a concepção, os direitos do nascituro. Fundamentação: Código Civil, art. 2º.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "A personalidade civil começa somente com o registro de nascimento, e nenhum direito é protegido antes dele.", "correta": false },
+        { "letra": "B", "texto": "A personalidade civil começa com o nascimento com vida, ficando a lei responsável por resguardar desde a concepção os direitos do nascituro.", "correta": true },
+        { "letra": "C", "texto": "A personalidade civil começa invariavelmente na concepção, sem distinção entre personalidade e proteção de direitos do nascituro.", "correta": false },
+        { "letra": "D", "texto": "A personalidade civil começa aos 18 anos, embora os direitos patrimoniais sejam protegidos desde a concepção.", "correta": false }
+      ],
+      "source": { "name": "Código Civil — Lei nº 10.406/2002, texto compilado, Presidência da República", "reference": "Art. 2º — https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-CIV-B-02",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Rafael completou 16 anos e seus pais, de comum acordo, pretendem emancipá-lo por escritura pública, sem pedir homologação judicial. Segundo o Código Civil, essa forma é admitida?",
+      "disciplina": "Direito Civil",
+      "assunto": "Emancipação voluntária",
+      "nivel": "BASICO",
+      "fundamentacaoJuridica": "Justificativa: a incapacidade cessa pela concessão dos pais, ou de um deles na falta do outro, mediante instrumento público, independentemente de homologação judicial, desde que o menor tenha 16 anos completos. Fundamentação: Código Civil, art. 5º, parágrafo único, inciso I.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "Sim. A concessão dos pais pode ser feita por instrumento público a partir dos 16 anos completos, sem homologação judicial.", "correta": true },
+        { "letra": "B", "texto": "Não. A emancipação voluntária só pode ser concedida depois dos 18 anos completos.", "correta": false },
+        { "letra": "C", "texto": "Não. Toda emancipação depende de sentença judicial, ainda que ambos os pais concordem.", "correta": false },
+        { "letra": "D", "texto": "Sim, mas apenas por contrato particular assinado pelo próprio menor, sem participação dos pais.", "correta": false }
+      ],
+      "source": { "name": "Código Civil — Lei nº 10.406/2002, texto compilado, Presidência da República", "reference": "Art. 5º, parágrafo único, I — https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-CIV-I-01",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Uma pessoa de 15 anos, sem representante, assina sozinha um contrato de compra e venda de um bem. Considerando a incapacidade absoluta prevista no Código Civil e a ausência de representação, qual é a consequência jurídica do negócio?",
+      "disciplina": "Direito Civil",
+      "assunto": "Incapacidade absoluta e nulidade do negócio jurídico",
+      "nivel": "INTERMEDIARIO",
+      "fundamentacaoJuridica": "Justificativa: menores de 16 anos são absolutamente incapazes de exercer pessoalmente os atos da vida civil; é nulo o negócio jurídico celebrado por pessoa absolutamente incapaz. Fundamentação: Código Civil, arts. 3º e 166, I.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "O negócio é válido, pois todo menor pode contratar pessoalmente se o contrato tiver valor reduzido.", "correta": false },
+        { "letra": "B", "texto": "O negócio é apenas anulável por incapacidade relativa, independentemente da idade.", "correta": false },
+        { "letra": "C", "texto": "O negócio é nulo, pois foi celebrado pessoalmente por pessoa absolutamente incapaz.", "correta": true },
+        { "letra": "D", "texto": "O negócio é válido desde que a outra parte desconhecesse a idade do contratante.", "correta": false }
+      ],
+      "source": { "name": "Código Civil — Lei nº 10.406/2002, texto compilado, Presidência da República", "reference": "Arts. 3º e 166, I — https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-PEN-B-01",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "No momento em que determinada conduta foi praticada, nenhuma lei a definia como crime. Uma lei posterior passou a criminalizá-la. À luz do princípio da anterioridade penal, qual regra se aplica à conduta anterior?",
+      "disciplina": "Direito Penal",
+      "assunto": "Princípio da legalidade e anterioridade penal",
+      "nivel": "BASICO",
+      "fundamentacaoJuridica": "Justificativa: não há crime sem lei anterior que o defina nem pena sem prévia cominação legal; uma lei penal incriminadora posterior não cria crime retroativamente para prejudicar o agente. Fundamentação: Código Penal, art. 1º, e Constituição Federal, art. 5º, XXXIX.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "A lei posterior pode ser aplicada, pois basta que a conduta seja considerada socialmente reprovável.", "correta": false },
+        { "letra": "B", "texto": "A conduta anterior não pode ser punida como crime com base apenas na lei incriminadora posterior.", "correta": true },
+        { "letra": "C", "texto": "A lei posterior pode retroagir por ser mais benéfica, mesmo sendo a primeira a definir a conduta como crime.", "correta": false },
+        { "letra": "D", "texto": "A anterioridade exige apenas que exista lei antes do julgamento, ainda que posterior à conduta.", "correta": false }
+      ],
+      "source": { "name": "Código Penal — Decreto-Lei nº 2.848/1940, texto compilado, Presidência da República", "reference": "Art. 1º — https://www.planalto.gov.br/ccivil_03/decreto-lei/del2848compilado.htm; Constituição Federal, art. 5º, XXXIX — https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-PEN-B-02",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Uma pessoa inicia a execução de uma infração com meios aptos a produzir o resultado, mas um terceiro intervém e impede a consumação contra a vontade dela. Como o Código Penal classifica, em regra, essa situação?",
+      "disciplina": "Direito Penal",
+      "assunto": "Tentativa",
+      "nivel": "BASICO",
+      "fundamentacaoJuridica": "Justificativa: há tentativa quando, iniciada a execução, o crime não se consuma por circunstâncias alheias à vontade do agente; salvo disposição em contrário, aplica-se a pena do crime consumado diminuída de um a dois terços. Fundamentação: Código Penal, art. 14, II e parágrafo único.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "Crime impossível, ainda que a execução pudesse produzir o resultado e apenas uma circunstância externa o tenha impedido.", "correta": false },
+        { "letra": "B", "texto": "Desistência voluntária, pois toda não consumação exclui a tentativa.", "correta": false },
+        { "letra": "C", "texto": "Tentativa, porque a execução começou e a consumação foi impedida por circunstância alheia à vontade do agente.", "correta": true },
+        { "letra": "D", "texto": "Crime consumado, pois o início da execução basta para consumar qualquer infração.", "correta": false }
+      ],
+      "source": { "name": "Código Penal — Decreto-Lei nº 2.848/1940, texto compilado, Presidência da República", "reference": "Art. 14, II e parágrafo único — https://www.planalto.gov.br/ccivil_03/decreto-lei/del2848compilado.htm", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-PEN-I-01",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Durante uma agressão injusta atual, uma pessoa repele a agressão, usando moderadamente os meios necessários para proteger direito próprio. Segundo o Código Penal, qual instituto pode justificar a conduta, desde que presentes os requisitos legais?",
+      "disciplina": "Direito Penal",
+      "assunto": "Legítima defesa",
+      "nivel": "INTERMEDIARIO",
+      "fundamentacaoJuridica": "Justificativa: legítima defesa ocorre quando alguém, usando moderadamente os meios necessários, repele injusta agressão atual ou iminente a direito próprio ou de terceiro. Fundamentação: Código Penal, art. 25.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "Legítima defesa, pois o enunciado descreve reação moderada a agressão injusta atual contra direito próprio.", "correta": true },
+        { "letra": "B", "texto": "Estado de necessidade, que exige sempre agressão humana injusta atual contra direito próprio.", "correta": false },
+        { "letra": "C", "texto": "Estrito cumprimento do dever legal, aplicável sempre que alguém protege direito próprio.", "correta": false },
+        { "letra": "D", "texto": "Exercício regular de direito, que autoriza repelir qualquer agressão com meios ilimitados.", "correta": false }
+      ],
+      "source": { "name": "Código Penal — Decreto-Lei nº 2.848/1940, texto compilado, Presidência da República", "reference": "Art. 25 — https://www.planalto.gov.br/ccivil_03/decreto-lei/del2848compilado.htm", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-ADM-B-01",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Ao analisar pedido de particular, uma autoridade administrativa pretende adotar medida que não tem autorização legal nem competência normativa para praticar. Qual princípio constitucional orienta a atuação administrativa nesse caso?",
+      "disciplina": "Direito Administrativo",
+      "assunto": "Princípio da legalidade administrativa",
+      "nivel": "BASICO",
+      "fundamentacaoJuridica": "Justificativa: a Administração Pública direta e indireta está submetida ao princípio da legalidade, entre os demais princípios expressos no art. 37, caput, da Constituição Federal. Fundamentação: Constituição Federal, art. 37, caput.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "Legalidade, que vincula a atuação administrativa às competências e autorizações do ordenamento jurídico.", "correta": true },
+        { "letra": "B", "texto": "Autonomia privada, que permite ao agente público agir sem base jurídica sempre que houver interesse pessoal.", "correta": false },
+        { "letra": "C", "texto": "Liberdade contratual, que autoriza qualquer órgão a afastar a lei por conveniência.", "correta": false },
+        { "letra": "D", "texto": "Inafastabilidade da jurisdição, que permite à autoridade administrativa substituir o Poder Judiciário sem competência.", "correta": false }
+      ],
+      "source": { "name": "Constituição Federal de 1988 — texto atualizado, Câmara dos Deputados", "reference": "Art. 37, caput — https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-ADM-B-02",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Um município pretende preencher cargo público efetivo de analista, sem que haja hipótese constitucional especial de acumulação ou contratação temporária. Qual regra geral deve observar para a investidura?",
+      "disciplina": "Direito Administrativo",
+      "assunto": "Concurso público e investidura em cargo público",
+      "nivel": "BASICO",
+      "fundamentacaoJuridica": "Justificativa: a investidura em cargo ou emprego público depende, como regra, de aprovação prévia em concurso público de provas ou de provas e títulos; a exceção constitucional indicada refere-se a cargo em comissão declarado em lei de livre nomeação e exoneração. Fundamentação: Constituição Federal, art. 37, II.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "A nomeação pode ocorrer livremente, pois todo cargo público admite escolha direta pela autoridade.", "correta": false },
+        { "letra": "B", "texto": "É necessária aprovação prévia em concurso público de provas ou de provas e títulos, observadas as regras legais.", "correta": true },
+        { "letra": "C", "texto": "A Constituição proíbe concurso para cargos efetivos e exige eleição municipal.", "correta": false },
+        { "letra": "D", "texto": "Basta aprovação em entrevista, pois a exigência constitucional alcança somente empregos em empresas privadas.", "correta": false }
+      ],
+      "source": { "name": "Constituição Federal de 1988 — texto atualizado, Câmara dos Deputados", "reference": "Art. 37, II — https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-ADM-I-01",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Uma pessoa sofre dano causado por agente de uma empresa privada que presta serviço público, durante a atuação desse agente nessa qualidade. Segundo a Constituição Federal, qual afirmação apresenta a regra de responsabilidade e regresso?",
+      "disciplina": "Direito Administrativo",
+      "assunto": "Responsabilidade civil das pessoas prestadoras de serviço público",
+      "nivel": "INTERMEDIARIO",
+      "fundamentacaoJuridica": "Justificativa: pessoas jurídicas de direito público e pessoas jurídicas de direito privado prestadoras de serviços públicos respondem pelos danos causados por seus agentes nessa qualidade; é assegurado o regresso contra o responsável nos casos de dolo ou culpa. Fundamentação: Constituição Federal, art. 37, § 6º.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "Somente o agente responde perante a vítima, que deve provar dolo pessoal para qualquer indenização.", "correta": false },
+        { "letra": "B", "texto": "A empresa privada prestadora de serviço público não responde por atos de seus agentes em nenhuma hipótese.", "correta": false },
+        { "letra": "C", "texto": "A empresa prestadora responde pelos danos causados por seus agentes nessa qualidade, e pode exercer regresso contra o responsável se houver dolo ou culpa.", "correta": true },
+        { "letra": "D", "texto": "A empresa e o agente somente respondem se a vítima provar dolo de ambos, sendo vedado o direito de regresso.", "correta": false }
+      ],
+      "source": { "name": "Constituição Federal de 1988 — texto atualizado, Câmara dos Deputados", "reference": "Art. 37, § 6º — https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-TRAB-B-01",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Uma pessoa física trabalha para uma empresa de forma não eventual, subordinada às ordens do empregador e mediante salário. Segundo a CLT, qual é o enquadramento jurídico que corresponde a esses elementos?",
+      "disciplina": "Direito do Trabalho",
+      "assunto": "Elementos da relação de emprego",
+      "nivel": "BASICO",
+      "fundamentacaoJuridica": "Justificativa: empregado é a pessoa física que presta serviços de natureza não eventual a empregador, sob sua dependência e mediante salário. Fundamentação: CLT, art. 3º.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "Empregado, pois o enunciado reúne prestação por pessoa física, não eventualidade, dependência e salário.", "correta": true },
+        { "letra": "B", "texto": "Trabalhador eventual, pois a subordinação e o salário afastam a relação de emprego.", "correta": false },
+        { "letra": "C", "texto": "Empregador, pois qualquer pessoa física que presta serviço assume os riscos da atividade econômica.", "correta": false },
+        { "letra": "D", "texto": "Autônomo necessariamente, pois a CLT não considera pessoa física como empregada.", "correta": false }
+      ],
+      "source": { "name": "Consolidação das Leis do Trabalho — Decreto-Lei nº 5.452/1943, texto compilado, Presidência da República", "reference": "Art. 3º — https://www.planalto.gov.br/ccivil_03/decreto-lei/del5452.htm", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-TRAB-B-02",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Uma empregada que preenchia os requisitos da relação de emprego passa a executar suas atividades a distância, em sua residência. Apenas por trabalhar fora do estabelecimento do empregador, ela deixa de poder ser considerada empregada?",
+      "disciplina": "Direito do Trabalho",
+      "assunto": "Trabalho a distância e vínculo de emprego",
+      "nivel": "BASICO",
+      "fundamentacaoJuridica": "Justificativa: a CLT não distingue o trabalho realizado no estabelecimento, no domicílio ou a distância, desde que estejam caracterizados os pressupostos da relação de emprego. Fundamentação: CLT, art. 6º.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "Sim. O trabalho a distância exclui automaticamente a aplicação da CLT.", "correta": false },
+        { "letra": "B", "texto": "Não. O local da prestação não afasta por si só o vínculo quando os pressupostos da relação de emprego estão presentes.", "correta": true },
+        { "letra": "C", "texto": "Sim, salvo se o empregador registrar a empregada como trabalhadora eventual.", "correta": false },
+        { "letra": "D", "texto": "Não, mas somente se toda atividade a distância for realizada em estabelecimento público.", "correta": false }
+      ],
+      "source": { "name": "Consolidação das Leis do Trabalho — Decreto-Lei nº 5.452/1943, texto compilado, Presidência da República", "reference": "Art. 6º e parágrafo único — https://www.planalto.gov.br/ccivil_03/decreto-lei/del5452.htm", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    },
+    {
+      "_draftSlot": "IA-TRAB-I-01",
+      "_reviewStatus": "PENDENTE_REVISÃO_JURÍDICA_PEDAGÓGICA_E_LIBERAÇÃO",
+      "enunciado": "Uma empresa e um empregado assinam aditivo individual que reduz a remuneração fixa do trabalhador e lhe causa prejuízo direto. Não há negociação coletiva aplicável. Segundo a regra geral da CLT para alterações contratuais individuais, o consentimento do empregado basta para validar o aditivo?",
+      "disciplina": "Direito do Trabalho",
+      "assunto": "Alteração individual do contrato de trabalho",
+      "nivel": "INTERMEDIARIO",
+      "fundamentacaoJuridica": "Justificativa: a alteração individual exige mútuo consentimento e, ainda assim, não pode acarretar prejuízo direto ou indireto ao empregado; a cláusula que infringe essa garantia é nula. Fundamentação: CLT, art. 468, caput.",
+      "origem": "IA",
+      "alternativas": [
+        { "letra": "A", "texto": "Sim. O consentimento individual torna válida qualquer redução, mesmo quando comprovadamente prejudicial.", "correta": false },
+        { "letra": "B", "texto": "Não. Além do consentimento mútuo, a alteração individual não pode resultar em prejuízo ao empregado.", "correta": true },
+        { "letra": "C", "texto": "Sim. A CLT exige consentimento apenas do empregador para alterar o contrato.", "correta": false },
+        { "letra": "D", "texto": "Não. A CLT proíbe toda e qualquer alteração individual, ainda que consentida e sem prejuízo.", "correta": false }
+      ],
+      "source": { "name": "Consolidação das Leis do Trabalho — Decreto-Lei nº 5.452/1943, texto compilado, Presidência da República", "reference": "Art. 468, caput — https://www.planalto.gov.br/ccivil_03/decreto-lei/del5452.htm", "licenseOrAuthorization": "PENDENTE: confirmar autoria, originalidade e condições de uso deste rascunho antes da publicação." },
+      "legalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "pedagogicalReview": { "reviewerId": "", "reviewedAt": "", "evidenceRef": "" },
+      "release": { "releasedById": "", "releasedAt": "", "evidenceRef": "" }
+    }
+  ],
+  "practiceTopics": [
+    { "disciplina": "Direito Constitucional", "assunto": "Direito de reunião" },
+    { "disciplina": "Direito Civil", "assunto": "Personalidade civil e direitos do nascituro" },
+    { "disciplina": "Direito Penal", "assunto": "Princípio da legalidade e anterioridade penal" },
+    { "disciplina": "Direito Administrativo", "assunto": "Princípio da legalidade administrativa" },
+    { "disciplina": "Direito do Trabalho", "assunto": "Elementos da relação de emprego" }
+  ]
+}

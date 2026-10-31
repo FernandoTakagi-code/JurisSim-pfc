@@ -52,6 +52,8 @@ type ExamReport = Omit<Point, "meanPercentage"> & {
 type ClassReport = {
   turma: Class;
   summary: Summary;
+  levelDistribution: { level: string; students: number }[];
+  disciplineMetrics: { discipline: string; totalQuestions: number; correctAnswers: number; percentage: number | null }[];
   exams: Page<ExamReport>;
   students: Page<{
     id: string;
@@ -198,6 +200,7 @@ export function GoalsPage() {
   const remote = useRemote<Page<Goal>>(
     `/goals?page=${page}${filter === "all" ? "" : "&status=" + filter}`,
   );
+  const summary = useRemote<{ streak: { current: number; longest: number; lastActivityDate: string | null }; totalAnsweredQuestions: number; todayAnsweredQuestions: number; todayGoal: Goal | null; currentLevel: string | null }>('/goals/dashboard');
   const [editing, setEditing] = useState<Goal>(),
     [date, setDate] = useState(today),
     [target, setTarget] = useState(10);
@@ -244,6 +247,7 @@ export function GoalsPage() {
     <section className="page goals-reports-page goals-page">
       <p className="gold">ORGANIZAÇÃO DOS ESTUDOS</p>
       <h1>Metas de estudo</h1>
+      {summary.data && <article className="panel goal-streak"><h2>Frequência de estudo</h2><p>{summary.data.streak.current} dia(s) consecutivo(s) · recorde de {summary.data.streak.longest} dia(s)</p><p className="muted">Última atividade: {summary.data.streak.lastActivityDate ? calendar(summary.data.streak.lastActivityDate) : 'nenhuma atividade registrada'} · {summary.data.totalAnsweredQuestions} respostas persistidas · nível atual: {summary.data.currentLevel ?? 'ainda não classificado'}</p>{summary.data.todayGoal ? <p>Hoje: {summary.data.todayAnsweredQuestions} de {summary.data.todayGoal.targetQuestions} questões ({summary.data.todayGoal.progressPercentage}%).</p> : <p>Hoje: {summary.data.todayAnsweredQuestions} questão(ões). Crie uma meta abaixo para acompanhar o progresso diário.</p>}</article>}
       <p className="muted">
         Defina sua quantidade diária de questões. O progresso usa respostas
         salvas na data escolhida, no horário de Brasília. Metas da mesma data
@@ -702,6 +706,8 @@ function ClassReportContent({ classId }: { classId: string }) {
         <>
           <h2>{data.turma.nome}</h2>
           <ReportMetrics data={data.summary} />
+          <article className="panel"><h2>Distribuição por nível atual</h2>{data.levelDistribution.length ? data.levelDistribution.map(item => <p key={item.level}>{item.level}: {item.students} aluno(s)</p>) : <p className="muted">Nenhum aluno desta turma possui nível classificado.</p>}</article>
+          <article className="panel"><h2>Desempenho por disciplina</h2>{data.disciplineMetrics.length ? data.disciplineMetrics.map(item => <div className="metric" key={item.discipline}><span>{item.discipline}</span><div><i style={{ width: `${item.percentage ?? 0}%` }} /></div><b>{item.percentage ?? 0}%</b><small>{item.correctAnswers}/{item.totalQuestions} acertos</small></div>) : <p className="muted">As métricas por disciplina aparecerão após tentativas concluídas de simulados da turma.</p>}</article>
           <article className="panel">
             <h2>Evolução das médias por simulado</h2>
             <EvolutionChart points={data.evolution} />

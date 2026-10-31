@@ -5,13 +5,13 @@ import jwt from 'jsonwebtoken';
 import versions from '../legal-versions.json';
 
 const mocks = vi.hoisted(() => ({
-  findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), auditCreate: vi.fn(),
+  findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), auditCreate: vi.fn(),
   verifyIdToken: vi.fn(), payload: { email: 'ana@example.com', email_verified: true, name: 'Ana Google', nonce: 'a'.repeat(64) },
 }));
 const users = new Map<string, Record<string, unknown>>();
 vi.mock('../lib/prisma', () => ({
   prisma: {
-    user: { findUnique: mocks.findUnique, create: mocks.create, update: mocks.update },
+    user: { findUnique: mocks.findUnique, findMany: mocks.findMany, create: mocks.create, update: mocks.update },
     auditLog: { create: mocks.auditCreate },
     simulado: { findFirst: vi.fn().mockResolvedValue(null) },
   },
@@ -41,6 +41,8 @@ beforeAll(async () => {
 beforeEach(() => {
   users.clear();
   mocks.findUnique.mockReset().mockImplementation(({ where }: { where: { email: string } }) => users.get(where.email) ?? null);
+  mocks.findMany.mockReset().mockImplementation(({ where, take }: { where: { email: { equals: string } }; take: number }) =>
+    [...users.values()].filter(user => String(user.email).toLowerCase() === where.email.equals.toLowerCase()).slice(0, take));
   mocks.create.mockReset().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
     const user = { id: 'google-user-1', sessionVersion: 0, nome: data.nome, email: data.email, role: data.role, senhaHash: data.senhaHash, legalAcceptedAt: data.legalAcceptedAt, termsVersion: data.termsVersion, privacyVersion: data.privacyVersion };
     users.set(String(user.email), user);
@@ -127,20 +129,39 @@ describe('login Google e aceite legal', () => {
     }));
   });
 
-  it('não vincula uma conta tradicional existente pelo e-mail Google', async () => {
-    users.set('ana@example.com', { id: 'password-user', nome: 'Ana', email: 'ana@example.com', role: 'PROFESSOR', senhaHash: '$2b$10$hash-de-senha' });
-    const response = await google();
-    expect(response.status).toBe(409);
-    expect((await response.json()).message).toContain('Entre com seu e-mail e senha');
+  it('allows a verified Google identity to sign into the same verified password account without changing role or password', async () => {
+    users.set('ana@example.com', { id: 'password-user', nome: 'Ana', email: 'ana@example.com', role: 'PROFESSOR', sessionVersion: 2,
+      senhaHash: '$2b$10$hash-de-senha', emailVerifiedAt: new Date(), legalAcceptedAt: new Date(),
+      termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion });
+    const response = await google({ credential: 'google-id-token', perfil: 'PROFESSOR' });
+    expect(response.status).toBe(200);
+    expect((await response.json()).usuario).toMatchObject({ id: 'password-user', role: 'PROFESSOR' });
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.update).not.toHaveBeenCalled();
+    expect(users.get('ana@example.com')?.senhaHash).toBe('$2b$10$hash-de-senha');
+  });
+
+  it('matches e-mail case-insensitively and rejects an unverified existing account', async () => {
+    users.set('ANA@EXAMPLE.COM', { id: 'unverified-user', nome: 'Ana', email: 'ANA@EXAMPLE.COM', role: 'ALUNO',
+      senhaHash: '$2b$10$hash-de-senha', emailVerifiedAt: null, legalAcceptedAt: new Date(),
+      termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion });
+    const response = await google();
+    expect(response.status).toBe(409);
+    expect((await response.json()).message).toContain('Confirme o e-mail');
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it('does not grant professor profile to a new Google account', async () => {
+    const response = await google({ credential: 'google-id-token', perfil: 'PROFESSOR' });
+    expect(response.status).toBe(403);
+    expect(mocks.create).not.toHaveBeenCalled();
   });
 
   it('recusa e-mail não verificado antes de consultar ou criar conta', async () => {
     mocks.payload = { email: 'ana@example.com', email_verified: false, name: 'Ana Google', nonce: 'a'.repeat(64) };
     const response = await google();
     expect(response.status).toBe(401);
-    expect(mocks.findUnique).not.toHaveBeenCalled();
+    expect(mocks.findMany).not.toHaveBeenCalled();
     expect(mocks.create).not.toHaveBeenCalled();
   });
 });

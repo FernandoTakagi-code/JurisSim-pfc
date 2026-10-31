@@ -4,6 +4,7 @@ import { AuthRepository } from '../repositories/auth-repository';
 import { EmailVerificationSender, UnconfiguredEmailVerificationSender } from './email-verification-sender';
 import { isValidAppUrl } from './app-url';
 import { EMAIL_VERIFICATION_TOKEN_TTL_MINUTES } from './auth-token-policy';
+import { isIndeterminateEmailDelivery } from './email-delivery-failure';
 
 export class EmailVerificationService {
   constructor(
@@ -33,13 +34,16 @@ export class EmailVerificationService {
         verifyUrl,
         expiresInMinutes: EMAIL_VERIFICATION_TOKEN_TTL_MINUTES,
       });
-    } catch {
-      await this.repository.markTokenUsed(record.id);
+    } catch (error) {
+      const indeterminate = isIndeterminateEmailDelivery(error);
+      if (!indeterminate) await this.repository.markTokenUsed(record.id);
       console.error('Falha no envio do e-mail de confirmação.');
-      throw new ApiError(503, 'A confirmação de e-mail está temporariamente indisponível.');
+      throw new ApiError(503, indeterminate
+        ? 'O provedor não confirmou o recebimento. Confira a caixa e o spam antes de pedir outro link.'
+        : 'A confirmação de e-mail está temporariamente indisponível.');
     }
 
-    return { message: 'Enviamos um link de confirmação para o seu e-mail.' };
+    return { message: 'O provedor aceitou o envio do link de confirmação. A entrega na caixa de entrada pode levar alguns minutos.' };
   }
 
   async confirm(token: string) {

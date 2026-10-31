@@ -30,7 +30,7 @@ async function main() {
   assert.equal(path.dirname(path.dirname(expected)).toLowerCase(), fs.realpathSync(os.tmpdir()).toLowerCase()); assert.ok(path.basename(path.dirname(expected)).startsWith('jurissim-migrations-'));
   const [cluster] = await prisma.$queryRaw<{ data_directory: string; database: string; owner: string; port: number; address: string }[]>`
     SELECT current_setting('data_directory') AS data_directory, current_database() AS database,
-      current_user AS owner, inet_server_port() AS port, inet_server_addr()::text AS address`;
+      current_user AS owner, inet_server_port() AS port, host(inet_server_addr()) AS address`;
   assert.equal(cluster.database, process.env.JURISSIM_TEST_FRESH_DATABASE);
   assert.equal(cluster.owner, 'jurissim_migration_test'); assert.equal(cluster.port, Number(url.port)); assert.equal(cluster.address, '127.0.0.1');
   assert.equal(fs.realpathSync(cluster.data_directory).toLowerCase(), expected.toLowerCase());

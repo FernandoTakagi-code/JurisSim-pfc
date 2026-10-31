@@ -3,9 +3,9 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import type { Server } from 'node:http';
 
-const mocks = vi.hoisted(() => ({ user: vi.fn(), overview: vi.fn(), history: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: vi.fn(), overview: vi.fn(), learning: vi.fn(), history: vi.fn() }));
 vi.mock('../repositories/auth-repository', () => ({ AuthRepository: class { findByIdForAuth = mocks.user; } }));
-vi.mock('../repositories/student-history-repository', () => ({ StudentHistoryRepository: class { overview = mocks.overview; history = mocks.history; } }));
+vi.mock('../repositories/student-history-repository', () => ({ StudentHistoryRepository: class { overview = mocks.overview; learningSummary = mocks.learning; history = mocks.history; } }));
 import { studentHistoryRoutes } from './student-history-routes';
 import { errorHandler } from '../middlewares/error-handler';
 
@@ -25,6 +25,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.user.mockResolvedValue({ id, role: 'ALUNO', emailVerifiedAt: new Date(), deletedAt: null, sessionVersion: 0 });
   mocks.overview.mockResolvedValue({ latestDiagnosticId: null, evolution: [], recentActivities: [], totals: { completedActivities: 0 } });
+  mocks.learning.mockResolvedValue({ disciplines: [], priorityTopic: null, trailProgress: [] });
   mocks.history.mockResolvedValue([]);
 });
 

@@ -72,15 +72,17 @@ export class AuthService {
   recordLoginFailure() { return this.repository.recordLogin('LOGIN_FALHA'); }
 
   async loginWithGoogle(email: string, nomeSugerido: string, acceptance?: unknown, perfil?: PerfilAcesso) {
-    const existing = await this.repository.findByEmail(email);
+    const matches = await this.repository.findGoogleAccountsByEmail(email);
+    if (matches.length > 1) throw new ApiError(409, 'Há mais de uma conta com este e-mail. Procure o suporte para evitar vinculação incorreta.');
+    const existing = matches[0] ?? null;
     if (existing?.deletedAt) throw new ApiError(401, 'Conta indisponível.');
     if (existing) verificarPerfil(existing.role, perfil);
     // Contas Google novas são sempre de aluno; professor se cadastra com e-mail e senha.
     if (!existing && perfil === 'PROFESSOR') {
       throw new ApiError(403, 'Não há conta de professor com este e-mail. Cadastre-se como professor usando e-mail e senha.');
     }
-    if (existing?.senhaHash && existing.senhaHash !== GOOGLE_PASSWORD_SENTINEL) {
-      throw new ApiError(409, 'Este e-mail já possui uma conta com senha. Entre com seu e-mail e senha.');
+    if (existing?.senhaHash && existing.senhaHash !== GOOGLE_PASSWORD_SENTINEL && !existing.emailVerifiedAt) {
+      throw new ApiError(409, 'Confirme o e-mail da conta pelo fluxo tradicional antes de entrar com o Google.');
     }
     const parsedAcceptance = acceptance === undefined ? undefined : acceptanceSchema.safeParse(acceptance);
     if (parsedAcceptance && !parsedAcceptance.success) {
@@ -97,6 +99,9 @@ export class AuthService {
     if (!existing) {
       user = await this.repository.createGoogleUser(nomeSugerido, email, parsedAcceptance!.data);
     } else {
+      // A signed Google ID token with email_verified=true was validated by the
+      // controller. Match that verified address to one existing account without
+      // changing its password hash or role; ambiguous case variants fail closed.
       user = existing;
       if (!hasCurrentAcceptance) await this.repository.recordGoogleAcceptance(user.id,parsedAcceptance!.data);
     }

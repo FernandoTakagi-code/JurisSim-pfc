@@ -1,4 +1,4 @@
-import { BrevoSmtpClient } from './brevo-smtp';
+import { createBrevoEmailTransport, createBrevoSmtpTransport, type TransactionalEmailTransport } from './brevo-email-transport';
 
 export type EmailVerificationEmail = {
   userId?: string;
@@ -20,25 +20,24 @@ export class UnconfiguredEmailVerificationSender implements EmailVerificationSen
   }
 }
 
-// Envia o e-mail de verdade usando o relay Brevo via SMTP (Nodemailer).
-// Requer BREVO_SMTP_USER e BREVO_SMTP_KEY no ambiente privado do backend.
+// A API v3 HTTPS é o transporte padrão. SMTP permanece disponível por seleção explícita.
 export class BrevoEmailVerificationSender implements EmailVerificationSender {
   readonly isConfigured: boolean;
-  private readonly smtp: BrevoSmtpClient;
+  private readonly transport: TransactionalEmailTransport;
 
   constructor(
-    smtpUser = process.env.BREVO_SMTP_USER,
-    smtpKey = process.env.BREVO_SMTP_KEY,
+    smtpUser?: string,
+    smtpKey?: string,
   ) {
-    this.smtp = new BrevoSmtpClient(smtpUser, smtpKey);
-    this.isConfigured = this.smtp.isConfigured;
+    this.transport = smtpUser !== undefined || smtpKey !== undefined
+      ? createBrevoSmtpTransport(smtpUser, smtpKey)
+      : createBrevoEmailTransport();
+    this.isConfigured = this.transport.isConfigured;
   }
 
   async sendEmailVerification({ to, verifyUrl, expiresInMinutes }: EmailVerificationEmail): Promise<void> {
     if (!this.isConfigured) throw new Error('Brevo email verification sender is not configured.');
-    const transporter = this.smtp.getTransporter();
-    await transporter.sendMail({
-      from: this.smtp.from,
+    await this.transport.send({
       to,
       subject: 'Confirme seu e-mail — JurisSim',
       text: `Confirme seu e-mail no JurisSim: ${verifyUrl}\nEste link expira em ${expiresInMinutes} minutos. Se você não se cadastrou, ignore esta mensagem.`,

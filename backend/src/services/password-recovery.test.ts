@@ -5,6 +5,7 @@ import { AuthService } from './auth-service';
 import { PasswordRecoveryService } from './password-recovery-service';
 import { PasswordRecoveryRepository } from '../repositories/password-recovery-repository';
 import { GOOGLE_PASSWORD_SENTINEL } from '../repositories/auth-repository';
+import { EmailDeliveryFailure } from './email-delivery-failure';
 
 const db = vi.hoisted(() => ({
   userFindUnique: vi.fn(), userUpdateMany: vi.fn(),
@@ -96,6 +97,16 @@ describe('solicitação de recuperação', () => {
     expect(log).toHaveBeenCalledWith('Falha no envio do e-mail de recuperação de senha.');
     expect(log).not.toHaveBeenCalledWith(expect.stringContaining(email));
     log.mockRestore();
+  });
+
+  it('preserva o token quando o resultado do envio é indeterminado para evitar invalidar link entregue', async () => {
+    const { service, repository, sender } = recoveryDependencies();
+    sender.sendPasswordRecovery.mockRejectedValue(new EmailDeliveryFailure('indeterminate', 'request_deadline'));
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(service.requestRecovery(email)).resolves.toMatch(/^Se existir uma conta associada/);
+    expect(repository.invalidateToken).not.toHaveBeenCalled();
+    expect(warning).toHaveBeenCalledWith('Resultado do envio de recuperacao indeterminado; token preservado.');
+    warning.mockRestore();
   });
 });
 

@@ -13,6 +13,7 @@ import { ProfessorArea } from "./ProfessorArea";
 import { IntegrationShell } from "./integration-shell";
 import { QuestionImportPreview } from "./question-import-preview";
 import { InitialDiagnosticPage } from "./initial-diagnostic";
+import { DiagnosticReview } from './diagnostic-review';
 import { navigate as navigateTo, usePath } from "./navigation";
 import { sessionRedirectTarget } from './auth-routing';
 import { ClassesPage, ExamsPage, ClassExamAttempt } from "./class-exams";
@@ -216,6 +217,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   if (route === "/simulados") return <ExamsPage teacher={false} />;
   if (classAttemptRoute) return <ClassExamAttempt key={classAttemptRoute[1]} id={classAttemptRoute[1]} onCompleted={() => void progress.refresh()} />;
   const resultRoute = /^\/resultados\/(diagnostico|trilha)\/([^/]+)$/.exec(route);
+  const diagnosticReviewRoute = /^\/resultados\/diagnostico\/([^/]+)\/correcao$/.exec(route);
+  if (diagnosticReviewRoute) return <DiagnosticReview attemptId={diagnosticReviewRoute[1]} onBack={() => navigate(`/resultados/diagnostico/${diagnosticReviewRoute[1]}`)} />;
   if (route === "/historico") return <StudentHistory />;
   if (route === "/estudar") return <StudyTrail mode="study" userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
   if (route === "/trilha") return <StudyTrail mode="trail" userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
@@ -223,7 +226,9 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
 
   if (route === "/dashboard" && role === "ALUNO") {
     const firstName = nome.trim().split(/\s+/)[0] || "estudante";
-    const metrics = result?.performances.filter((metric) => metric.tipo === "DISCIPLINA") ?? [];
+    const metrics = progress.data?.learning?.disciplines.map((item) => ({ disciplina: item.discipline, percentual: item.percentage ?? 0 })) ?? result?.performances.filter((metric) => metric.tipo === "DISCIPLINA") ?? [];
+    const totalAnswered = progress.data?.totals.answeredQuestions ?? 0;
+    const totalCorrect = progress.data?.totals.correctAnswers ?? 0;
     const trail = result?.trail;
     return (
       <div className="shell">
@@ -245,19 +250,19 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
               <div className="recommendation-icon">✦</div>
               <div className="recommendation-copy">
                 <p className="gold">RECOMENDADO PARA VOCÊ</p>
-                {trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{trail.assuntoPrioritario ?? "Conteudos gerais da disciplina"} · nivel {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></> : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem após seu primeiro diagnóstico concluído.</p></>}
+              {progress.data?.learning?.priorityTopic ? <><h2>{progress.data.learning.priorityTopic.discipline}</h2><p>Retome {progress.data.learning.priorityTopic.topic} · {progress.data.learning.priorityTopic.percentage}% em {progress.data.learning.priorityTopic.total} respostas</p></> : trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{trail.assuntoPrioritario ?? "Conteudos gerais da disciplina"} · nivel {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></> : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem após seu primeiro diagnóstico concluído.</p></>}
               </div>
               {trail && <button className="outline-button" onClick={() => navigate("/desempenho")}>Ver trilha</button>}
             </article>
             <div className="dashboard-stats">
               <article><span>Seu nível</span><strong>{result ? labels[result.level] ?? result.level : "—"}</strong><small>{result ? "Resultado do diagnóstico" : "Sem resultado disponível"}</small></article>
-              <article><span>Acertos no diagnóstico</span><strong>{result ? `${result.overallPercentage}%` : "—"}</strong><small>{result ? "Percentual de acertos" : "Aguardando dados reais"}</small></article>
+              <article><span>Questões respondidas</span><strong>{totalAnswered || "—"}</strong><small>{totalAnswered ? `${totalCorrect} acertos no histórico` : "Aguardando atividade registrada"}</small></article>
               <article><span>Disciplinas avaliadas</span><strong>{result ? metrics.length : "—"}</strong><small>{result ? "No último diagnóstico" : "Aguardando diagnóstico"}</small></article>
             </div>
             <div className="dashboard-grid">
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">VISÃO POR MATÉRIA</p><h2>Desempenho por disciplina</h2></div><button className="text-button" onClick={() => navigate("/desempenho")}>Ver meu desempenho</button></div>
-                {metrics.length ? metrics.map((metric) => <div className="metric" key={metric.disciplina}><span>{metric.disciplina}</span><div><i style={{ width: `${metric.percentual}%` }} /></div><b>{metric.percentual}%</b></div>) : <p className="empty-dashboard">O desempenho por matéria será exibido após um diagnóstico com resultados disponíveis.</p>}
+                {metrics.length ? metrics.map((metric) => <div className="metric" key={metric.disciplina}><span>{metric.disciplina}</span><div><i style={{ width: `${metric.percentual}%` }} /></div><b>{metric.percentual}%</b></div>) : <p className="empty-dashboard">O desempenho por matéria será exibido após respostas registradas.</p>}
               </article>
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">EVOLUÇÃO</p><h2>Seu progresso</h2></div></div>
@@ -266,6 +271,10 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
               <article className="panel dashboard-panel dashboard-activity">
                 <div className="dashboard-panel-heading"><div><p className="gold">ATIVIDADE</p><h2>Atividade recente</h2></div></div>
                 <RecentActivities items={progress.data?.recentActivities} />
+              </article>
+              <article className="panel dashboard-panel">
+                <div className="dashboard-panel-heading"><div><p className="gold">TRILHAS</p><h2>Progresso das trilhas adaptativas</h2></div></div>
+                {progress.data?.learning?.trailProgress.length ? progress.data.learning.trailProgress.slice(0, 5).map((item) => <div className="metric" key={item.id}><span>{item.discipline}{item.topic ? ` · ${item.topic}` : ""}</span><div><i style={{ width: `${item.total ? Math.round(item.answered / item.total * 100) : 0}%` }} /></div><b>{item.completed ? "Concluída" : `${item.answered}/${item.total}`}</b></div>) : <p className="empty-dashboard">As trilhas concluídas e em andamento aparecerão aqui.</p>}
               </article>
             </div>
           </section>
@@ -781,6 +790,9 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
 
 const application = (
     <LegalBoundary>
+      {import.meta.env.VITE_JURISSIM_DEMO_MODE === 'true' && <div className="jurissim-demo-global-banner" role="status">
+        DEMONSTRAÇÃO ACADÊMICA — todos os registros são sintéticos. Os slots OAB são apenas simulações técnicas; não são questões oficiais, licenciadas ou homologadas.
+      </div>}
       <App />
     </LegalBoundary>
 );

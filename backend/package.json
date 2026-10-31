@@ -11,6 +11,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "npm test && npm run test:integration",
     "test:watch": "vitest",
+    "inventory:check": "tsx scripts/check-question-inventory.ts",
+    "question-bank:import": "tsx scripts/import-eligible-question-batch.ts",
     "email:verify": "tsx scripts/verify-email-config.ts",
     "test:legal-db": "node scripts/verify-legal-db.cjs",
     "prisma:generate": "prisma generate",

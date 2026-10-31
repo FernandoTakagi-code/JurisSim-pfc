@@ -1,4 +1,4 @@
-import { BrevoSmtpClient } from './brevo-smtp';
+import { createBrevoEmailTransport, createBrevoSmtpTransport, type TransactionalEmailTransport } from './brevo-email-transport';
 
 export type PasswordRecoveryEmail = {
   to: string;
@@ -21,25 +21,24 @@ export class UnconfiguredRecoveryEmailSender implements RecoveryEmailSender {
   }
 }
 
-// Envia o e-mail de verdade usando o relay Brevo via SMTP (Nodemailer).
-// Requer BREVO_SMTP_USER e BREVO_SMTP_KEY configurados no .env.
+// A API v3 HTTPS é o transporte padrão. SMTP permanece disponível por seleção explícita.
 export class BrevoRecoveryEmailSender implements RecoveryEmailSender {
   readonly isConfigured: boolean;
-  private readonly smtp: BrevoSmtpClient;
+  private readonly transport: TransactionalEmailTransport;
 
   constructor(
-    smtpUser = process.env.BREVO_SMTP_USER,
-    smtpKey = process.env.BREVO_SMTP_KEY,
+    smtpUser?: string,
+    smtpKey?: string,
   ) {
-    this.smtp = new BrevoSmtpClient(smtpUser, smtpKey);
-    this.isConfigured = this.smtp.isConfigured;
+    this.transport = smtpUser !== undefined || smtpKey !== undefined
+      ? createBrevoSmtpTransport(smtpUser, smtpKey)
+      : createBrevoEmailTransport();
+    this.isConfigured = this.transport.isConfigured;
   }
 
   async sendPasswordRecovery({ to, resetUrl, expiresInMinutes }: PasswordRecoveryEmail): Promise<void> {
     if (!this.isConfigured) throw new Error('Brevo recovery email sender is not configured.');
-    const transporter = this.smtp.getTransporter();
-    await transporter.sendMail({
-      from: this.smtp.from,
+    await this.transport.send({
       to,
       subject: 'Recuperação de senha — JurisSim',
       text: `Redefina sua senha no JurisSim: ${resetUrl}\nEste link expira em ${expiresInMinutes} minutos. Se você não solicitou a alteração, ignore esta mensagem.`,

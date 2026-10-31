@@ -65,14 +65,16 @@ describe('DiagnosticRepository.findAttemptForResult', () => {
       'revisaoJuridicaEm', 'revisorJuridicoId', 'revisaoPedagogicaEm', 'revisorPedagogicoId',
       'liberadaAcervoEm', 'liberadaAcervoPorId', 'situacaoDireitos', 'direitosVerificadosEm',
       'direitosVerificadosPorId', 'oabExame', 'oabEdicao', 'oabTipoProva', 'oabNumeroQuestao',
-      'fonteOficialUrl', 'situacaoQuestaoOficial', 'letra',
+      'fonteOficialUrl', 'situacaoQuestaoOficial',
     ]) {
       expect(serializedSelect).not.toContain(`"${excludedField}"`);
     }
     expect(diagnosticAttemptSelect.questoes.select.questao.select).toEqual({
       id: true, enunciado: true, disciplina: true, assunto: true, nivel: true,
-      alternativas: { select: { id: true, texto: true, correta: true } },
+      fundamentacaoJuridica: true,
+      alternativas: { select: { id: true, letra: true, texto: true, correta: true } },
     });
+    expect(diagnosticAttemptSelect.questoes.select.conteudoSnapshot).toBe(true);
   });
 
   it('seleciona os dados de cálculo e resposta sem alternativas ou metadados recentes', () => {

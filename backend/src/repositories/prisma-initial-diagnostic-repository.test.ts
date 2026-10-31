@@ -8,6 +8,13 @@ function questionIds(): string[] {
   return Array.from({ length: 30 }, (_, index) => `question-${index + 1}`);
 }
 
+function questionRows(ids = questionIds()) {
+  return ids.map(id => ({ id, enunciado: `Enunciado completo da ${id}.`, disciplina: 'Direito Civil', assunto: 'Contratos',
+    nivel: 'BASICO', fundamentacaoJuridica: `Fundamentação da ${id}.`, alternativas: ['A', 'B', 'C', 'D'].map((letra, index) => ({
+      id: `${id}-${letra}`, letra, texto: `Alternativa ${letra}`, correta: index === 0,
+    })) }));
+}
+
 function identity(overrides: Record<string, unknown> = {}) {
   return {
     id: 'identity-1', alunoId: 'student-1', simuladoId: 'simulado-1',
@@ -23,6 +30,7 @@ function dbMock(overrides: Record<string, unknown> = {}) {
   const tx = {
     diagnosticoInicial: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue({ id: 'identity-1' }) },
     simulado: { create: vi.fn().mockResolvedValue({ id: 'simulado-1' }) },
+    questao: { findMany: vi.fn().mockResolvedValue(questionRows()) },
     questaoSimulado: { createMany: vi.fn().mockResolvedValue({ count: 30 }) },
   };
   const db = {
@@ -137,7 +145,15 @@ describe('adaptador Prisma do Diagnóstico Inicial', () => {
       data: { alunoId: 'student-1', simuladoId: 'simulado-1' }, select: { id: true },
     });
     const [links] = tx.questaoSimulado.createMany.mock.calls[0];
-    expect(links.data).toEqual(ids.map((questaoId, index) => ({ simuladoId: 'simulado-1', questaoId, posicao: index + 1 })));
+    expect(links.data.map((link: { questaoId: string }) => link.questaoId)).toEqual(ids);
+    expect(links.data[0]).toMatchObject({ simuladoId: 'simulado-1', questaoId: ids[0], posicao: 1,
+      conteudoSnapshot: { version: 1, statement: `Enunciado completo da ${ids[0]}.`,
+        explanation: `Fundamentação da ${ids[0]}.`, alternatives: [
+          { id: `${ids[0]}-A`, letter: 'A', text: 'Alternativa A', correct: true },
+          { id: `${ids[0]}-B`, letter: 'B', text: 'Alternativa B', correct: false },
+          { id: `${ids[0]}-C`, letter: 'C', text: 'Alternativa C', correct: false },
+          { id: `${ids[0]}-D`, letter: 'D', text: 'Alternativa D', correct: false },
+        ] } });
     expect(links.data).toHaveLength(30);
   });
 
@@ -151,6 +167,7 @@ describe('adaptador Prisma do Diagnóstico Inicial', () => {
         create: vi.fn(async () => { staged.identity = 'identity-1'; return { id: 'identity-1' }; }),
       },
       simulado: { create: vi.fn(async () => { staged.simulado = 'simulado-1'; return { id: 'simulado-1' }; }) },
+      questao: { findMany: vi.fn().mockResolvedValue(questionRows()) },
       questaoSimulado: { createMany: vi.fn(async () => { throw new Error('falha de vínculo'); }) },
     };
     const db = {
@@ -244,6 +261,7 @@ describe('adaptador Prisma do Diagnóstico Inicial', () => {
       inventoryRow({ id: 'class-private', turmaId: 'class-1' }),
       inventoryRow({ id: 'teacher', origem: 'PROFESSOR' }),
       inventoryRow({ id: 'noncanonical-discipline', disciplina: 'Direito Empresarial' }),
+      inventoryRow({ id: 'ai-marked-annulled', situacaoQuestaoOficial: 'ANULADA' }),
       officialRow({ id: 'annulled', situacaoQuestaoOficial: 'ANULADA' }),
       officialRow({ id: 'rights-unverified', situacaoDireitos: 'NAO_VERIFICADO' }),
       officialRow({ id: 'rights-no-evidence', licencaOuAutorizacao: '  ' }),

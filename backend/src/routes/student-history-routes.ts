@@ -19,7 +19,8 @@ studentHistoryRoutes.use(requireAuth, requireRoles('ALUNO'));
 studentHistoryRoutes.get('/overview', async (request: AuthenticatedRequest, response) => {
   z.object({}).strict().parse(request.query);
   response.setHeader('Cache-Control', 'no-store');
-  response.json(await repository.overview(request.auth!.userId));
+  const [overview, learning] = await Promise.all([repository.overview(request.auth!.userId), repository.learningSummary(request.auth!.userId)]);
+  response.json({ ...overview, learning });
 });
 for (const path of ['/activities', '/diagnostics']) {
   studentHistoryRoutes.get(path, async (request: AuthenticatedRequest, response) => {

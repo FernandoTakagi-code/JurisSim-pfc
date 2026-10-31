@@ -36,6 +36,31 @@ const summary = () => Prisma.sql`s.id, ${historyType()} AS type, s."iniciadoEm" 
     THEN round(100.0 * c.correct / c.total, 2)::float8 ELSE NULL END AS "overallPercentage"`;
 
 export class StudentHistoryRepository {
+  async learningSummary(studentId: string) {
+    const rows = await prisma.$queryRaw<{ discipline: string; topic: string; total: number; correct: number }[]>(Prisma.sql`
+      SELECT q.disciplina AS discipline, q.assunto AS topic, count(*)::int AS total,
+        count(*) FILTER (WHERE r.correta)::int AS correct
+      FROM "Simulado" s JOIN "QuestaoSimulado" sq ON sq."simuladoId"=s.id
+      JOIN "Questao" q ON q.id=sq."questaoId" JOIN "Resposta" r ON r."questaoSimuladoId"=sq.id
+      WHERE s."alunoId"=${studentId} AND (s."finalizadoEm" IS NOT NULL OR s.tipo <> 'DIAGNOSTICO')
+      GROUP BY q.disciplina, q.assunto`);
+    const groups = new Map<string, { discipline: string; topic: string; total: number; correct: number }[]>();
+    for (const row of rows) groups.set(row.discipline, [...(groups.get(row.discipline) ?? []), row]);
+    const disciplines = [...groups].map(([discipline, items]) => {
+      const total = items.reduce((sum, item) => sum + item.total, 0), correct = items.reduce((sum, item) => sum + item.correct, 0);
+      return { discipline, total, correct, percentage: total ? Number((100 * correct / total).toFixed(2)) : null };
+    }).sort((a, b) => (a.percentage ?? 101) - (b.percentage ?? 101));
+    const topics = rows.filter(row => row.total >= 3).sort((a, b) => a.correct / a.total - b.correct / b.total);
+    const trails = await prisma.trilhaAdaptativa.findMany({ where: { simulado: { alunoId: studentId }, simuladoGeradoId: { not: null } },
+      select: { id: true, disciplinaPrioritaria: true, assuntoPrioritario: true, simuladoGerado: { select: { id: true, finalizadoEm: true,
+        _count: { select: { questoes: true } }, questoes: { select: { resposta: { select: { id: true } } } } } } }, orderBy: { id: 'desc' }, take: 50 });
+    return { disciplines, priorityTopic: topics[0] ? { discipline: topics[0].discipline, topic: topics[0].topic,
+      total: topics[0].total, percentage: Number((100 * topics[0].correct / topics[0].total).toFixed(2)) } : null,
+      trailProgress: trails.map(trail => ({ id: trail.id, discipline: trail.disciplinaPrioritaria, topic: trail.assuntoPrioritario,
+        finalizedAt: trail.simuladoGerado?.finalizadoEm ?? null, total: trail.simuladoGerado?._count.questoes ?? 0,
+        answered: trail.simuladoGerado?.questoes.filter(question => question.resposta).length ?? 0,
+        completed: Boolean(trail.simuladoGerado?.finalizadoEm) })) };
+  }
   async overview(studentId: string) {
     // A consistent snapshot of totals and bounded evolution, with no N+1 reads.
     const [totals, evolution, recent] = await prisma.$transaction([

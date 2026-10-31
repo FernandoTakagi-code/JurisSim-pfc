@@ -5,7 +5,8 @@ import type { Server } from 'node:http';
 import { beforeAll, beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ find: vi.fn(), auth: vi.fn(), create: vi.fn(), audit: vi.fn(), revoke: vi.fn(), google: vi.fn() }));
 vi.mock('../repositories/auth-repository', () => ({ GOOGLE_PASSWORD_SENTINEL: '!GOOGLE_OAUTH_ACCOUNT!', AuthRepository: class {
-  findByEmail = mocks.find; findByIdForAuth = mocks.auth; createUser = mocks.create; recordLogin = mocks.audit; revokeSessions = mocks.revoke;
+  findByEmail = mocks.find; findGoogleAccountsByEmail = async (email: string) => { const user = await mocks.find(email); return user ? [user] : []; };
+  findByIdForAuth = mocks.auth; createUser = mocks.create; recordLogin = mocks.audit; revokeSessions = mocks.revoke;
 } }));
 vi.mock('google-auth-library', () => ({ OAuth2Client: class { verifyIdToken = mocks.google; } }));
 import { AuthController } from '../controllers/auth-controller';

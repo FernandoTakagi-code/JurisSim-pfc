@@ -7,6 +7,7 @@ import {
   type InitialDiagnosticAttempt,
   type InitialDiagnosticRepository,
 } from '../services/initial-diagnostic-service';
+import { createDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
 
 const initialInclude = {
   simulado: {
@@ -128,7 +129,7 @@ function hasCompleteContent(row: InventoryRow): boolean {
 }
 
 export function toEligibleCandidate(row: InventoryRow): InitialDiagnosticCandidate | null {
-  if (!row.publica || row.turmaId !== null
+  if (!row.publica || row.turmaId !== null || (row.situacaoQuestaoOficial as string | null) === 'ANULADA'
     || !INITIAL_DIAGNOSTIC_DISCIPLINES.includes(row.disciplina as typeof INITIAL_DIAGNOSTIC_DISCIPLINES[number])
     || (row.origem !== 'IA' && row.origem !== 'OAB_OFICIAL')
     || !row.revisaoJuridicaEm || !row.revisorJuridicoId?.trim()
@@ -241,11 +242,24 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
           data: { alunoId: input.studentId, simuladoId: simulado.id },
           select: { id: true },
         });
+        const selectedQuestions = await tx.questao.findMany({
+          where: { id: { in: [...input.orderedQuestionIds] } },
+          select: {
+            id: true, enunciado: true, disciplina: true, assunto: true, nivel: true,
+            fundamentacaoJuridica: true,
+            alternativas: { select: { id: true, letra: true, texto: true, correta: true }, orderBy: { letra: 'asc' } },
+          },
+        });
+        if (selectedQuestions.length !== 30) {
+          throw new Error('NÃ£o foi possÃ­vel congelar o conteÃºdo de todas as questÃµes do diagnÃ³stico.');
+        }
+        const byId = new Map(selectedQuestions.map(question => [question.id, question]));
         const links = await tx.questaoSimulado.createMany({
           data: input.orderedQuestionIds.map((questaoId, index) => ({
             simuladoId: simulado.id,
             questaoId,
             posicao: index + 1,
+            conteudoSnapshot: createDiagnosticQuestionSnapshot(byId.get(questaoId)!),
           })),
         });
         if (links.count !== 30) {

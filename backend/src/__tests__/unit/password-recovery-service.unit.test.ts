@@ -5,7 +5,7 @@ import { PasswordRecoveryService, PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from '..
 
 // Teste unitário: repositório e envio de e-mail são dublês injetados pelo construtor.
 const APP_URL = 'http://localhost:5173';
-const RESPOSTA_NEUTRA = 'Se existir uma conta associada a este e-mail, enviaremos as instruções de recuperação.';
+const RESPOSTA_NEUTRA = 'Se existir uma conta associada a este e-mail, voce recebera instrucoes caso o envio seja concluido. Se nao receber a mensagem, tente novamente mais tarde.';
 
 function criarDependencias(conta: { id: string; senhaHash: string | null } | null) {
   const repositorio = {

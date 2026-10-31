@@ -41,6 +41,11 @@ export class DiagnosticController {
     response.json({ trail: await this.service.getTrail(this.pathParam(request, 'attemptId'), request.auth!.userId) });
   };
 
+  getReview = async (request: AuthenticatedRequest, response: Response) => {
+    response.setHeader('Cache-Control', 'no-store');
+    response.json(await this.service.getReview(this.pathParam(request, 'attemptId'), request.auth!.userId));
+  };
+
   private resultResponse(attempt: { id: string; finalizadoEm: Date | null; desempenhosDiagnostico: unknown[]; trilhaAdaptativa: unknown; questoes: { resposta: { correta: boolean } | null }[] }, result: { correctAnswers: number; totalQuestions: number; overallPercentage: number; level: string; weakestDiscipline: string; weakestTopic: string | null; recommendation: string }) {
     const answered = attempt.questoes.filter(question => question.resposta).length;
     return {

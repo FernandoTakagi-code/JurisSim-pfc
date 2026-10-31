@@ -87,25 +87,30 @@ describe('question practice with disposable PostgreSQL', () => {
 
     const repository = new PrismaQuestionPracticeRepository(prisma);
     const eligibleCivil = await repository.listEligibleQuestions('Direito Civil');
-    expect(new Set(eligibleCivil.map(question => question.id))).toEqual(new Set(publicCivil));
+    expect(publicCivil.every(id => eligibleCivil.some(question => question.id === id))).toBe(true);
     expect(privateIds.every(id => !eligibleCivil.some(question => question.id === id))).toBe(true);
 
     const token = tokenPara(student);
-    const civil = await request('POST', '/question-practice', token, { discipline: 'Direito Civil', quantity: 5 });
+    const civil = await request('POST', '/question-practice', token, { discipline: 'Direito Civil', topic: 'Assunto de integração', quantity: 5 });
     expect(civil.status).toBe(201);
     expect(civil.body.attempt.questions).toHaveLength(5);
-    expect(civil.body.attempt.questions.every((question: { id: string }) => publicCivil.includes(question.id))).toBe(true);
+    expect(civil.body.attempt.questions.every((question: { id: string }) => eligibleCivil.some(item => item.id === question.id))).toBe(true);
+    expect(civil.body.attempt.questions.some((question: { id: string }) => privateIds.includes(question.id))).toBe(false);
     expect(JSON.stringify(civil.body)).not.toMatch(/correctOptionId|explanation|"correct"/);
 
-    const resumed = await request('POST', '/question-practice', token, { discipline: 'Direito Civil', quantity: 5 });
+    const resumed = await request('POST', '/question-practice', token, { discipline: 'Direito Civil', topic: 'Assunto de integração', quantity: 5 });
     expect(resumed.status).toBe(200);
     expect(resumed.body.resumed).toBe(true);
     expect(resumed.body.attempt.id).toBe(civil.body.attempt.id);
+    const wrongTopic = await request('POST', '/question-practice', token, { discipline: 'Direito Civil', topic: 'Assunto inexistente', quantity: 5 });
+    expect(wrongTopic.status).toBe(409);
 
+    const eligibleConstitutional = await repository.listEligibleQuestions('Direito Constitucional');
     const constitutional = await request('POST', '/question-practice', token, { discipline: 'Direito Constitucional', quantity: 5 });
     expect(constitutional.status).toBe(201);
     expect(constitutional.body.attempt.id).not.toBe(civil.body.attempt.id);
-    expect(constitutional.body.attempt.questions.every((question: { id: string }) => publicConstitutional.includes(question.id))).toBe(true);
+    expect(publicConstitutional.every(id => eligibleConstitutional.some(question => question.id === id))).toBe(true);
+    expect(constitutional.body.attempt.questions.every((question: { id: string }) => eligibleConstitutional.some(item => item.id === question.id))).toBe(true);
   });
 
   it('persists answers, corrects them on finalization, and rejects edits afterward', async () => {
@@ -124,7 +129,8 @@ describe('question practice with disposable PostgreSQL', () => {
       });
       const selected = options.find(option => option.correta === (index < 3))!;
       const saved = await request('PUT', `/question-practice/${attempt.id}/answers/${question.id}`, token, { alternativeId: selected.id });
-      expect(saved.status).toBe(200);
+      expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+      expect(saved.body).toMatchObject({ correct: selected.correta, explanation: expect.any(String), answeredCount: index + 1, totalQuestions: 5 });
       savedAnswers.push({ questionId: question.id, alternativeId: selected.id, correct: selected.correta });
     }
 

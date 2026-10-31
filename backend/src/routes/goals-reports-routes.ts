@@ -18,6 +18,10 @@ goalRoutes.get('/', async (request: AuthenticatedRequest, response) => {
   const query = z.object({ page, status: z.enum(['pending', 'completed']).optional() }).strict().parse(request.query);
   response.json(await goalService.list(request.auth!.userId, query.page, query.status));
 });
+goalRoutes.get('/dashboard', async (request: AuthenticatedRequest, response) => {
+  z.object({}).strict().parse(request.query);
+  response.json(await goalService.dashboard(request.auth!.userId));
+});
 goalRoutes.post('/', async (request: AuthenticatedRequest, response) => { response.status(201).json(await goalService.create(request.auth!.userId, goalInput.parse(request.body))); });
 goalRoutes.patch('/:id', async (request: AuthenticatedRequest, response) => { response.json(await goalService.update(request.auth!.userId, id(request), goalEdit.parse(request.body))); });
 goalRoutes.post('/:id/complete', async (request: AuthenticatedRequest, response) => {

@@ -90,6 +90,9 @@ beforeAll(async () => {
   vi.stubEnv('DIRECT_URL', 'postgresql://test:test@127.0.0.1:1/test');
   vi.stubEnv('APP_PUBLIC_URL', 'http://localhost:5173');
   vi.stubEnv('CORS_ORIGINS', 'http://localhost:5173,https://staging.jurissim.test');
+  // This suite mocks nodemailer; select SMTP explicitly so the mock is used
+  // even when Vitest's global safety defaults select the unconfigured API.
+  vi.stubEnv('BREVO_EMAIL_TRANSPORT', 'smtp');
   vi.stubEnv('BREVO_SMTP_USER', 'fixture@smtp-brevo.com');
   vi.stubEnv('BREVO_SMTP_KEY', 'local-fixture-only');
   vi.stubEnv('GOOGLE_CLIENT_ID', 'local-fixture-google-client');
@@ -133,7 +136,7 @@ beforeEach(() => {
     passwordRecoveryToken: { count: mocks.recoveryCount, create: mocks.recoveryCreate, updateMany: mocks.recoveryClaim, findUnique: mocks.recoveryFind, findFirst: async () => null },
     auditLog: { create: mocks.auditCreate },
   }));
-  mocks.sendMail.mockResolvedValue({});
+  mocks.sendMail.mockImplementation(async message => ({ accepted: [message.to], rejected: [] }));
   mocks.questionList.mockResolvedValue([]);
   mocks.questionCreate.mockResolvedValue({ id: resourceId });
 });

@@ -12,6 +12,7 @@ import {
   type InitialDiagnosticShortage,
 } from "./initial-diagnostic-api";
 import { INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT, INITIAL_DIAGNOSTIC_QUESTIONS_PER_DISCIPLINE } from "../../backend/src/services/initial-diagnostic-config";
+import { DiagnosticReview } from './diagnostic-review';
 import "./initial-diagnostic.css";
 
 export { INITIAL_DIAGNOSTIC_DISCIPLINES } from "../../backend/src/services/initial-diagnostic-config";
@@ -207,6 +208,7 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
         throw new Error("O servidor não confirmou a resposta selecionada.");
       }
       setConfirmedAnswers(current => ({ ...current, [questionId]: selectedOptionId }));
+      return;
     } catch (cause) {
       const mapped = mapApiError(cause);
       setError(mapped);
@@ -344,6 +346,8 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
 }
 
 function InitialDiagnosticResultPage({ result, onBack, mandatory }: { result: InitialDiagnosticResult; onBack: () => void; mandatory: boolean }) {
+  const [showReview, setShowReview] = useState(false);
+  if (showReview) return <DiagnosticReview attemptId={result.id} onBack={() => setShowReview(false)} />;
   const disciplineResults = result.performances.filter(metric => metric.tipo === "DISCIPLINA");
   return <section className="v0-page initial-diagnostic initial-diagnostic-result" aria-labelledby="initial-diagnostic-result-title">
     <p className="initial-diagnostic-eyebrow">DIAGNÓSTICO CONCLUÍDO</p>
@@ -364,6 +368,7 @@ function InitialDiagnosticResultPage({ result, onBack, mandatory }: { result: In
       </div>
       <h2>Próximo foco de estudo</h2>
       <p className="initial-diagnostic-muted">{result.recommendation}</p>
+      <button className="initial-diagnostic-primary diagnostic-review-launch" type="button" onClick={() => setShowReview(true)}>Ver correção completa</button>
       <button className="initial-diagnostic-secondary" type="button" onClick={onBack}>{mandatory ? "Acessar minha trilha de estudos" : "Voltar ao painel"}</button>
     </article>
   </section>;

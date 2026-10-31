@@ -18,6 +18,7 @@ function makeAttempt(overrides: Partial<InitialDiagnosticResolutionAttempt> = {}
     return {
       questionId: `question-${position}`,
       position,
+      explanation: `Fundamentacao da questao ${position}.`,
       statement: `Enunciado jurídico da questão ${position} para teste.`,
       discipline,
       topic: `Assunto ${position}`,
@@ -71,7 +72,11 @@ describe('initial diagnostic resolution service', () => {
 
   it('allows saving or changing an answer through the unique question link', async () => {
     const { repository, service } = setup();
-    await expect(service.saveAnswer(studentId, attemptId, 'question-2', 'alternative-2-C')).resolves.toMatchObject({ questionId: 'question-2' });
+    const saved = await service.saveAnswer(studentId, attemptId, 'question-2', 'alternative-2-C');
+    expect(saved).toMatchObject({ questionId: 'question-2', selectedOptionId: 'alternative-2-A' });
+    expect(saved).not.toHaveProperty('correct');
+    expect(saved).not.toHaveProperty('explanation');
+    expect(JSON.stringify(saved)).not.toMatch(/correct|explanation|gabarito/i);
     expect(repository.saveOrUpdateAnswer).toHaveBeenCalledWith(studentId, attemptId, 'question-2', 'alternative-2-C');
   });
 

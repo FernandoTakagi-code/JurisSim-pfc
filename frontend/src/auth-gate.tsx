@@ -474,7 +474,7 @@ export function AuthGate() {
             {!isRecovery && <div className="auth-divider">
               <span>ou</span>
             </div>}
-            {!isRecovery && !googleClientId && <small className="muted">Login Google indisponível no momento.</small>}
+            {!isRecovery && !googleClientId && <small className="muted">Login Google indisponível. Configure o mesmo Client ID no frontend e no backend.</small>}
             {!isRecovery && googleClientId && !pendingGoogleCredential && <GoogleLogin
               nonce={googleNonce}
               onSuccess={handleGoogleSuccess}

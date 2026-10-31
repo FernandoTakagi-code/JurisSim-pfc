@@ -34,8 +34,9 @@ const hashOf = (value: string) => createHash('sha256').update(value).digest('hex
 const latest = (email: string, kind: Mail['kind']) => outbox.filter(mail => mail.to === email && mail.kind === kind).at(-1)!;
 async function request(route: string, body?: unknown, token?: string, status = 200, method = 'POST') {
   const response = await fetch(base + route, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-  assert.equal(response.status, status, `${method} ${route}: expected ${status}, got ${response.status}`);
-  return response.json();
+  const payload = await response.json();
+  assert.equal(response.status, status, `${method} ${route}: expected ${status}, got ${response.status}; response=${JSON.stringify(payload)}`);
+  return payload;
 }
 async function main() {
   const url = new URL(process.env.DATABASE_URL ?? '');
@@ -46,7 +47,7 @@ async function main() {
   assert.equal(path.dirname(path.dirname(expected)).toLowerCase(), fs.realpathSync(os.tmpdir()).toLowerCase()); assert.ok(path.basename(path.dirname(expected)).startsWith('jurissim-migrations-'));
   const [cluster] = await prisma.$queryRaw<{ data_directory: string; database: string; owner: string; port: number; address: string }[]>`
     SELECT current_setting('data_directory') AS data_directory, current_database() AS database,
-      current_user AS owner, inet_server_port() AS port, inet_server_addr()::text AS address`;
+      current_user AS owner, inet_server_port() AS port, host(inet_server_addr()) AS address`;
   assert.equal(cluster.database, process.env.JURISSIM_TEST_FRESH_DATABASE);
   assert.equal(cluster.owner, 'jurissim_migration_test'); assert.equal(cluster.port, Number(url.port)); assert.equal(cluster.address, '127.0.0.1');
   assert.equal(fs.realpathSync(cluster.data_directory).toLowerCase(), expected.toLowerCase());
@@ -59,14 +60,22 @@ async function main() {
   // Local fixture mail viewer: exists ONLY in this guarded test script, never in src/server.
   app.get('/__fixture/mail', (req, res) => { if (req.get('x-fixture-key') !== fixtureKey) { res.sendStatus(403); return; } res.set('Cache-Control', 'no-store').json(outbox); });
   app.use(errorHandler); server = app.listen(0, '127.0.0.1'); await new Promise<void>(resolve => server!.once('listening', resolve)); base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-  const password = 'isolated-stage7-original', nextPassword = 'isolated-stage7-replacement';
+  const password = 'Isolated-stage7-original1!', nextPassword = 'Isolated-stage7-replacement1!';
   const acceptance = { accepted: true, ...versions };
   const registration = (email: string, role = 'ALUNO') => ({ nome: 'Auth integration fixture', email, senha: password, confirmacaoSenha: password, role, acceptance });
   await request('/auth/register', { ...registration('auth-invalid@example.invalid'), role: 'ADMIN' }, undefined, 400);
   await request('/auth/register', { ...registration('auth-invalid@example.invalid'), confirmacaoSenha: 'different' }, undefined, 400);
   const email = 'auth-stage7-alice@example.invalid', teacherEmail = 'auth-stage7-teacher@example.invalid';
   const registered = await request('/auth/register', registration(email), undefined, 201);
-  const teacher = await request('/auth/register', registration(teacherEmail, 'PROFESSOR'), undefined, 201);
+  await request('/auth/register', registration(teacherEmail, 'PROFESSOR'), undefined, 400);
+  const teacherUser = await prisma.user.create({ data: { nome: 'Auth integration teacher fixture', email: teacherEmail,
+    senhaHash: await bcrypt.hash(password, 10), role: 'PROFESSOR', legalAcceptedAt: new Date(),
+    termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion,
+    auditLogs: { create: { action: 'ACEITE_TERMOS_E_PRIVACIDADE', termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion } } } });
+  await new EmailVerificationService(undefined, { isConfigured: true,
+    sendEmailVerification: async emailMessage => send({ kind: 'verification', to: emailMessage.to, url: emailMessage.verifyUrl }) }, frontendOrigin)
+    .requestVerification(teacherUser.id);
+  const teacher = { usuario: teacherUser };
   await request('/auth/register', registration(email), undefined, 409);
   const race = await Promise.all([1, 2].map(() => fetch(base + '/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(registration('auth-stage7-race@example.invalid')) })));
   assert.deepEqual(race.map(response => response.status).sort(), [201, 409]);

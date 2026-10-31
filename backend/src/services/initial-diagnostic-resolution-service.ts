@@ -14,6 +14,7 @@ export interface InitialDiagnosticResolutionQuestion {
   questionId: string;
   position: number;
   statement: string;
+  explanation: string;
   discipline: string;
   topic: string;
   difficulty: 'BASICO' | 'INTERMEDIARIO' | 'AVANCADO';
@@ -157,6 +158,7 @@ export class InitialDiagnosticResolutionService {
 
     const attempt = await this.getOwnedAttempt(studentId, attemptId);
     const question = attempt.questions.find(item => item.questionId === questionId)!;
+    // Never reveal correctness or explanation while an answer key is still active.
     return { questionId, selectedOptionId: question.selectedAlternativeId, respondedAt: question.answeredAt };
   }
 

@@ -204,6 +204,7 @@ model SessaoPratica {
   simuladoId String   @unique
   alunoId    String
   disciplina String
+  assunto    String?
   criadaEm   DateTime @default(now())
   simulado   Simulado @relation("SessaoPraticaSimulado", fields: [simuladoId, alunoId], references: [id, alunoId], onDelete: Restrict)
 
@@ -260,6 +261,8 @@ model QuestaoSimulado {
   posicao    Int
   simuladoId String
   questaoId  String
+  // Optional historical content snapshot. NULL for attempts created before this field.
+  conteudoSnapshot Json? @db.JsonB
   questao    Questao   @relation(fields: [questaoId], references: [id])
   simulado   Simulado  @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
   resposta   Resposta? @relation("RespostaDiagnostico")

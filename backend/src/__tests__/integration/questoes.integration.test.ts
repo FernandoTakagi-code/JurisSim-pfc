@@ -110,7 +110,7 @@ describe('QuestaoRepository (persistência com PostgreSQL de teste)', () => {
     const aluno = await criarUsuario('ALUNO');
     const { alternativas, ...dados } = questaoValida();
     await QuestaoRepository.criar({ ...dados, nivel: 'BASICO', publica: true, autorId: professorA.id, alternativas }, professorA.id, 'PROFESSOR');
-    await QuestaoRepository.criar({ ...dados, nivel: 'BASICO', publica: false, autorId: professorB.id, alternativas }, professorB.id, 'PROFESSOR');
+    await QuestaoRepository.criar({ ...dados, enunciado: `${dados.enunciado} Versão privada distinta.`, nivel: 'BASICO', publica: false, autorId: professorB.id, alternativas }, professorB.id, 'PROFESSOR');
 
     // Act
     const visaoPublica = await QuestaoRepository.listar({}, aluno.id, 'ALUNO');

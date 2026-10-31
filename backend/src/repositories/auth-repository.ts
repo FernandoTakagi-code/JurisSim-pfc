@@ -16,6 +16,17 @@ export class AuthRepository {
       },
     });
   }
+
+  findGoogleAccountsByEmail(email: string) {
+    return prisma.user.findMany({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: {
+        id: true, nome: true, email: true, senhaHash: true, role: true, sessionVersion: true,
+        legalAcceptedAt: true, termsVersion: true, privacyVersion: true, deletedAt: true, emailVerifiedAt: true,
+      },
+      take: 2,
+    });
+  }
   findById(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, nome: true, email: true, role: true, emailVerifiedAt: true, deletedAt: true } }); }
   findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } }); }
   findByIdWithSenha(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, senhaHash: true } }); }

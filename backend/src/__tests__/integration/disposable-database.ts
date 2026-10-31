@@ -123,7 +123,7 @@ export async function assertDisposableDatabase(client: Pick<PrismaClient, '$quer
   const config = disposableDatabaseConfig(environment);
   const rows = await client.$queryRaw<{ directory: string; database: string; owner: string; port: number; address: string; systemIdentifier: string }[]>`
     SELECT current_setting('data_directory') AS directory, current_database() AS database,
-      current_user AS owner, inet_server_port() AS port, inet_server_addr()::text AS address,
+      current_user AS owner, inet_server_port() AS port, host(inet_server_addr()) AS address,
       (pg_control_system()).system_identifier::text AS "systemIdentifier"`;
   const row = rows[0];
   const isWslTarget = 'target' in config && config.target === 'WSL_LOCAL';

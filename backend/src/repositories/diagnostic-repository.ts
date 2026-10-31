@@ -13,6 +13,7 @@ export const diagnosticAttemptSelect = {
       id: true,
       posicao: true,
       questaoId: true,
+      conteudoSnapshot: true,
       questao: {
         select: {
           id: true,
@@ -20,7 +21,8 @@ export const diagnosticAttemptSelect = {
           disciplina: true,
           assunto: true,
           nivel: true,
-          alternativas: { select: { id: true, texto: true, correta: true } },
+          fundamentacaoJuridica: true,
+          alternativas: { select: { id: true, letra: true, texto: true, correta: true } },
         },
       },
       resposta: { select: { correta: true, alternativaEscolhidaId: true } },

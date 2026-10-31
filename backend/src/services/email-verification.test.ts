@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EmailVerificationService } from './email-verification-service';
 import { AuthRepository } from '../repositories/auth-repository';
+import { EmailDeliveryFailure } from './email-delivery-failure';
 
 const db = vi.hoisted(() => ({ findFirst: vi.fn(), updateMany: vi.fn(), userUpdate: vi.fn(), transaction: vi.fn() }));
 vi.mock('../lib/prisma', () => ({ prisma: {
@@ -74,6 +75,19 @@ describe('envio e reenvio de confirmação', () => {
     await expect(service.requestVerification('user-1')).rejects.toMatchObject({ statusCode: 503 });
     expect(repository.markTokenUsed).toHaveBeenCalledWith('token-row');
     expect(log).toHaveBeenCalledExactlyOnceWith('Falha no envio do e-mail de confirmação.');
+  });
+
+  it('preserva token e orienta conferência da caixa quando a aceitação SMTP é indeterminada', async () => {
+    const { service, repository, sender } = dependencies();
+    sender.sendEmailVerification.mockRejectedValue(new EmailDeliveryFailure('indeterminate', 'request_deadline'));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(service.requestVerification('user-1')).rejects.toMatchObject({
+      statusCode: 503,
+      message: expect.stringContaining('Confira a caixa e o spam'),
+    });
+    expect(repository.markTokenUsed).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledOnce();
+    log.mockRestore();
   });
 
   it('confirma usando o hash e rejeita token recusado pelo repositório', async () => {
