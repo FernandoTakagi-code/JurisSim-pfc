@@ -8,6 +8,7 @@ import { prisma } from '../../lib/prisma';
 import { prisma as prismaQuestoes } from '../../config/prisma';
 import { authRoutes } from '../../routes/auth-routes';
 import questaoRoutes from '../../routes/questaoRoutes';
+import { classRoutes } from '../../routes/class-exam-routes';
 import { errorHandler } from '../../middlewares/error-handler';
 import { assertDisposableDatabase } from './disposable-database';
 
@@ -19,6 +20,7 @@ export async function iniciarServidor() {
   app.use(express.json());
   app.use('/auth', authRoutes);
   app.use('/questoes', questaoRoutes);
+  app.use('/turmas', classRoutes);
   app.use(errorHandler);
   const server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
@@ -56,6 +58,15 @@ export async function criarUsuario(role: 'ALUNO' | 'PROFESSOR', senha = 'senha-d
   });
 }
 
+// Cria o usuário no banco de teste e obtém o token pelo endpoint real de login.
+export async function loginPelaApi(baseUrl: string, role: 'ALUNO' | 'PROFESSOR') {
+  const senha = `senha-${randomUUID()}`;
+  const usuario = await criarUsuario(role, senha);
+  const login = await requisicao(baseUrl, 'POST', '/auth/login', { corpo: { email: usuario.email, senha, perfil: role } });
+  if (login.status !== 200) throw new Error(`Login de teste falhou com status ${login.status}`);
+  return { usuario, token: login.corpo.token as string };
+}
+
 export function tokenPara(usuario: { id: string; role: string; sessionVersion: number }) {
   return jwt.sign({ id: usuario.id, role: usuario.role, sessionVersion: usuario.sessionVersion }, process.env.JWT_SECRET!, { algorithm: 'HS256', expiresIn: '1h' });
 }
@@ -88,5 +99,5 @@ export async function requisicao(baseUrl: string, metodo: string, caminho: strin
     body: opcoes.corpo === undefined ? undefined : JSON.stringify(opcoes.corpo),
   });
   const texto = await resposta.text();
-  return { status: resposta.status, corpo: texto ? JSON.parse(texto) : null };
+  return { status: resposta.status, corpo: texto ? JSON.parse(texto) : null, headers: resposta.headers };
 }
