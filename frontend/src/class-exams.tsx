@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiRequest } from "./api";
 import { navigate } from "./navigation";
 import "./class-exams.css";
+import { ClassMembershipManager } from './administration';
 
 type Page<T> = { items: T[]; page: number; hasMore: boolean };
 type Class = {
@@ -176,6 +177,7 @@ export function ClassesPage({ teacher }: { teacher: boolean }) {
     <section className="page class-exams-page">
       <p className="gold">TURMAS</p>
       <h1>{teacher ? "Gestão de turmas" : "Minhas turmas"}</h1>
+      {!teacher && <ClassMembershipManager key={notice} teacher={false} />}
       <p className="muted">
         {teacher
           ? "Gerencie suas turmas e matrículas. Turmas arquivadas permanecem disponíveis para consulta."
@@ -275,6 +277,7 @@ export function ClassesPage({ teacher }: { teacher: boolean }) {
         {list.data?.items.map((turma) => (
           <article className="panel" key={turma.id}>
             <h2>{turma.nome}</h2>
+            {teacher && <ClassMembershipManager teacher classId={turma.id} />}
             <p className="muted">
               {turma.archivedAt ? "Arquivada" : "Ativa"} · {turma._count.alunos}{" "}
               alunos matriculados
@@ -319,6 +322,7 @@ export function ClassesPage({ teacher }: { teacher: boolean }) {
                     >
                       Gerar novo convite
                     </button>
+                    <button className="outline-button" disabled={busy} onClick={() => void action(() => apiRequest(`/turmas/${turma.id}/invite`, json('DELETE')), 'Código desativado.')}>Desativar código</button>
                     <button
                       className="outline-button danger"
                       disabled={busy}

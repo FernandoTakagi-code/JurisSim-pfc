@@ -4,7 +4,7 @@ import { EmailVerificationService } from './email-verification-service';
 import { AuthRepository } from '../repositories/auth-repository';
 import { EmailDeliveryFailure } from './email-delivery-failure';
 
-const db = vi.hoisted(() => ({ findFirst: vi.fn(), updateMany: vi.fn(), userUpdate: vi.fn(), transaction: vi.fn() }));
+const db = vi.hoisted(() => ({ findFirst: vi.fn(), updateMany: vi.fn(), userUpdate: vi.fn(), transaction: vi.fn(), institutionUpdate: vi.fn() }));
 vi.mock('../lib/prisma', () => ({ prisma: {
   $transaction: db.transaction,
 } }));
@@ -114,7 +114,7 @@ describe('consumo atômico do token de confirmação', () => {
     db.userUpdate.mockResolvedValue({ id: 'user-1' });
     db.transaction.mockImplementation(async work => {
       const snapshot = usedAt;
-      try { return await work({ $queryRaw: async () => [{ id: 'user-1' }], authToken: { findFirst: db.findFirst, updateMany: db.updateMany }, user: { update: db.userUpdate } }); }
+      try { return await work({ $queryRaw: async () => [{ id: 'user-1' }], authToken: { findFirst: db.findFirst, updateMany: db.updateMany }, user: { update: db.userUpdate }, institution: { updateMany: db.institutionUpdate } }); }
       catch (error) { usedAt = snapshot; throw error; }
     });
   });
@@ -131,6 +131,20 @@ describe('consumo atômico do token de confirmação', () => {
       data: { emailVerifiedAt: now, auditLogs: { create: { action: 'EMAIL_CONFIRMADO', occurredAt: now } } }, select: { id: true } });
     expect(await new AuthRepository().consumeEmailVerification('token-hash', now)).toBe(false);
     expect(db.userUpdate).toHaveBeenCalledOnce();
+  });
+
+  it('move a solicitação institucional para pendente na mesma transação de confirmação', async () => {
+    vi.stubEnv('INSTITUTIONS_ENABLED', 'true');
+    expect(await new AuthRepository().consumeEmailVerification('token-hash', now)).toBe(true);
+    expect(db.institutionUpdate).toHaveBeenCalledWith({ where: { ownerId: 'user-1', status: 'EMAIL_PENDING' }, data: { status: 'PENDING' } });
+  });
+
+  it('preserva o token se a transição institucional falhar, permitindo nova tentativa', async () => {
+    vi.stubEnv('INSTITUTIONS_ENABLED', 'true');
+    db.institutionUpdate.mockRejectedValueOnce(new Error('institution transition failed'));
+    await expect(new AuthRepository().consumeEmailVerification('token-hash', now)).rejects.toThrow('institution transition failed');
+    expect(usedAt).toBeNull();
+    expect(await new AuthRepository().consumeEmailVerification('token-hash', now)).toBe(true);
   });
 
   it('não altera conta para token inválido ou consumo concorrente perdido', async () => {

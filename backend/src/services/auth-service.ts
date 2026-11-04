@@ -8,6 +8,7 @@ import versions from '../legal-versions.json';
 import { assertValidPassword } from './password-policy';
 import { isInitialDiagnosticRequired } from '../config/initial-diagnostic-feature';
 import { localEmailVerificationCapture } from './local-email-capture';
+import { currentAccess } from './institution-service';
 
 
 export type PerfilAcesso = 'ALUNO' | 'PROFESSOR';
@@ -64,6 +65,7 @@ export class AuthService {
       throw new ApiError(401, 'E-mail ou senha inválidos.');
     }
     verificarPerfil(user.role, perfil);
+    await currentAccess(user.id, user.role);
     const response = this.loginResponse(user);
     await this.repository.recordLogin('LOGIN_SUCESSO', user.id);
     return response;
@@ -76,10 +78,11 @@ export class AuthService {
     if (matches.length > 1) throw new ApiError(409, 'Há mais de uma conta com este e-mail. Procure o suporte para evitar vinculação incorreta.');
     const existing = matches[0] ?? null;
     if (existing?.deletedAt) throw new ApiError(401, 'Conta indisponível.');
+    if (existing) await currentAccess(existing.id, existing.role);
     if (existing) verificarPerfil(existing.role, perfil);
     // Contas Google novas são sempre de aluno; professor se cadastra com e-mail e senha.
     if (!existing && perfil === 'PROFESSOR') {
-      throw new ApiError(403, 'Não há conta de professor com este e-mail. Cadastre-se como professor usando e-mail e senha.');
+      throw new ApiError(403, 'Entre como aluno com o e-mail convidado e aceite o convite institucional para se tornar professor.');
     }
     if (existing?.senhaHash && existing.senhaHash !== GOOGLE_PASSWORD_SENTINEL && !existing.emailVerifiedAt) {
       throw new ApiError(409, 'Confirme o e-mail da conta pelo fluxo tradicional antes de entrar com o Google.');
@@ -131,6 +134,8 @@ export class AuthService {
   async session(userId: string, localDemoRequested = false) {
     const user = await this.repository.findById(userId);
     if (!user || user.deletedAt) throw new ApiError(401, 'Sessão inválida.');
+    const administration = await currentAccess(userId, user.role);
+    if (administration) user.role = administration.effectiveRole as typeof user.role;
     const emailVerificado = Boolean(user.emailVerifiedAt);
     const diagnosticRequired = isInitialDiagnosticRequired();
     const localDemoRuntimeEnabled = localEmailVerificationCapture.isLocalDiagnosticDemoEnabled;
@@ -148,6 +153,7 @@ export class AuthService {
     return {
       user: { id: user.id, nome: user.nome, email: user.email, role: user.role, emailVerificado },
       nextStep,
+      ...(administration ? { administration } : {}),
       ...(localDemoRuntimeEnabled ? {
         localDiagnosticDemoAvailable: Boolean(demoAvailable),
         localDiagnosticDemoActive: demoActive,

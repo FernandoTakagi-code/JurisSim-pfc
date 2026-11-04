@@ -6,6 +6,8 @@ import { navigate, usePath } from "./navigation";
 import "./integration-shell.css";
 import { PhotoProvider, ProfileAvatar, ProfilePhotoEditor } from "./profile-photo";
 import { setLocalDiagnosticDemoMode } from "./auth-session";
+import { useSession } from './auth-session';
+import { InstitutionContext } from './administration';
 
 // Adapted from NavItem, UserProfileDropdown and ProfileSettings in the aluno
 // v0 export. Routing, account data and mutations belong to the existing app.
@@ -44,6 +46,7 @@ export function IntegrationShell({
   onExitLocalDemo?: () => void;
 }) {
   const path = usePath();
+  const sessionState = useSession();
   const teacher = user.role !== "ALUNO";
   const base = teacher ? "/professor" : "";
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -93,6 +96,8 @@ export function IntegrationShell({
         { path: "/historico", label: "Histórico de atividades", icon: "chart" },
         { path: "/metas", label: "Metas de estudo", icon: "target" },
       ];
+  primary.push({ path: '/instituicoes', label: 'Instituições', icon: 'users' });
+  if (user.role === 'ADMIN') primary.unshift({ path: '/administracao', label: 'Administração geral', icon: 'home' });
   const profilePath = base + "/perfil";
   const settingsPath = base + "/configuracoes";
   const utility = path === profilePath || path === settingsPath;
@@ -326,6 +331,7 @@ export function IntegrationShell({
           <button type="button" onClick={() => { setLocalDiagnosticDemoMode(false); onExitLocalDemo?.(); }}>Voltar ao diagnóstico obrigatório</button>
         </div>}
         <div className="v0-original" hidden={utility}>
+          {sessionState.session && <InstitutionContext session={sessionState.session} />}
           {children}
         </div>
         {utility && (

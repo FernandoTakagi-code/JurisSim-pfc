@@ -6,6 +6,12 @@ const student = (nextStep: 'DASHBOARD' | 'DIAGNOSTIC' | 'INITIAL_DIAGNOSTIC', em
 });
 
 describe('frontend session routing decisions', () => {
+  it('directs global and institutional administrators to exclusive management pages', () => {
+    expect(sessionDestination({ user: { role: 'ADMIN', emailVerificado: true }, nextStep: 'PROFESSOR' })).toBe('/administracao');
+    expect(sessionDestination({ ...student('INITIAL_DIAGNOSTIC'), administration: { enabled: true, memberships: [{ role: 'INSTITUTION_ADMIN' }] } })).toBe('/instituicoes');
+    expect(sessionRedirectTarget(student('INITIAL_DIAGNOSTIC'), '/instituicoes')).toBeNull();
+    expect(sessionRedirectTarget(student('INITIAL_DIAGNOSTIC'), '/convite-professor')).toBeNull();
+  });
   it('sends a returning student with a completed required diagnostic straight to dashboard', () => {
     const session = student('DASHBOARD');
     expect(sessionDestination(session)).toBe('/dashboard');

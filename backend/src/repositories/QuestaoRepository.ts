@@ -2,6 +2,9 @@ import { prisma } from '../config/prisma';
 import { AuditAction, Nivel, Prisma } from '@prisma/client';
 import { ApiError } from '../errors/api-error';
 import { fingerprintQuestionContent } from '../services/question-fingerprint';
+import { institutionsEnabled } from '../config/institution-feature';
+const institutionalVisibility = (): Prisma.TurmaWhereInput => institutionsEnabled()
+  ? { OR: [{ institutionalClass: null }, { institutionalClass: { institution: { status: 'ACTIVE' } } }] } : {};
 
 interface DadosQuestao {
   enunciado: string;
@@ -131,13 +134,14 @@ export class QuestaoRepository {
     return { OR: [
       { publica: true },
       ...(actorRole === 'PROFESSOR' ? [{ autorId: actorId }] : []),
-      { turma: actorRole === 'ALUNO' ? { alunos: { some: { id: actorId } } } : { professores: { some: { id: actorId } } } },
+      { turma: actorRole === 'ALUNO' ? { alunos: { some: { id: actorId } }, ...institutionalVisibility() } : { professores: { some: { id: actorId } }, ...institutionalVisibility() } },
     ] };
   }
 
   private static async verificarTurma(tx: Prisma.TransactionClient, id: string, actorId: string, actorRole: string) {
     const turma = await tx.turma.findFirst({ where: {
       id,
+      ...(actorRole === 'ADMIN' ? {} : institutionalVisibility()),
       ...(actorRole === 'ADMIN' ? {} : actorRole === 'ALUNO'
         ? { alunos: { some: { id: actorId } } } : { professores: { some: { id: actorId } } }),
     }, select: { id: true } });

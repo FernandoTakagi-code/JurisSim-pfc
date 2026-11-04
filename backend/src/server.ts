@@ -18,6 +18,8 @@ import { studentHistoryRoutes } from './routes/student-history-routes';
 import { classRoutes, examRoutes } from './routes/class-exam-routes';
 import { goalRoutes, reportRoutes } from './routes/goals-reports-routes';
 import { profilePhotoRoutes } from './routes/profile-photo-routes';
+import { institutionRoutes } from './routes/institution-routes';
+import { administrationAudit } from './middlewares/administration-audit';
 import { prisma } from './lib/prisma';
 import { isLocalDiagnosticDemoRequested, isLocalEmailCaptureRequested, localEmailVerificationCapture } from './services/local-email-capture';
 import { setDefaultAutoSelectFamily } from 'node:net';
@@ -45,11 +47,13 @@ app.use(cors({
   maxAge: 600,
 }));
 app.use(express.json());
+app.use(administrationAudit);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'JurisSim API rodando' });
 });
 app.use('/auth', authRoutes);
+app.use('/institutions', institutionRoutes);
 // These study routes are behind a server-side initial-diagnostic gate. Auth is
 // checked here before the gate; route-level authorization remains in place.
 app.use([

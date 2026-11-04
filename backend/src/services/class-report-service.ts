@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
 
-type Actor = { userId: string; role: string };
+type Actor = { userId: string; role: string; allowedClassIds?: string[] };
 type Tx = Prisma.TransactionClient;
 // Every report uses current enrollment AND the exam's target class. Membership
 // in another class never grants access to personal diagnostics or other exams.
@@ -80,11 +80,12 @@ const disciplineMetrics = Prisma.sql`coalesce((SELECT jsonb_agg(jsonb_build_obje
 export class ClassReportService {
   async classes(actor: Actor, page: number) {
     if (!['PROFESSOR', 'ADMIN'].includes(actor.role)) throw new ApiError(403, 'Relatórios exclusivos de professores.');
-    const items = await prisma.turma.findMany({ where: { professores: { some: { id: actor.userId } } },
+    const items = await prisma.turma.findMany({ where: { professores: { some: { id: actor.userId } }, ...(actor.allowedClassIds ? { id: { in: actor.allowedClassIds } } : {}) },
       select: { id: true, nome: true, archivedAt: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 21, skip: (page - 1) * 20 });
     return { items: items.slice(0, 20), page, hasMore: items.length > 20 };
   }
   private async authorize(tx: Tx, actor: Actor, classId: string) {
+    if (actor.allowedClassIds && !actor.allowedClassIds.includes(classId)) throw new ApiError(404, 'Turma indisponível neste vínculo institucional.');
     if (!['PROFESSOR', 'ADMIN'].includes(actor.role)) throw new ApiError(403, 'Relatórios exclusivos de professores responsáveis pela turma.');
     const turma = await tx.turma.findFirst({ where: { id: classId, professores: { some: { id: actor.userId } } },
       select: { id: true, nome: true, archivedAt: true } });

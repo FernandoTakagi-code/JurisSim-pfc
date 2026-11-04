@@ -1,0 +1,107 @@
+.admin-page {
+  max-width: 1200px;
+  margin: auto;
+}
+.admin-page .panel {
+  margin-block: 16px;
+  padding: 20px;
+}
+.admin-tabs,
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-block: 16px;
+}
+.admin-tabs button[aria-pressed="true"] {
+  outline: 2px solid #b99a50;
+  outline-offset: 2px;
+}
+.admin-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+  align-items: end;
+  margin-block: 20px;
+}
+.admin-form label,
+.admin-page > label,
+.institution-context label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.admin-form input,
+.admin-form textarea,
+.admin-form select,
+.admin-page select,
+.institution-context select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  background: var(--panel-bg, white);
+  color: var(--text-color, #182b43);
+  box-sizing: border-box;
+}
+.admin-form textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+.admin-form h2,
+.admin-form h3,
+.admin-form > p {
+  grid-column: 1/-1;
+}
+.admin-indicators {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+}
+.admin-indicators strong {
+  font-size: 2rem;
+}
+.admin-indicators h2,
+.admin-indicators h3 {
+  font-size: 1rem;
+}
+.admin-table-wrap {
+  overflow: auto;
+}
+.admin-table-wrap table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+}
+.admin-table-wrap th,
+.admin-table-wrap td {
+  padding: 12px;
+  border-bottom: 1px solid #94a3b8;
+  overflow-wrap: anywhere;
+  min-width: 120px;
+}
+.admin-table-wrap small {
+  display: block;
+}
+.institution-context {
+  padding: 16px 24px;
+  border-bottom: 1px solid #94a3b8;
+}
+.admin-page button {
+  min-height: 40px;
+  cursor: pointer;
+}
+.admin-page button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+@media (max-width: 600px) {
+  .admin-page .panel {
+    padding: 14px;
+  }
+  .admin-actions button,
+  .admin-tabs button {
+    flex: 1 1 140px;
+  }
+}

@@ -2,6 +2,8 @@ import { apiRequest } from './api';
 import { endSession, establishSession, sessionDestination } from './auth-session';
 import { useEffect, useState } from "react";
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
+import { pendingInvitation } from './invitation-token';
+import { navigate } from './navigation';
 import { LegalLinks, legalAcceptance } from './legal';
 import { PASSWORD_MIN_LENGTH, passwordError, passwordRequirements, validPasswordConfirmation } from '../../backend/src/password-policy';
 import { validateRegistration } from './registration-validation';
@@ -35,6 +37,7 @@ function verifyTokenFromHash() {
 type Perfil = "ALUNO" | "PROFESSOR";
 
 function perfilInicial(): Perfil {
+  if (window.location.pathname.startsWith('/administracao')) return 'PROFESSOR';
   return sessionStorage.getItem("jurissim_perfil") === "PROFESSOR" ? "PROFESSOR" : "ALUNO";
 }
 
@@ -169,7 +172,9 @@ export function AuthGate() {
   const estabelecerSessao = async (token: string) => {
     const session = await establishSession(token);
     sessionStorage.setItem('jurissim_perfil', session.user.role === 'ALUNO' ? 'ALUNO' : 'PROFESSOR');
-    window.location.assign(sessionDestination(session));
+    if (pendingInvitation()) navigate('/convite-professor', true);
+    else if (window.location.pathname === '/instituicoes') navigate('/instituicoes', true);
+    else window.location.assign(sessionDestination(session));
   };
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
@@ -347,6 +352,7 @@ export function AuthGate() {
                 : "Crie sua conta de estudante e comece sua preparação para a OAB."}
             </p>
           </header>
+          {window.location.pathname === '/instituicoes' ? <p>Para solicitar o cadastro institucional, crie sua conta de responsável ou entre com sua identidade existente. O acesso administrativo depende de confirmação de e-mail e aprovação.</p> : <button type="button" className="outline-button" onClick={() => navigate('/instituicoes')}>Sou responsável por uma instituição</button>}
           {isLogin && <PerfilSwitch disabled={loading} perfil={perfil} onChange={(valor) => { setPerfil(valor); setError(""); setPendingGoogleCredential(undefined); setAccepted(false); }} />}
           <form className="auth-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
             {isRegister && (

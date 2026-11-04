@@ -11,6 +11,8 @@ import { LegalBoundary, LegalLinks } from './legal';
 import { Brand, SettingsModal } from "./shell";
 import { ProfessorArea } from "./ProfessorArea";
 import { IntegrationShell } from "./integration-shell";
+import { GeneralAdministration, InstitutionsPortal, InvitationAcceptance, InstitutionContext } from './administration';
+import './invitation-token';
 import { QuestionImportPreview } from "./question-import-preview";
 import { InitialDiagnosticPage } from "./initial-diagnostic";
 import { DiagnosticReview } from './diagnostic-review';
@@ -149,7 +151,11 @@ function App() {
   if (auth.status !== 'ready' || !auth.session || redirectTarget) return <SessionValidationScreen />;
   const { user } = auth.session;
   const sair = async () => { if (!await logoutSession()) return; if (user.role !== 'ALUNO') sessionStorage.setItem('jurissim_perfil', 'PROFESSOR'); window.location.assign('/'); };
+  if (path === '/instituicoes') return <IntegrationShell user={user} onSair={sair}>{!user.emailVerificado && <EmailConfirmationGate email={user.email} onSair={sair} />}<InstitutionsPortal session={auth.session} /></IntegrationShell>;
   if (!user.emailVerificado) return <EmailConfirmationGate email={user.email} onSair={sair} />;
+  if (path === '/convite-professor') return <IntegrationShell user={user} onSair={sair}><InvitationAcceptance /></IntegrationShell>;
+  if (path.startsWith('/administracao') || (user.role === 'ADMIN' && !path.startsWith('/professor'))) return <IntegrationShell user={user} onSair={sair}>{user.role === 'ADMIN' ? <GeneralAdministration /> : <section className="page"><h1>Acesso não autorizado</h1><p>Área exclusiva da administração geral.</p></section>}</IntegrationShell>;
+  if (user.role === 'PROFESSOR' && auth.session.administration && auth.session.administration.memberships.filter(m => m.role === 'TEACHER').length > 1 && !sessionStorage.getItem('jurissim_institution')) return <IntegrationShell user={user} onSair={sair}><InstitutionContext session={auth.session} /></IntegrationShell>;
   if (user.role === 'ADMIN' && path === '/professor/questoes/importar') return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair}><QuestionImportPreview role={user.role} /></IntegrationShell>;
   if (user.role === 'PROFESSOR' || user.role === 'ADMIN') return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair}><ProfessorArea userId={user.id} nome={user.nome} email={user.email} role={user.role} onSair={sair} /></IntegrationShell>;
   if (auth.session.nextStep === 'INITIAL_DIAGNOSTIC') return <main className="mandatory-diagnostic-screen">

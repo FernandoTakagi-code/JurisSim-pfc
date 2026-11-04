@@ -14,6 +14,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}, option
   delete headers.authorization;
   if (!(init.body instanceof FormData) && !headers['content-type']) headers['Content-Type'] = 'application/json';
   if (authenticated) headers.Authorization = `Bearer ${token}`;
+  const institution = sessionStorage.getItem('jurissim_institution');
+  if (authenticated && institution && /^\/(turmas|avaliacoes|reports|questoes)(\/|$)/.test(path)) headers['X-Institution-Id'] = institution;
   if (authenticated && sessionStorage.getItem('jurissim_local_diagnostic_demo') === 'true') headers['X-JurisSim-Local-Demo'] = 'true';
   else delete headers['x-jurissim-local-demo'];
   let response: Response;
