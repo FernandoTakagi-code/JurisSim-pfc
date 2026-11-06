@@ -2,18 +2,20 @@ import { createHash, randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { ApiError } from "../errors/api-error";
-import { institutionsEnabled } from "../config/institution-feature";
+import { institutionsEnabled, administrationEnabled, institutionRegistrationEnabled } from "../config/institution-feature";
 import {
   createBrevoEmailTransport,
   type TransactionalEmailTransport,
 } from "./brevo-email-transport";
 import { isValidAppUrl } from "./app-url";
+import {escapeMail} from './email-html';
 
 export type InstitutionActor = {
   userId: string;
   role: string;
   institutionId?: string;
   allowedClassIds?: string[];
+  institutionAdmin?: boolean;
 };
 export type Tx = Prisma.TransactionClient;
 export const hashInvitation = (token: string) =>
@@ -65,6 +67,7 @@ export async function institutionAdmin(
   actor: InstitutionActor,
   institutionId: string,
 ) {
+  if(actor.role==='ADMIN')throw new ApiError(403,'Administração global não substitui vínculo institucional autorizado.');
   const member = await tx.institutionalMembership.findFirst({
     where: {
       ...institutionMemberWhere(actor.userId),
@@ -77,7 +80,7 @@ export async function institutionAdmin(
     throw new ApiError(403, "Administração institucional não autorizada.");
 }
 export async function currentAccess(userId: string, originalRole: string) {
-  if (!institutionsEnabled()) return undefined;
+  if (!administrationEnabled() && !institutionRegistrationEnabled()) return undefined;
   const restriction = await prisma.accountControl.findUnique({
     where: { userId },
   });
@@ -86,6 +89,8 @@ export async function currentAccess(userId: string, originalRole: string) {
       403,
       "Conta suspensa. Procure o responsável pela plataforma.",
     );
+  // Global controls must not activate institutional membership requirements.
+  if (!institutionsEnabled()) return undefined;
   const memberships = await prisma.institutionalMembership.findMany({
     where: institutionMemberWhere(userId),
     select: {
@@ -98,12 +103,9 @@ export async function currentAccess(userId: string, originalRole: string) {
   return {
     enabled: true,
     globalAdmin: originalRole === "ADMIN",
+    needsInstitutionLink: originalRole === 'PROFESSOR' && !memberships.some(m=>m.role==='TEACHER'),
     memberships,
-    effectiveRole:
-      originalRole === "PROFESSOR" &&
-      !memberships.some((m) => m.role === "TEACHER")
-        ? "ALUNO"
-        : originalRole,
+    effectiveRole: originalRole,
   };
 }
 const pageResult = <T>(items: T[], page: number) => ({
@@ -139,6 +141,7 @@ export type InstitutionInput = {
   responsibleName: string;
   phone: string;
   description: string;
+  institutionType?: 'ENSINO_SUPERIOR' | 'CURSO_PREPARATORIO' | 'OUTRA_ORGANIZACAO';
 };
 
 export class InstitutionService {
@@ -148,15 +151,28 @@ export class InstitutionService {
 
   async request(actor: InstitutionActor, data: InstitutionInput) {
     return institutionalTransaction(async (tx) => {
+      // Serializes duplicate/quota checks across processes without storing PII in locks.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(710912)`;
       const owner = await tx.user.findUnique({
         where: { id: actor.userId },
         select: { email: true, emailVerifiedAt: true, deletedAt: true },
       });
       if (!owner || owner.deletedAt)
         throw new ApiError(401, "Conta indisponível.");
+      if(!owner.emailVerifiedAt) throw new ApiError(403,"Confirme seu e-mail antes de solicitar o cadastro institucional.");
+      const duplicate = await tx.institution.findFirst({where: { OR: [
+        {email:owner.email.toLowerCase()}, ...(data.registrationNumber ? [{registrationNumber:data.registrationNumber}] : []),
+        {name:{equals:data.name.trim(),mode:'insensitive'},phone:data.phone.trim()},
+      ]},select:{id:true}});
+      if (duplicate) throw new ApiError(409,'Já existe uma solicitação ou instituição com esses dados. Consulte suas solicitações ou procure o suporte.');
+      const {institutionType, ...fields} = data;
+      const types = {ENSINO_SUPERIOR:'Ensino superior',CURSO_PREPARATORIO:'Curso preparatório',OUTRA_ORGANIZACAO:'Outra organização'};
+      const description = institutionType ? `Tipo de instituição: ${types[institutionType]}.\n${fields.description}` : fields.description;
+      if (description.length > 2000) throw new ApiError(422,'Reduza as informações institucionais para até 1900 caracteres.');
       const institution = await tx.institution.create({
         data: {
-          ...data,
+          ...fields,
+          description,
           email: owner.email.toLowerCase(),
           ownerId: actor.userId,
           status: owner.emailVerifiedAt ? "PENDING" : "EMAIL_PENDING",
@@ -299,6 +315,26 @@ export class InstitutionService {
     });
   }
 
+  async editAdministrativeInstitution(actor:InstitutionActor,id:string,data:{name?:string;phone?:string;description?:string;responsibleEmail?:string;reason:string}){
+    requireGlobal(actor);
+    return institutionalTransaction(async tx=>{
+      await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${id} FOR UPDATE`;
+      const institution=await tx.institution.findUnique({where:{id}});
+      if(!institution)throw new ApiError(404,'Instituição indisponível.');
+      const {responsibleEmail,reason,...fields}=data;
+      const owner=responsibleEmail?await tx.user.findFirst({where:{email:{equals:responsibleEmail,mode:'insensitive'},emailVerifiedAt:{not:null},deletedAt:null,role:{not:'ADMIN'}},select:{id:true,nome:true,email:true}}):undefined;
+      if(responsibleEmail&&!owner)throw new ApiError(409,'Responsável deve possuir conta individual confirmada e não ser administrador global.');
+      if(owner&&await tx.accountControl.findUnique({where:{userId:owner.id}}).then(c=>c?.suspended))throw new ApiError(409,'Conta do responsável indisponível.');
+      if(owner&&owner.id!==institution.ownerId){
+        await tx.institutionalMembership.updateMany({where:{institutionId:id,userId:institution.ownerId,role:'INSTITUTION_ADMIN'},data:{active:false}});
+        if(institution.status==='ACTIVE')await tx.institutionalMembership.upsert({where:{institutionId_userId_role:{institutionId:id,userId:owner.id,role:'INSTITUTION_ADMIN'}},create:{institutionId:id,userId:owner.id,role:'INSTITUTION_ADMIN'},update:{active:true}});
+        await tx.user.updateMany({where:{id:{in:[institution.ownerId,owner.id]}},data:{sessionVersion:{increment:1}}});
+      }
+      const result=await tx.institution.update({where:{id},data:{...fields,decisionReason:reason,...(owner?{ownerId:owner.id,responsibleName:owner.nome,email:owner.email.toLowerCase()}: {})},select:institutionSelect});
+      await administrativeEvent(tx,owner?'INSTITUTION_RESPONSIBLE_CHANGED':'INSTITUTION_ADMINISTRATIVE_UPDATED',actor.userId,id,id);
+      return result;
+    });
+  }
   async users(
     actor: InstitutionActor,
     page: number,
@@ -310,6 +346,7 @@ export class InstitutionService {
       where: {
         deletedAt: null,
         role,
+        AND:[{OR:[{role:{in:['ADMIN','PROFESSOR']}},{institutionsOwned:{some:{}}},{institutionalMemberships:{some:{role:'INSTITUTION_ADMIN'}}}]}],
         ...(search
           ? {
               OR: [
@@ -362,13 +399,15 @@ export class InstitutionService {
       );
     return institutionalTransaction(async (tx) => {
       // Serialize all administrative permission changes, including last-admin checks.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(710911)`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(710911)`;
       const user = await tx.user.findUnique({
         where: { id: userId },
         select: { role: true, emailVerifiedAt: true, deletedAt: true },
       });
       if (!user || user.deletedAt)
         throw new ApiError(404, "Conta indisponível.");
+      const administrativeAccount = await tx.user.findFirst({where:{id:userId,OR:[{role:{in:['ADMIN','PROFESSOR']}},{institutionsOwned:{some:{}}},{institutionalMemberships:{some:{role:'INSTITUTION_ADMIN'}}}]},select:{id:true}});
+      if(!administrativeAccount) throw new ApiError(403,'Contas individuais de alunos não integram a gestão administrativa rotineira.');
       if (data.globalAdmin && !user.emailVerifiedAt)
         throw new ApiError(
           409,
@@ -468,75 +507,6 @@ export class InstitutionService {
     return { users, institutions, pending, teachers, classes, errors };
   }
 
-  async unassignedClasses(actor: InstitutionActor, page: number) {
-    requireGlobal(actor);
-    return pageResult(
-      await prisma.turma.findMany({
-        where: { institutionalClass: null },
-        select: {
-          id: true,
-          nome: true,
-          professores: { select: { id: true, nome: true } },
-        },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        ...pagination(page),
-      }),
-      page,
-    );
-  }
-
-  async adoptClass(
-    actor: InstitutionActor,
-    classId: string,
-    institutionId: string,
-  ) {
-    requireGlobal(actor);
-    return institutionalTransaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${institutionId} FOR UPDATE`;
-      await tx.$queryRaw`SELECT id FROM "Turma" WHERE id = ${classId} FOR UPDATE`;
-      const institution = await tx.institution.findUnique({
-        where: { id: institutionId },
-        select: { status: true },
-      });
-      const turma = await tx.turma.findFirst({
-        where: { id: classId, institutionalClass: null },
-        select: { professores: { select: { id: true } } },
-      });
-      if (!turma || institution?.status !== "ACTIVE")
-        throw new ApiError(
-          409,
-          "Selecione uma turma sem instituição e uma instituição ativa.",
-        );
-      for (const teacher of turma.professores) {
-        if (
-          !(await tx.institutionalMembership.findFirst({
-            where: {
-              institutionId,
-              userId: teacher.id,
-              role: "TEACHER",
-              active: true,
-            },
-          }))
-        )
-          throw new ApiError(
-            409,
-            "Os professores da turma precisam aceitar os convites desta instituição antes do vínculo.",
-          );
-      }
-      await tx.institutionalClass.create({ data: { classId, institutionId } });
-      await administrativeEvent(
-        tx,
-        "EXISTING_CLASS_LINKED",
-        actor.userId,
-        institutionId,
-        classId,
-      );
-      return {
-        message: "Turma vinculada. Alunos, avaliações e histórico preservados.",
-      };
-    });
-  }
-
   async institutionSummary(actor: InstitutionActor, id: string, page: number) {
     await institutionAdmin(prisma, actor, id);
     const [teachers, links, institution] = await Promise.all([
@@ -587,6 +557,11 @@ export class InstitutionService {
           },
         }),
       ]);
+    const [activeTeachers,pendingInvitations,activeClasses]=await Promise.all([
+      prisma.institutionalMembership.count({where:{institutionId:id,role:'TEACHER',active:true,user:{deletedAt:null}}}),
+      prisma.teacherInvitation.count({where:{institutionId:id,status:'PENDING',expiresAt:{gt:new Date()}}}),
+      prisma.turma.count({where:{id:{in:classIds},archivedAt:null}}),
+    ]);
     return {
       institution,
       teachers: pageResult(
@@ -597,7 +572,7 @@ export class InstitutionService {
         page,
       ),
       classes: pageResult(classes, page),
-      indicators: { classes: classIds.length, students, completedAttempts },
+      indicators: { classes: classIds.length, students, completedAttempts,activeTeachers,pendingInvitations,activeClasses },
     };
   }
 
@@ -623,6 +598,7 @@ export class InstitutionService {
       where,
       select: {
         id: true,
+        invitedName:true,
         email: true,
         status: true,
         expiresAt: true,
@@ -647,6 +623,7 @@ export class InstitutionService {
     institutionId: string,
     email: string,
     replacingId?: string,
+    details: {name?:string;classIds?:string[]} = {},
   ) {
     if (!this.mail.isConfigured || !isValidAppUrl(process.env.APP_PUBLIC_URL))
       throw new ApiError(
@@ -655,8 +632,10 @@ export class InstitutionService {
       );
     const token = randomBytes(32).toString("hex");
     const invitation = await institutionalTransaction(async (tx) => {
-      await institutionAdmin(tx, actor, institutionId);
       await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${institutionId} FOR UPDATE`;
+      await institutionAdmin(tx, actor, institutionId);
+      const institution=await tx.institution.findUnique({where:{id:institutionId},select:{name:true,status:true}});
+      if(institution?.status!=='ACTIVE')throw new ApiError(409,'Instituição indisponível para convites.');
       if (replacingId) {
         const existing = await tx.teacherInvitation.findFirst({
           where: { id: replacingId, institutionId, status: "PENDING" },
@@ -664,6 +643,7 @@ export class InstitutionService {
         if (!existing)
           throw new ApiError(409, "Convite não disponível para reenvio.");
         email = existing.email;
+        details = {name: existing.invitedName ?? undefined, classIds:(await tx.teacherInvitationClass.findMany({where:{invitationId:existing.id},select:{classId:true}})).map(c=>c.classId)};
         if (Date.now() - existing.createdAt.getTime() < 60_000)
           throw new ApiError(429, "Aguarde um minuto antes de reenviar.");
       }
@@ -695,10 +675,15 @@ export class InstitutionService {
         where: { institutionId, email, status: "PENDING" },
         data: { status: "CANCELLED" },
       });
+      const classIds = [...new Set(details.classIds ?? [])];
+      if(classIds.length && await tx.institutionalClass.count({where:{institutionId,classId:{in:classIds},turma:{archivedAt:null}}}) !== classIds.length)
+        throw new ApiError(403,'Selecione somente turmas ativas desta instituição.');
       const created = await tx.teacherInvitation.create({
         data: {
           institutionId,
           email,
+          ...(details.name ? {invitedName:details.name} : {}),
+          ...(classIds.length ? {classAssignments:{create:classIds.map(classId=>({classId}))}} : {}),
           tokenHash: hashInvitation(token),
           expiresAt: new Date(Date.now() + 48 * 3600_000),
         },
@@ -710,15 +695,15 @@ export class InstitutionService {
         institutionId,
         created.id,
       );
-      return created;
+      return {...created,institutionName:institution.name};
     });
     const url = `${process.env.APP_PUBLIC_URL!.replace(/\/$/, "")}/#/convite-professor?token=${token}`;
     try {
       await this.mail.send({
         to: invitation.email,
         subject: "Convite para professor — JurisSim",
-        text: `Você recebeu um convite institucional para atuar como professor no JurisSim. Entre ou cadastre-se com o e-mail convidado, confirme seu e-mail e aceite: ${url}\nValidade: 48 horas. Se não reconhecer, ignore.`,
-        html: `<p>Você recebeu um convite institucional para atuar como professor no JurisSim.</p><p>Entre ou cadastre-se com o e-mail convidado e confirme seu e-mail.</p><p><a href="${url}">Aceitar convite</a></p><p>Validade: 48 horas.</p>`,
+        text: `Você recebeu um convite institucional para atuar como professor no JurisSim. Abra o convite para confirmar seu e-mail e definir sua senha no primeiro acesso, ou entre com sua conta existente: ${url}\nValidade: 48 horas. Se não reconhecer, ignore.`,
+        html: `<h1>JurisSim · Educação Jurídica</h1><p>Olá, ${escapeMail(invitation.invitedName??'professor')}.</p><p>${escapeMail(invitation.institutionName??'Sua instituição')} convidou você para atuar como professor.</p><p>No primeiro acesso, confirme o e-mail e defina sua própria senha pelo convite. Se já possui conta, entre pelo login único.</p><p><a href="${escapeMail(url)}">Consultar convite</a></p><p>Validade: 48 horas. Você pode aceitar ou recusar. Se não reconhecer, ignore. Nunca enviamos senhas.</p>`,
       });
       await prisma.teacherInvitation.update({
         where: { id: invitation.id },
@@ -774,7 +759,11 @@ export class InstitutionService {
   }
 
   async accept(actor: InstitutionActor, token: string) {
-    return institutionalTransaction(async (tx) => {
+    return institutionalTransaction(tx => this.acceptInTransaction(tx, actor, token));
+  }
+
+  async acceptInTransaction(tx: Tx, actor: InstitutionActor, token: string) {
+      if(actor.role === 'ADMIN') throw new ApiError(403, 'A administração geral não recebe gestão pedagógica por convite.');
       const invitation = await tx.teacherInvitation.findUnique({
         where: { tokenHash: hashInvitation(token) },
       });
@@ -831,6 +820,12 @@ export class InstitutionService {
         },
         update: { active: true },
       });
+      const assignments = await tx.teacherInvitationClass.findMany({where:{invitationId:invitation.id},select:{classId:true}});
+      for(const assignment of assignments){
+        const own = await tx.institutionalClass.findFirst({where:{classId:assignment.classId,institutionId:invitation.institutionId,turma:{archivedAt:null}}});
+        if(!own) throw new ApiError(409,'A turma do convite não está mais disponível nesta instituição. Solicite um novo convite.');
+        await tx.turma.update({where:{id:assignment.classId},data:{professores:{connect:{id:actor.userId}}},select:{id:true}});
+      }
       if (user.role !== "ADMIN")
         await tx.user.update({
           where: { id: actor.userId },
@@ -848,7 +843,6 @@ export class InstitutionService {
         message: "Convite aceito. Acesso de professor liberado.",
         institutionId: invitation.institutionId,
       };
-    });
   }
 
   async unlink(actor: InstitutionActor, institutionId: string, userId: string) {

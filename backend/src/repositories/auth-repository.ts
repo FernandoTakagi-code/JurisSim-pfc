@@ -2,7 +2,7 @@ import { AuditAction, AuthTokenType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { acceptanceData } from '../services/legal-acceptance';
 import { ApiError } from '../errors/api-error';
-import { institutionsEnabled } from '../config/institution-feature';
+import { institutionsEnabled, institutionRegistrationEnabled, administrationEnabled } from '../config/institution-feature';
 
 export const GOOGLE_PASSWORD_SENTINEL = '!GOOGLE_OAUTH_ACCOUNT!';
 
@@ -133,7 +133,7 @@ export class AuthRepository {
         },
         select: { id: true },
       });
-      if (institutionsEnabled()) await tx.institution.updateMany({ where: { ownerId: token.userId, status: 'EMAIL_PENDING' }, data: { status: 'PENDING' } });
+      if (institutionRegistrationEnabled() || administrationEnabled()) await tx.institution.updateMany({ where: { ownerId: token.userId, status: 'EMAIL_PENDING' }, data: { status: 'PENDING' } });
       return true;
     });
   }

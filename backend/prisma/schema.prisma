@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  invitationOnboarding InvitationOnboarding?
   id                  String       @id @default(uuid())
   nome                String
   email               String       @unique
@@ -86,6 +87,7 @@ model PasswordRecoveryToken {
 }
 
 model Turma {
+  invitationAssignments TeacherInvitationClass[]
   id            String    @id @default(uuid())
   nome          String
   codigoConvite String    @unique
@@ -379,6 +381,9 @@ model TeacherInvitation {
   id String @id @default(uuid())
   institutionId String
   email String
+  invitedName String?
+  classAssignments TeacherInvitationClass[]
+  onboarding InvitationOnboarding?
   tokenHash String @unique
   status String @default("PENDING")
   expiresAt DateTime
@@ -388,6 +393,30 @@ model TeacherInvitation {
   acceptedBy User? @relation(fields: [acceptedById], references: [id], onDelete: Restrict)
   institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   @@index([institutionId, createdAt, id])
+}
+
+model TeacherInvitationClass {
+  invitationId String
+  classId String
+  invitation TeacherInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  turma Turma @relation(fields: [classId], references: [id], onDelete: Restrict)
+  @@id([invitationId, classId])
+  @@index([classId])
+}
+
+model InvitationOnboarding {
+  id String @id @default(uuid())
+  invitationId String @unique
+  userId String @unique
+  proofHash String @unique
+  initialPasswordHash String
+  expiresAt DateTime
+  completedAt DateTime?
+  lastSentAt DateTime @default(now())
+  sendAttempts Int @default(1)
+  createdAt DateTime @default(now())
+  invitation TeacherInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 }
 
 model InstitutionalClass {

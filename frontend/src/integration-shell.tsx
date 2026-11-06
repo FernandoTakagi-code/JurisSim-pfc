@@ -1,3 +1,4 @@
+import {Icon} from './ui-icon';
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { apiRequest } from "./api";
 import { refreshSession, type Session } from "./auth-session";
@@ -8,6 +9,7 @@ import { PhotoProvider, ProfileAvatar, ProfilePhotoEditor } from "./profile-phot
 import { setLocalDiagnosticDemoMode } from "./auth-session";
 import { useSession } from './auth-session';
 import { InstitutionContext } from './administration';
+import { adminSections } from './admin-navigation';
 
 // Adapted from NavItem, UserProfileDropdown and ProfileSettings in the aluno
 // v0 export. Routing, account data and mutations belong to the existing app.
@@ -15,7 +17,29 @@ type User = Session["user"];
 type Theme = "light" | "dark" | "system";
 type Item = { path: string; label: string; icon: string };
 const roleLabel = (role: User["role"]) =>
-  ({ ALUNO: "Aluno", PROFESSOR: "Professor", ADMIN: "Administrador" })[role];
+  ({ ALUNO: "Aluno", PROFESSOR: "Professor", ADMIN: "Administrador geral" })[role];
+
+export function AuthorizedContext({session,compact=false}:{session:Session;compact?:boolean}){
+  const [,setRevision]=useState(0);
+  useEffect(()=>{const update=()=>setRevision(v=>v+1);window.addEventListener('popstate',update);window.addEventListener('jurissim-institution-context',update);return()=>{window.removeEventListener('popstate',update);window.removeEventListener('jurissim-institution-context',update);};},[]);
+  if(session.user.role==='ADMIN')return null;
+  const institutions=session.administration?.memberships.filter(m=>m.role==='INSTITUTION_ADMIN')??[];
+  if(!institutions.length)return null;
+  const candidate=new URLSearchParams(window.location.search).get('instituicao')??sessionStorage.getItem('jurissim_administration_institution');
+  const selected=institutions.some(m=>m.institutionId===candidate)?candidate:undefined;
+  const institutional=window.location.pathname==='/instituicoes';
+  const value=institutional?`institution:${selected??institutions[0].institutionId}`:'personal';
+  return <div className="institution-context"><label>Contexto de acesso<select aria-label="Contexto de acesso" value={value} onChange={e=>{
+    if(e.target.value==='personal'){
+      window.location.assign(session.user.role==='PROFESSOR'?'/professor':'/dashboard');
+    }else{
+      const id=e.target.value.slice('institution:'.length);
+      if(!institutions.some(m=>m.institutionId===id))return;
+      sessionStorage.setItem('jurissim_administration_institution',id);
+      window.location.assign(`/instituicoes?instituicao=${encodeURIComponent(id)}`);
+    }
+  }}><option value="personal">{session.user.role==='PROFESSOR'?'Minha área de professor':'Meu espaço de estudos'}</option>{institutions.map(m=><option key={m.institutionId} value={`institution:${m.institutionId}`}>Administrar {m.institution.name}</option>)}</select></label>{!compact&&<small>O contexto utiliza seus vínculos autorizados e preserva seu papel pessoal.</small>}</div>;
+}
 
 function readPreference(key: string, fallback: string) {
   try {
@@ -47,8 +71,10 @@ export function IntegrationShell({
 }) {
   const path = usePath();
   const sessionState = useSession();
-  const teacher = user.role !== "ALUNO";
-  const base = teacher ? "/professor" : "";
+  const teacher = user.role === "PROFESSOR";
+  const admin = user.role === "ADMIN";
+  const institutional = !admin && path==='/instituicoes' && !!sessionState.session?.administration?.memberships.some(m=>m.role==='INSTITUTION_ADMIN');
+  const base = admin ? "/administracao" : teacher ? "/professor" : "";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(
     () => readPreference("jurissim-sidebar-collapsed", "false") === "true",
@@ -64,7 +90,7 @@ export function IntegrationShell({
   const sidebarRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const wasMobileOpen = useRef(false);
-  const primary: Item[] = teacher
+  const primary: Item[] = admin ? [...adminSections] : institutional ? [{path:'/instituicoes',label:'Minha administração institucional',icon:'users'}] : teacher
     ? [
         { path: base, label: "Início", icon: "home" },
         { path: base + "/questoes", label: "Banco de questões", icon: "book" },
@@ -76,7 +102,6 @@ export function IntegrationShell({
         { path: base + "/turmas", label: "Turmas", icon: "users" },
         { path: base + "/alunos", label: "Alunos", icon: "users" },
         { path: base + "/simulados", label: "Simulados", icon: "file" },
-        ...(user.role === "ADMIN" ? [{ path: "/professor/questoes/importar", label: "Importar questões", icon: "file" }] : []),
       ]
     : [
         { path: "/dashboard", label: "Início", icon: "home" },
@@ -87,7 +112,7 @@ export function IntegrationShell({
         { path: "/desempenho", label: "Meu desempenho", icon: "chart" },
         { path: "/trilha", label: "Minha Trilha de Estudos", icon: "target" },
       ];
-  const secondary: Item[] = teacher
+  const secondary: Item[] = admin || institutional ? [] : teacher
     ? [
         { path: base + "/desempenho", label: "Desempenho", icon: "chart" },
         { path: base + "/relatorios", label: "Relatórios", icon: "file" },
@@ -96,10 +121,9 @@ export function IntegrationShell({
         { path: "/historico", label: "Histórico de atividades", icon: "chart" },
         { path: "/metas", label: "Metas de estudo", icon: "target" },
       ];
-  primary.push({ path: '/instituicoes', label: 'Instituições', icon: 'users' });
-  if (user.role === 'ADMIN') primary.unshift({ path: '/administracao', label: 'Administração geral', icon: 'home' });
+  if (!admin&&!institutional) primary.push({ path: '/instituicoes', label: 'Instituições e solicitações', icon: 'users' });
   const profilePath = base + "/perfil";
-  const settingsPath = base + "/configuracoes";
+  const settingsPath = base + (admin ? "/preferencias" : "/configuracoes");
   const utility = path === profilePath || path === settingsPath;
   const currentNav = [...primary, ...secondary].filter(item => path === item.path || (item.path !== base && item.path !== "/" && path.startsWith(item.path + "/"))).sort((a, b) => b.path.length - a.path.length)[0];
   const title = utility ? "Perfil e configura\u00e7\u00f5es" : path.endsWith("/editar") ? "Editar quest\u00e3o" : currentNav?.label ?? "JurisSim";
@@ -209,7 +233,7 @@ export function IntegrationShell({
       >
         <div className="v0-brand">
           <button
-            onClick={() => navigate(teacher ? base : "/dashboard")}
+            onClick={() => navigate(admin ? "/administracao" : teacher ? base : "/dashboard")}
             title="JurisSim — início"
           >
             <span className="v0-logo" aria-hidden="true"><img src="/brand/jurissim-logo.png" alt="" /></span>
@@ -233,10 +257,10 @@ export function IntegrationShell({
         </div>
         <div className="v0-nav-scroll">
           <p className="v0-nav-label">
-            {teacher ? "Área do professor" : "Área do aluno"}
+            {admin ? "Administração geral" : institutional ? 'Administração institucional' : teacher ? "Área do professor" : "Área do aluno"}
           </p>
-          <nav aria-label="Estudos">{primary.map(navItem)}</nav>
-          <p className="v0-nav-label">Mais opções</p>
+          <nav aria-label={admin ? "Administração" : "Estudos"}>{primary.map(navItem)}</nav>
+          {!admin && <><p className="v0-nav-label">Mais opções</p>
           <nav aria-label="Conta e preferências">
             {secondary.map(navItem)}
             {navItem({ path: profilePath, label: "Meu perfil", icon: "user" })}
@@ -245,7 +269,7 @@ export function IntegrationShell({
               label: "Configurações",
               icon: "settings",
             })}
-          </nav>
+          </nav></>}
         </div>
         <div className="v0-sidebar-bottom">
           <div className="v0-sidebar-account">
@@ -330,10 +354,11 @@ export function IntegrationShell({
           <span>Modo de demonstração local — diagnóstico pendente</span>
           <button type="button" onClick={() => { setLocalDiagnosticDemoMode(false); onExitLocalDemo?.(); }}>Voltar ao diagnóstico obrigatório</button>
         </div>}
-        <div className="v0-original" hidden={utility}>
-          {sessionState.session && <InstitutionContext session={sessionState.session} />}
+        {!utility&&<div className="v0-original">
+          {sessionState.session && <AuthorizedContext session={sessionState.session}/>}
+          {!institutional&&sessionState.session && <InstitutionContext session={sessionState.session} />}
           {children}
-        </div>
+        </div>}
         {utility && (
           <ProfileSettings
             key={user.id + path}
@@ -352,7 +377,7 @@ export function IntegrationShell({
   );
 }
 
-function ProfileSettings({
+export function ProfileSettings({
   user,
   settings,
   theme,
@@ -561,41 +586,5 @@ function Privacy() {
       </p>
       <LegalLinks />
     </article>
-  );
-}
-
-function Icon({ name }: { name: string }) {
-  const paths: Record<string, string> = {
-    home: "m3 10 9-7 9 7v10h-6v-6H9v6H3z",
-    book: "M12 5C8 2 3 3 3 3v16s5-1 9 2c4-3 9-2 9-2V3s-5-1-9 2zm0 0v16",
-    plus: "M12 5v14M5 12h14",
-    users:
-      "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-4M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8m8 0a4 4 0 0 1 0 8",
-    user: "M20 21v-2a7 7 0 0 0-14 0v2m6-18a4 4 0 1 0 0 8 4 4 0 0 0 0-8",
-    file: "M14 2H5v20h14V7zm0 0v6h5M8 12h8M8 16h8",
-    chart: "M3 3v18h18M7 16v-5m5 5V7m5 9V4",
-    target:
-      "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18m0 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8",
-    settings:
-      "m9 3-1 3-3 1-2 4 2 2 1 4 3 1 1 3h4l1-3 3-1 1-4 2-2-2-4-3-1-1-3zm3 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8",
-    logout: "M9 3H3v18h6m6-14 5 5-5 5M8 12h12",
-    menu: "M3 6h18M3 12h18M3 18h18",
-    close: "m6 6 12 12M6 18 18 6",
-    chevron: "m6 9 6 6 6-6",
-  };
-  return (
-    <svg
-      aria-hidden="true"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d={paths[name] ?? paths.file} />
-    </svg>
   );
 }

@@ -36,10 +36,11 @@ export class QuestaoService {
     papelUsuario: string,
     usuarioId: string,
     somenteMinhas = false,
+    institutionId?:string,
   ) {
-    const questoes = await QuestaoRepository.listar(filtros, usuarioId, papelUsuario, somenteMinhas);
+    const questoes = await QuestaoRepository.listar(filtros, usuarioId, papelUsuario, somenteMinhas,institutionId);
 
-    if (papelUsuario === 'ALUNO') {
+    if (papelUsuario === 'ALUNO'&&!institutionId) {
       return questoes.map((questao) => ({
         ...questao,
         alternativas: questao.alternativas.map((alt) => ({
@@ -52,14 +53,14 @@ export class QuestaoService {
     return questoes;
   }
 
-  static async buscarPorId(id: string, papelUsuario: string, usuarioId: string) {
-    const questao = await QuestaoRepository.buscarPorId(id, usuarioId, papelUsuario);
+  static async buscarPorId(id: string, papelUsuario: string, usuarioId: string,institutionId?:string) {
+    const questao = await QuestaoRepository.buscarPorId(id, usuarioId, papelUsuario,institutionId);
 
     if (!questao) {
       throw new ApiError(404, 'Questão não encontrada');
     }
 
-    if (papelUsuario === 'ALUNO') {
+    if (papelUsuario === 'ALUNO'&&!institutionId) {
       return {
         ...questao,
         alternativas: questao.alternativas.map((alt) => ({

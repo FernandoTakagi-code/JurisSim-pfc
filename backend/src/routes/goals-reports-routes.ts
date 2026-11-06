@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRoles, type AuthenticatedRequest } from '../middlewares/auth-middleware';
+import { requireAuth, requireRoles, requireAcademicStaff, type AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { StudyGoalService } from '../services/study-goal-service';
 import { ClassReportService } from '../services/class-report-service';
 
@@ -13,7 +13,7 @@ const page = z.coerce.number().int().min(1).max(1000).default(1);
 export const goalRoutes = Router(), reportRoutes = Router();
 for (const router of [goalRoutes, reportRoutes]) router.use(requireAuth, (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); });
 goalRoutes.use(requireRoles('ALUNO'));
-reportRoutes.use(requireRoles('PROFESSOR', 'ADMIN'));
+reportRoutes.use(requireAcademicStaff);
 goalRoutes.get('/', async (request: AuthenticatedRequest, response) => {
   const query = z.object({ page, status: z.enum(['pending', 'completed']).optional() }).strict().parse(request.query);
   response.json(await goalService.list(request.auth!.userId, query.page, query.status));

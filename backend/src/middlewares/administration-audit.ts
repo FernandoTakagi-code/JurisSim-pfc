@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import type { AuthenticatedRequest } from "./auth-middleware";
-import { institutionsEnabled } from "../config/institution-feature";
+import { administrationEnabled, institutionRegistrationEnabled } from "../config/institution-feature";
 import { prisma } from "../lib/prisma";
 
 // Security/operational events never contain URLs, query strings, bodies, IPs,
@@ -10,7 +10,7 @@ export const administrationAudit: RequestHandler = (
   response,
   next,
 ) => {
-  if (institutionsEnabled())
+  if (administrationEnabled() || institutionRegistrationEnabled())
     response.on("finish", () => {
       const status = response.statusCode;
       let event: string | undefined;

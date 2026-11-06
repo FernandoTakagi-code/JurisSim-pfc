@@ -14,8 +14,12 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}, option
   delete headers.authorization;
   if (!(init.body instanceof FormData) && !headers['content-type']) headers['Content-Type'] = 'application/json';
   if (authenticated) headers.Authorization = `Bearer ${token}`;
-  const institution = sessionStorage.getItem('jurissim_institution');
-  if (authenticated && institution && /^\/(turmas|avaliacoes|reports|questoes)(\/|$)/.test(path)) headers['X-Institution-Id'] = institution;
+  const academic=/^\/(turmas|avaliacoes|reports|questoes)(\/|$)/.test(path);
+  const institutionalView=window.location.pathname==='/instituicoes';
+  const institution = institutionalView?(new URLSearchParams(window.location.search).get('instituicao')??sessionStorage.getItem('jurissim_administration_institution')):sessionStorage.getItem('jurissim_institution');
+  const personalRole=sessionStorage.getItem('jurissim_personal_role');
+  if (authenticated && institution && academic && (institutionalView||personalRole==='PROFESSOR')) headers['X-Institution-Id'] = institution;
+  if(authenticated&&academic&&institutionalView)headers['X-Institution-Context']='administration';
   if (authenticated && sessionStorage.getItem('jurissim_local_diagnostic_demo') === 'true') headers['X-JurisSim-Local-Demo'] = 'true';
   else delete headers['x-jurissim-local-demo'];
   let response: Response;

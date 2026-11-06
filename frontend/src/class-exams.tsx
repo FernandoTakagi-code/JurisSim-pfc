@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState,type ReactNode } from "react";
 import { apiRequest } from "./api";
 import { navigate } from "./navigation";
 import "./class-exams.css";
@@ -10,6 +10,7 @@ type Class = {
   nome: string;
   archivedAt: string | null;
   _count: { alunos: number };
+  professores?:{id:string;nome:string}[];
 };
 type Exam = {
   id: string;
@@ -118,7 +119,7 @@ function Pagination({
   );
 }
 
-export function ClassesPage({ teacher }: { teacher: boolean }) {
+export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher: boolean;management?:(turma:Class,reload:()=>void)=>ReactNode;onStudentsSelected?:(classId:string)=>void }) {
   const list = usePage<Class>("/turmas");
   const [name, setName] = useState(""),
     [editing, setEditing] = useState<string>(),
@@ -277,6 +278,7 @@ export function ClassesPage({ teacher }: { teacher: boolean }) {
         {list.data?.items.map((turma) => (
           <article className="panel" key={turma.id}>
             <h2>{turma.nome}</h2>
+            {management?.(turma,list.reload)}
             {teacher && <ClassMembershipManager teacher classId={turma.id} />}
             <p className="muted">
               {turma.archivedAt ? "Arquivada" : "Ativa"} · {turma._count.alunos}{" "}
@@ -287,7 +289,7 @@ export function ClassesPage({ teacher }: { teacher: boolean }) {
                 <button
                   className="outline-button"
                   onClick={() =>
-                    navigate(`/professor/turmas/${turma.id}/alunos`)
+                    onStudentsSelected?onStudentsSelected(turma.id):navigate(`/professor/turmas/${turma.id}/alunos`)
                   }
                 >
                   Ver alunos
@@ -378,7 +380,7 @@ export function ClassesPage({ teacher }: { teacher: boolean }) {
   );
 }
 
-export function ClassStudents({ classId }: { classId?: string }) {
+export function ClassStudents({ classId,onBack }: { classId?: string;onBack?:()=>void }) {
   const list = usePage<{ id: string; nome: string; email: string }>(
     classId
       ? `/turmas/${encodeURIComponent(classId)}/students`
@@ -414,7 +416,7 @@ export function ClassStudents({ classId }: { classId?: string }) {
       )}
       <button
         className="outline-button"
-        onClick={() => navigate("/professor/turmas")}
+        onClick={() => onBack?onBack():navigate("/professor/turmas")}
       >
         Voltar às turmas
       </button>
@@ -422,7 +424,7 @@ export function ClassStudents({ classId }: { classId?: string }) {
   );
 }
 
-export function ExamsPage({ teacher }: { teacher: boolean }) {
+export function ExamsPage({ teacher,institutional=false }: { teacher: boolean;institutional?:boolean }) {
   const list = usePage<Exam>("/avaliacoes");
   const [editing, setEditing] = useState<Exam | "new">(),
     [busy, setBusy] = useState(false),
@@ -458,7 +460,7 @@ export function ExamsPage({ teacher }: { teacher: boolean }) {
     <section className="page class-exams-page">
       <p className="gold">SIMULADOS</p>
       <h1>
-        {teacher ? "Simulados do professor" : "Simulados"}
+        {teacher ? institutional?'Simulados da instituição':"Simulados do professor" : "Simulados"}
       </h1>
       <p className="muted">
         {teacher

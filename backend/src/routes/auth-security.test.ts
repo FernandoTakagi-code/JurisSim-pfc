@@ -252,9 +252,9 @@ describe('permissões seguem o perfil atual, independentemente do JWT', () => {
     account!.role = current;
     account!.emailVerifiedAt = new Date();
     const bearer = token(issued);
-    expect((await call('GET', '/questoes', bearer)).status).toBe(200);
-    expect(mocks.questionList).toHaveBeenCalledWith(expect.anything(), current, userId, false);
-    expect((await call('POST', '/questoes', bearer, question)).status).toBe(current === 'ALUNO' ? 403 : 201);
+    expect((await call('GET', '/questoes', bearer)).status).toBe(current==='ADMIN'?403:200);
+    if(current!=='ADMIN') expect(mocks.questionList).toHaveBeenCalledWith(expect.anything(), current, userId, false);
+    expect((await call('POST', '/questoes', bearer, question)).status).toBe(current === 'PROFESSOR' ? 201 : 403);
     expect((await call('GET', '/audit-logs', bearer)).status).toBe(current === 'ADMIN' ? 200 : 403);
     const session = await call('GET', '/auth/session', bearer);
     expect(session.status).toBe(200);
@@ -275,7 +275,7 @@ describe('permissões seguem o perfil atual, independentemente do JWT', () => {
     expect((await call('POST', '/questoes', bearer, question)).status).toBe(403);
     account!.emailVerifiedAt = null;
     expect((await call('GET', '/questoes', bearer)).status).toBe(403);
-    expect(mocks.userFind).toHaveBeenCalledTimes(5);
+    expect(mocks.userFind).toHaveBeenCalledTimes(7);
   });
 });
 
@@ -313,7 +313,7 @@ describe('exceções limitadas e continuidade dos fluxos', () => {
     const bearer = token(role);
     expect((await call('GET', '/questoes', bearer)).status).toBe(403);
     expect((await call('POST', '/auth/email-verification/confirm', undefined, { token: confirmation })).status).toBe(200);
-    expect((await call('GET', '/questoes', bearer)).status).toBe(200);
+    expect((await call('GET', '/questoes', bearer)).status).toBe(role==='ADMIN'?403:200);
     expect((await call('GET', '/auth/session', bearer)).status).toBe(200);
     expect((await call('POST', '/auth/email-verification/confirm', undefined, { token: confirmation })).status).toBe(400);
   });
@@ -410,7 +410,7 @@ describe('revogação de sessões após redefinir senha', () => {
     expect(login.status).toBe(200);
     const issued = (await login.json()).token;
     expect((jwt.verify(issued, secret) as jwt.JwtPayload).sessionVersion === 0).toBe(true);
-    expect((await call('GET', '/questoes', legacy)).status).toBe(200);
+    expect((await call('GET', '/questoes', legacy)).status).toBe(role==='ADMIN'?403:200);
     const resetBody = recoveryLink();
     expect((await call('POST', '/auth/password-reset', undefined, resetBody)).status).toBe(200);
     expect(account!.sessionVersion).toBe(1);
@@ -429,9 +429,9 @@ describe('revogação de sessões após redefinir senha', () => {
     const freshToken = (await fresh.json()).token;
     const payload = jwt.verify(freshToken, secret) as jwt.JwtPayload;
     expect(payload.sessionVersion === 1 && payload.exp! - payload.iat! === 8 * 60 * 60).toBe(true);
-    expect((await call('GET', '/questoes', freshToken)).status).toBe(200);
+    expect((await call('GET', '/questoes', freshToken)).status).toBe(role==='ADMIN'?403:200);
     expect((await call('GET', '/audit-logs', freshToken)).status).toBe(role === 'ADMIN' ? 200 : 403);
-    expect((await call('POST', '/questoes', freshToken, question)).status).toBe(role === 'ALUNO' ? 403 : 201);
+    expect((await call('POST', '/questoes', freshToken, question)).status).toBe(role === 'PROFESSOR' ? 201 : 403);
     expect(mocks.sendMail).not.toHaveBeenCalled();
   });
 

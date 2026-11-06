@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRoles, type AuthenticatedRequest } from '../middlewares/auth-middleware';
+import { requireAuth, requireRoles, requireAcademicStaff, type AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { ClassExamService } from '../services/class-exam-service';
 import { institutionsEnabled } from '../config/institution-feature';
 import { ApiError } from '../errors/api-error';
+import {denyGlobalAcademicAccess} from '../middlewares/academic-access';
 
 const service = new ClassExamService();
 const id = (request: AuthenticatedRequest, key = 'id') => z.string().uuid().parse(request.params[key]);
@@ -14,13 +15,23 @@ const examSchema = z.object({ titulo: z.string().trim().min(2).max(150), descric
 }).strict().refine(value => new Set(value.turmaIds).size === value.turmaIds.length && new Set(value.questaoIds).size === value.questaoIds.length, 'Não repita turmas ou questões.');
 
 export const classRoutes = Router(), examRoutes = Router();
-for (const router of [classRoutes, examRoutes]) router.use(requireAuth, (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); });
-const staff = requireRoles('PROFESSOR', 'ADMIN'), student = requireRoles('ALUNO');
+for (const router of [classRoutes, examRoutes]) router.use(requireAuth, denyGlobalAcademicAccess, (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); });
+const staff = requireAcademicStaff, student = requireRoles('ALUNO');
 classRoutes.use((request, _response, next) => {
   if (!institutionsEnabled() && (/\/requests(?:\/|$)/.test(request.path) || (request.method === 'DELETE' && /\/students\//.test(request.path)))) return next(new ApiError(503, 'Gestão institucional aguarda ativação autorizada.'));
   next();
 });
 classRoutes.get('/requests', student, async (request: AuthenticatedRequest, response) => { response.json(await service.joinRequests(request.auth!, undefined, page(request))); });
+classRoutes.put('/:id/teachers/:teacherId',staff,async(req:AuthenticatedRequest,res)=>{
+  if(!institutionsEnabled())throw new ApiError(503,'Gestão institucional não ativada.');
+  const {assigned}=z.object({assigned:z.boolean()}).strict().parse(req.body);
+  res.json(await service.assignTeacher(req.auth!,id(req),id(req,'teacherId'),assigned));
+});
+classRoutes.post('/:id/students',staff,async(req:AuthenticatedRequest,res)=>{
+  if(!institutionsEnabled())throw new ApiError(503,'Gestão institucional não ativada.');
+  const {email}=z.object({email:z.string().trim().email().max(254)}).strict().parse(req.body);
+  res.json(await service.addStudent(req.auth!,id(req),email));
+});
 classRoutes.get('/:id/requests', staff, async (request: AuthenticatedRequest, response) => { response.json(await service.joinRequests(request.auth!, id(request), page(request))); });
 classRoutes.patch('/:id/requests/:requestId', staff, async (request: AuthenticatedRequest, response) => {
   const { approve } = z.object({ approve: z.boolean() }).strict().parse(request.body);

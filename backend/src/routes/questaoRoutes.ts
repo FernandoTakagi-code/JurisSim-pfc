@@ -1,16 +1,16 @@
 import { Router } from 'express';
 import { QuestaoController } from '../controllers/QuestaoController';
 import { requireAuth, requireRoles } from '../middlewares/auth-middleware';
-import express from 'express';
-import { previewQuestionCsvController } from '../controllers/question-csv-preview-controller';
+import {denyGlobalAcademicAccess} from '../middlewares/academic-access';
+import {ApiError} from '../errors/api-error';
 
 const router = Router();
 
-router.get('/', requireAuth, QuestaoController.listar);
-router.get('/:id', requireAuth, QuestaoController.buscarPorId);
-router.post('/importacao/preview', requireAuth, requireRoles('ADMIN'), express.text({ type: 'text/csv', limit: '2mb' }), previewQuestionCsvController);
-router.post('/', requireAuth, requireRoles('PROFESSOR', 'ADMIN'), QuestaoController.criar);
-router.put('/:id', requireAuth, requireRoles('PROFESSOR', 'ADMIN'), QuestaoController.atualizar);
-router.delete('/:id', requireAuth, requireRoles('PROFESSOR', 'ADMIN'), QuestaoController.remover);
+router.get('/', requireAuth, denyGlobalAcademicAccess, QuestaoController.listar);
+router.get('/:id', requireAuth, denyGlobalAcademicAccess, QuestaoController.buscarPorId);
+router.post('/importacao/preview', requireAuth, denyGlobalAcademicAccess, (_req,_res,next)=>next(new ApiError(403,'Importação pedagógica global descontinuada neste perfil.')));
+router.post('/', requireAuth, denyGlobalAcademicAccess, requireRoles('PROFESSOR'), QuestaoController.criar);
+router.put('/:id', requireAuth, denyGlobalAcademicAccess, requireRoles('PROFESSOR'), QuestaoController.atualizar);
+router.delete('/:id', requireAuth, denyGlobalAcademicAccess, requireRoles('PROFESSOR'), QuestaoController.remover);
 
 export default router;

@@ -20,9 +20,11 @@ import { goalRoutes, reportRoutes } from './routes/goals-reports-routes';
 import { profilePhotoRoutes } from './routes/profile-photo-routes';
 import { institutionRoutes } from './routes/institution-routes';
 import { administrationAudit } from './middlewares/administration-audit';
+import {denyGlobalAcademicAccess} from './middlewares/academic-access';
 import { prisma } from './lib/prisma';
 import { isLocalDiagnosticDemoRequested, isLocalEmailCaptureRequested, localEmailVerificationCapture } from './services/local-email-capture';
 import { setDefaultAutoSelectFamily } from 'node:net';
+import { assertInstitutionActivationReady, InstitutionActivationBlocked } from './services/institution-activation';
 setDefaultAutoSelectFamily(false);
 
 const app = express();
@@ -54,6 +56,7 @@ app.get('/health', (req, res) => {
 });
 app.use('/auth', authRoutes);
 app.use('/institutions', institutionRoutes);
+app.use(['/questoes','/trilhas','/diagnostics','/initial-diagnostic','/students/me','/turmas','/avaliacoes','/goals','/reports','/question-practice'],requireAuth,denyGlobalAcademicAccess);
 // These study routes are behind a server-side initial-diagnostic gate. Auth is
 // checked here before the gate; route-level authorization remains in place.
 app.use([
@@ -79,6 +82,15 @@ app.use(errorHandler);
 const PORT = Number(env.PORT);
 
 async function startServer() {
+  // Refuse activation before listen, rather than silently demoting legacy teachers.
+  try { await assertInstitutionActivationReady(prisma); }
+  catch (error) {
+    console.error(error instanceof InstitutionActivationBlocked ? error.message
+      : 'Ativação institucional recusada: não foi possível verificar a transição. Mantenha INSTITUTIONS_ENABLED=false.');
+    await prisma.$disconnect();
+    process.exitCode = 1;
+    return;
+  }
   if (isLocalEmailCaptureRequested() || isLocalDiagnosticDemoRequested()) {
     try {
       localEmailVerificationCapture.assertLocalConfiguration();

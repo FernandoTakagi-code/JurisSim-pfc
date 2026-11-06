@@ -55,11 +55,17 @@ por ele ou identidade Google, e confirma seu e-mail. Um operador autorizado defi
 privadamente `ADMIN_PROVISION_USER_ID` com o identificador dessa conta e executa,
 no backend, `node scripts/provision-first-admin.cjs --bootstrap-first-admin`.
 
-O comando exige módulo ativado, e-mail confirmado e ausência de outro administrador
-geral não excluído. Usa lock transacional, registra a concessão e revoga sessões.
+O comando exige a migration aplicada, e-mail confirmado e ausência de outro
+administrador, inclusive excluído, ou bootstrap anterior. Não depende de ativar
+o módulo: manter `INSTITUTIONS_ENABLED=false`. Usa lock transacional, registra
+a concessão e revoga sessões apenas no primeiro provisionamento.
 Não cria conta, senha, credencial fixa ou endpoint público. Não foi executado.
 Se já existe administrador, concessões e revogações ocorrem no painel autorizado,
 com impedimento de autoalteração e de remoção do último administrador ativo.
+
+A ativação futura é recusada pelo backend enquanto houver professores sem
+e-mail confirmado, vínculo institucional ativo ou acesso às suas turmas antigas.
+Procedimento e verificações em [seguranca-bootstrap-transicao-professores.md](seguranca-bootstrap-transicao-professores.md).
 
 ## Auditoria e retenção
 

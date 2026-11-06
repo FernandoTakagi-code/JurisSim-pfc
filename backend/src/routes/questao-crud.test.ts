@@ -7,7 +7,8 @@ import { Prisma } from '@prisma/client';
 const db = vi.hoisted(() => ({
   user: { findUnique: vi.fn() },
   questao: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn(), delete: vi.fn() },
-  turma: { findFirst: vi.fn() },
+  turma: { findFirst: vi.fn(),findMany:vi.fn() },
+  institutionalMembership:{findFirst:vi.fn()},
   alternativa: { deleteMany: vi.fn() },
   auditLog: { create: vi.fn() },
   $transaction: vi.fn(),
@@ -49,6 +50,7 @@ function matches(row: any, where: Record<string, any>): boolean {
     if (key === 'AND') return (Array.isArray(value) ? value : [value]).every(part => matches(row, part));
     if (key === 'OR') return value.some((part: any) => matches(row, part));
     if (key === 'some') return Array.isArray(row) && row.some(item => matches(item, value));
+    if(key==='in')return value.includes(row);
     if (value !== null && typeof value === 'object') return row?.[key] != null && matches(row[key], value);
     return row?.[key] === value;
   });
@@ -77,6 +79,7 @@ beforeEach(() => {
     ['turma-b', { id: 'turma-b', professores: [{ id: accountIds.OUTRO_PROFESSOR }], alunos: [{ id: accountIds.OUTRO_ALUNO }] }],
   ]);
   db.turma.findFirst.mockImplementation(async ({ where }) => [...classes.values()].find(turma => matches(turma, where)) ?? null);
+  db.turma.findMany.mockImplementation(async ({where})=>[...classes.values()].filter(turma=>matches(turma,where)));
   db.user.findUnique.mockImplementation(async ({ where }) => {
     const key = Object.keys(accountIds).find(key => accountIds[key] === where.id);
     const role = key ? accountRoles[key] : undefined;
@@ -84,14 +87,14 @@ beforeEach(() => {
   });
   db.questao.create.mockImplementation(async ({ data }) => {
     const id = `question-${++sequence}`;
-    const q = { ...data, id, alternativas: alternatives(data.alternativas.create, id), _count: { respostas: 0, diagnosticos: 0 } };
+    const q = { turmaId:null, ...data, id, alternativas: alternatives(data.alternativas.create, id), _count: { respostas: 0, diagnosticos: 0 } };
     records.set(id, q);
     return publicRecord(q);
   });
   db.auditLog.create.mockImplementation(async ({ data }) => ({ ...data, id: `audit-${++sequence}`, occurredAt: new Date() }));
   db.questao.findUnique.mockImplementation(async ({ where, select }) => {
     const q = records.get(where.id);
-    return q ? select ? { autorId: q.autorId, _count: clone(q._count) } : publicRecord(q) : null;
+    return q ? select ? { autorId: q.autorId, turmaId:q.turmaId, _count: clone(q._count) } : publicRecord(q) : null;
   });
   db.questao.findFirst.mockImplementation(async ({ where }) => {
     const q = visibleRecords(where)[0];
@@ -167,7 +170,7 @@ describe('CRUD completo de questões por HTTP', () => {
     expect(records.get(question.id)?.assunto).toBe('Responsabilidade civil');
   });
 
-  it.each(['PROFESSOR', 'ADMIN'])('%s cria, visualiza, edita alternativas e exclui questão não utilizada', async role => {
+  it.each(['PROFESSOR'])('%s cria, visualiza, edita alternativas e exclui questão não utilizada', async role => {
     const created = await call('POST', '', { ...body, autorId: 'forjado' }, role);
     expect(created.status).toBe(201);
     const q = await created.json();
@@ -287,6 +290,59 @@ describe('CRUD completo de questões por HTTP', () => {
 });
 
 describe('autoria, privacidade e isolamento entre turmas', () => {
+  it.each(['ALUNO','PROFESSOR'])('responsável %s lê o catálogo privado somente da instituição administrada',async role=>{
+    const own=await questionFor('PROFESSOR',{publica:false,turmaId:'turma-a'});
+    await questionFor('OUTRO_PROFESSOR',{publica:false,turmaId:'turma-b'});
+    (classes.get('turma-a') as any).institutionalClass={institutionId:'institution-a',institution:{status:'ACTIVE'}};
+    (classes.get('turma-b') as any).institutionalClass={institutionId:'institution-b',institution:{status:'ACTIVE'}};
+    db.institutionalMembership.findFirst.mockImplementation(async({where})=>where.userId==='owner'&&where.institutionId==='institution-a'?{id:'membership'}:null);
+    const {QuestaoService}=await import('../services/QuestaoService');
+    const catalog=await QuestaoService.listar({},role,'owner',false,'institution-a');
+    expect(catalog.map(q=>q.id)).toEqual([own.id]);
+    expect(catalog[0].alternativas[0]).toHaveProperty('correta');
+    await expect(QuestaoService.listar({},role,'owner',false,'institution-b')).rejects.toMatchObject({statusCode:403});
+    expect(await QuestaoService.listar({},'ALUNO','owner')).toEqual([]);
+  });
+  it('escopo institucional não permite ADMIN global nem leitura sem vínculo administrativo',async()=>{
+    db.institutionalMembership.findFirst.mockResolvedValue(null);
+    const {QuestaoService}=await import('../services/QuestaoService');
+    await expect(QuestaoService.listar({},'ADMIN','global',false,'institution-a')).rejects.toMatchObject({statusCode:403});
+    await expect(QuestaoService.buscarPorId('anything','ALUNO','student','institution-a')).rejects.toMatchObject({statusCode:403});
+    expect(db.questao.findMany).not.toHaveBeenCalled();
+  });
+  it('retirada da delegação revoga leitura privada e escrita, preservando questão e registros anteriores',async()=>{
+    const q=await questionFor('PROFESSOR',{publica:false,turmaId:'turma-a'});
+    const snapshot=publicRecord(records.get(q.id)!);
+    classes.get('turma-a')!.professores=[];
+    expect((await call('GET',`/${q.id}`)).status).toBe(404);
+    expect(await (await call('GET','?minhas=true')).json()).toEqual([]);
+    expect((await call('PUT',`/${q.id}`,{assunto:'Tentativa indevida'})).status).toBe(403);
+    expect((await call('DELETE',`/${q.id}`)).status).toBe(403);
+    expect(publicRecord(records.get(q.id)!)).toEqual(snapshot);
+    expect(db.questao.update).not.toHaveBeenCalled();expect(db.questao.delete).not.toHaveBeenCalled();
+  });
+  it('reatribuição permite leitura ao novo professor sem restaurar os poderes do autor antigo',async()=>{
+    const q=await questionFor('PROFESSOR',{publica:false,turmaId:'turma-a'});
+    classes.get('turma-a')!.professores=[{id:accountIds.OUTRO_PROFESSOR}];
+    expect((await call('GET',`/${q.id}`,undefined,'OUTRO_PROFESSOR')).status).toBe(200);
+    expect((await call('GET',`/${q.id}`)).status).toBe(404);
+    expect((await call('PUT',`/${q.id}`,{assunto:'Sem delegação'})).status).toBe(403);
+    expect(records.get(q.id)!.autorId).toBe(professorId);
+  });
+  it('acervo público continua legível, mas autoria antiga não permite alterar recursos da turma',async()=>{
+    const q=await questionFor('PROFESSOR',{publica:true,turmaId:'turma-a'});
+    classes.get('turma-a')!.professores=[];
+    expect((await call('GET',`/${q.id}`)).status).toBe(200);
+    expect((await (await call('GET',`/${q.id}`)).json()).canManage).toBe(false);
+    expect((await call('PUT',`/${q.id}`,{assunto:'Sem delegação'})).status).toBe(403);
+    expect((await call('DELETE',`/${q.id}`)).status).toBe(403);
+  });
+  it.each(['GET','POST','PUT','DELETE'])('ADMIN não utiliza o CRUD pedagógico: %s',async method=>{
+    const q=await questionFor('PROFESSOR');
+    const path=method==='POST'?'':`/${q.id}`;
+    expect((await call(method,path,method==='GET'||method==='DELETE'?undefined:body,'ADMIN')).status).toBe(403);
+    expect(records.has(q.id)).toBe(true);
+  });
   async function questionFor(role: string, overrides: Record<string, unknown> = {}) {
     const response = await call('POST', '', { ...body, ...overrides }, role);
     expect(response.status).toBe(201);
@@ -307,18 +363,18 @@ describe('autoria, privacidade e isolamento entre turmas', () => {
     expect(db.auditLog.create).toHaveBeenCalledTimes(1);
   });
 
-  it('ADMIN administra questão alheia sem alterar autoria', async () => {
+  it('ADMIN não administra questões nem altera autoria', async () => {
     const q = await questionFor('PROFESSOR', { publica: false });
-    expect((await call('PUT', `/${q.id}`, { assunto: 'Revisão administrativa' }, 'ADMIN')).status).toBe(200);
+    expect((await call('PUT', `/${q.id}`, { assunto: 'Revisão administrativa' }, 'ADMIN')).status).toBe(403);
     expect(records.get(q.id)!.autorId).toBe(professorId);
-    expect((await call('DELETE', `/${q.id}`, undefined, 'ADMIN')).status).toBe(204);
+    expect((await call('DELETE', `/${q.id}`, undefined, 'ADMIN')).status).toBe(403);
   });
 
   it.each(['ALUNO', 'OUTRO_ALUNO', 'OUTRO_PROFESSOR'])('%s não encontra questão privada sem turma por ID ou listagem', async role => {
     const q = await questionFor('PROFESSOR', { publica: false });
     expect((await call('GET', `/${q.id}`, undefined, role)).status).toBe(404);
     expect(await (await call('GET', '', undefined, role)).json()).toEqual([]);
-    for (const allowed of ['PROFESSOR', 'ADMIN']) expect((await call('GET', `/${q.id}`, undefined, allowed)).status).toBe(200);
+    for (const allowed of ['PROFESSOR']) expect((await call('GET', `/${q.id}`, undefined, allowed)).status).toBe(200);
   });
 
   it('aluno vê somente suas turmas e questões públicas, sem gabarito', async () => {
@@ -339,7 +395,7 @@ describe('autoria, privacidade e isolamento entre turmas', () => {
     const own = await questionFor('PROFESSOR', { publica: false, turmaId: 'turma-a' });
     await questionFor('PROFESSOR');
     await questionFor('OUTRO_PROFESSOR', { turmaId: 'turma-b' });
-    for (const role of ['ALUNO', 'PROFESSOR', 'ADMIN']) {
+    for (const role of ['ALUNO', 'PROFESSOR']) {
       const response = await call('GET', '?turmaId=turma-a', undefined, role);
       expect(response.status).toBe(200);
       expect((await response.json()).map((q: any) => q.id)).toEqual([own.id]);
@@ -364,7 +420,7 @@ describe('autoria, privacidade e isolamento entre turmas', () => {
     expect((await call('PUT', `/${q.id}`, { turmaId: 'turma-b' })).status).toBe(403);
     expect(publicRecord(records.get(q.id)!)).toEqual(q);
     expect((await call('PUT', `/${q.id}`, { turmaId: 'turma-a' })).status).toBe(200);
-    expect((await call('PUT', `/${q.id}`, { turmaId: 'turma-b' }, 'ADMIN')).status).toBe(200);
+    expect((await call('PUT', `/${q.id}`, { turmaId: 'turma-b' }, 'ADMIN')).status).toBe(403);
   });
 
   it('minhas não amplia visibilidade e parâmetros de turma malformados são rejeitados', async () => {

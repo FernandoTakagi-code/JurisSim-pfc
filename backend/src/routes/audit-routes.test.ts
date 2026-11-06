@@ -17,6 +17,7 @@ let server: Server;
 let base: string;
 
 beforeAll(async () => {
+  vi.stubEnv('INSTITUTIONS_ENABLED', 'false');
   process.env.JWT_SECRET = secret;
   const { auditRoutes } = await import('./audit-routes');
   const { errorHandler } = await import('../middlewares/error-handler');
@@ -26,7 +27,7 @@ beforeAll(async () => {
   await new Promise<void>(resolve => { server = app.listen(0, '127.0.0.1', () => resolve()); });
   base = `http://127.0.0.1:${(server.address() as { port: number }).port}/audit-logs`;
 });
-afterAll(async () => { if (server) await new Promise<void>(resolve => server.close(() => resolve())); });
+afterAll(async () => { if (server) await new Promise<void>(resolve => server.close(() => resolve())); vi.unstubAllEnvs(); });
 beforeEach(() => {
   db.findMany.mockReset().mockResolvedValue([]);
   db.userFindUnique.mockReset().mockImplementation(async ({ where }) => accounts.some(account => account.id === where.id)
@@ -39,6 +40,17 @@ function headers(role?: string): Record<string, string> {
 }
 
 describe('GET /audit-logs', () => {
+  it('permanece independente da flag e retorna somente o contrato de auditoria da plataforma', async () => {
+    const response = await fetch(`${base}?action=LOGIN_FALHA&userId=${userId}&limit=25`, { headers: headers('ADMIN') });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([]);
+    expect(db.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({action: 'LOGIN_FALHA', userId}), take: 25,
+      select: {id:true,userId:true,action:true,occurredAt:true,resourceId:true,termsVersion:true,privacyVersion:true},
+    }));
+    expect((await fetch(`${base}?page=2`, { headers: headers('ADMIN') })).status).toBe(422);
+    expect((await fetch(`${base}?severity=ERROR`, { headers: headers('ADMIN') })).status).toBe(422);
+  });
   it('permite somente ADMIN', async () => {
     expect((await fetch(base, { headers: headers('ADMIN') })).status).toBe(200);
     expect((await fetch(base, { headers: headers('PROFESSOR') })).status).toBe(403);

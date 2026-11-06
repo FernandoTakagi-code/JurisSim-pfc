@@ -1,7 +1,6 @@
 import { apiRequest } from './api';
 import { useEffect, useMemo, useState } from "react";
 
-import { Brand, SettingsModal } from "./shell";
 import { navigate, usePath } from "./navigation";
 import { ClassesPage, ExamsPage, ClassStudents } from "./class-exams";
 import { TeacherReports, StudentClassReport } from "./goals-reports";
@@ -18,10 +17,11 @@ type Questao = {
   fundamentacaoJuridica: string;
   publica: boolean;
   autorId: string;
+  canManage?:boolean;
   createdAt?: string;
   alternativas: Alternativa[];
 };
-type DadosQuestao = Omit<Questao, "id" | "autorId" | "createdAt">;
+type DadosQuestao = Omit<Questao, "id" | "autorId" | "createdAt" | 'canManage'>;
 type Tela =
   | { nome: "painel" }
   | { nome: "questoes" }
@@ -56,7 +56,7 @@ const letra = (index: number) => String.fromCharCode(65 + index);
 
 export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: string; nome: string; email: string; role: string; onSair: () => void }) {
   const path = usePath();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const [questoes, setQuestoes] = useState<Questao[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -87,7 +87,7 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
     : editQuestion ? { nome: "editar", questao: editQuestion }
     : path === "/professor/questoes" ? { nome: "questoes" } : { nome: "painel" };
 
-  const podeAlterar = (questao: Questao) => role === "ADMIN" || questao.autorId === userId;
+  const podeAlterar = (questao: Questao) => questao.autorId === userId && questao.canManage===true;
   const minhas = useMemo(() => questoes.filter((q) => q.autorId === userId), [questoes, userId]);
 
   const irPara = (destino: Tela) => {
@@ -120,31 +120,11 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
   if (path === "/professor/alunos") return <ClassStudents />;
   if (rosterRoute) return <ClassStudents classId={rosterRoute[1]} />;
 
-  if (editId && (!editQuestion || !podeAlterar(editQuestion))) return <section className="page"><h1>{loading ? "Carregando questão..." : "Questão indisponível para edição"}</h1><p className="muted">{error || "A edição exige autoria ou permissão administrativa, verificadas também pelo backend."}</p><button onClick={() => navigate("/professor/questoes")}>Voltar ao banco de questões</button></section>;
+  if (editId && (!editQuestion || !podeAlterar(editQuestion))) return <section className="page"><h1>{loading ? "Carregando questão..." : "Questão indisponível para edição"}</h1><p className="muted">{error || "A edição exige autoria e gestão atual da turma, verificadas também pelo backend."}</p><button onClick={() => navigate("/professor/questoes")}>Voltar ao banco de questões</button></section>;
 
   return (
     <div className="shell professor-shell">
-      <aside>
-        <Brand />
-        <p className="area-tag">ÁREA DO PROFESSOR</p>
-        <nav>
-          <button className={tela.nome === "painel" ? "active" : ""} onClick={() => irPara({ nome: "painel" })}><i>⌂</i>Início</button>
-          <button className={tela.nome === "questoes" ? "active" : ""} onClick={() => irPara({ nome: "questoes" })}><i>?</i>Banco de questões</button>
-          <button className={tela.nome === "nova" || tela.nome === "editar" ? "active" : ""} onClick={() => irPara({ nome: "nova" })}><i>+</i>Cadastrar questão</button>
-          <button disabled title="Em breve"><i>♟</i>Turmas <span className="soon">em breve</span></button>
-          <button disabled title="Em breve"><i>▥</i>Desempenho <span className="soon">em breve</span></button>
-        </nav>
-        <div className="nav-bottom">
-          <button onClick={() => setSettingsOpen(true)}><i>⚙</i>Configurações</button>
-          <hr />
-          <button onClick={onSair}><i>⇥</i>Sair</button>
-        </div>
-      </aside>
       <main className="content">
-        <header>
-          <span>{titulos[tela.nome]}</span>
-          <b>Olá, prof. {primeiroNome}</b>
-        </header>
         {tela.nome === "painel" && (
           <Painel
             questoes={questoes}
@@ -187,7 +167,7 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
           />
         )}
       </main>
-      {settingsOpen && <SettingsModal nome={nome} email={email} role={role} onClose={() => setSettingsOpen(false)} />}
+
     </div>
   );
 }

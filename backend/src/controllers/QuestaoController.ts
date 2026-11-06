@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ApiError } from '../errors/api-error';
 import { prisma } from '../lib/prisma';
 async function enforceQuestionInstitution(req: AuthenticatedRequest, questionId?: string, requestedClassId?: string) {
+  if(req.auth?.institutionAdmin&&req.method!=='GET')throw new ApiError(403,'Autoria de questões exige o contexto docente e delegação atual.');
   if (req.auth?.role !== 'PROFESSOR' || !req.auth.allowedClassIds) return;
   if (requestedClassId && !req.auth.allowedClassIds.includes(requestedClassId)) throw new ApiError(403, 'Turma fora da instituição selecionada.');
   if (questionId) {
@@ -22,6 +23,14 @@ const filtrosSchema = z.object({
   nivel: z.enum(['BASICO', 'INTERMEDIARIO', 'AVANCADO']).optional(),
   turmaId: z.string().trim().min(1).optional(), minhas: z.enum(['true', 'false']).optional(),
 });
+
+async function questionPermissions<T extends {autorId?:string;turmaId?:string|null}>(req:AuthenticatedRequest,questions:T[]){
+  if(req.auth?.institutionAdmin)return questions.map(q=>({...q,canManage:false}));
+  if(req.auth?.role!=='PROFESSOR')return questions;
+  const classIds=[...new Set(questions.map(q=>q.turmaId).filter((id):id is string=>typeof id==='string'))];
+  const allowed=req.auth.allowedClassIds??(classIds.length?(await prisma.turma.findMany({where:{id:{in:classIds},professores:{some:{id:req.auth.userId}}},select:{id:true}})).map(c=>c.id):[]);
+  return questions.map(q=>({...q,canManage:q.autorId===req.auth!.userId&&(!q.turmaId||allowed.includes(q.turmaId))}));
+}
 
 export class QuestaoController {
   static async criar(req: AuthenticatedRequest, res: Response) {
@@ -47,16 +56,17 @@ export class QuestaoController {
       req.auth!.role,
       req.auth!.userId,
       minhas === 'true',
+      ...(req.auth!.institutionAdmin?[req.auth!.institutionId] as const:[]),
     );
 
-    return res.status(200).json(req.auth!.role === 'PROFESSOR' && req.auth!.allowedClassIds
-      ? questoes.filter(q => q.publica || !q.turmaId || req.auth!.allowedClassIds!.includes(q.turmaId)) : questoes);
+    return res.status(200).json(await questionPermissions(req,req.auth!.role === 'PROFESSOR' && req.auth!.allowedClassIds
+      ? questoes.filter(q => q.publica || !q.turmaId || req.auth!.allowedClassIds!.includes(q.turmaId)) : questoes));
   }
 
   static async buscarPorId(req: AuthenticatedRequest, res: Response) {
     await enforceQuestionInstitution(req, req.params.id as string);
-    const questao = await QuestaoService.buscarPorId(req.params.id as string, req.auth!.role, req.auth!.userId);
-    return res.status(200).json(questao);
+    const questao = await QuestaoService.buscarPorId(req.params.id as string, req.auth!.role, req.auth!.userId,req.auth!.institutionAdmin?req.auth!.institutionId:undefined);
+    return res.status(200).json((await questionPermissions(req,[questao]))[0]);
   }
 
   static async atualizar(req: AuthenticatedRequest, res: Response) {

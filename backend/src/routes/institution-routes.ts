@@ -5,12 +5,16 @@ import {
   requireLimitedAuth,
   type AuthenticatedRequest,
 } from "../middlewares/auth-middleware";
-import { institutionsEnabled } from "../config/institution-feature";
+import { administrativeCapabilities } from "../config/institution-feature";
+import { authRateLimit } from '../middlewares/auth-rate-limit';
 import { InstitutionService } from "../services/institution-service";
 import { ApiError } from "../errors/api-error";
+import { InvitationOnboardingService } from '../services/invitation-onboarding';
 
 export const institutionRoutes = Router();
 const service = new InstitutionService();
+const onboarding = new InvitationOnboardingService();
+const invitationToken = z.string().regex(/^[a-f0-9]{64}$/);
 const page = z.coerce.number().int().min(1).max(10000).default(1);
 const id = (req: AuthenticatedRequest, key = "id") =>
   z.string().uuid().parse(req.params[key]);
@@ -55,26 +59,37 @@ export const logFilters = z
     "Período inválido.",
   );
 institutionRoutes.get("/availability", (_req, res) => {
-  res.json({ enabled: institutionsEnabled() });
+  res.set('Cache-Control','no-store');
+  res.json(administrativeCapabilities());
 });
 institutionRoutes.use((_req, res, next) => {
   res.set("Cache-Control", "no-store");
-  if (!institutionsEnabled())
+  const availability = administrativeCapabilities(), caps = availability.capabilities;
+  const path = _req.path;
+  const allowed = path === '/requests' ? availability.registrationEnabled
+    : path === '/mine' ? availability.registrationEnabled || availability.administrationEnabled
+    : path === '/notifications' ? caps.notifications
+    : /^\/admin\/institutions(?:\/|$)/.test(path) ? caps.institutions
+    : path === '/admin/logs' ? caps.audit
+    : path.startsWith('/admin/') ? availability.administrationEnabled
+    : availability.enabled;
+  if (!allowed)
     return next(
       new ApiError(
         503,
-        "Módulo institucional aguarda ativação após aplicação autorizada da migration.",
+        "Este recurso aguarda habilitação administrativa autorizada. Operações institucionais com vínculos permanecem separadas.",
       ),
     );
   next();
 });
 institutionRoutes.post(
   "/requests",
-  requireLimitedAuth,
+  requireAuth,
+  authRateLimit(15, 3600000),
   async (req: AuthenticatedRequest, res) => {
     res
       .status(201)
-      .json(await service.request(req.auth!, institutionInput.parse(req.body)));
+      .json(await service.request(req.auth!, institutionInput.extend({institutionType: z.enum(['ENSINO_SUPERIOR','CURSO_PREPARATORIO','OUTRA_ORGANIZACAO']).optional()}).parse(req.body)));
   },
 );
 institutionRoutes.get(
@@ -84,7 +99,27 @@ institutionRoutes.get(
     res.json(await service.myInstitutions(req.auth!));
   },
 );
+institutionRoutes.post('/invitations/inspect', authRateLimit(30, 60_000), async (req, res) => {
+  const {token} = z.object({token:invitationToken}).strict().parse(req.body);
+  res.json(await onboarding.inspect(token));
+});
+institutionRoutes.post('/invitations/onboarding', authRateLimit(5, 3600_000), async (req, res) => {
+  const input = z.object({token:invitationToken,nome:z.string().trim().min(2).max(120),acceptance:z.unknown()}).strict().parse(req.body);
+  res.json(await onboarding.start(input.token,input.nome,input.acceptance));
+});
+institutionRoutes.post('/invitations/complete', authRateLimit(10, 3600_000), async (req,res) => {
+  const input=z.object({token:invitationToken,proof:invitationToken,password:z.string().max(128),confirmation:z.string().max(128)}).strict().parse(req.body);
+  res.json(await onboarding.complete(input.token,input.proof,input.password,input.confirmation));
+});
+institutionRoutes.post('/invitations/decline-proof',authRateLimit(10,3600_000),async(req,res)=>{
+  const {token,proof}=z.object({token:invitationToken,proof:invitationToken}).strict().parse(req.body);
+  res.json(await onboarding.declineWithProof(token,proof));
+});
 institutionRoutes.use(requireAuth);
+institutionRoutes.post('/invitations/decline', authRateLimit(10,3600_000), async (req:AuthenticatedRequest,res)=>{
+  const {token}=z.object({token:invitationToken}).strict().parse(req.body);
+  res.json(await onboarding.decline(token,req.auth!));
+});
 institutionRoutes.get(
   "/notifications",
   async (req: AuthenticatedRequest, res) => {
@@ -116,27 +151,9 @@ institutionRoutes.get(
     res.json(await service.summary(req.auth!));
   },
 );
-institutionRoutes.get(
-  "/admin/classes",
-  async (req: AuthenticatedRequest, res) => {
-    res.json(
-      await service.unassignedClasses(
-        req.auth!,
-        z.object({ page }).strict().parse(req.query).page,
-      ),
-    );
-  },
-);
-institutionRoutes.patch(
-  "/admin/classes/:id",
-  async (req: AuthenticatedRequest, res) => {
-    const { institutionId } = z
-      .object({ institutionId: z.string().uuid() })
-      .strict()
-      .parse(req.body);
-    res.json(await service.adoptClass(req.auth!, id(req), institutionId));
-  },
-);
+// Preserve legacy URLs as explicit denials; no global academic service is called.
+institutionRoutes.get('/admin/classes',(_req,_res,next)=>next(new ApiError(403,'Turmas pertencem à administração institucional autorizada.')));
+institutionRoutes.patch('/admin/classes/:id',(_req,_res,next)=>next(new ApiError(403,'A administração global não pode gerir turmas.')));
 institutionRoutes.get(
   "/admin/institutions",
   async (req: AuthenticatedRequest, res) => {
@@ -167,6 +184,10 @@ institutionRoutes.patch(
     res.json(await service.decide(req.auth!, id(req), status, reason));
   },
 );
+institutionRoutes.put('/admin/institutions/:id/details',async(req:AuthenticatedRequest,res)=>{
+  const input=z.object({name:z.string().trim().min(2).max(180).optional(),phone:z.string().trim().min(8).max(25).regex(/^\+?[\d ()-]+$/).optional(),description:z.string().trim().min(10).max(2000).optional(),responsibleEmail:z.string().trim().email().max(254).optional(),reason:z.string().trim().min(3).max(500)}).strict().refine(v=>Object.keys(v).length>1).parse(req.body);
+  res.json(await service.editAdministrativeInstitution(req.auth!,id(req),input));
+});
 institutionRoutes.get(
   "/admin/users",
   async (req: AuthenticatedRequest, res) => {
@@ -235,7 +256,7 @@ institutionRoutes.get(
       .object({
         page,
         status: z
-          .enum(["PENDING", "ACCEPTED", "EXPIRED", "CANCELLED"])
+          .enum(["PENDING", "ACCEPTED", "EXPIRED", "CANCELLED", "DECLINED"])
           .optional(),
       })
       .strict()
@@ -253,14 +274,12 @@ institutionRoutes.get(
 institutionRoutes.post(
   "/:id/invitations",
   async (req: AuthenticatedRequest, res) => {
+    const input=z.object({email:z.string().trim().email().max(254).toLowerCase(),name:z.string().trim().min(2).max(120).optional(),classIds:z.array(z.string().uuid()).max(30).optional()}).strict().parse(req.body);
     res.status(201).json(
       await service.invite(
         req.auth!,
         id(req),
-        z
-          .object({ email: z.string().trim().email().max(254).toLowerCase() })
-          .strict()
-          .parse(req.body).email,
+        input.email, undefined, input,
       ),
     );
   },

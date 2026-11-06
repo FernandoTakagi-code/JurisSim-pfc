@@ -34,41 +34,6 @@ function verifyTokenFromHash() {
   return route === "#/verificar-email" ? new URLSearchParams(query).get("token") ?? "": "";
 }
 
-type Perfil = "ALUNO" | "PROFESSOR";
-
-function perfilInicial(): Perfil {
-  if (window.location.pathname.startsWith('/administracao')) return 'PROFESSOR';
-  return sessionStorage.getItem("jurissim_perfil") === "PROFESSOR" ? "PROFESSOR" : "ALUNO";
-}
-
-function PerfilSwitch({ perfil, onChange, disabled }: { perfil: Perfil; onChange: (perfil: Perfil) => void; disabled: boolean }) {
-  const opcoes: [Perfil, string, string][] = [
-    ["ALUNO", "Aluno", "Estude e faça simulados"],
-    ["PROFESSOR", "Professor", "Cadastre questões"],
-  ];
-  return (
-    <div className="perfil-switch" role="radiogroup" aria-label="Entrar como">
-      {opcoes.map(([valor, titulo, descricao]) => (
-        <button
-          key={valor}
-          type="button"
-          disabled={disabled}
-          role="radio"
-          aria-checked={perfil === valor}
-          className={perfil === valor ? "active" : ""}
-          onClick={() => onChange(valor)}
-        >
-          <b>{valor === "ALUNO" ? "🎓" : "⚖"}</b>
-          <span>
-            <strong>{titulo}</strong>
-            <small>{descricao}</small>
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function VisualPanel() {
   return (
     <section className="auth-pitch">
@@ -114,11 +79,11 @@ export function AuthGate() {
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerSenha, setRegisterSenha] = useState("");
   const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
-  const [perfil, setPerfil] = useState<Perfil>(() => perfilInicial());
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [choosingRegistration,setChoosingRegistration]=useState(false);
   const [pendingGoogleCredential, setPendingGoogleCredential] = useState<string>();
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryRequested, setRecoveryRequested] = useState(false);
@@ -129,7 +94,6 @@ export function AuthGate() {
   const [verifyMessage, setVerifyMessage] = useState("");
 
   const post = (path: string, body: object) => apiRequest<any>(path, { method: 'POST', body: JSON.stringify(body) }, { authenticated: false });
-  const googlePerfil = mode === "register" ? "ALUNO" : perfil;
 
   useEffect(() => {
     const consumeLink = () => {
@@ -171,8 +135,9 @@ export function AuthGate() {
 
   const estabelecerSessao = async (token: string) => {
     const session = await establishSession(token);
-    sessionStorage.setItem('jurissim_perfil', session.user.role === 'ALUNO' ? 'ALUNO' : 'PROFESSOR');
-    if (pendingInvitation()) navigate('/convite-professor', true);
+    sessionStorage.removeItem('jurissim_perfil');
+    if (session.user.role === 'ADMIN') navigate('/administracao', true);
+    else if (pendingInvitation()) navigate('/convite-professor', true);
     else if (window.location.pathname === '/instituicoes') navigate('/instituicoes', true);
     else window.location.assign(sessionDestination(session));
   };
@@ -187,7 +152,6 @@ export function AuthGate() {
       const result = await post("/auth/google", {
         credential: credentialResponse.credential,
         nonce: googleNonce,
-        perfil: googlePerfil,
       });
       if (result.requiresAcceptance) {
         setPendingGoogleCredential(credentialResponse.credential);
@@ -211,7 +175,6 @@ export function AuthGate() {
         credential: pendingGoogleCredential,
         nonce: googleNonce,
         acceptance: legalAcceptance,
-        perfil: googlePerfil,
       });
       if (result.requiresAcceptance) throw new Error("Confirme o aceite para continuar.");
       setPendingGoogleCredential(undefined);
@@ -266,7 +229,7 @@ export function AuthGate() {
         setConfirmacaoSenha("");
         setAccepted(false);
       } else {
-        const login = await post("/auth/login", { email: loginEmail, senha: loginSenha, perfil });
+        const login = await post("/auth/login", { email: loginEmail, senha: loginSenha });
         await estabelecerSessao(login.token);
       }
     } catch (cause) {
@@ -338,7 +301,8 @@ export function AuthGate() {
     name: nome, email: registerEmail, password: registerSenha,
     confirmation: confirmacaoSenha, accepted,
   });
-  const title = mode === "register" ? "Crie sua conta de estudante" : mode === "forgot" ? "Esqueci minha senha" : mode === "reset" ? "Defina uma nova senha" : "Login";
+  const institutionalEntry = window.location.pathname === '/instituicoes';
+  const title = mode === "register" ? institutionalEntry ? "Crie seu acesso de responsável" : "Crie sua conta de estudante" : mode === "forgot" ? "Esqueci minha senha" : mode === "reset" ? "Defina uma nova senha" : "Login";
   return (
     <main className="auth-layout">
       <VisualPanel />
@@ -348,13 +312,12 @@ export function AuthGate() {
             <h2>{title}</h2>
             <p>
               {isRecovery ? "Recupere o acesso à sua conta JurisSim." : isLogin
-                ? perfil === "PROFESSOR" ? "Acesse a área do professor" : "Acesse sua área de estudos"
-                : "Crie sua conta de estudante e comece sua preparação para a OAB."}
+                ? "Entre com sua conta. O acesso é definido pelo seu perfil cadastrado."
+                : institutionalEntry ? "Crie seu acesso individual de responsável, sem vínculo prévio ou privilégios automáticos." : "Crie sua conta de estudante e comece sua preparação para a OAB."}
             </p>
           </header>
-          {window.location.pathname === '/instituicoes' ? <p>Para solicitar o cadastro institucional, crie sua conta de responsável ou entre com sua identidade existente. O acesso administrativo depende de confirmação de e-mail e aprovação.</p> : <button type="button" className="outline-button" onClick={() => navigate('/instituicoes')}>Sou responsável por uma instituição</button>}
-          {isLogin && <PerfilSwitch disabled={loading} perfil={perfil} onChange={(valor) => { setPerfil(valor); setError(""); setPendingGoogleCredential(undefined); setAccepted(false); }} />}
-          <form className="auth-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
+          {institutionalEntry ? <p>Não é necessário possuir instituição ou vínculo. Entre com sua conta ou use “Cadastre-se” para criar seu acesso individual de responsável. Depois, preencha a solicitação e acompanhe a análise. O acesso institucional depende de confirmação de e-mail e aprovação.</p> : null}
+          {choosingRegistration ? <section className="auth-card"><h3>Como deseja começar?</h3><button type="button" className="outline-button" onClick={()=>{setChoosingRegistration(false);setMode('register');}}>Sou aluno</button><p>Cadastro individual com confirmação de e-mail e acesso ao estudo.</p><button type="button" className="outline-button" onClick={()=>{setChoosingRegistration(false);navigate('/instituicoes');setMode('register');}}>Represento uma instituição</button><p>Crie seu acesso individual e solicite a análise da instituição.</p><p>É professor? Seu acesso é criado por convite da instituição responsável.</p><button type="button" className="text-button" onClick={()=>setChoosingRegistration(false)}>Voltar ao login</button></section> : <form className="auth-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
             {isRegister && (
               <>
                 <label>
@@ -471,32 +434,36 @@ export function AuthGate() {
             </div>}
             {isRegister && registrationValidation.firstError && <p id="registration-feedback" className="password-feedback" role="status" aria-live="polite">{registrationValidation.firstError}</p>}
             <button type="submit" className="auth-submit" disabled={loading || (isRegister && !registrationValidation.valid) || (mode === "forgot" && (recoveryRequested || !recoveryEmail)) || (mode === "reset" && (!resetToken || !validPasswordConfirmation(newPassword, confirmNewPassword)))}>
-              {loading ? "Aguarde..." : isLogin ? (perfil === "PROFESSOR" ? "Entrar como professor" : "Entrar como aluno") : isRegister ? "Criar conta de estudante" : mode === "forgot" ? "Enviar instruções" : "Salvar nova senha"}
+              {loading ? "Aguarde..." : isLogin ? "Entrar" : isRegister ? institutionalEntry ? "Criar acesso de responsável" : "Criar conta de estudante" : mode === "forgot" ? "Enviar instruções" : "Salvar nova senha"}
             </button>
             {error && <small className="error" role="alert">{error}</small>}
             {mode === "reset" && recoveryNotice && <p className="recovery-notice" role="status">{recoveryNotice}</p>}
             {isLogin && recoveryNotice && <p className="recovery-notice" role="status">{recoveryNotice}</p>}
             {isRecovery && <button className="text-button" type="button" onClick={() => { setMode("login"); setRecoveryRequested(false); setRecoveryNotice(""); setError(""); }}>Voltar ao Login</button>}
             {!isRecovery && <div className="auth-divider">
-              <span>ou</span>
+              <span>ou continue com</span>
             </div>}
-            {!isRecovery && !googleClientId && <small className="muted">Login Google indisponível. Configure o mesmo Client ID no frontend e no backend.</small>}
+            {!isRecovery && !googleClientId && <><button type="button" className="outline-button" disabled aria-label="Continuar com Google indisponível"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.797 2.716v2.258h2.909c1.702-1.567 2.684-3.875 2.684-6.614Z"/><path fill="#34A853" d="M9 18c2.43 0 4.468-.806 5.956-2.181l-2.909-2.258c-.806.54-1.835.859-3.047.859-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M3.964 10.709A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.709V4.959H.957A9 9 0 0 0 0 9c0 1.452.348 2.827.957 4.041l3.007-2.332Z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.507.454 3.44 1.346l2.581-2.581C13.464.892 11.426 0 9 0A9 9 0 0 0 .957 4.959l3.007 2.332C4.672 5.164 6.656 3.58 9 3.58Z"/></svg> Continuar com Google</button><small className="muted">Login Google indisponível neste ambiente. Procure o suporte se sua conta utiliza apenas Google.</small></>}
             {!isRecovery && googleClientId && !pendingGoogleCredential && <GoogleLogin
+              containerProps={{lang:'pt-BR','aria-label':'Continuar com Google'}}
+              text="continue_with"
               nonce={googleNonce}
               onSuccess={handleGoogleSuccess}
               onError={() => setError("Não foi possível entrar com o Google.")}
             />}
-          </form>
+          </form>}
           {!isRecovery && <p className="auth-switch">
             {isLogin ? "Ainda não tem uma conta?" : "Já possui uma conta?"}{" "}
             <button
               type="button"
               disabled={loading}
-              onClick={() => setMode(isLogin ? "register" : "login")}
+              onClick={() => {if(isLogin&&!institutionalEntry)setChoosingRegistration(true);else{setChoosingRegistration(false);setMode(isLogin?'register':'login');}}}
             >
               {isLogin ? "Cadastre-se" : "Entrar"}
             </button>
           </p>}
+          {!isRecovery && !institutionalEntry && <aside className="auth-card"><h3>Sua instituição no JurisSim</h3><p>Cadastre seu acesso de responsável, confirme seu e-mail e solicite a análise da instituição. Nenhum privilégio é concedido pelo cadastro.</p><button type="button" className="outline-button" onClick={()=>navigate('/instituicoes')}>Represento uma instituição</button></aside>}
+          {isRegister && <p className="muted">É professor? Seu acesso é criado por convite da instituição responsável.</p>}
           <LegalLinks />
         </div>
       </section>
