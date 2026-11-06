@@ -1,5 +1,7 @@
 # JurisSim — entrega acadêmica das Fases B e C
 
+> Atualização posterior à consolidação: foram executados 51 testes com PostgreSQL real isolado, diagnóstico persistido e navegador real nos quatro perfis/onze módulos; o schema remoto foi consultado somente em leitura e um backup novo foi restaurado integralmente, inclusive Vault. A consulta real encontrou nove professores sem transição e zero questões elegíveis para o novo diagnóstico/prática: o sistema não está integralmente liberado no Supabase. Consulte `integracao-real-pre-ativacao-06112026.md` para evidências, limites e pendências atuais. As descrições de estado remoto desconhecido abaixo registram a situação anterior e não substituem essa atualização. Nenhuma migration compartilhada ou ativação foi realizada.
+
 Data: 06/11/2026. Branch de entrega: `entrega0911`. Esta nota descreve o código consolidado e suas evidências locais; não declara implantação ou ativação no Supabase.
 
 ## Arquitetura

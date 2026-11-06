@@ -1,5 +1,7 @@
 # Supabase — preparação das Fases B/C (não executada)
 
+> Atualização de 06/11: a inspeção somente leitura e a recuperação do backup novo foram executadas; a aplicação de migration continua NÃO executada. O relatório `integracao-real-pre-ativacao-06112026.md` confirma a única migration pendente, a restauração integral e os bloqueios de professores/acervo. As etapas de aplicação abaixo continuam exigindo autorização explícita e nova conferência no momento da execução.
+
 06/11/2026. Este é um procedimento para execução futura, com autorização específica. A publicação do código na `entrega0911` não aplica migrations, não ativa flags e não autoriza operações no banco compartilhado.
 
 ## Estado conhecido e compatibilidade

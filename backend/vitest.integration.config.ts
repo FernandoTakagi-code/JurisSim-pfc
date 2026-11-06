@@ -35,6 +35,8 @@ export default defineConfig({
       PRISMA_HIDE_UPDATE_MESSAGE: 'true',
       GMAIL_USER: '', GMAIL_APP_PASSWORD: '', GOOGLE_CLIENT_ID: '', GROQ_API_KEY: '',
       BREVO_SMTP_USER: '', BREVO_SMTP_KEY: '',
+      BREVO_EMAIL_TRANSPORT: 'api', BREVO_API_KEY: '',
+      INSTITUTIONS_ENABLED: 'false', ADMINISTRATION_ENABLED: 'false', INSTITUTION_REGISTRATION_ENABLED: 'false',
     },
   },
 });

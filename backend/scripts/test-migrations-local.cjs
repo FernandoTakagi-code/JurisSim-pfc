@@ -26,22 +26,25 @@ const questionPracticeMigration = '20261021130000_question_practice_sessions';
 const questionPracticeTopicMigration = '20261028120000_question_practice_topic';
 const diagnosticReviewSnapshotMigration = '20261030120000_diagnostic_review_snapshot';
 const requiredQuestionMigrations = [questionImportMigration, initialDiagnosticMigration, questionEligibilityMigration, questionPracticeMigration, questionPracticeTopicMigration, diagnosticReviewSnapshotMigration];
+const requiredInstitutionMigrations = ['20261104000100_institutions_administration', '20261105000100_teacher_invitation_onboarding'];
+const requiredTail = [...requiredQuestionMigrations, ...requiredInstitutionMigrations];
 const pgBin = process.argv[2];
 const preflightOnly = process.argv[3] === '--preflight-only';
 const startupDiagnosticOnly = process.argv[3] === '--startup-diagnostic-only';
 // Same disposable cluster and migration checks, but only the Vitest integration suite
 // (skips the standalone scripts/test-*-db.ts scenario runners).
-const integrationSuiteOnly = process.argv[3] === '--integration-suite-only';
+const functionalSuite = process.argv[3] === '--functional-suite';
+const integrationSuiteOnly = process.argv[3] === '--integration-suite-only' || functionalSuite;
 if (!pgBin || (process.argv.length !== 3
   && !(process.argv.length === 4 && (preflightOnly || startupDiagnosticOnly || integrationSuiteOnly)))) {
-  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only]');
+  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite]');
   process.exit(1);
 }
 const resolvedPgBin = path.resolve(pgBin);
 const executable = name => path.join(resolvedPgBin, name + (process.platform === 'win32' ? '.exe' : ''));
 for (const name of ['initdb', 'pg_ctl', 'postgres', 'psql']) assert.ok(fs.existsSync(executable(name)), `${name} missing`);
 const folders = fs.readdirSync(migrations).filter(name => fs.existsSync(path.join(migrations, name, 'migration.sql'))).sort();
-assert.deepEqual(folders.slice(-requiredQuestionMigrations.length), requiredQuestionMigrations,
+assert.deepEqual(folders.slice(-requiredTail.length), requiredTail,
   'Review this harness when the required question/diagnostic migration sequence changes');
 for (const name of requiredQuestionMigrations) assert.ok(folders.includes(name), `Required migration missing: ${name}`);
 function prismaModelSignature(dmmf) {
@@ -96,6 +99,8 @@ Object.assign(env, {
   JWT_SECRET: 'local-postgres-stage3-test-key-over-32-characters',
   GMAIL_USER: '', GMAIL_APP_PASSWORD: '', BREVO_SMTP_USER: '', BREVO_SMTP_KEY: '',
   GOOGLE_CLIENT_ID: '', GROQ_API_KEY: '', APP_PUBLIC_URL: 'http://127.0.0.1:5173',
+  BREVO_EMAIL_TRANSPORT: 'api', BREVO_API_KEY: '',
+  INSTITUTIONS_ENABLED: 'false', ADMINISTRATION_ENABLED: 'false', INSTITUTION_REGISTRATION_ENABLED: 'false',
   PRISMA_HIDE_UPDATE_MESSAGE: 'true',
 });
 let port;
@@ -414,7 +419,7 @@ async function main() {
   assert.deepEqual(snapshot(historyDatabase, stage1Tables), beforePhotos, 'Profile-photo migration changed historical data');
   assert.equal(sql(historyDatabase, 'SELECT count(*) FROM "ProfilePhoto";'), '0');
   console.log('PASS: private profile-photo table starts empty and preserves all existing rows/columns');
-  for (const migration of [backendOnlyMigration, ...requiredQuestionMigrations]) {
+  for (const migration of [backendOnlyMigration, ...requiredTail]) {
     const beforeMigration = snapshot(historyDatabase, stage1Tables);
     sql(historyDatabase, fs.readFileSync(path.join(migrations, migration, 'migration.sql'), 'utf8'));
     assert.deepEqual(snapshot(historyDatabase, stage1Tables), beforeMigration, `${migration} changed existing rows`);
@@ -493,7 +498,7 @@ async function main() {
     JURISSIM_TEST_DB_PASSWORD: testPassword, JURISSIM_TEST_PGPASSFILE: emptyPasswordFile,
     JURISSIM_TEST_CAPABILITY: capability, JURISSIM_TEST_INTEGRATION_DATABASE: integrationDatabase });
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-question-import-db.ts', data]));
-  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-initial-diagnostic-db.ts', data]));
+  if (!integrationSuiteOnly || functionalSuite) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-initial-diagnostic-db.ts', data]));
   console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts']));
   assertNoDrift(integrationDatabase);
 }
