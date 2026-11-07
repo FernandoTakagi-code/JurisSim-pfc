@@ -371,10 +371,10 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
           </div>
           <div className="stats">
             <div>
-              <b>6</b>Matérias
+              <b>OAB</b>Estudo por matéria
             </div>
             <div>
-              <b>30</b>Questões autorais
+              <b>Acervo</b>Questões disponíveis
             </div>
             <div>
               <b>3</b>Níveis
@@ -386,15 +386,16 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
             <p className="gold">JURISSIM · OAB</p>
             <h2>Simulado Diagnóstico Inicial</h2>
             <p className="muted">
-              Descubra seu nível e receba uma trilha personalizada para começar
-              a estudar.
+              Faça o diagnóstico legado com as questões públicas disponíveis e
+              receba uma trilha personalizada para começar a estudar.
             </p>
             <article className="start-card">
               <b className="spark">✦</b>
               <h3>Comece sua preparação</h3>
               <p>
-                As questões são obtidas do banco de dados e o seu resultado é
-                calculado pela API.
+                A quantidade depende do acervo disponível e será exibida ao
+                iniciar. Seu resultado é calculado pela API, sem exigir vínculo
+                com uma instituição.
               </p>
               <button className="primary" disabled={loading} onClick={start}>
                 {loading ? "Preparando..." : "Iniciar diagnóstico"} <b>→</b>

@@ -1045,6 +1045,43 @@ try {
   await until('document.body.textContent.includes("Operações institucionais aguardam ativação autorizada")');
   assert.equal(await evaluate('window.requests.some(r=>r.p.includes("/institution-ui/"))'),false);
   pass('flag institucional desativada impede consultas e operações dos onze módulos, sem habilitação implícita');
+  await evaluate("sessionStorage.removeItem('fixture-context-owner-role');sessionStorage.setItem('fixture-login-role','ALUNO');");
+  await cdp('Page.navigate',{url:origin+'/diagnostico'});
+  await until('document.body.textContent.includes("diagnóstico legado")');
+  assert.equal(await evaluate('document.querySelector(".stats")?.textContent.includes("30")'),false);
+  assert.equal(await evaluate('document.querySelector(".stats")?.textContent.includes("autorais")'),false);
+  pass('entrada do diagnóstico legado não promete quantidade nem origem inexistentes');
+  await evaluate(`
+    window.legacyCalls=[];
+    const originalFetch=window.fetch;
+    window.fetch=async(input,init={})=>{
+      const p=new URL(typeof input==='string'?input:input.url,location.origin).pathname;
+      if(!p.startsWith('/diagnostics'))return originalFetch(input,init);
+      window.legacyCalls.push({path:p,method:init.method||'GET'});
+      const reply=x=>Promise.resolve(new Response(JSON.stringify(x),{status:200,headers:{'Content-Type':'application/json'}}));
+      if(p==='/diagnostics')return reply({id:'legacy-seven',totalQuestions:7});
+      if(p.endsWith('/questions'))return reply({questions:Array.from({length:7},(_,i)=>({id:'legacy-q-'+i,statement:'Item técnico de interface '+(i+1),discipline:'Disciplina de teste',alternatives:[{id:'legacy-a-'+i,text:'Alternativa técnica'}]}))});
+      if(p.endsWith('/result'))return reply({level:'BASICO',overallPercentage:0,recommendation:'Resultado técnico de teste',performances:[]});
+      if(p.endsWith('/trail'))return reply({trail:{id:'legacy-trail',disciplinaPrioritaria:'Disciplina de teste',assuntoPrioritario:null,nivelRecomendado:'BASICO',quantidadeRecomendada:5}});
+      return reply({message:'Operação técnica capturada'});
+    };
+  `);
+  const clickLegacy = async (label) => {
+    const button = `Array.from(document.querySelectorAll('.landing button, .content button')).find(b=>b.textContent.trim().startsWith(${JSON.stringify(label)})&&!b.disabled)`;
+    await until('!!('+button+')');
+    await evaluate(button+'.click()');
+  };
+  await clickLegacy('Iniciar diagnóstico');
+  await until('document.body.textContent.includes("QUESTÃO 1 DE 7")');
+  for(let i=0;i<7;i++){
+    await until('document.body.textContent.includes("QUESTÃO '+(i+1)+' DE 7")');
+    await evaluate('document.querySelector("input[type=radio]").click()');
+    await clickLegacy(i===6?'Finalizar diagnóstico':'Próxima questão');
+  }
+  await until('document.body.textContent.includes("SUA TRILHA PERSONALIZADA")');
+  assert.equal(await evaluate('window.legacyCalls.filter(c=>c.method==="PUT").length'),7);
+  assert.equal(await evaluate('window.legacyCalls.filter(c=>c.path.endsWith("/finalize")).length'),1);
+  pass('diagnóstico legado mostra sete questões retornadas pela API simulada, conclui na sétima e apresenta a trilha');
   console.log(
     `Administração: ${checks} verificações de navegador com API simulada aprovadas. Sem banco ou envio real.`,
   );
