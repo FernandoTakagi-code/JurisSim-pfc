@@ -8,7 +8,7 @@ export const usePath = () =>
   useSyncExternalStore(subscribe, () => window.location.pathname);
 
 export function navigate(path: string, replace = false) {
-  if (window.location.pathname === path) return;
+  if (window.location.pathname + window.location.search + window.location.hash === path) return;
   window.history[replace ? "replaceState" : "pushState"]({}, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }

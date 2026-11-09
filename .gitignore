@@ -24,3 +24,13 @@ build/
 
 
 .DS_Store
+
+# Local visual previews and test captures are not delivery source files.
+/.local-admin-preview/
+/frontend/.artifacts/
+
+# Keep the supplied visual source for reproducible comparisons; auxiliary export
+# tooling stays local and is not a second Next.js application to install or deploy.
+/referencia-dashboard-institucional-v0/*
+!/referencia-dashboard-institucional-v0/page.tsx
+!/referencia-dashboard-institucional-v0/globals.css

@@ -1,6 +1,6 @@
 export const DEFAULT_DEVELOPMENT_ORIGINS = ['http://localhost:5173'] as const;
 export const CORS_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const;
-export const CORS_HEADERS = ['Authorization', 'Content-Type', 'X-JurisSim-Local-Demo'] as const;
+export const CORS_HEADERS = ['Authorization', 'Content-Type', 'X-JurisSim-Local-Demo', 'X-Institution-Id', 'X-Institution-Context'] as const;
 
 export function corsOriginsFromEnvironment(environment: NodeJS.ProcessEnv = process.env): string[] {
   const configured = environment.CORS_ORIGINS?.trim();

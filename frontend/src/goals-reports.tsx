@@ -631,9 +631,13 @@ function EvolutionChart({
 export function TeacherReports({
   classId,
   mode,
+  onClassSelected,
+  onStudentSelected,
 }: {
   classId?: string;
   mode: "performance" | "reports";
+  onClassSelected?:(id:string)=>void;
+  onStudentSelected?:(classId:string,studentId:string)=>void;
 }) {
   const [classesPage, setClassesPage] = useState(1);
   const classes = useRemote<Page<Class>>(
@@ -667,7 +671,7 @@ export function TeacherReports({
               key={turma.id}
               className="outline-button"
               aria-pressed={classId === turma.id}
-              onClick={() => navigate(`${base}/turmas/${turma.id}`)}
+              onClick={() => onClassSelected?onClassSelected(turma.id):navigate(`${base}/turmas/${turma.id}`)}
             >
               {turma.nome}
               {turma.archivedAt ? " · Arquivada" : ""}
@@ -683,7 +687,7 @@ export function TeacherReports({
         )}
       </article>
       {classId ? (
-        <ClassReportContent key={classId} classId={classId} />
+        <ClassReportContent key={classId} classId={classId} onStudentSelected={onStudentSelected}/>
       ) : (
         <p className="report-selection-empty muted">
           Escolha uma turma para consultar seus registros.
@@ -692,7 +696,7 @@ export function TeacherReports({
     </section>
   );
 }
-function ClassReportContent({ classId }: { classId: string }) {
+function ClassReportContent({ classId,onStudentSelected }: { classId: string;onStudentSelected?:(classId:string,studentId:string)=>void }) {
   const [page, setPage] = useState(1),
     [examPage, setExamPage] = useState(1);
   const remote = useRemote<ClassReport>(
@@ -770,7 +774,7 @@ function ClassReportContent({ classId }: { classId: string }) {
                   <button
                     className="outline-button"
                     onClick={() =>
-                      navigate(
+                      onStudentSelected?onStudentSelected(classId,student.id):navigate(
                         `/professor/relatorios/turmas/${classId}/alunos/${student.id}`,
                       )
                     }
@@ -794,9 +798,11 @@ function ClassReportContent({ classId }: { classId: string }) {
 export function StudentClassReport({
   classId,
   studentId,
+  onBack,
 }: {
   classId: string;
   studentId: string;
+  onBack?:()=>void;
 }) {
   const [page, setPage] = useState(1);
   const remote = useRemote<Individual>(
@@ -861,7 +867,7 @@ export function StudentClassReport({
       )}
       <button
         className="outline-button"
-        onClick={() => navigate(`/professor/relatorios/turmas/${classId}`)}
+        onClick={() => onBack?onBack():navigate(`/professor/relatorios/turmas/${classId}`)}
       >
         Voltar ao relatório da turma
       </button>

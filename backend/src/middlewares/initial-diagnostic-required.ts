@@ -20,6 +20,10 @@ export function createInitialDiagnosticRequirementGuard({
     if (!isRequired()) return next();
     if (!request.auth) return next(new ApiError(401, 'Autenticacao obrigatoria.'));
     if (request.auth.role !== 'ALUNO') return next();
+    // An individual institutional owner keeps ALUNO as their personal role.
+    // Only trusted staff operations in the selected institution bypass this
+    // student study prerequisite; personal study still requires the diagnostic.
+    if(request.auth.institutionAdmin && request.auth.institutionId && /^\/(turmas|reports|avaliacoes|questoes)(\/|\?|$)/.test(request.originalUrl)) return next();
 
     try {
       if (await hasCompletedInitialDiagnostic(request.auth.userId)) return next();

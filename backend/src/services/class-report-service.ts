@@ -2,7 +2,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
 
-type Actor = { userId: string; role: string };
+type Actor = { userId: string; role: string; allowedClassIds?: string[]; institutionAdmin?:boolean;institutionId?:string };
+const managed=(actor:Actor):Prisma.TurmaWhereInput => actor.institutionAdmin&&actor.institutionId ? {institutionalClass:{institutionId:actor.institutionId}} : {professores:{some:{id:actor.userId}}};
 type Tx = Prisma.TransactionClient;
 // Every report uses current enrollment AND the exam's target class. Membership
 // in another class never grants access to personal diagnostics or other exams.
@@ -79,14 +80,15 @@ const disciplineMetrics = Prisma.sql`coalesce((SELECT jsonb_agg(jsonb_build_obje
 
 export class ClassReportService {
   async classes(actor: Actor, page: number) {
-    if (!['PROFESSOR', 'ADMIN'].includes(actor.role)) throw new ApiError(403, 'Relatórios exclusivos de professores.');
-    const items = await prisma.turma.findMany({ where: { professores: { some: { id: actor.userId } } },
+    if (actor.role==='ADMIN'||!(actor.role==='PROFESSOR'||(actor.institutionAdmin&&actor.institutionId))) throw new ApiError(403, 'Relatórios exclusivos de professores.');
+    const items = await prisma.turma.findMany({ where: { ...managed(actor), ...(actor.allowedClassIds ? { id: { in: actor.allowedClassIds } } : {}) },
       select: { id: true, nome: true, archivedAt: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 21, skip: (page - 1) * 20 });
     return { items: items.slice(0, 20), page, hasMore: items.length > 20 };
   }
   private async authorize(tx: Tx, actor: Actor, classId: string) {
-    if (!['PROFESSOR', 'ADMIN'].includes(actor.role)) throw new ApiError(403, 'Relatórios exclusivos de professores responsáveis pela turma.');
-    const turma = await tx.turma.findFirst({ where: { id: classId, professores: { some: { id: actor.userId } } },
+    if (actor.allowedClassIds && !actor.allowedClassIds.includes(classId)) throw new ApiError(404, 'Turma indisponível neste vínculo institucional.');
+    if (actor.role==='ADMIN'||!(actor.role==='PROFESSOR'||(actor.institutionAdmin&&actor.institutionId))) throw new ApiError(403, 'Relatórios exclusivos de professores responsáveis pela turma.');
+    const turma = await tx.turma.findFirst({ where: { id: classId, ...managed(actor) },
       select: { id: true, nome: true, archivedAt: true } });
     if (!turma) throw new ApiError(404, 'Turma indisponível para relatórios desta conta.');
     return turma;

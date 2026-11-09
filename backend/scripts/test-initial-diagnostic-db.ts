@@ -148,8 +148,10 @@ async function main() {
     const alternatives = await db.alternativa.findMany({ where: { questaoId: question.id }, orderBy: { letra: 'asc' } });
     const chosen = alternatives.find((alternative: { correta: boolean }) => alternative.correta === (index !== 0));
     const saved = await resolution.saveAnswer(studentId, created.attempt.id, question.id, chosen.id);
-    assert.equal(saved.correct, index !== 0, 'feedback correctness must come from the persisted alternative');
-    assert.ok(saved.explanation.length > 0, 'immediate feedback must include the reviewed question foundation');
+    assert.equal('correct' in saved, false, 'An active diagnostic must not expose its answer key.');
+    assert.equal('explanation' in saved, false, 'An active diagnostic must not expose its explanation.');
+    const persisted = await db.resposta.findUniqueOrThrow({ where: { questaoSimuladoId: (await db.questaoSimulado.findUniqueOrThrow({ where: { simuladoId_questaoId: { simuladoId: created.attempt.id, questaoId: question.id } } })).id } });
+    assert.equal(persisted.correta, index !== 0, 'Persisted correction must come from the actual alternative.');
   }
   const adaptiveResult = await resolution.finalize(studentId, created.attempt.id);
   assert.equal(adaptiveResult.totalQuestions, 30);
@@ -157,7 +159,7 @@ async function main() {
   assert.ok(adaptiveResult.trail && adaptiveResult.trail.disciplinaPrioritaria);
   assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: studentId } })).nivelAtual, adaptiveResult.level);
   assert.equal(await db.trilhaAdaptativa.count({ where: { simuladoId: created.attempt.id } }), 1);
-  console.log('PASS: initial diagnostic persists immediate per-question feedback, adaptive metrics/trail and current level atomically');
+  console.log('PASS: initial diagnostic persists answers/correction without exposing active keys, and finalizes adaptive metrics/trail/current level atomically');
 }
 
 main().catch(error => {

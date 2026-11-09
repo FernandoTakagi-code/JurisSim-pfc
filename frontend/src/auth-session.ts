@@ -7,6 +7,7 @@ export type Session = {
   nextStep: 'PROFESSOR' | 'DASHBOARD' | 'DIAGNOSTIC' | 'INITIAL_DIAGNOSTIC';
   localDiagnosticDemoAvailable?: boolean;
   localDiagnosticDemoActive?: boolean;
+  administration?: { needsInstitutionLink?:boolean; enabled: boolean; globalAdmin: boolean; effectiveRole: string; memberships: { institutionId: string; role: string; institution: { name: string } }[] };
 };
 type State = { status: 'anonymous' | 'loading' | 'ready' | 'error'; session: Session | null; message?: string };
 let state: State = { status: 'anonymous', session: null };
@@ -15,7 +16,7 @@ let pending: { token: string; promise: Promise<Session> } | undefined;
 let revision = 0;
 const currentToken = () => sessionStorage.getItem('jurissim_token');
 function update(next: State) { state = next; listeners.forEach(listener => listener()); }
-const keys = ['jurissim_token', 'jurissim_next_step', 'jurissim_user_name', 'jurissim_email', 'jurissim_email_verificado', 'jurissim_local_diagnostic_demo'];
+const keys = ['jurissim_token', 'jurissim_next_step', 'jurissim_user_name', 'jurissim_email', 'jurissim_email_verificado', 'jurissim_local_diagnostic_demo', 'jurissim_institution','jurissim_administration_institution','jurissim_personal_role'];
 export function endSession() {
   revision++;
   pending = undefined;
@@ -48,8 +49,11 @@ export function refreshSession(force = false): Promise<Session> {
   const promise = apiRequest<Session>('/auth/session', {}, { token }).then(session => {
     if (currentToken() !== token || requestRevision !== revision) throw new Error('A sessão foi substituída.');
     if (!validSession(session)) throw new Error('Não foi possível validar a sessão recebida.');
+    if (!session.administration?.memberships.some(m => m.role === 'TEACHER' && m.institutionId === sessionStorage.getItem('jurissim_institution'))) sessionStorage.removeItem('jurissim_institution');
+    if(!session.administration?.memberships.some(m=>m.role==='INSTITUTION_ADMIN'&&m.institutionId===sessionStorage.getItem('jurissim_administration_institution')))sessionStorage.removeItem('jurissim_administration_institution');
     // Compatibility cache only: authorization and rendering use the server response.
     sessionStorage.setItem('jurissim_next_step', session.nextStep);
+    sessionStorage.setItem('jurissim_personal_role',session.user.role);
     sessionStorage.setItem('jurissim_user_name', session.user.nome);
     sessionStorage.setItem('jurissim_email', session.user.email);
     sessionStorage.setItem('jurissim_email_verificado', String(session.user.emailVerificado));

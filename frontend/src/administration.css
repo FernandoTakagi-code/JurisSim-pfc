@@ -1,0 +1,234 @@
+.admin-page {
+  max-width: 1200px;
+  margin: auto;
+}
+
+/* Integrated ADMIN content uses the same dashboard classes as student/teacher. */
+.admin-integrated {
+  --panel-bg: var(--v0-panel, white);
+  --text-color: var(--v0-text, #17243a);
+}
+.admin-integrated .dashboard-stats article {
+  min-width: 0;
+}
+.admin-integrated .dashboard-stats span {
+  color: var(--v0-muted, #68758a);
+}
+.admin-integrated .panel {
+  background: var(--v0-panel, white);
+  border: 1px solid var(--v0-border, #e2e6ed);
+  border-radius: 14px;
+  box-shadow: 0 8px 22px #1029570a;
+  min-width: 0;
+}
+.admin-integrated .dashboard-grid > .panel {
+  margin: 0;
+}
+.admin-integrated .admin-unavailable {
+  margin-bottom: 18px;
+}
+.admin-integrated .admin-section-content > h2 {
+  font-size: 20px;
+  margin-top: 0;
+}
+.admin-integrated code {
+  overflow-wrap: anywhere;
+}
+.admin-integrated button:not(.text-button) {
+  padding: 10px 14px;
+  border: 1px solid var(--v0-border, #d9dee7);
+  border-radius: 8px;
+  background: var(--v0-panel, white);
+  color: var(--v0-text, #102957);
+  font-size: 11px;
+  font-weight: 800;
+}
+.admin-integrated button:disabled {
+  cursor: not-allowed;
+}
+.admin-integrated .admin-form :is(input, select, textarea),
+.admin-integrated .admin-table-wrap :is(td, th) {
+  border-color: var(--v0-border, #e2e6ed);
+}
+.admin-integrated .admin-event-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-block: 16px;
+  border-top: 1px solid var(--v0-border, #e2e6ed);
+  font-size: 13px;
+}
+.admin-integrated .admin-event-row :is(p, time) {
+  color: var(--v0-muted, #68758a);
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  .admin-integrated .admin-event-row {
+    flex-wrap: wrap;
+  }
+  .admin-integrated .dashboard-panel-heading {
+    flex-wrap: wrap;
+  }
+}
+.admin-page .panel {
+  margin-block: 16px;
+  padding: 20px;
+}
+.admin-tabs,
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-block: 16px;
+}
+.admin-tabs button[aria-pressed="true"] {
+  outline: 2px solid #b99a50;
+  outline-offset: 2px;
+}
+.admin-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+  align-items: end;
+  margin-block: 20px;
+}
+.admin-form label,
+.admin-page > label,
+.institution-context label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.admin-form input,
+.admin-form textarea,
+.admin-form select,
+.admin-page select,
+.institution-context select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  background: var(--panel-bg, white);
+  color: var(--text-color, #182b43);
+  box-sizing: border-box;
+}
+.admin-form textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+.admin-form h2,
+.admin-form h3,
+.admin-form > p {
+  grid-column: 1/-1;
+}
+.admin-indicators {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+}
+.admin-indicators strong {
+  font-size: 2rem;
+}
+.admin-indicators h2,
+.admin-indicators h3 {
+  font-size: 1rem;
+}
+.admin-table-wrap {
+  overflow: auto;
+}
+.admin-table-wrap table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+}
+.admin-table-wrap th,
+.admin-table-wrap td {
+  padding: 12px;
+  border-bottom: 1px solid #94a3b8;
+  overflow-wrap: anywhere;
+  min-width: 120px;
+}
+.admin-table-wrap small {
+  display: block;
+}
+.institution-context {
+  padding: 16px 24px;
+  border-bottom: 1px solid #94a3b8;
+}
+.admin-page button {
+  min-height: 40px;
+  cursor: pointer;
+}
+.admin-page button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+@media (max-width: 600px) {
+  .admin-page .panel {
+    padding: 14px;
+  }
+  .admin-actions button,
+  .admin-tabs button {
+    flex: 1 1 140px;
+  }
+}
+
+/* Administrative adaptation of the v0 layout; never target the shared shell. */
+.admin-workspace .admin-section-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+  margin-block: 24px;
+  padding: 12px;
+  border: 1px solid #94a3b8;
+  border-radius: 12px;
+  background: var(--panel-bg, white);
+}
+.admin-workspace .admin-section-nav button {
+  text-align: left;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.admin-workspace .admin-section-nav button[aria-pressed="true"] {
+  border-color: #b99a50;
+  box-shadow: inset 3px 0 #b99a50;
+  font-weight: 700;
+}
+.admin-workspace .admin-section-nav button:hover,
+.admin-workspace .admin-section-nav button:focus-visible {
+  outline: 2px solid #b99a50;
+  outline-offset: 2px;
+}
+.admin-workspace .admin-indicators .panel {
+  border: 1px solid #94a3b8;
+  border-top: 3px solid #b99a50;
+  border-radius: 12px;
+  background: var(--panel-bg, white);
+  min-width: 0;
+}
+.admin-workspace .admin-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.admin-workspace .admin-unavailable {
+  border-left: 3px solid #b99a50;
+}
+@media (max-width: 600px) {
+  .admin-workspace .admin-overview-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-workspace .admin-section-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 8px;
+  }
+  .admin-workspace .admin-section-nav button {
+    overflow-wrap: anywhere;
+  }
+}

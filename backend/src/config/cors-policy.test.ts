@@ -33,6 +33,7 @@ describe('política CORS', () => {
 
   it('valida métodos e cabeçalhos usados pelo frontend nos preflights', () => {
     expect(isValidCorsPreflight('PUT', 'authorization, content-type, x-jurissim-local-demo')).toBe(true);
+    expect(isValidCorsPreflight('PUT','authorization, content-type, x-institution-id, x-institution-context')).toBe(true);
     expect(isValidCorsPreflight('OPTIONS', 'Content-Type')).toBe(true);
     expect(isValidCorsPreflight('TRACE', 'authorization')).toBe(false);
     expect(isValidCorsPreflight('put', 'authorization')).toBe(false);

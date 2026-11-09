@@ -115,7 +115,7 @@ describe('JWT do login e consumidores', () => {
     expect(response.status).toBe(401);
   });
 
-  it.each([['aluno@example.com', 403], ['professor@example.com', 201], ['admin@example.com', 201]])('rotas existentes de questões preservam papel e identidade de %s', async (email, status) => {
+  it.each([['aluno@example.com', 403], ['professor@example.com', 201], ['admin@example.com', 403]])('rotas existentes de questões preservam papel e identidade de %s', async (email, status) => {
     mocks.createQuestion.mockReset().mockResolvedValue({ id: 'question-test' });
     const token = await login(email as string);
     const response = await fetch(`${base}/questoes`, {

@@ -29,6 +29,20 @@ describe('mandatory initial diagnostic feature flag', () => {
 });
 
 describe('initial diagnostic completion guard', () => {
+  it.each(['/avaliacoes','/questoes','/reports/classes'])('trusted institutional administration does not depend on a personal diagnostic: %s',async path=>{
+    const completion=vi.fn(),next=vi.fn();const req=request({userId:'owner',role:'ALUNO',institutionAdmin:true,institutionId:'authorized'});req.originalUrl=path;
+    await createInitialDiagnosticRequirementGuard({isRequired:()=>true,hasCompletedInitialDiagnostic:completion})(req,response() as never,next);
+    expect(next).toHaveBeenCalledWith();expect(completion).not.toHaveBeenCalled();
+  });
+  it('permits institutional class management without exempting personal student study',async()=>{
+    const completion=vi.fn().mockResolvedValue(false),next=vi.fn();
+    const guard=createInitialDiagnosticRequirementGuard({isRequired:()=>true,hasCompletedInitialDiagnostic:completion});
+    const req=request({userId:'owner',role:'ALUNO',institutionAdmin:true,institutionId:'own-institution'});
+    req.originalUrl='/turmas';await guard(req,response() as never,next);
+    expect(next).toHaveBeenCalledWith();expect(completion).not.toHaveBeenCalled();
+    next.mockClear();req.originalUrl='/question-practice';const res=response();await guard(req,res as never,next);
+    expect(res.status).toHaveBeenCalledWith(403);expect(next).not.toHaveBeenCalled();
+  });
   it('does not query completion when disabled', async () => {
     const hasCompleted = vi.fn();
     const next = vi.fn();

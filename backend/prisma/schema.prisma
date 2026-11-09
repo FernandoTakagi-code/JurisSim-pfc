@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  invitationOnboarding InvitationOnboarding?
   id                  String       @id @default(uuid())
   nome                String
   email               String       @unique
@@ -38,6 +39,13 @@ model User {
   questoesRevisadasPedagogicamente Questao[] @relation("RevisorPedagogicoQuestao")
   questoesLiberadasAcervo Questao[] @relation("LiberadorAcervoQuestao")
   questoesDireitosVerificados Questao[] @relation("VerificadorDireitosQuestao")
+  institutionsOwned Institution[]
+  institutionalMemberships InstitutionalMembership[]
+  teacherInvitationsAccepted TeacherInvitation[]
+  classJoinRequests ClassJoinRequest[]
+  accountControl AccountControl?
+  administrativeEvents AdministrativeEvent[]
+  administrativeNotifications AdministrativeNotification[]
 }
 
 // At most one private photo per user (primary key). List relation allows atomic
@@ -79,6 +87,7 @@ model PasswordRecoveryToken {
 }
 
 model Turma {
+  invitationAssignments TeacherInvitationClass[]
   id            String    @id @default(uuid())
   nome          String
   codigoConvite String    @unique
@@ -89,6 +98,8 @@ model Turma {
   questoes      Questao[]
   alunos        User[]    @relation("AlunoTurmas")
   professores   User[]    @relation("ProfessorTurmas")
+  institutionalClass InstitutionalClass?
+  joinRequests ClassJoinRequest[]
 }
 
 model Questao {
@@ -329,6 +340,137 @@ enum Role {
   ADMIN
   PROFESSOR
   ALUNO
+}
+
+model Institution {
+  id String @id @default(uuid())
+  name String
+  registrationNumber String? @unique
+  responsibleName String
+  ownerId String
+  email String @unique
+  phone String
+  description String
+  status String @default("PENDING")
+  decisionReason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  events AdministrativeEvent[]
+  memberships InstitutionalMembership[]
+  invitations TeacherInvitation[]
+  classes InstitutionalClass[]
+  @@index([ownerId, status])
+  @@index([status, createdAt, id])
+}
+
+model InstitutionalMembership {
+  id String @id @default(uuid())
+  institutionId String
+  userId String
+  role String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  @@unique([institutionId, userId, role])
+  @@index([userId, active])
+}
+
+model TeacherInvitation {
+  id String @id @default(uuid())
+  institutionId String
+  email String
+  invitedName String?
+  classAssignments TeacherInvitationClass[]
+  onboarding InvitationOnboarding?
+  tokenHash String @unique
+  status String @default("PENDING")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  sentAt DateTime?
+  acceptedById String?
+  acceptedBy User? @relation(fields: [acceptedById], references: [id], onDelete: Restrict)
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  @@index([institutionId, createdAt, id])
+}
+
+model TeacherInvitationClass {
+  invitationId String
+  classId String
+  invitation TeacherInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  turma Turma @relation(fields: [classId], references: [id], onDelete: Restrict)
+  @@id([invitationId, classId])
+  @@index([classId])
+}
+
+model InvitationOnboarding {
+  id String @id @default(uuid())
+  invitationId String @unique
+  userId String @unique
+  proofHash String @unique
+  initialPasswordHash String
+  expiresAt DateTime
+  completedAt DateTime?
+  lastSentAt DateTime @default(now())
+  sendAttempts Int @default(1)
+  createdAt DateTime @default(now())
+  invitation TeacherInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+}
+
+model InstitutionalClass {
+  classId String @id
+  institutionId String
+  turma Turma @relation(fields: [classId], references: [id], onDelete: Restrict)
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  @@index([institutionId])
+}
+
+model ClassJoinRequest {
+  id String @id @default(uuid())
+  classId String
+  studentId String
+  status String @default("PENDING")
+  createdAt DateTime @default(now())
+  decidedAt DateTime?
+  turma Turma @relation(fields: [classId], references: [id], onDelete: Restrict)
+  student User @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  @@unique([classId, studentId])
+  @@index([classId, status, createdAt, id])
+}
+
+model AccountControl {
+  userId String @id
+  suspended Boolean @default(false)
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+}
+
+model AdministrativeEvent {
+  id String @id @default(uuid())
+  occurredAt DateTime @default(now())
+  event String
+  actorId String?
+  institutionId String?
+  resourceId String?
+  result String
+  severity String @default("INFO")
+  actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  institution Institution? @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  @@index([institutionId, occurredAt, id])
+  @@index([actorId, occurredAt, id])
+  @@index([event, occurredAt, id])
+}
+
+model AdministrativeNotification {
+  id String @id @default(uuid())
+  userId String
+  message String
+  createdAt DateTime @default(now())
+  readAt DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@index([userId, createdAt, id])
 }
 
 enum Nivel {

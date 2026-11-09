@@ -2,6 +2,7 @@ import { AuditAction, AuthTokenType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { acceptanceData } from '../services/legal-acceptance';
 import { ApiError } from '../errors/api-error';
+import { institutionsEnabled, institutionRegistrationEnabled, administrationEnabled } from '../config/institution-feature';
 
 export const GOOGLE_PASSWORD_SENTINEL = '!GOOGLE_OAUTH_ACCOUNT!';
 
@@ -75,6 +76,12 @@ export class AuthRepository {
     return prisma.user.update({ where: { id }, data: { nome }, select: { id: true, nome: true, email: true, role: true } });
   }
   recordLogin(action: 'LOGIN_SUCESSO' | 'LOGIN_FALHA', userId?: string) {
+    if (institutionsEnabled()) return prisma.$transaction(async tx => {
+      const result = await tx.auditLog.create({ data: { action: action as AuditAction, userId } });
+      await tx.administrativeEvent.create({ data: { event: action === 'LOGIN_SUCESSO' ? 'AUTHENTICATION_SUCCEEDED' : 'AUTHENTICATION_FAILED', actorId: userId,
+        result: action === 'LOGIN_SUCESSO' ? 'SUCCESS' : 'FAILED', severity: action === 'LOGIN_SUCESSO' ? 'INFO' : 'WARN' } });
+      return result;
+    });
     return prisma.auditLog.create({ data: { action: action as AuditAction, userId } });
   }
   async hasCompletedDiagnostic(usuarioId: string) { return Boolean(await prisma.simulado.findFirst({ where: { alunoId: usuarioId, tipo: 'DIAGNOSTICO', finalizadoEm: { not: null }}, select: { id: true } })); }
@@ -126,6 +133,7 @@ export class AuthRepository {
         },
         select: { id: true },
       });
+      if (institutionRegistrationEnabled() || administrationEnabled()) await tx.institution.updateMany({ where: { ownerId: token.userId, status: 'EMAIL_PENDING' }, data: { status: 'PENDING' } });
       return true;
     });
   }

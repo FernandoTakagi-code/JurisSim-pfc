@@ -2,6 +2,9 @@ import { prisma } from '../config/prisma';
 import { AuditAction, Nivel, Prisma } from '@prisma/client';
 import { ApiError } from '../errors/api-error';
 import { fingerprintQuestionContent } from '../services/question-fingerprint';
+import { institutionsEnabled } from '../config/institution-feature';
+const institutionalVisibility = (): Prisma.TurmaWhereInput => institutionsEnabled()
+  ? { OR: [{ institutionalClass: null }, { institutionalClass: { institution: { status: 'ACTIVE' } } }] } : {};
 
 interface DadosQuestao {
   enunciado: string;
@@ -58,24 +61,30 @@ export class QuestaoRepository {
     assunto?: string;
     nivel?: Nivel;
     turmaId?: string;
-  }, actorId: string, actorRole: string, somenteMinhas = false) {
-    if (filtros.turmaId) await this.verificarTurma(prisma, filtros.turmaId, actorId, actorRole);
+  }, actorId: string, actorRole: string, somenteMinhas = false,institutionId?:string) {
+    if(institutionId)await this.institutionReader(actorId,actorRole,institutionId);
+    if (filtros.turmaId) {
+      if(institutionId){
+        if(!await prisma.turma.findFirst({where:{id:filtros.turmaId,institutionalClass:{institutionId,institution:{status:'ACTIVE'}}},select:{id:true}}))throw new ApiError(403,'Turma fora da instituição autorizada.');
+      }else await this.verificarTurma(prisma, filtros.turmaId, actorId, actorRole);
+    }
     return prisma.questao.findMany({
       where: {
         disciplina: filtros.disciplina,
         assunto: filtros.assunto,
         nivel: filtros.nivel,
         turmaId: filtros.turmaId,
-        AND: [this.visibilidade(actorId, actorRole), ...(somenteMinhas ? [{ autorId: actorId }] : [])],
+        AND: [this.visibilidade(actorId, actorRole,institutionId), ...(somenteMinhas ? [{ autorId: actorId }] : [])],
       },
       select: questaoReadSelect,
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  static async buscarPorId(id: string, actorId: string, actorRole: string) {
+  static async buscarPorId(id: string, actorId: string, actorRole: string,institutionId?:string) {
+    if(institutionId)await this.institutionReader(actorId,actorRole,institutionId);
     return prisma.questao.findFirst({
-      where: { id, AND: [this.visibilidade(actorId, actorRole)] },
+      where: { id, AND: [this.visibilidade(actorId, actorRole,institutionId)] },
       select: questaoReadSelect,
     });
   }
@@ -96,7 +105,7 @@ export class QuestaoRepository {
           alternativas: alternativas ?? current.alternativas,
         });
         const questao = await tx.questao.update({
-          where: { id, ...(actorRole === 'ADMIN' ? {} : { autorId: actorId }) },
+          where: { id, autorId: actorId },
           data: {
             ...questaoDados,
             fingerprint,
@@ -115,7 +124,7 @@ export class QuestaoRepository {
       return await prisma.$transaction(async (tx) => {
         await this.verificarSemUso(tx, id, actorId, actorRole);
         await tx.alternativa.deleteMany({ where: { questaoId: id } });
-        const questao = await tx.questao.delete({ where: { id, ...(actorRole === 'ADMIN' ? {} : { autorId: actorId }) } });
+        const questao = await tx.questao.delete({ where: { id, autorId: actorId } });
         await tx.auditLog.create({ data: { userId: actorId, action: 'QUESTAO_EXCLUIDA' as AuditAction, resourceId: id } });
         return questao;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -123,22 +132,28 @@ export class QuestaoRepository {
   }
 
   private static exigirEscrita(role: string) {
-    if (role !== 'PROFESSOR' && role !== 'ADMIN') throw new ApiError(403, 'Acesso negado para este papel.');
+    if (role !== 'PROFESSOR') throw new ApiError(403, 'Acesso negado para este papel.');
   }
 
-  private static visibilidade(actorId: string, actorRole: string): Prisma.QuestaoWhereInput {
-    if (actorRole === 'ADMIN') return {};
+  private static async institutionReader(actorId:string,actorRole:string,institutionId:string){
+    if(actorRole==='ADMIN'||!await prisma.institutionalMembership.findFirst({where:{userId:actorId,institutionId,role:'INSTITUTION_ADMIN',active:true,institution:{status:'ACTIVE'}},select:{id:true}}))throw new ApiError(403,'Leitura institucional não autorizada.');
+  }
+  private static visibilidade(actorId: string, actorRole: string,institutionId?:string): Prisma.QuestaoWhereInput {
+    if (actorRole === 'ADMIN') throw new ApiError(403,'Administração global não possui acesso pedagógico.');
+    if(institutionId)return {OR:[{publica:true},{turma:{institutionalClass:{institutionId,institution:{status:'ACTIVE'}}}}]};
     return { OR: [
       { publica: true },
-      ...(actorRole === 'PROFESSOR' ? [{ autorId: actorId }] : []),
-      { turma: actorRole === 'ALUNO' ? { alunos: { some: { id: actorId } } } : { professores: { some: { id: actorId } } } },
+      ...(actorRole === 'PROFESSOR' ? [{ autorId: actorId, turmaId:null }] : []),
+      { turma: actorRole === 'ALUNO' ? { alunos: { some: { id: actorId } }, ...institutionalVisibility() } : { professores: { some: { id: actorId } }, ...institutionalVisibility() } },
     ] };
   }
 
   private static async verificarTurma(tx: Prisma.TransactionClient, id: string, actorId: string, actorRole: string) {
+    if(actorRole==='ADMIN')throw new ApiError(403,'Administração global não possui acesso pedagógico.');
     const turma = await tx.turma.findFirst({ where: {
       id,
-      ...(actorRole === 'ADMIN' ? {} : actorRole === 'ALUNO'
+      ...institutionalVisibility(),
+      ...(actorRole === 'ALUNO'
         ? { alunos: { some: { id: actorId } } } : { professores: { some: { id: actorId } } }),
     }, select: { id: true } });
     if (!turma) throw new ApiError(403, 'Turma indisponível para esta conta.');
@@ -147,10 +162,11 @@ export class QuestaoRepository {
   private static async verificarSemUso(tx: Prisma.TransactionClient, id: string, actorId: string, actorRole: string) {
     this.exigirEscrita(actorRole);
     const questao = await tx.questao.findUnique({
-      where: { id }, select: { autorId: true, _count: { select: { respostas: true, diagnosticos: true, avaliacoes: true } } },
+      where: { id }, select: { autorId: true, turmaId:true, _count: { select: { respostas: true, diagnosticos: true, avaliacoes: true } } },
     });
     if (!questao) throw new ApiError(404, 'Questão não encontrada');
-    if (actorRole !== 'ADMIN' && questao.autorId !== actorId) throw new ApiError(403, 'Você não pode alterar esta questão.');
+    if (questao.autorId !== actorId) throw new ApiError(403, 'Você não pode alterar esta questão.');
+    if(questao.turmaId)await this.verificarTurma(tx,questao.turmaId,actorId,actorRole);
     if (questao._count.respostas || questao._count.diagnosticos || questao._count.avaliacoes) {
       throw new ApiError(409, 'Questão já utilizada em simulado ou resposta; edição e exclusão não são permitidas.');
     }

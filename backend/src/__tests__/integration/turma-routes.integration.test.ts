@@ -68,7 +68,7 @@ describe('POST /turmas', () => {
 
     // Assert
     expect(resposta.status).toBe(403);
-    expect(resposta.corpo).toEqual({ message: 'Acesso negado para este papel.' });
+    expect(resposta.corpo).toEqual({ message: 'Gestão acadêmica não autorizada.' });
     expect(await prisma.turma.count()).toBe(0);
   });
 });
