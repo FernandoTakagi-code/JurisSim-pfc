@@ -2,6 +2,7 @@ import {
   composeInitialDiagnostic,
   type InitialDiagnosticCandidate,
   type InitialDiagnosticCompositionResult,
+  type InitialDiagnosticCompositionMode,
 } from './initial-diagnostic-composition';
 
 export type InitialDiagnosticAttemptState = 'IN_PROGRESS' | 'COMPLETED';
@@ -66,6 +67,7 @@ export class InitialDiagnosticService {
   constructor(
     private readonly repository: InitialDiagnosticRepository,
     private readonly random: () => number = Math.random,
+    private readonly compositionMode: InitialDiagnosticCompositionMode = 'MISTA_15_15',
   ) {}
 
   async getOrCreate(studentId: string): Promise<InitialDiagnosticServiceResult> {
@@ -76,7 +78,7 @@ export class InitialDiagnosticService {
       this.repository.listEligibleInventory(),
       this.repository.listAnsweredQuestionIds(studentId),
     ]);
-    const composition = composeInitialDiagnostic(inventory, answeredQuestionIds, this.random);
+    const composition = composeInitialDiagnostic(inventory, answeredQuestionIds, this.random, this.compositionMode);
 
     if (composition.status === 'INSUFFICIENT') {
       return { status: 'INSUFFICIENT', shortages: composition.shortages };

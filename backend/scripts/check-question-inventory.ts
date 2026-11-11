@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { INITIAL_DIAGNOSTIC_COMPOSITION, INITIAL_DIAGNOSTIC_DISCIPLINES } from '../src/services/initial-diagnostic-composition';
+import { getInitialDiagnosticComposition, parseInitialDiagnosticCompositionMode, INITIAL_DIAGNOSTIC_DISCIPLINES } from '../src/services/initial-diagnostic-composition';
 import { PrismaInitialDiagnosticRepository } from '../src/repositories/prisma-initial-diagnostic-repository';
 import { PrismaQuestionPracticeRepository } from '../src/repositories/prisma-question-practice-repository';
 import type { PracticeQuestion } from '../src/services/question-practice-service';
@@ -7,6 +7,8 @@ import { resolveInventoryCheckDatabaseUrl } from '../src/config/inventory-check-
 import { diagnoseInventoryCheckError } from '../src/config/inventory-check-error';
 
 async function main() {
+ const mode = parseInitialDiagnosticCompositionMode(process.env.INITIAL_DIAGNOSTIC_COMPOSITION_MODE);
+ const composition = getInitialDiagnosticComposition(mode);
  const databaseUrl = resolveInventoryCheckDatabaseUrl();
  if (!databaseUrl) {
   console.error('Defina INVENTORY_CHECK_DATABASE_URL ou DATABASE_URL em backend/.env. Nenhuma variável é carregada globalmente.');
@@ -20,13 +22,13 @@ async function main() {
       const repository = new PrismaInitialDiagnosticRepository(transaction as unknown as PrismaClient);
       const practice = new PrismaQuestionPracticeRepository(transaction as unknown as PrismaClient);
       const inventory = await repository.listEligibleInventory();
-      const shortages = INITIAL_DIAGNOSTIC_COMPOSITION.flatMap(slot => {
+      const shortages = composition.flatMap(slot => {
         const available = inventory.filter(question => question.discipline === slot.discipline
           && question.level === slot.level && question.origin === slot.origin).length;
         return available < slot.quantity ? [{ ...slot, available, deficit: slot.quantity - available }] : [];
       });
 
-      console.log(`Diagnostico inicial: ${shortages.length === 0 ? 'APTO' : 'INSUFICIENTE'} (${INITIAL_DIAGNOSTIC_COMPOSITION.reduce((sum, item) => sum + item.quantity, 0)} questoes exigidas).`);
+      console.log(`Diagnostico inicial [${mode}]: ${shortages.length === 0 ? 'APTO' : 'INSUFICIENTE'} (${composition.reduce((sum, item) => sum + item.quantity, 0)} questoes exigidas).`);
       for (const discipline of INITIAL_DIAGNOSTIC_DISCIPLINES) {
         const rows = inventory.filter(question => question.discipline === discipline);
         console.log(`  ${discipline}: ${rows.length} elegiveis para diagnostico`);
