@@ -36,14 +36,14 @@ export function analyzeDiagnostic(questions: AnsweredQuestion[]): AdaptiveResult
   if (questions.length === 0) throw new Error('Nao e possivel analisar um diagnostico sem respostas.');
 
   const disciplineMetrics = [...groupBy(questions, (question) => question.discipline)].map(([discipline, group]) => createMetric('DISCIPLINA', discipline, null, null, group));
-  const topicMetrics = [...groupBy(questions, (question) => `${question.discipline}::${question.topic}`)].map(([key, group]) => {
-    const [discipline, topic] = key.split('::');
+  const topicMetrics = [...groupBy(questions, (question) => JSON.stringify([question.discipline, question.topic]))].map(([, group]) => {
+    const { discipline, topic } = group[0];
     return createMetric('ASSUNTO', discipline, topic, null, group);
   });
   const difficultyMetrics = [...groupBy(questions, (question) => question.difficulty)].map(([difficulty, group]) => createMetric('NIVEL', 'TODAS', null, difficulty as Level, group));
-  const topicAndDifficultyMetrics = [...groupBy(questions, (question) => `${question.discipline}::${question.topic}::${question.difficulty}`)].map(([key, group]) => {
-    const [discipline, topic, difficulty] = key.split('::');
-    return createMetric('ASSUNTO_E_NIVEL', discipline, topic, difficulty as Level, group);
+  const topicAndDifficultyMetrics = [...groupBy(questions, (question) => JSON.stringify([question.discipline, question.topic, question.difficulty]))].map(([, group]) => {
+    const { discipline, topic, difficulty } = group[0];
+    return createMetric('ASSUNTO_E_NIVEL', discipline, topic, difficulty, group);
   });
 
   const correctAnswers = questions.filter((question) => question.isCorrect).length;

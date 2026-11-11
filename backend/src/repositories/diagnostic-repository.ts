@@ -124,6 +124,7 @@ export class DiagnosticRepository {
       const active = await tx.simulado.findFirst({ where: { alunoId: studentId, ...legacyDiagnosticScope, finalizadoEm: null },
         orderBy: [{ iniciadoEm: 'desc' }, { id: 'desc' }], select: { id: true, iniciadoEm: true, questoes: { select: { id: true } } } });
       if (active) return active;
+      if (!questionIds.length) throw new ApiError(409, 'Nao ha questoes publicas cadastradas para iniciar o diagnostico.');
       const attempt = await tx.simulado.create({
         data: {
           tipo: 'DIAGNOSTICO', alunoId: studentId,

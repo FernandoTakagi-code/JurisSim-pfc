@@ -10,7 +10,24 @@ function questions(correctAnswers: number, total = 100): AnsweredQuestion[] {
 }
 
 describe('motor adaptativo', () => {
-  it.each([[49.5, 'BASICO'], [79.5, 'INTERMEDIARIO']] as const)(
+  it('preserves full topic names containing the grouping delimiter', () => {
+    const result = analyzeDiagnostic([{ discipline: 'Civil', topic: 'Contratos::consumo', difficulty: 'BASICO', isCorrect: false }]);
+    expect(result.trail.priorityTopic).toBe('Contratos::consumo');
+    expect(result.performances.find(metric => metric.metricType === 'ASSUNTO_E_NIVEL')).toMatchObject({
+      discipline: 'Civil', topic: 'Contratos::consumo', difficulty: 'BASICO',
+    });
+  });
+
+  it('does not merge different discipline/topic tuples that have the same concatenation', () => {
+    const result = analyzeDiagnostic([
+      { discipline: 'A::B', topic: 'C', difficulty: 'BASICO', isCorrect: false },
+      { discipline: 'A', topic: 'B::C', difficulty: 'BASICO', isCorrect: true },
+    ]);
+    expect(result.trail).toMatchObject({ priorityDiscipline: 'A::B', priorityTopic: 'C', recommendedLevel: 'BASICO' });
+    expect(result.performances.filter(metric => metric.metricType === 'ASSUNTO')).toHaveLength(2);
+    expect(result.performances.filter(metric => metric.metricType === 'ASSUNTO_E_NIVEL')).toHaveLength(2);
+  });
+  it.each([[0, 'BASICO'], [49.5, 'BASICO'], [49.99, 'BASICO'], [79.5, 'INTERMEDIARIO'], [79.99, 'INTERMEDIARIO'], [100, 'AVANCADO']] as const)(
     'preserva a faixa contínua para %s%%', (percentage, level) => expect(getLevel(percentage)).toBe(level),
   );
 

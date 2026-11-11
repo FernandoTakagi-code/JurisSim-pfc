@@ -21,8 +21,7 @@ export class TrailService {
 
     const filters = buildTrailFilters(trilha.disciplinaPrioritaria, trilha.assuntoPrioritario, trilha.nivelRecomendado);
     const questions = await this.repository.findQuestionsForTrail(filters, trilha.quantidadeRecomendada);
-    if (questions.length === 0) throw new ApiError(409, 'Nao ha questoes disponiveis para gerar esta trilha.');
-
+    // The locked repository first recovers a concurrent winner, then checks inventory.
     return this.repository.createTrailAttempt(trilha.simulado.alunoId, trilha.id, questions.map((question) => question.id));
   }
 

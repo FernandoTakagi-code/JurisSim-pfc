@@ -3,6 +3,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { DiagnosticService } from '../../services/diagnostic-service';
 import { TrailService } from '../../services/trail-service';
 import { TrailRepository } from '../../repositories/trail-repository';
+import { DiagnosticRepository } from '../../repositories/diagnostic-repository';
 import { PrismaQuestionPracticeRepository } from '../../repositories/prisma-question-practice-repository';
 import { PrismaInitialDiagnosticResolutionRepository } from '../../repositories/prisma-initial-diagnostic-resolution-repository';
 import { analyzeDiagnostic } from '../../services/adaptive-engine';
@@ -55,6 +56,21 @@ function failingClient(model: 'user' | 'trilhaAdaptativa'): PrismaClient {
 }
 
 describe('P0 · ciclo de tentativas com PostgreSQL descartável real', () => {
+  it('rechecks committed winners before rejecting an empty inventory snapshot', async () => {
+    const f = await fixture();
+    expect((await new DiagnosticRepository().createAttempt(f.owner.id, [])).id).toBe(f.initial.id);
+    await f.diagnostics.finalize(f.initial.id, f.owner.id);
+    const trail = await f.diagnostics.getTrail(f.initial.id, f.owner.id);
+    const attempt = await new TrailService().generate(trail.id, f.owner.id);
+    expect((await new TrailRepository().createTrailAttempt(f.owner.id, trail.id, [])).id).toBe(attempt.id);
+    expect(await prisma.simulado.count({ where: { alunoId: f.owner.id, tipo: 'PERSONALIZADO' } })).toBe(1);
+  });
+
+  it('does not create an empty diagnostic when there is no concurrent winner', async () => {
+    const owner = await criarUsuario('ALUNO');
+    await expect(new DiagnosticRepository().createAttempt(owner.id, [])).rejects.toMatchObject({ statusCode: 409 });
+    expect(await prisma.simulado.count({ where: { alunoId: owner.id } })).toBe(0);
+  });
   it('preserva as sete questões legadas e retoma o início após timeout ou concorrência', async () => {
     const f = await fixture();
     const [a, b] = await Promise.all([f.diagnostics.start(f.owner.id, 30), f.diagnostics.start(f.owner.id, 30)]);
@@ -146,6 +162,14 @@ describe('P0 · ciclo de tentativas com PostgreSQL descartável real', () => {
     for (const id of [practice.id, f.initial.id, exam.id]) {
       await expect(f.service.getQuestions(id, f.owner.id)).rejects.toMatchObject({ statusCode: 404 });
       await expect(f.service.finalize(id, f.owner.id)).rejects.toMatchObject({ statusCode: 404 });
+      await expect(f.service.getResult(id, f.owner.id)).rejects.toMatchObject({ statusCode: 404 });
+      await expect(f.service.answer(id, f.owner.id, f.questions[0].id, f.questions[0].alternativas[0].id)).rejects.toMatchObject({ statusCode: 404 });
+    }
+    for (const id of [practice.id, f.attempt.id, exam.id]) {
+      await expect(f.diagnostics.getQuestions(id, f.owner.id)).rejects.toMatchObject({ statusCode: 404 });
+      await expect(f.diagnostics.finalize(id, f.owner.id)).rejects.toMatchObject({ statusCode: 404 });
+      await expect(f.diagnostics.getResult(id, f.owner.id)).rejects.toMatchObject({ statusCode: 404 });
+      await expect(f.diagnostics.answer(id, f.owner.id, f.questions[0].id, f.questions[0].alternativas[0].id)).rejects.toMatchObject({ statusCode: 404 });
     }
     const repo = new PrismaQuestionPracticeRepository();
     expect(await repo.findAttempt(f.owner.id, f.attempt.id)).toBeNull();

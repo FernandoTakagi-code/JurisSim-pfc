@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 const origin = 'http://127.0.0.1:5187';
 const profile = await mkdtemp(path.join(tmpdir(), 'jurissim-attempt-resume-'));
-const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5187', '--strictPort'], {
+const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--configLoader', 'runner', '--host', '127.0.0.1', '--port', '5187', '--strictPort'], {
   windowsHide: true, stdio: 'ignore', env: { ...process.env, VITE_API_URL: 'http://127.0.0.1:1', VITE_GOOGLE_CLIENT_ID: '', VITE_INITIAL_DIAGNOSTIC_UI_ENABLED: 'false', VITE_QUESTION_PRACTICE_UI_ENABLED: 'false' },
 });
 const browser = spawn(process.env.CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe', [
@@ -94,6 +94,7 @@ try {
       if(p==='/diagnostics'&&init.method==='POST')return reply({id:'legacy'},201);
       const kind=p.startsWith('/trilhas/')?'trail':'diagnostic';const state=window.f[kind];
       if(p.startsWith('/diagnostics/')||p.startsWith('/trilhas/attempts/')){
+        if(window.f.missing)return reply({message:'Attempt not found'},404);
         if(window.f.forbidden)return reply({message:'Acesso negado ? tentativa.'},403);
         state.answers ||= {q0:'a0'};
         if(p.endsWith('/result')){
@@ -101,9 +102,18 @@ try {
           if(!state.done)return reply({message:'Finalize a tentativa'},409);
           return reply({id:'legacy',overallPercentage:100,level:'AVANCADO',recommendation:'Resultado persistido.',performances:[],trail:null,correctAnswers:2,totalQuestions:2});
         }
-        if(p.endsWith('/questions'))return reply({questions:questions().map(q=>({...q,selectedOptionId:state.answers[q.id]||null}))});
-        if(p.includes('/answers/')){if(state.done)return reply({message:'J? conclu?da'},409);window.f.saveCalls++;const q=p.split('/').pop();state.answers[q]=JSON.parse(init.body).selectedOptionId;window.persist();return reply({message:'Resposta registrada.'});}
-        if(p.endsWith('/finalize')){window.f.finalizeCalls++;if(!state.done){state.done=true;window.f.commits++;}if(state.failFinalize){delete state.failFinalize;window.persist();throw Error('Falha de rede isolada ap?s conclus?o');}window.persist();return reply({level:'AVANCADO',overallPercentage:100,recommendation:'Resultado persistido.'});}
+        if(p.endsWith('/questions')){window.f.questionReads=(window.f.questionReads||0)+1;return reply({questions:questions().map(q=>({...q,selectedOptionId:state.answers[q.id]||null}))});}
+        if(p.includes('/answers/')){
+          if(state.done)return reply({message:'Already completed'},409);
+          window.f.saveCalls++;
+          if(state.failSave==='before'){delete state.failSave;window.persist();throw Error('Lost connection before commit');}
+          const q=p.split('/').pop(), choice=JSON.parse(init.body).selectedOptionId;
+          if(state.answers[q]&&state.answers[q]!==choice)return reply({message:'Answer already saved'},409);
+          state.answers[q]=choice;window.persist();
+          if(state.failSave==='after'){delete state.failSave;window.persist();throw Error('Lost connection after commit');}
+          return reply({message:'Answer saved'});
+        }
+        if(p.endsWith('/finalize')){window.f.finalizeCalls++;if(state.failFinalizeBefore){delete state.failFinalizeBefore;window.persist();throw Error('Lost connection before finalization');}if(!state.done){state.done=true;window.f.commits++;}if(state.failFinalize){delete state.failFinalize;window.persist();throw Error('Falha de rede isolada ap?s conclus?o');}window.persist();return reply({level:'AVANCADO',overallPercentage:100,recommendation:'Resultado persistido.'});}
       }
       return reply({message:'Endpoint fora da fixture: '+p},404);
     };
@@ -117,9 +127,7 @@ try {
   await reloadDocument();await until('document.body.textContent.includes("2 DE 2")');
   pass('Refresh preserves server-confirmed answers');
   await evaluate('window.f.diagnostic.failFinalize=true;window.persist()');await choose();await submit();
-  await until('document.body.textContent.includes("conectar")');
-  assert.equal(await evaluate('document.querySelector(".question footer .primary").disabled'),false);
-  await submit();await until('document.body.textContent.includes("Seu desempenho")');
+  await until('document.body.textContent.includes("Seu desempenho")');
   assert.equal(await evaluate('window.f.saveCalls'),1);assert.equal(await evaluate('window.f.commits'),1);
   pass('Timeout after final commit recovers without resubmitting the answer');
   await reloadDocument();await until('document.body.textContent.includes("Seu desempenho")');
@@ -153,5 +161,65 @@ try {
   await evaluate('Array.from(document.querySelectorAll("button")).find(b=>b.textContent.trim()==="Ver resultado").click()');
   await until('location.pathname.includes("diagnostico-inicial")&&document.body.textContent.includes("21 acertos de 30")');
   pass('Initial diagnostic history uses its own result API and never the legacy correction route');
+
+  for (const kind of ['diagnostic','trail']) {
+    const query=kind==='diagnostic'?'tentativa=legacy':'trilha=generated';
+    await evaluate(`window.f.historyInitial=false;window.f[${JSON.stringify(kind)}]={answers:{},failSave:'after'};window.persist()`);
+    await navigateDocument(origin+'/diagnostico?'+query);
+    await until('document.body.textContent.includes("1 DE 2")');
+    const writes=await evaluate('window.f.saveCalls');
+    await choose(); await submit();
+    await until('document.body.textContent.includes("2 DE 2")');
+    assert.equal(await evaluate('window.f.saveCalls'),writes+1);
+    assert.equal(await evaluate(`window.f[${JSON.stringify(kind)}].answers.q0`),'a0');
+    pass(kind+': lost answer acknowledgement restores saved answers and advances without another write');
+
+    await evaluate(`window.f[${JSON.stringify(kind)}]={answers:{},failSave:'before'};window.persist()`);
+    await reloadDocument(); await until('document.body.textContent.includes("1 DE 2")');
+    const readsBeforeFailure=await evaluate('window.f.questionReads');
+    await choose(); await submit();
+    await until(`window.f.questionReads>${readsBeforeFailure} && document.body.textContent.includes("1 DE 2") && !document.querySelector(".answers input:checked")`);
+    assert.deepEqual(await evaluate(`window.f[${JSON.stringify(kind)}].answers`),{});
+    await choose(); await submit(); await until('document.body.textContent.includes("2 DE 2")');
+    assert.equal(await evaluate(`Object.keys(window.f[${JSON.stringify(kind)}].answers).length`),1);
+    pass(kind+': failure before saving restores the unanswered question and permits retry');
+
+    await evaluate(`window.f[${JSON.stringify(kind)}]={answers:{q0:'a0'},failSave:'after'};window.persist()`);
+    await reloadDocument(); await until('document.body.textContent.includes("2 DE 2")');
+    const beforeLast=await evaluate('window.f.saveCalls'), readsBeforeLast=await evaluate('window.f.questionReads');
+    await choose(); await submit();
+    await until(`window.f.questionReads>${readsBeforeLast} && !!document.querySelector(".question .answers input:checked") && !document.querySelector(".question footer .primary").disabled`);
+    assert.equal(await evaluate('window.f.saveCalls'),beforeLast+1);
+    await submit(); await until(kind==='diagnostic'?'document.body.textContent.includes("Seu desempenho")':'document.body.textContent.includes("CONCLU")');
+    assert.equal(await evaluate('window.f.saveCalls'),beforeLast+1);
+    pass(kind+': lost last-answer response is recovered and finalizes without a second PUT');
+
+    await evaluate(`window.f[${JSON.stringify(kind)}]={answers:{q0:'a0',q1:'a1'},failFinalizeBefore:true};window.persist()`);
+    await reloadDocument();await until('document.body.textContent.includes("2 DE 2")');
+    const beforeFinalize=await evaluate('window.f.saveCalls'), readsBeforeFinalize=await evaluate('window.f.questionReads');
+    await submit();await until(`window.f.questionReads>${readsBeforeFinalize} && document.body.textContent.includes("2 DE 2") && !document.querySelector(".question footer .primary").disabled`);
+    await submit();await until(kind==='diagnostic'?'document.body.textContent.includes("Seu desempenho")':'document.body.textContent.includes("CONCLU")');
+    assert.equal(await evaluate('window.f.saveCalls'),beforeFinalize);
+    pass(kind+': failure before finalization is retryable without resending persisted answers');
+    await evaluate(`window.f[${JSON.stringify(kind)}]={answers:{q0:'a0',q1:'a1'},failFinalize:true};window.persist()`);
+    await reloadDocument();await until('document.body.textContent.includes("2 DE 2")');
+    const committedBefore=await evaluate('window.f.commits'), writesBefore=await evaluate('window.f.saveCalls');
+    await submit();await until(kind==='diagnostic'?'document.body.textContent.includes("Seu desempenho")':'document.body.textContent.includes("CONCLU")');
+    assert.equal(await evaluate('window.f.saveCalls'),writesBefore);
+    assert.equal(await evaluate('window.f.commits'),committedBefore+1);
+    pass(kind+': lost finalization acknowledgement loads the completed result without another write');
+
+  }
+  await evaluate('window.f.diagnostic={answers:{q0:"a0"}};window.persist()');
+  await navigateDocument(origin+'/diagnostico?tentativa=legacy');await until('document.body.textContent.includes("2 DE 2")');
+  await evaluate('window.auth = await import("/src/auth-session.ts");window.auth.endSession()');
+  await until('!!document.querySelector(".auth-card")');
+  await evaluate('await window.auth.establishSession("new-isolated-login")');
+  await until('document.body.textContent.includes("2 DE 2")');
+  pass('a fresh authenticated session restores the attempt from its URL and backend answers');
+  await evaluate('window.f.missing=true;window.persist()');await reloadDocument();
+  await until('document.body.textContent.includes("retomar a tentativa")');
+  assert.equal(await evaluate('!!document.querySelector(".question")'),false);
+  pass('missing attempts never expose a previous question or result');
   console.log('Retomada P0: '+checks+' cenarios aprovados; APIs simuladas, sem banco ou e-mail.');
 } finally {socket?.close();browser.kill();vite.kill();}

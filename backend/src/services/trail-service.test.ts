@@ -25,7 +25,10 @@ function serviceWith(options: { trilha?: ReturnType<typeof trilha> | null; attem
   const repository = {
     findTrilha: vi.fn().mockResolvedValue(options.trilha ?? null),
     findQuestionsForTrail: vi.fn().mockResolvedValue(options.questions ?? [{ id: 'question-1' }]),
-    createTrailAttempt: vi.fn().mockResolvedValue(options.attempt ?? attempt()),
+    createTrailAttempt: vi.fn().mockImplementation(async (_student, _trail, questionIds: string[]) => {
+      if (!questionIds.length) throw Object.assign(new Error('Sem questões disponíveis'), { statusCode: 409 });
+      return options.attempt ?? attempt();
+    }),
     findAttempt: vi.fn().mockResolvedValue(options.attempt ?? null),
     saveAnswer: vi.fn().mockResolvedValue(undefined),
     finalize: vi.fn().mockImplementation(async (_id, _student, analyze) => {

@@ -17,7 +17,8 @@ export class DiagnosticService {
     const active = await this.repository.findActiveAttempt(studentId);
     if (active) return active;
     const questions = await this.repository.findQuestionsForDiagnostic(quantity);
-    if (questions.length === 0) throw new ApiError(409, 'Nao ha questoes publicas cadastradas para iniciar o diagnostico.');
+    // The transaction rechecks the active attempt before rejecting empty inventory:
+    // another request may have committed a valid attempt while selection ran.
     return this.repository.createAttempt(studentId, questions.map((question) => question.id));
   }
 

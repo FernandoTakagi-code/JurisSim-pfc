@@ -146,6 +146,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const [trailIndex, setTrailIndex] = useState(0);
   const [trailAnswer, setTrailAnswer] = useState<string>();
   const [trailResult, setTrailResult] = useState<TrailResult>();
+  const attemptMutationPending = useRef(false);
   const recovery = useAttemptResume(route);
   useEffect(() => {
     const saved = recovery.restored;
@@ -314,7 +315,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   };
 
   const next = async () => {
-    if (!id || !answer) return;
+    if (!id || !answer || !questions[index] || attemptMutationPending.current) return;
+    attemptMutationPending.current = true;
     setLoading(true);
     setError("");
     try {
@@ -334,13 +336,18 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
       void progress.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
+      // A lost response does not prove that the write failed. Re-read the owned
+      // attempt before allowing another answer or completion request.
+      recovery.retry();
     } finally {
+      attemptMutationPending.current = false;
       setLoading(false);
     }
   };
 
   const nextTrailQuestion = async () => {
-    if (!trailId || !trailAnswer) return;
+    if (!trailId || !trailAnswer || !trailQuestions[trailIndex] || attemptMutationPending.current) return;
+    attemptMutationPending.current = true;
     setLoading(true);
     setError("");
     try {
@@ -365,7 +372,11 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
       void progress.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
+      // A lost response does not prove that the write failed. Re-read the owned
+      // attempt before allowing another answer or completion request.
+      recovery.retry();
     } finally {
+      attemptMutationPending.current = false;
       setLoading(false);
     }
   };
