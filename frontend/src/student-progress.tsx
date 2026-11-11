@@ -81,19 +81,31 @@ export function useStudentProgress() {
   const [error, setError] = useState("");
   const [resultError, setResultError] = useState("");
   const revision = useRef(0);
-  const refresh = useCallback(async () => {
+  const dashboardRevision = useRef(0);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
+  const refreshDashboard = useCallback(async () => {
+    const current = ++dashboardRevision.current;
+    setDashboardLoading(true);
+    setDashboardError("");
+    setStudyDashboard(undefined);
+    try {
+      const value = await apiRequest<StudyDashboard>("/goals/dashboard");
+      if (current === dashboardRevision.current) setStudyDashboard(value);
+    } catch (cause) {
+      if (current === dashboardRevision.current) setDashboardError(errorMessage(cause));
+    } finally {
+      if (current === dashboardRevision.current) setDashboardLoading(false);
+    }
+  }, []);
+  const refreshAcademic = useCallback(async () => {
     const current = ++revision.current;
     setLoading(true);
     setError("");
     setResultError("");
     let overview: Overview;
     try {
-      const [overviewResponse, dashboardResponse] = await Promise.all([
-        apiRequest<Overview>("/students/me/overview"),
-        apiRequest<StudyDashboard>("/goals/dashboard"),
-      ]);
-      overview = overviewResponse;
-      setStudyDashboard(dashboardResponse);
+      overview = await apiRequest<Overview>("/students/me/overview");
     } catch (cause) {
       if (current === revision.current) setError(errorMessage(cause));
       if (current === revision.current) setLoading(false);
@@ -123,23 +135,29 @@ export function useStudentProgress() {
       if (current === revision.current) setLoading(false);
     }
   }, []);
+  const refresh = useCallback(async () => {
+    await Promise.all([refreshAcademic(), refreshDashboard()]);
+  }, [refreshAcademic, refreshDashboard]);
   useEffect(() => {
     void refresh();
     return () => {
       revision.current++;
+      dashboardRevision.current++;
     };
   }, [refresh]);
-  return { data, latestResult, studyDashboard, loading, error, resultError, refresh };
+  return { data, latestResult, studyDashboard, loading, error, resultError, refresh, refreshAcademic, dashboardLoading, dashboardError, refreshDashboard };
 }
 
 export function ProgressStatus({
   loading,
   error,
   refresh,
+  loadingMessage = "Carregando seu histórico...",
 }: {
   loading: boolean;
   error: string;
   refresh: () => void;
+  loadingMessage?: string;
 }) {
   if (error)
     return (
@@ -152,7 +170,7 @@ export function ProgressStatus({
     );
   return loading ? (
     <p className="study-notice muted" role="status">
-      Carregando seu histórico...
+      {loadingMessage}
     </p>
   ) : null;
 }
