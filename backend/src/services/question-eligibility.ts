@@ -10,7 +10,7 @@ export interface QuestionCandidate {
   id: string;
   origin: QuestionOrigin;
   level: QuestionLevel;
-  /** Only approved questions intended for the public platform are true. */
+  /** Platform-wide scope. Publication and review are checked separately. */
   public: boolean;
   complete: boolean;
   annulled: boolean;

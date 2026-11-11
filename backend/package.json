@@ -14,6 +14,8 @@
     "inventory:check": "tsx scripts/check-question-inventory.ts",
     "question-bank:import": "tsx scripts/import-eligible-question-batch.ts",
     "question-bank:prepare-authorial": "tsx scripts/prepare-authorial-question-batch.ts",
+    "question-bank:pilot": "tsx scripts/import-authorial-pilot.ts",
+    "account:bootstrap-pilot-admin": "tsx scripts/bootstrap-pilot-admin.ts",
     "email:verify": "tsx scripts/verify-email-config.ts",
     "test:legal-db": "node scripts/verify-legal-db.cjs",
     "prisma:generate": "prisma generate",

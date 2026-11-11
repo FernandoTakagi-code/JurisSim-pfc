@@ -1,5 +1,7 @@
 # Preparação do diagnóstico autoral
 
+Atualização operacional: após esta preparação, o responsável autorizou a importação e ativação de um piloto em revisão. Consulte `docs/piloto-autoral.md` para o estado atual. Os resultados e limites da etapa inicial abaixo foram preservados como histórico.
+
 Implementação local em 11/11/2026, organizada na branch `fernando/questoes-diagnostico-autoral`. Não houve importação de questões reais, escrita/migration/seed no Supabase, ativação de flags ou push. Migrations e dados fictícios foram usados exclusivamente no cluster descartável do ensaio.
 
 ## Onde cada parte entra

@@ -7,6 +7,8 @@ export type InitialDiagnosticDiscipline = typeof INITIAL_DIAGNOSTIC_DISCIPLINES[
 
 export interface InitialDiagnosticCandidate extends QuestionCandidate {
   discipline: string;
+  /** Only an explicitly selected provisional batch may carry this marker. */
+  draftPilotBatchId?: string;
 }
 
 export interface InitialDiagnosticSlot {
@@ -93,11 +95,15 @@ export function composeInitialDiagnostic(
   previouslyAnsweredIds: ReadonlySet<string> = new Set(),
   random: () => number = Math.random,
   mode: InitialDiagnosticCompositionMode = 'MISTA_15_15',
+  pilotBatchId?: string,
 ): InitialDiagnosticCompositionResult {
+  if (pilotBatchId && mode !== 'AUTORAL_30') throw new Error('Piloto exige composição autoral.');
   const slots = getInitialDiagnosticComposition(mode);
   const seenIds = new Set<string>();
   const eligible = inventory.filter((question) => {
-    if (seenIds.has(question.id) || !isEligiblePublicQuestion(question)) return false;
+    const pilotEligible = Boolean(pilotBatchId && question.draftPilotBatchId === pilotBatchId
+      && question.origin === 'IA' && question.public && question.complete && !question.annulled);
+    if (seenIds.has(question.id) || (!isEligiblePublicQuestion(question) && !pilotEligible)) return false;
     if (!INITIAL_DIAGNOSTIC_DISCIPLINES.includes(question.discipline as InitialDiagnosticDiscipline)) return false;
     seenIds.add(question.id);
     return true;

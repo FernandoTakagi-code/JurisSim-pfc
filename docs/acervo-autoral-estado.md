@@ -2,6 +2,8 @@
 
 Versão editorial 6, preparada em 11/11/2026. Questões assistidas por IA, sem aprovação jurídica humana ou liberação. A proposta de composição ainda aguarda confirmação do orientador. Esta documentação não autoriza importação no banco compartilhado.
 
+Atualização posterior: o responsável autorizou expressamente cadastrar a seleção de 30 e ativar um piloto para alunos enquanto a revisão permanece pendente. Essa operação foi realizada por fluxo específico de piloto, sem alterar as aprovações deste snapshot editorial. Consulte `docs/piloto-autoral.md`. As nove reservas continuam fora do lote importado.
+
 ## Conteúdo versionado
 
 - `backend/scripts/drafts/authorial-diagnostic-30.draft.json`: seleção de 30, seis por disciplina, duas por nível editorial provisório. Formato editorial aceito pelo preparador, não diretamente pelo importador.

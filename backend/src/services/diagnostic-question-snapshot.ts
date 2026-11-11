@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const snapshotSchema = z.object({
   version: z.literal(1),
+  provisional: z.literal(true).optional(),
   statement: z.string(),
   discipline: z.string(),
   topic: z.string(),
@@ -28,7 +29,7 @@ export function createDiagnosticQuestionSnapshot(question: {
   nivel: string;
   fundamentacaoJuridica: string;
   alternativas: readonly { id: string; letra: string | null; texto: string; correta: boolean }[];
-}): DiagnosticQuestionSnapshot {
+}, provisional = false): DiagnosticQuestionSnapshot {
   const alternatives = question.alternativas.map(alternative => ({
     id: alternative.id,
     letter: alternative.letra && ['A', 'B', 'C', 'D'].includes(alternative.letra) ? alternative.letra as 'A' | 'B' | 'C' | 'D' : null,
@@ -37,6 +38,7 @@ export function createDiagnosticQuestionSnapshot(question: {
   }));
   return snapshotSchema.parse({
     version: 1,
+    ...(provisional ? { provisional: true } : {}),
     statement: question.enunciado,
     discipline: question.disciplina,
     topic: question.assunto,

@@ -11,6 +11,7 @@ import { PrismaInitialDiagnosticRepository } from '../src/repositories/prisma-in
 import { PrismaInitialDiagnosticResolutionRepository } from '../src/repositories/prisma-initial-diagnostic-resolution-repository';
 import { InitialDiagnosticService } from '../src/services/initial-diagnostic-service';
 import { InitialDiagnosticResolutionService } from '../src/services/initial-diagnostic-resolution-service';
+import { importAuthorialPilot } from '../src/services/authorial-pilot-import';
 
 // Synthetic content only. No dotenv or arbitrary target. Identity is checked
 // before the first write; only the disposable harness can run this scenario.
@@ -81,6 +82,44 @@ async function main() {
   assert.equal(finalRecovery.status, 'COMPLETED');
   assert.equal(finalRecovery.attempt.id, created.attempt.id);
   console.log('PASS: authorial selection, recovery, 30 answers, 15/30 correction, 50% result and completed-attempt preservation');
+
+  const draftInput={questions:fixture.questions.map((q,index)=>({...q,_draftSlot:`PILOT-FIXTURE-${index}`,publica:true,turmaId:null,
+    enunciado:`PILOT-FIXTURE_ONLY ${suffix}-${index} conteúdo de teste ainda não revisado.`,
+    source:{name:'PILOT_FIXTURE_ONLY',reference:[{name:'Fixture',article:'Não é fonte jurídica',url:'https://fixture.invalid/pilot'}],licenseOrAuthorization:'FIXTURE_ONLY'},
+    legalReview:{reviewerId:null,reviewedAt:null,evidenceRef:null,status:'PENDENTE'},
+    pedagogicalReview:{reviewerId:null,reviewedAt:null,evidenceRef:null,status:'PENDENTE'},
+    release:{releasedById:null,releasedAt:null,evidenceRef:null,status:'PENDENTE'},
+  }))};
+  await assert.rejects(importAuthorialPilot(prisma,draftInput,student.id));
+  const importedPilot=await importAuthorialPilot(prisma,draftInput,admin.id);
+  assert.equal(importedPilot.imported,30);
+  assert.equal((await importAuthorialPilot(prisma,draftInput,admin.id)).recovered,true);
+  assert.equal(await prisma.questao.count({where:{loteImportacaoId:importedPilot.batchId,revisorJuridicoId:null,revisorPedagogicoId:null,liberadaAcervoEm:null}}),30);
+  const normalInventory=await repository.listEligibleInventory();
+  assert(normalInventory.every(q=>!importedPilot.questionIds.includes(q.id)));
+  const pilotRepository=new PrismaInitialDiagnosticRepository(prisma,importedPilot.batchId);
+  const pilotInventory=await pilotRepository.listEligibleInventory();
+  assert.equal(pilotInventory.length,30);
+  assert(pilotInventory.every(q=>!q.legalReviewApproved&&!q.pedagogicalReviewApproved&&!q.published));
+  const pilotStudent=await prisma.user.create({data:{nome:'PILOT_FIXTURE_ONLY student',email:`pilot-${suffix}@example.invalid`,role:'ALUNO'}});
+  const pilotService=new InitialDiagnosticService(pilotRepository,()=>0,'AUTORAL_30',importedPilot.batchId);
+  const pilotAttempt=await pilotService.getOrCreate(pilotStudent.id);
+  if(pilotAttempt.status!=='IN_PROGRESS')throw new Error('Pilot inventory insufficient');
+  assert.equal(pilotAttempt.attempt.provisional,true);
+  const recoveredPilot=await new InitialDiagnosticService(repository).getOrCreate(pilotStudent.id);
+  if(recoveredPilot.status==='INSUFFICIENT')throw new Error('Pilot recovery lost');
+  assert.equal(recoveredPilot.attempt.provisional,true);
+  const pilotQuestions=await resolution.getQuestions(pilotStudent.id,pilotAttempt.attempt.id);
+  for(const question of pilotQuestions){
+    const correct=await prisma.alternativa.findFirstOrThrow({where:{questaoId:question.id,correta:true}});
+    await resolution.saveAnswer(pilotStudent.id,pilotAttempt.attempt.id,question.id,correct.id);
+  }
+  assert.equal((await resolution.getAnswers(pilotStudent.id,pilotAttempt.attempt.id)).provisional,true);
+  const pilotResult=await resolution.finalize(pilotStudent.id,pilotAttempt.attempt.id);
+  assert.equal(pilotResult.provisional,true);
+  assert.equal(pilotResult.correctAnswers,30);
+  assert.equal(pilotResult.overallPercentage,100);
+  console.log('PASS: pending-review pilot import/idempotence, strict batch isolation, provisional snapshots/recovery/results and unchanged normal eligibility');
 }
 main().catch(() => {
   console.error('Authorial database scenario failed; driver details suppressed. No external target is accepted.');

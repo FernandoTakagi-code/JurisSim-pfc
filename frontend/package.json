@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test:legal": "node scripts/test-legal.mjs",
-    "test:questions": "node scripts/test-question-form.mjs"
+    "test:questions": "node scripts/test-question-form.mjs",
+    "test:pilot": "node scripts/test-authorial-pilot.mjs"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
