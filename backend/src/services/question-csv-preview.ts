@@ -143,7 +143,7 @@ function fieldErrors(cells: Record<string, string>): RowError[] {
   const letters = ['A', 'B', 'C', 'D', 'E'];
   const alternatives = letters.map((letter, index) => ({ field: `alternativa_${letter.toLowerCase()}`, text: cells[`alternativa_${letter.toLowerCase()}`]?.trim() ?? '', index }));
   const filled = alternatives.filter(alternative => alternative.text.length > 0);
-  if (filled.length < 2) add('alternativa_a', 'Preencha pelo menos duas alternativas.');
+  if (filled.length !== 4 || cells.alternativa_e?.trim()) add('alternativa_a', 'Preencha exatamente quatro alternativas, de A a D, e deixe E vazia.');
   let emptySeen = false;
   for (const alternative of alternatives) {
     if (!alternative.text) emptySeen = true;
@@ -151,7 +151,7 @@ function fieldErrors(cells: Record<string, string>): RowError[] {
     if (alternative.text.length > QUESTION_CSV_LIMITS.alternativa) add(alternative.field, `Máximo de ${QUESTION_CSV_LIMITS.alternativa} caracteres.`);
   }
   const answer = cells.gabarito.trim().toUpperCase();
-  if (answer && !letters.includes(answer)) add('gabarito', 'Informe uma letra de A a E.');
+  if (answer && !['A', 'B', 'C', 'D'].includes(answer)) add('gabarito', 'Informe uma letra de A a D.');
   else if (answer && !alternatives[letters.indexOf(answer)]?.text) add('gabarito', 'O gabarito deve apontar para uma alternativa preenchida.');
 
   if (!errors.length) {

@@ -1,5 +1,6 @@
 import { apiRequest } from './api';
 import { useEffect, useState } from "react";
+import { questionAlternativesError } from '../../backend/src/question-alternatives';
 
 
 type Alternativa = { id: string; texto: string; correta?: boolean };
@@ -101,7 +102,7 @@ function NovaQuestaoForm({ onCriada }: { onCriada: () => void }) {
   const [fundamentacaoJuridica, setFundamentacaoJuridica] = useState("");
   const [publica, setPublica] = useState(true);
   const [alternativas, setAlternativas] = useState([
-    { texto: "", correta: true },
+    { texto: "", correta: false },
     { texto: "", correta: false },
     { texto: "", correta: false },
     { texto: "", correta: false },
@@ -116,6 +117,8 @@ function NovaQuestaoForm({ onCriada }: { onCriada: () => void }) {
     setAlternativas((atual) => atual.map((a, i) => ({ ...a, correta: i === index })));
 
   const submit = async () => {
+    const validationError = questionAlternativesError(alternativas);
+    if (validationError) { setError(validationError); return; }
     setLoading(true);
     setError("");
     try {
