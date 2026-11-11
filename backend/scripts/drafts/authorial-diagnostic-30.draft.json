@@ -1,0 +1,2642 @@
+{
+  "_draftMetadata": {
+    "version": 6,
+    "preparedOn": "2026-11-11",
+    "generatedBy": "OpenAI Codex AI assistant",
+    "humanAuthor": null,
+    "authorialDiagnosticProposal": {
+      "approvedByAdvisor": false,
+      "distribution": "Seleção de 30: seis por disciplina, dois de cada nível. Acervo total de 39 rascunhos com nove reservas. Classificações editoriais provisórias.",
+      "productionConfigurationChanged": false
+    },
+    "eligibleForImport": false,
+    "importCompatible": false,
+    "reason": "Proposta integralmente autoral ainda depende de decisão do orientador e alinhamento do contrato; revisão humana e liberação não realizadas.",
+    "originalityScope": "Novas redações assistidas por IA. A versão 6 confere duplicidade exata de enunciados no acervo local e em arquivos de referência disponíveis; não certifica originalidade global nem ausência de equivalência temática.",
+    "difficultyScope": "Classificação editorial provisória, sem calibração empírica.",
+    "practiceScope": "As nove reservas estão no acervo de 39 e não asseguram prática por disciplina e assunto após o diagnóstico.",
+    "preliminaryReview": {
+      "date": "2026-11-11",
+      "kind": "ASSISTIDA_POR_IA_SEM_APROVACAO_HUMANA",
+      "scope": "Conferência preliminar assistida por IA de todos os 39 rascunhos; não equivale a revisão jurídica humana, validação pedagógica ou certificação psicométrica.",
+      "reviewedPoolItems": 39,
+      "unreviewedPoolItems": 0,
+      "targetDistributionSatisfied": true,
+      "difficultyCalibrated": false,
+      "nextContentNeed": "Revisão jurídica e pedagógica humanas, decisão de composição, piloto e validação da importação em ambiente isolado."
+    },
+    "sourceVersion": "acervo-autoral-33-v5-civil-completo.json"
+  },
+  "questions": [
+    {
+      "_draftSlot": "AUT-CON-B-01",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Elisa apresenta a um órgão público uma petição para denunciar abuso de poder. O protocolo exige uma taxa para receber o documento, mesmo sem pedido de cópias ou de outro serviço. Considerando a garantia constitucional do direito de petição, como deve ser avaliada essa exigência?",
+      "disciplina": "Direito Constitucional",
+      "assunto": "Direito de petição",
+      "nivel": "BASICO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Reconhecer a gratuidade constitucional do direito de petição.",
+      "justificativaNivel": "Aplicação direta de garantia expressa, sem análise de exceção.",
+      "gabarito": "C",
+      "fundamentacaoJuridica": "O recebimento da petição contra abuso de poder não pode ser condicionado à taxa. A gratuidade decorre diretamente da Constituição e independe de pobreza ou de lei concessiva. Fundamento: CF, art. 5º, XXXIV, a. O enunciado não abrange cobrança por serviço diverso.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "É constitucional, pois a gratuidade depende da comprovação de insuficiência de recursos.",
+          "comentario": "A gratuidade constitucional do direito de petição não exige comprovação de insuficiência de recursos.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "É constitucional, se a taxa remunerar apenas o protocolo, e não a decisão sobre o pedido.",
+          "comentario": "Condicionar o próprio recebimento da petição ao pagamento também restringe a garantia; separar protocolo e decisão não legitima a cobrança descrita.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "É inconstitucional, pois a garantia de petição independe do recolhimento de taxas.",
+          "comentario": "A Constituição protege gratuitamente a petição para defesa de direitos ou contra ilegalidade ou abuso de poder. O caso não trata de outro serviço.",
+          "correta": true
+        },
+        {
+          "letra": "D",
+          "texto": "É inconstitucional apenas se lei específica conceder gratuidade a quem apresenta a petição.",
+          "comentario": "A garantia decorre diretamente da Constituição e não depende de lei específica que conceda gratuidade.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Constituição Federal de 1988, texto atualizado na Câmara dos Deputados",
+            "article": "art. 5º, XXXIV, a",
+            "url": "https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES_DE_REDACAO",
+        "answerKeyAssessment": "Gabarito sustentado pelas fontes consultadas; não identificada segunda resposta correta sob as premissas expressas.",
+        "changes": [
+          "Delimitado que a cobrança é pelo próprio recebimento da petição.",
+          "Substituídos distratores sobre órgão denunciado e advogado por erros mais relacionados à garantia.",
+          "Aproximado o tamanho das alternativas."
+        ],
+        "difficultyReason": "Básico: aplicação direta de garantia expressa.",
+        "remainingHumanChecks": [
+          "Conferir plausibilidade dos distratores com alunos.",
+          "Não generalizar a conclusão a todo serviço público ou a toda taxa administrativa."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CON-B-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Bianca, brasileira alfabetizada de 17 anos, pergunta se é obrigada a se alistar e votar. Ela não se encontra em hipótese de impedimento eleitoral. Segundo a Constituição:",
+      "disciplina": "Direito Constitucional",
+      "assunto": "Alistamento e voto facultativos",
+      "nivel": "BASICO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Identificar a regra constitucional aplicável ao eleitor adolescente.",
+      "justificativaNivel": "Reconhecimento de regra etária objetiva.",
+      "gabarito": "C",
+      "fundamentacaoJuridica": "A Constituição prevê facultatividade para maiores de 16 e menores de 18 anos. Fundamentação: Constituição Federal de 1988, art. 14, § 1º, II, c.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "O alistamento é obrigatório, mas o voto é facultativo.",
+          "comentario": "A facultatividade constitucional alcança os dois atos.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "O alistamento é facultativo, mas, realizado, torna o voto obrigatório antes dos 18 anos.",
+          "comentario": "A inscrição não elimina a facultatividade constitucional do voto nessa faixa etária.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Tanto o alistamento quanto o voto são facultativos nessa faixa etária.",
+          "comentario": "A Constituição prevê facultatividade para maiores de 16 e menores de 18 anos.",
+          "correta": true
+        },
+        {
+          "letra": "D",
+          "texto": "O alistamento e o voto são obrigatórios porque Bianca é alfabetizada.",
+          "comentario": "A alfabetização não afasta a hipótese etária de facultatividade.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Constituição Federal de 1988, texto atualizado na Câmara dos Deputados",
+            "article": "art. 14, § 1º, II, c",
+            "url": "https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          },
+          {
+            "name": "Tribunal Superior Eleitoral, Manual do Eleitor para as Eleições 2026",
+            "article": "Orientação sobre alistamento e voto aos 16 e 17 anos",
+            "url": "https://www.tse.jus.br/comunicacao/noticias/2026/Julho/manual-do-eleitor-jovens-se-preparam-para-participar-das-eleicoes-2026",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER",
+        "answerKeyAssessment": "Gabarito sustentado pelas fontes consultadas; não identificada segunda resposta correta sob as premissas expressas.",
+        "changes": [
+          "Mantido enunciado, alternativas e gabarito.",
+          "Acrescentada orientação oficial do TSE à referência constitucional."
+        ],
+        "difficultyReason": "Básico: reconhecer facultatividade aos 17 anos; alfabetização não elimina essa hipótese.",
+        "remainingHumanChecks": [
+          "Se for acrescentada uma eleição concreta ao caso, explicitar a idade na data da votação.",
+          "Não transformar esta questão em afirmação de que o título só pode ser solicitado aos 16; isso não é o que ela pergunta."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CON-I-01",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Uma associação lícita teve suas atividades suspensas por decisão judicial ainda recorrível. Em outro processo, foi determinada sua dissolução compulsória, também sem trânsito em julgado. Quanto ao requisito de definitividade da decisão, a Constituição exige:",
+      "disciplina": "Direito Constitucional",
+      "assunto": "Liberdade de associação",
+      "nivel": "INTERMEDIARIO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Distinguir suspensão de atividades e dissolução compulsória.",
+      "justificativaNivel": "Comparação entre duas consequências com requisitos diferentes.",
+      "gabarito": "B",
+      "fundamentacaoJuridica": "A suspensão de atividades e a dissolução compulsória dependem de decisão judicial. Para dissolver compulsoriamente, a Constituição exige adicionalmente trânsito em julgado. Fundamento: CF, art. 5º, XIX. A questão examina esse requisito, não os fundamentos materiais das decisões.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "A decisão deve ser definitiva tanto para dissolver a associação quanto para suspender suas atividades.",
+          "comentario": "A definitividade é exigida para a dissolução compulsória; a suspensão pode ser determinada por decisão judicial ainda recorrível.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "A dissolução exige decisão definitiva; a suspensão das atividades pode decorrer de decisão judicial recorrível.",
+          "comentario": "As duas medidas exigem decisão judicial. Somente a dissolução compulsória exige também trânsito em julgado.",
+          "correta": true
+        },
+        {
+          "letra": "C",
+          "texto": "A suspensão exige decisão definitiva; a dissolução pode decorrer de decisão judicial recorrível.",
+          "comentario": "A alternativa inverte os requisitos constitucionais.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Nenhuma das medidas exige decisão definitiva, desde que ambas sejam determinadas pelo Poder Judiciário.",
+          "comentario": "Ser judicial não basta para a dissolução compulsória: também é necessário trânsito em julgado.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Constituição Federal de 1988, texto atualizado na Câmara dos Deputados",
+            "article": "art. 5º, XIX",
+            "url": "https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES_DE_REDACAO",
+        "answerKeyAssessment": "Gabarito sustentado pelas fontes consultadas; não identificada segunda resposta correta sob as premissas expressas.",
+        "changes": [
+          "Todas as alternativas passaram a comparar as mesmas duas medidas.",
+          "Removido distrator sobre decisão administrativa, que desviava do requisito de definitividade.",
+          "Preservado o recorte da pergunta para não julgar a causa material da dissolução."
+        ],
+        "difficultyReason": "Intermediário provisório: comparar dois procedimentos com requisitos diferentes; pode revelar-se básico em piloto.",
+        "remainingHumanChecks": [
+          "Não interpretar a questão como aprovação de qualquer motivo para dissolver associação.",
+          "Conferir no piloto se a comparação justifica nível intermediário."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CON-I-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Na ausência de normas gerais federais sobre matéria de competência legislativa concorrente, um estado editou validamente lei para atender a suas peculiaridades. Depois foi editada lei federal de normas gerais, incompatível apenas com parte da disciplina estadual. Qual é o efeito constitucional dessa superveniência?",
+      "disciplina": "Direito Constitucional",
+      "assunto": "Competência legislativa concorrente",
+      "nivel": "INTERMEDIARIO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Aplicar o efeito da superveniência de normas gerais federais.",
+      "justificativaNivel": "Combina competência inicial estadual e efeito posterior de normas gerais.",
+      "gabarito": "A",
+      "fundamentacaoJuridica": "A competência estadual plena na ausência inicial de normas gerais federais não impede a suspensão posterior da eficácia do que contrariar normas gerais federais supervenientes. Fundamento: CF, art. 24, §§ 3º e 4º. A pergunta distingue eficácia, revogação e invalidade originária.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Suspensão da eficácia da lei estadual somente naquilo que contrariar as normas gerais federais.",
+          "comentario": "A norma estadual perde eficácia no trecho incompatível; não ocorre revogação integral nem invalidade retroativa pelo simples surgimento da norma federal.",
+          "correta": true
+        },
+        {
+          "letra": "B",
+          "texto": "Revogação integral da lei estadual, inclusive dos dispositivos que forem compatíveis com as normas federais.",
+          "comentario": "A Constituição prevê suspensão de eficácia no que for contrário, preservando o que não conflitar.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Invalidade da lei estadual desde a origem, porque a União ainda não havia editado suas normas gerais.",
+          "comentario": "A ausência inicial de normas gerais federais permite competência estadual plena para atender às peculiaridades, nas condições delimitadas.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Manutenção da eficácia integral da lei estadual, porque a competência plena foi exercida antes da edição federal.",
+          "comentario": "O exercício válido anterior não afasta a suspensão posterior da eficácia das disposições conflitantes.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Constituição Federal de 1988, texto atualizado na Câmara dos Deputados",
+            "article": "art. 24, §§ 3º e 4º",
+            "url": "https://www2.camara.leg.br/legin/fed/consti/1988/constituicao-1988-5-outubro-1988-322142-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES_DE_REDACAO",
+        "answerKeyAssessment": "Gabarito sustentado pelas fontes consultadas; não identificada segunda resposta correta sob as premissas expressas.",
+        "changes": [
+          "Explicitada a validade inicial da lei estadual.",
+          "Esclarecido que se trata de competência legislativa concorrente.",
+          "Revisados distratores para contrastar suspensão, revogação e invalidade."
+        ],
+        "difficultyReason": "Intermediário: aplicar uma sequência temporal e distinguir efeitos jurídicos.",
+        "remainingHumanChecks": [
+          "Conferir a compreensão dos termos eficácia e validade.",
+          "Caso seja acrescentada matéria concreta, conferir se ela efetivamente se enquadra no art. 24 e se não há regime constitucional especial."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CIV-B-01",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Duas pessoas assumem uma dívida contratual divisível em dinheiro. Não há estipulação expressa ou tácita de solidariedade, nem norma legal que a imponha ao caso. O credor afirma que pode cobrar de qualquer delas a dívida inteira apenas porque há dois devedores. Esse argumento:",
+      "disciplina": "Direito Civil",
+      "assunto": "Solidariedade nas obrigações",
+      "nivel": "BASICO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Reconhecer que pluralidade de devedores não basta para presumir solidariedade.",
+      "justificativaNivel": "Aplicação direta da fonte da solidariedade.",
+      "gabarito": "A",
+      "fundamentacaoJuridica": "A pluralidade de devedores não basta para instituir solidariedade. O art. 265 do Código Civil exige lei ou vontade das partes, ambas excluídas no caso. O art. 264 descreve a responsabilidade pela dívida inteira na obrigação solidária.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Não procede: a solidariedade exige previsão legal ou manifestação de vontade das partes.",
+          "comentario": "A pluralidade de devedores, por si só, não cria solidariedade. O caso exclui suas duas fontes.",
+          "correta": true
+        },
+        {
+          "letra": "B",
+          "texto": "Procede: a presença de dois devedores basta para que cada um responda pela dívida inteira.",
+          "comentario": "Confunde pluralidade de devedores com solidariedade.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Procede: a prestação em dinheiro torna solidária qualquer dívida com mais de um devedor.",
+          "comentario": "A natureza monetária da prestação não cria solidariedade.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Não procede: a solidariedade só poderia ser criada por lei, nunca por acordo entre devedores e credor.",
+          "comentario": "A vontade das partes também pode estabelecer solidariedade.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Civil, Lei 10.406/2002, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 264 e 265",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/2002/lei-10406-10-janeiro-2002-432893-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_BASICO_COM_AJUSTES",
+        "changes": [
+          "Explicitada ausência de manifestação de vontade também tácita.",
+          "Distratores aproximados do erro central: pluralidade, dinheiro e fontes da solidariedade."
+        ],
+        "difficultyReason": "Aplicação direta da fonte da solidariedade.",
+        "remainingHumanChecks": [
+          "Conferir plausibilidade dos distratores; não ensinar que solidariedade exige sempre cláusula escrita."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CIV-B-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Uma médica exerce regularmente a profissão nas cidades de Aurora e Bela Vista. A relação examinada decorre exclusivamente de atendimento prestado em Aurora. Sem resolver regras de competência processual, qual afirmação está de acordo com o domicílio profissional previsto no Código Civil?",
+      "disciplina": "Direito Civil",
+      "assunto": "Domicílio profissional",
+      "nivel": "BASICO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Identificar domicílio ligado à relação profissional.",
+      "justificativaNivel": "Reconhecimento de critério legal de domicílio, sem resolver competência processual.",
+      "gabarito": "B",
+      "fundamentacaoJuridica": "O art. 72 do Código Civil reconhece o domicílio profissional e, havendo exercício em lugares diversos, vincula cada local às relações correspondentes. No caso, o vínculo descrito é com Aurora. Isso não resolve, por si só, o foro competente.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Somente a cidade de residência familiar pode ser domicílio, mesmo nas relações profissionais.",
+          "comentario": "O domicílio profissional também é reconhecido pelo Código Civil.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "Aurora é seu domicílio profissional quanto à relação descrita; Bela Vista também o é quanto às relações profissionais que ali se desenvolvam.",
+          "comentario": "O art. 72 vincula cada lugar de exercício profissional às relações correspondentes.",
+          "correta": true
+        },
+        {
+          "letra": "C",
+          "texto": "As duas cidades são indistintamente domicílio profissional para qualquer atendimento prestado em uma delas.",
+          "comentario": "A pluralidade de locais não elimina o vínculo de cada domicílio profissional com as respectivas relações.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Somente a cidade em que começou a exercer a profissão é domicílio para todas as relações posteriores.",
+          "comentario": "A lei não estabelece prioridade do primeiro lugar de exercício.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Civil, Lei 10.406/2002, texto atualizado na Câmara dos Deputados",
+            "article": "art. 72, caput e parágrafo único",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/2002/lei-10406-10-janeiro-2002-432893-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_BASICO_COM_AJUSTES",
+        "changes": [
+          "Vinculado o caso a cidades identificadas.",
+          "Substituído distrator de livre escolha por confusão plausível entre pluralidade e vínculo da relação.",
+          "Explicitado que o item não decide competência processual."
+        ],
+        "difficultyReason": "Reconhecimento de critério legal de domicílio, sem resolver competência processual.",
+        "remainingHumanChecks": [
+          "Avaliar extensão da alternativa B e eventual pista visual.",
+          "Distinguir domicílio civil e regras processuais em eventual comentário do professor."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CIV-A-03",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Aline, Bruno, Clara e Diego assumiram solidariamente uma dívida de R$ 120 mil, com quotas internas iguais e interesse comum na obrigação. O credor renunciou apenas à solidariedade em favor de Bruno, sem perdoar sua dívida. Bruno pagou ao credor os R$ 30 mil de sua quota. Clara tornou-se insolvente e Aline quitou os R$ 90 mil restantes. Não há pacto diferente sobre o rateio nem outros pagamentos. Desconsiderando juros e despesas, quanto Aline pode exigir, em regresso, de Bruno e de Diego, respectivamente?",
+      "disciplina": "Direito Civil",
+      "assunto": "Solidariedade: renúncia e rateio da insolvência",
+      "nivel": "AVANCADO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Distinguir renúncia à solidariedade de remissão e distribuir internamente a quota do insolvente, considerando pagamentos já realizados.",
+      "justificativaNivel": "Avançado provisório: combina renúncia sem remissão, quitação parcial prévia, regresso e rateio da quota insolvente entre três solventes. A dificuldade depende de validação humana e piloto.",
+      "gabarito": "C",
+      "fundamentacaoJuridica": "Cada quota inicial é de R$ 30 mil. A quota de Clara divide-se entre os três solventes, cabendo mais R$ 10 mil a cada um. Bruno, que já pagou sua quota, ainda participa desse rateio: deve R$ 10 mil a Aline. Diego deve sua quota de R$ 30 mil mais R$ 10 mil do rateio, totalizando R$ 40 mil. Aline suporta R$ 40 mil ao final. Fundamentos: Código Civil, arts. 282 a 284. A renúncia à solidariedade não equivale à remissão.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "R$ 0 de Bruno e R$ 45 mil de Diego.",
+          "comentario": "Exclui indevidamente Bruno do rateio e divide a quota de Clara apenas entre Aline e Diego.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "R$ 0 de Bruno e R$ 30 mil de Diego.",
+          "comentario": "Ignora tanto a participação de Bruno quanto o rateio da quota insolvente.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "R$ 10 mil de Bruno e R$ 40 mil de Diego.",
+          "comentario": "Bruno contribui com R$ 10 mil da insolvência; Diego deve R$ 30 mil de quota própria mais R$ 10 mil do rateio.",
+          "correta": true
+        },
+        {
+          "letra": "D",
+          "texto": "R$ 40 mil de Bruno e R$ 40 mil de Diego.",
+          "comentario": "Desconsidera os R$ 30 mil já pagos por Bruno ao credor e cobra novamente sua quota original.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Civil, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 282, 283 e 284",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/2002/lei-10406-10-janeiro-2002-432893-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          },
+          {
+            "name": "Conselho da Justiça Federal — IV Jornada de Direito Civil",
+            "article": "Enunciado 350; orientação interpretativa, sem caráter vinculante",
+            "url": "https://www.cjf.jus.br/enunciados/enunciado/415",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "NOVA_CANDIDATA_AVANCADA",
+        "difficultyReason": "Avançado provisório: combina renúncia sem remissão, quitação parcial prévia, regresso e rateio da quota insolvente entre três solventes. A dificuldade depende de validação humana e piloto.",
+        "remainingHumanChecks": [
+          "Confirmar aplicação das regras de regresso à quitação do saldo após pagamento da quota pelo beneficiário da renúncia.",
+          "Conferir clareza, resposta única e plausibilidade dos distratores.",
+          "Validar dificuldade com professor e piloto."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CIV-I-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Otávio, casado sob comunhão parcial de bens, é pai de dois filhos maiores e vende diretamente um bem a um deles. O outro filho e o cônjuge não consentiram expressamente. Para identificar os consentimentos exigidos e a espécie de invalidade prevista no art. 496 do Código Civil, sem decidir os demais requisitos de uma ação anulatória, qual afirmação é correta?",
+      "disciplina": "Direito Civil",
+      "assunto": "Venda de ascendente a descendente",
+      "nivel": "INTERMEDIARIO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Identificar os consentimentos do art. 496 e distinguir anulabilidade de nulidade, sem presumir procedência automática de ação judicial.",
+      "justificativaNivel": "Relaciona vínculo familiar, regime de bens e espécie de invalidade.",
+      "gabarito": "A",
+      "fundamentacaoJuridica": "O art. 496 do Código Civil prevê anulabilidade e exige consentimentos dos outros descendentes e do cônjuge, com exceção expressa para o cônjuge na separação obrigatória. O caso adota comunhão parcial. A pergunta limita-se à regra legal; não afirma que a falta de consentimento, isoladamente, assegura anulação judicial. O STJ examina também iniciativa do interessado e elementos de simulação ou prejuízo no reconhecimento da anulabilidade.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "O caso envolve os consentimentos do outro filho e do cônjuge; a espécie de invalidade prevista no dispositivo é a anulabilidade.",
+          "comentario": "A comunhão parcial não corresponde à exceção de separação obrigatória indicada no parágrafo único do art. 496.",
+          "correta": true
+        },
+        {
+          "letra": "B",
+          "texto": "O caso envolve esses dois consentimentos, mas a lei considera nula qualquer venda entre ascendente e descendente.",
+          "comentario": "O dispositivo prevê anulabilidade, não nulidade de toda venda entre parentes nessa linha.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Nenhum desses consentimentos é exigido, pois a maioridade dos dois filhos afasta a regra do dispositivo.",
+          "comentario": "A maioridade não dispensa os consentimentos exigidos pelo art. 496.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Apenas o consentimento do outro filho é exigido, pois a comunhão parcial dispensa o consentimento do cônjuge.",
+          "comentario": "A exceção expressa do dispositivo é a separação obrigatória, não a comunhão parcial.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Civil, Lei 10.406/2002, texto atualizado na Câmara dos Deputados",
+            "article": "art. 496, caput e parágrafo único",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/2002/lei-10406-10-janeiro-2002-432893-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          },
+          {
+            "name": "STJ, Informativo 667 — REsp 1.679.501/GO",
+            "article": "Requisitos para reconhecimento da anulabilidade; distinção entre previsão legal e anulação judicial",
+            "url": "https://scon.stj.jus.br/jurisprudencia/externo/informativo/?acao=pesquisar&livre=%28%22REsp%22+adj+%28%221679501%22+ou+%221679501%22-GO+ou+%221679501%22%2FGO+ou+%221.679.501%22+ou+%221.679.501%22-GO+ou+%221.679.501%22%2FGO%29%29.prec%2Ctext.",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_INTERMEDIARIO_COM_DELIMITACAO",
+        "changes": [
+          "Retirada conclusão categórica sobre o resultado do negócio concreto.",
+          "Pergunta agora identifica consentimentos e espécie legal de invalidade.",
+          "Acrescentada ressalva sobre os requisitos jurisprudenciais de eventual ação anulatória."
+        ],
+        "difficultyReason": "Relaciona vínculo familiar, regime de bens e espécie de invalidade.",
+        "remainingHumanChecks": [
+          "Revisão jurídica deve confirmar delimitação adequada da pergunta e alcance do precedente.",
+          "Se o item passar a perguntar pelo resultado da ação, acrescentar fatos sobre preço, simulação/prejuízo e demais requisitos pertinentes."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CIV-A-01",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Rosa cede validamente a Tiago um crédito contra Hugo. Sem notificação, declaração escrita de ciência ou qualquer outro conhecimento da cessão, Hugo paga integralmente a dívida a Rosa. Tiago exige que Hugo pague novamente. Quanto ao devedor:",
+      "disciplina": "Direito Civil",
+      "assunto": "Cessão de crédito e pagamento",
+      "nivel": "INTERMEDIARIO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Distinguir eficácia perante o devedor e efeito do pagamento anterior à ciência.",
+      "justificativaNivel": "Intermediário: distingue validade da cessão e eficácia perante o devedor, aplicando a proteção expressa ao pagamento anterior ao conhecimento; não há conflito adicional que sustente nível avançado.",
+      "gabarito": "D",
+      "fundamentacaoJuridica": "Os arts. 290 e 292 do Código Civil distinguem a eficácia da cessão perante o devedor da validade entre cedente e cessionário. O pagamento ao credor primitivo antes do conhecimento da cessão desobriga Hugo. A questão não decide pretensões de Tiago contra Rosa.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "O pagamento é ineficaz porque a cessão válida impede sempre pagar ao credor anterior.",
+          "comentario": "Confunde a validade da cessão com sua eficácia perante devedor sem conhecimento.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "O pagamento só o desobriga se a cessão for posteriormente desfeita entre Rosa e Tiago.",
+          "comentario": "A desobrigação do devedor não exige desfazer a cessão válida entre cedente e cessionário.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "A ausência de notificação torna a cessão inválida entre Rosa e Tiago, sendo essa invalidade a razão da desobrigação de Hugo.",
+          "comentario": "Confunde falta de eficácia perante o devedor com invalidade da cessão entre seus participantes.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "O pagamento anterior ao conhecimento da cessão o desobriga, não sendo devido novo pagamento a Tiago.",
+          "comentario": "A proteção do devedor sem ciência da cessão impede a duplicação da cobrança contra ele.",
+          "correta": true
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Civil, Lei 10.406/2002, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 290 e 292",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/2002/lei-10406-10-janeiro-2002-432893-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "originalLevel": "AVANCADO",
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "RECLASSIFICAR_PARA_INTERMEDIARIO",
+        "changes": [
+          "Preservado gabarito D.",
+          "Substituído distrator de pagamento de metade por confusão entre validade e eficácia.",
+          "Retirada classificação avançada por insuficiência de etapas ou exceções relevantes."
+        ],
+        "difficultyReason": "Intermediário: distingue validade da cessão e eficácia perante o devedor, aplicando a proteção expressa ao pagamento anterior ao conhecimento; não há conflito adicional que sustente nível avançado.",
+        "remainingHumanChecks": [
+          "Avaliar se a distinção entre validade e eficácia está clara e se as alternativas A e C capturam erros diferentes."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CIV-A-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Em contrato civil paritário de prestação de serviços, sujeito às regras gerais do Código Civil e sem regime legal especial, a obrigação principal tem valor de R$ 10 mil. Uma parte útil da prestação foi cumprida, mas houve inadimplemento do restante imputável ao devedor, fazendo incidir a cláusula penal compensatória convencionada em R$ 15 mil. O credor cobra a penalidade integral. Considerando apenas o teto legal e o cumprimento parcial, qual orientação é adequada?",
+      "disciplina": "Direito Civil",
+      "assunto": "Cláusula penal",
+      "nivel": "AVANCADO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Articular teto legal e redução equitativa da penalidade, distinguindo-os de um cálculo proporcional obrigatório.",
+      "justificativaNivel": "Avançado provisório: distingue dois controles legais, rejeita imunidade por paridade contratual e evita reduzir equidade a cálculo automático. Necessita validação pedagógica e piloto.",
+      "gabarito": "B",
+      "fundamentacaoJuridica": "Os arts. 412 e 413 do Código Civil submetem a penalidade ao teto da obrigação principal e à redução equitativa pelo cumprimento parcial. A quantificação depende da avaliação concreta; não decorre de proporção matemática obrigatória. A hipótese exclui regime legal especial e explicita a incidência da pena, sem decidir outros efeitos do inadimplemento.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Os R$ 15 mil são exigíveis integralmente, pois a paridade contratual afasta o teto e a redução judicial da penalidade.",
+          "comentario": "A paridade não afasta os controles dos arts. 412 e 413 no regime geral descrito.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "Incidem o teto do valor da obrigação principal e a redução equitativa pelo cumprimento parcial; os dados não permitem fixar a penalidade final.",
+          "comentario": "O teto e a redução equitativa devem ser considerados; não há informação suficiente para quantificar o resultado.",
+          "correta": true
+        },
+        {
+          "letra": "C",
+          "texto": "A penalidade deve ser fixada em R$ 10 mil, pois a aplicação do teto dispensa a análise do cumprimento parcial.",
+          "comentario": "Atender ao teto não substitui o exame da redução equitativa.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "A penalidade deve corresponder necessariamente à mesma porcentagem do preço que representa a parcela de serviços não cumprida.",
+          "comentario": "A redução equitativa não exige correspondência matemática obrigatória com a porcentagem inadimplida.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Civil, Lei 10.406/2002, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 412 e 413",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/2002/lei-10406-10-janeiro-2002-432893-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          },
+          {
+            "name": "STJ, REsp 1.898.738/SP, publicação em 26/03/2021",
+            "article": "Art. 413: redução equitativa e ausência de proporcionalidade matemática obrigatória",
+            "url": "https://www.stj.jus.br/websecstj/cgi/revista/REJ.cgi/ITA?CodOrgaoJgdr=&SeqCgrmaSessao=&dt=20210326&formato=PDF&nreg=202002562376&salvar=false&seq=2035968&tipo=0",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_AVANCADO_PROVISORIO_COM_AJUSTES",
+        "changes": [
+          "Delimitado contrato de serviços sem regime especial.",
+          "Explicitados cumprimento parcial útil, imputabilidade e incidência da penalidade.",
+          "Introduzido distrator sobre proporcionalidade matemática para avaliar a distinção de equidade."
+        ],
+        "difficultyReason": "Avançado provisório: distingue dois controles legais, rejeita imunidade por paridade contratual e evita reduzir equidade a cálculo automático. Necessita validação pedagógica e piloto.",
+        "remainingHumanChecks": [
+          "Confirmar classificação avançada; a combinação de duas regras pode ainda ser intermediária para a população-alvo.",
+          "Não generalizar a contratos com legislação específica nem calcular pena final sem dados."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-PEN-B-01",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Em crime instantâneo, uma pessoa realiza a ação em um dia e o resultado típico ocorre apenas no dia seguinte. Considerando exclusivamente a regra geral sobre o tempo do crime no Código Penal, qual momento deve ser considerado?",
+      "disciplina": "Direito Penal",
+      "assunto": "Tempo do crime",
+      "nivel": "BASICO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Distinguir momento da ação e momento do resultado.",
+      "justificativaNivel": "Aplicação direta de critério temporal.",
+      "gabarito": "B",
+      "fundamentacaoJuridica": "Para a regra temporal do art. 4º do Código Penal, considera-se o momento da ação ou omissão, ainda que o resultado seja posterior. O item delimita crime instantâneo e não examina consumação, competência ou crime permanente.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Somente no momento do resultado.",
+          "comentario": "Essa resposta corresponde a critério diferente do adotado para o tempo do crime.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "No momento da ação, ainda que o resultado ocorra depois.",
+          "comentario": "A regra adota o momento da ação ou omissão para o tempo do crime.",
+          "correta": true
+        },
+        {
+          "letra": "C",
+          "texto": "No momento da ação e no do resultado, indistintamente.",
+          "comentario": "Transporta para o tempo do crime a combinação de critérios usada na regra de lugar.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "No momento do resultado, salvo se a ação e o resultado ocorrerem em cidades diferentes.",
+          "comentario": "A distância entre cidades não altera a regra temporal.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Penal, texto atualizado no Senado Federal",
+            "article": "art. 4º",
+            "url": "https://legis.senado.gov.br/norma/527942/publicacao/39870011",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Retirado início metalinguístico “para uma questão”.",
+          "Delimitado crime instantâneo.",
+          "Distratores agora exploram confusão entre tempo e lugar."
+        ],
+        "difficultyReason": "Aplicação direta de critério temporal.",
+        "remainingHumanChecks": [
+          "Conferir se a terminologia está adequada ao estágio dos alunos."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-PEN-B-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Uma conduta criminosa é executada em um local, e seu resultado ocorre em outro. Considerando a regra material do Código Penal sobre o lugar do crime, sem decidir competência processual, devem ser considerados:",
+      "disciplina": "Direito Penal",
+      "assunto": "Lugar do crime",
+      "nivel": "BASICO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Identificar o critério legal para o lugar do crime.",
+      "justificativaNivel": "Identificação do critério material, separado de competência processual.",
+      "gabarito": "C",
+      "fundamentacaoJuridica": "O art. 6º do Código Penal abrange locais da conduta e do resultado, efetivo ou pretendido. É regra material sobre lugar; não determina isoladamente competência processual.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Apenas o local do resultado efetivamente ocorrido.",
+          "comentario": "Exclui indevidamente o local da conduta e o resultado pretendido.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "Apenas o local em que a execução começou.",
+          "comentario": "Desconsidera os demais locais contemplados na norma.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "O local da ação ou omissão, no todo ou em parte, e o local em que o resultado ocorreu ou deveria ocorrer.",
+          "comentario": "O Código Penal adota critério que abrange conduta e resultado.",
+          "correta": true
+        },
+        {
+          "letra": "D",
+          "texto": "Somente o local da ação, salvo quando o resultado ocorrer no exterior.",
+          "comentario": "A regra do art. 6º não limita a consideração do resultado à ocorrência no exterior.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Penal, texto atualizado no Senado Federal",
+            "article": "art. 6º",
+            "url": "https://legis.senado.gov.br/norma/527942/publicacao/39870011",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Substituído distrator sem relação com a habilidade por confusão sobre aplicação territorial.",
+          "Mantida distinção expressa de competência processual."
+        ],
+        "difficultyReason": "Identificação do critério material, separado de competência processual.",
+        "remainingHumanChecks": [
+          "Avaliar pista pelo tamanho da alternativa correta e familiaridade com “resultado deveria ocorrer”."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-PEN-I-01",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Durante a execução de homicídio, Caio causa uma lesão não mortal. Ainda não esgotou os atos executórios que pretendia praticar e poderia prosseguir, mas decide voluntariamente parar. A morte não ocorre; não há obstáculo externo nem ato de salvamento necessário para impedir resultado já em curso. Considerando o art. 15 do Código Penal, qual consequência corresponde à desistência descrita?",
+      "disciplina": "Direito Penal",
+      "assunto": "Desistência voluntária",
+      "nivel": "INTERMEDIARIO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Distinguir desistência voluntária de tentativa frustrada por fator externo.",
+      "justificativaNivel": "Exige distinguir causa voluntária da interrupção e responsabilidade residual.",
+      "gabarito": "A",
+      "fundamentacaoJuridica": "A interrupção voluntária antes de esgotada a execução caracteriza, nas premissas dadas, desistência voluntária. Caio responde pelos atos já praticados que constituam infração, sem tentativa de homicídio nessa hipótese. Distingue-se de impedir o resultado após esgotar a execução e do arrependimento posterior. Fundamento: arts. 14 a 16 do Código Penal.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Caio responde pelos atos já praticados, afastando-se a punição por tentativa de homicídio nessa hipótese.",
+          "comentario": "A desistência voluntária preserva a responsabilização pelos atos que constituam infração própria.",
+          "correta": true
+        },
+        {
+          "letra": "B",
+          "texto": "Caio responde necessariamente por tentativa de homicídio, pois toda execução iniciada gera tentativa punível.",
+          "comentario": "Ignora a consequência específica da desistência voluntária.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Caio fica isento de responsabilidade inclusive pela lesão já produzida.",
+          "comentario": "O art. 15 não apaga os atos anteriores que sejam penalmente relevantes.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Aplica-se arrependimento posterior, porque houve lesão corporal antes da interrupção.",
+          "comentario": "Confunde instituto posterior à consumação e com requisitos próprios com interrupção voluntária da execução.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Penal, texto atualizado no Senado Federal",
+            "article": "arts. 14, II, 15 e 16",
+            "url": "https://legis.senado.gov.br/norma/527942/publicacao/39870011",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Explicitada execução ainda não esgotada e lesão não mortal.",
+          "Afastada confusão com arrependimento eficaz e impedimento externo."
+        ],
+        "difficultyReason": "Exige distinguir causa voluntária da interrupção e responsabilidade residual.",
+        "remainingHumanChecks": [
+          "Conferir se os fatos não antecipam demais a solução.",
+          "Eventual gravidade concreta da lesão deve ser apurada sem inventar qualificações."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-PEN-I-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Reconheceu-se que uma pessoa atuou em erro sobre elemento constitutivo do tipo penal. O julgador também constatou que o erro decorreu de falta de cuidado, mas ainda precisa verificar se existe modalidade culposa legalmente prevista. Qual é a consequência correta?",
+      "disciplina": "Direito Penal",
+      "assunto": "Erro sobre elemento do tipo",
+      "nivel": "INTERMEDIARIO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Diferenciar exclusão do dolo e eventual punição culposa.",
+      "justificativaNivel": "Relaciona erro de tipo, dolo, cuidado e reserva legal da modalidade culposa.",
+      "gabarito": "D",
+      "fundamentacaoJuridica": "O erro sobre elemento do tipo exclui o dolo. A punição culposa exige modalidade legal e seus requisitos, não bastando presumir culpa pela evitabilidade. Fundamentos: arts. 18, parágrafo único, e 20, caput, do Código Penal.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "O dolo é mantido porque todo erro evitável é irrelevante.",
+          "comentario": "O erro sobre elemento do tipo exclui o dolo, mesmo quando se examina eventual culpa.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "A culpa é presumida e punível ainda que o tipo não tenha forma culposa.",
+          "comentario": "Não se pode instituir crime culposo sem previsão legal.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "O erro exclui dolo e culpa necessariamente em qualquer circunstância.",
+          "comentario": "A lei admite punição por culpa nas condições indicadas.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "O dolo é excluído; a punição culposa depende de previsão legal e da presença dos requisitos do crime culposo.",
+          "comentario": "O reconhecimento do erro de tipo não cria modalidade culposa inexistente na lei.",
+          "correta": true
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Penal, texto atualizado no Senado Federal",
+            "article": "arts. 18, parágrafo único, e 20, caput",
+            "url": "https://legis.senado.gov.br/norma/527942/publicacao/39870011",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Acrescentada regra geral de excepcionalidade da punição culposa.",
+          "Preservados caso, alternativas e gabarito."
+        ],
+        "difficultyReason": "Relaciona erro de tipo, dolo, cuidado e reserva legal da modalidade culposa.",
+        "remainingHumanChecks": [
+          "Avaliar se a distinção entre erro de tipo e erro de proibição precisa de contextualização em aula."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-PEN-A-03",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Em caso submetido apenas às regras gerais de concurso, uma única ação causa dois crimes, sem desígnios autônomos. As penas privativas de liberdade individualizadas são de quatro anos para um e seis meses para o outro. Reconhecido o concurso formal próprio, o juiz considera aumento de um sexto sobre a pena mais grave. Sem multas ou outros ajustes, qual total respeita o limite previsto no Código Penal?",
+      "disciplina": "Direito Penal",
+      "assunto": "Concurso formal próprio e limite da soma",
+      "nivel": "AVANCADO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Aplicar exasperação, comparar com a soma das penas individualizadas e identificar o limite mais favorável.",
+      "justificativaNivel": "Avançado provisório: distingue concurso próprio de impróprio, calcula exasperação e aplica o teto da soma. Requer validação empírica.",
+      "gabarito": "B",
+      "fundamentacaoJuridica": "A exasperação daria 56 meses, mas a soma das penas é de 54 meses. O art. 70, parágrafo único, impede ultrapassar o total do art. 69. O resultado é quatro anos e seis meses. O caso já reconhece o concurso próprio e afasta regras especiais.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Quatro anos, sem aumento, porque o limite da soma impede qualquer acréscimo.",
+          "comentario": "O limite não elimina o acréscimo até a soma de quatro anos e seis meses.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "Quatro anos e seis meses, pois a exasperação ultrapassaria a soma das penas individualizadas.",
+          "comentario": "Quatro anos mais um sexto dão quatro anos e oito meses; aplica-se o limite de quatro anos e seis meses.",
+          "correta": true
+        },
+        {
+          "letra": "C",
+          "texto": "Quatro anos e oito meses, pois o aumento de um sexto prevalece mesmo acima da soma.",
+          "comentario": "Desconsidera o limite do parágrafo único do art. 70.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Cinco anos e três meses, aplicando um sexto sobre a soma das duas penas.",
+          "comentario": "Aplica a fração à soma, em vez de usar a pena mais grave e observar o teto legal.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Penal, texto atualizado no Senado Federal",
+            "article": "arts. 69 e 70, caput e parágrafo único",
+            "url": "https://legis.senado.gov.br/norma/527942/publicacao/39870011",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "NOVA_CANDIDATA_AVANCADA",
+        "difficultyReason": "Avançado provisório: distingue concurso próprio de impróprio, calcula exasperação e aplica o teto da soma. Requer validação empírica.",
+        "remainingHumanChecks": [
+          "Confirmar distinção entre pena aplicada, soma e limites de execução.",
+          "Não transportar o cálculo às multas ou a regras especiais.",
+          "Validar resposta única, plausibilidade dos distratores e dificuldade com docente e piloto."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-PEN-A-04",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Após consumar um delito patrimonial sem violência nem grave ameaça à pessoa, Marina restitui integralmente a coisa por ato voluntário. A restituição ocorre depois do oferecimento da denúncia, mas antes de seu recebimento judicial. Não há outra causa modificadora. Para o exercício, a pena imediatamente anterior à redução é de três anos, e o juiz fundamentadamente fixa a redução em dois terços. Qual solução aplica corretamente o instituto e o cálculo?",
+      "disciplina": "Direito Penal",
+      "assunto": "Arrependimento posterior: marco temporal e redução",
+      "nivel": "AVANCADO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Distinguir oferecimento de recebimento, restituição após consumação e redução sem extinção da responsabilidade.",
+      "justificativaNivel": "Avançado provisório: combina consumação, marco processual e cálculo da causa de diminuição, distinguindo-a dos institutos do art. 15. Requer piloto.",
+      "gabarito": "C",
+      "fundamentacaoJuridica": "As premissas atendem ao art. 16: ausência de violência ou grave ameaça, restituição integral e voluntária e realização antes do recebimento. O oferecimento anterior não afasta o benefício. Três anos reduzidos em dois terços resultam em um ano; não se trata de extinção da punibilidade. A fração foi dada, não inferida da restituição.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Desistência voluntária, com extinção da responsabilidade e sem aplicação de pena.",
+          "comentario": "O delito já foi consumado; desistência não é o instituto do caso nem apaga todo ato anterior.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "Arrependimento posterior, mas sem redução porque a denúncia já havia sido oferecida.",
+          "comentario": "O art. 16 utiliza o recebimento, não o oferecimento, como marco.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Arrependimento posterior, com pena resultante de um ano, sem extinção automática da responsabilidade.",
+          "comentario": "Dois terços de redução deixam um terço de três anos, isto é, um ano.",
+          "correta": true
+        },
+        {
+          "letra": "D",
+          "texto": "Arrependimento posterior, com pena resultante de dois anos, sem extinção da responsabilidade.",
+          "comentario": "Confunde o valor retirado com o restante: dois anos são a redução, não a pena final.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Código Penal, texto atualizado no Senado Federal",
+            "article": "arts. 15 e 16",
+            "url": "https://legis.senado.gov.br/norma/527942/publicacao/39870011",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "NOVA_CANDIDATA_AVANCADA",
+        "difficultyReason": "Avançado provisório: combina consumação, marco processual e cálculo da causa de diminuição, distinguindo-a dos institutos do art. 15. Requer piloto.",
+        "remainingHumanChecks": [
+          "Confirmar enquadramento do delito ao concretizar o tipo penal.",
+          "Não concluir que toda restituição gera automaticamente a fração máxima.",
+          "Validar resposta única, plausibilidade dos distratores e dificuldade com docente e piloto."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-ADM-B-01",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Uma autoridade de autarquia federal pretende simplesmente renunciar à competência atribuída por lei, sem delegação ou avocação legalmente admitida. Segundo a Lei 9.784/1999, essa renúncia:",
+      "disciplina": "Direito Administrativo",
+      "assunto": "Competência administrativa",
+      "nivel": "BASICO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Distinguir irrenunciabilidade e mecanismos legais de exercício.",
+      "justificativaNivel": "Reconhecimento da regra expressa, sem avaliar ato concreto de delegação.",
+      "gabarito": "B",
+      "fundamentacaoJuridica": "A norma preserva os mecanismos legais de delegação e avocação, sem admitir renúncia livre. Fundamentação: Lei 9.784/1999, art. 11.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "É admitida se a autoridade publicar ato declarando que não exercerá mais a atribuição.",
+          "comentario": "A publicação não torna disponível uma competência atribuída por lei.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "Não é admitida, porque a competência é irrenunciável.",
+          "comentario": "A norma preserva os mecanismos legais de delegação e avocação, sem admitir renúncia livre.",
+          "correta": true
+        },
+        {
+          "letra": "C",
+          "texto": "É admitida se comunicada ao interessado antes da decisão.",
+          "comentario": "A comunicação não torna renunciável a competência.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "É admitida mediante acordo com o interessado para que nenhum órgão aprecie o assunto.",
+          "comentario": "O acordo descrito não afasta o dever de exercício da competência.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Lei 9.784/1999, processo administrativo federal, texto atualizado na Câmara dos Deputados",
+            "article": "art. 11",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/1999/lei-9784-29-janeiro-1999-322239-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Retirados distratores de desinteresse pessoal e obrigação automática de renúncia.",
+          "Mantida distinção entre irrenunciabilidade e mecanismos legais de transferência do exercício."
+        ],
+        "difficultyReason": "Reconhecimento da regra expressa, sem avaliar ato concreto de delegação.",
+        "remainingHumanChecks": [
+          "Conferir plausibilidade dos novos distratores."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-ADM-B-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Ao impor multa em processo administrativo federal, a autoridade registra apenas “aplico a multa”, sem indicar fatos ou fundamentos jurídicos nem adotar os de parecer ou decisão anterior. Segundo a Lei 9.784/1999, qual exigência se aplica à motivação dessa decisão?",
+      "disciplina": "Direito Administrativo",
+      "assunto": "Motivação de sanções administrativas",
+      "nivel": "BASICO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Identificar a motivação exigida para aplicar sanção.",
+      "justificativaNivel": "Aplicação direta de exigência de motivação em ato sancionador.",
+      "gabarito": "D",
+      "fundamentacaoJuridica": "A decisão que impõe sanção deve indicar fatos e fundamentos jurídicos. O art. 50 admite motivação por concordância com fundamentos anteriores, incorporados ao ato; essa hipótese foi afastada no enunciado. Fundamento: art. 50, II e § 1º, da Lei 9.784/1999.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Dispensa motivação porque multa é ato administrativo.",
+          "comentario": "A natureza administrativa não afasta a exigência específica.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "Só precisa ser motivada se o interessado apresentar recurso.",
+          "comentario": "A exigência não nasce apenas com o recurso.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Pode ser motivada exclusivamente pela referência à autoridade que a assinou.",
+          "comentario": "Identificar a autoridade não explica fatos e fundamentos da sanção.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Precisa de motivação com indicação dos fatos e dos fundamentos jurídicos.",
+          "comentario": "A imposição ou agravamento de sanções está entre as hipóteses expressas de motivação.",
+          "correta": true
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Lei 9.784/1999, processo administrativo federal, texto atualizado na Câmara dos Deputados",
+            "article": "art. 50, II e § 1º",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/1999/lei-9784-29-janeiro-1999-322239-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Trocado “deferido” por expressão compatível com uma decisão sancionadora.",
+          "Afastada de modo explícito motivação por referência a fundamentos anteriores."
+        ],
+        "difficultyReason": "Aplicação direta de exigência de motivação em ato sancionador.",
+        "remainingHumanChecks": [
+          "Não ensinar que motivação precisa sempre repetir integralmente parecer já incorporado."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-ADM-A-03",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Dois processos de autarquia federal seguem exclusivamente a Lei 9.784/1999. No primeiro, em recurso administrativo ordinário tempestivo, a autoridade competente cogita decisão mais gravosa ao único recorrente, ainda não cientificado dessa possibilidade. No segundo, já encerrado, surgem fatos novos relevantes e instaura-se revisão de sanção na forma do art. 65. Quais limites devem ser observados?",
+      "disciplina": "Direito Administrativo",
+      "assunto": "Recurso ordinário e revisão sancionadora",
+      "nivel": "AVANCADO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Distinguir recurso e revisão e aplicar contraditório prévio e limite ao agravamento.",
+      "justificativaNivel": "Avançado provisório: exige comparar dois procedimentos e evitar aplicar indistintamente suas regras de agravamento.",
+      "gabarito": "A",
+      "fundamentacaoJuridica": "Pelo art. 64, parágrafo único, o recorrente deve ser ouvido antes de decisão que possa lhe trazer gravame. Na revisão sancionadora do art. 65, fatos novos podem justificar reexame, mas o parágrafo único veda agravamento. As premissas excluem regime sancionador especial.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "No recurso, eventual gravame exige ciência para alegações antes da decisão; na revisão, não pode resultar agravamento da sanção.",
+          "comentario": "Distingue a garantia prévia do art. 64 da proibição do art. 65.",
+          "correta": true
+        },
+        {
+          "letra": "B",
+          "texto": "Em ambos, o gravame é sempre permitido se o interessado puder recorrer depois da decisão.",
+          "comentario": "Defesa posterior não substitui a ciência prévia no recurso; a revisão não pode agravar.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Em ambos, qualquer gravame é proibido apenas porque o interessado é o único recorrente ou requerente.",
+          "comentario": "Transfere indevidamente ao recurso ordinário a vedação específica de agravamento na revisão.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "No recurso, basta intimar após a decisão; na revisão, fatos novos permitem agravar a sanção sem limite.",
+          "comentario": "Inverte a garantia temporal e ignora a vedação de agravamento na revisão.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Lei 9.784/1999, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 64 e 65",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/1999/lei-9784-29-janeiro-1999-322239-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "NOVA_CANDIDATA_AVANCADA",
+        "difficultyReason": "Avançado provisório: exige comparar dois procedimentos e evitar aplicar indistintamente suas regras de agravamento.",
+        "remainingHumanChecks": [
+          "Conferir exclusão de regimes legais especiais e preservação do contraditório concreto.",
+          "Validar resposta única, plausibilidade dos distratores e dificuldade com docente e piloto."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-ADM-I-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Uma autoridade federal pretende avocar permanentemente competência de órgão hierarquicamente inferior, alegando apenas preferência pessoal por decidir todos os casos. Segundo a regra geral da Lei 9.784/1999:",
+      "disciplina": "Direito Administrativo",
+      "assunto": "Avocação de competência",
+      "nivel": "INTERMEDIARIO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Aplicar excepcionalidade, temporariedade e hierarquia.",
+      "justificativaNivel": "Aplica cumulativamente requisitos e identifica por que a hierarquia não basta.",
+      "gabarito": "C",
+      "fundamentacaoJuridica": "A hierarquia, isoladamente, não supre os demais requisitos da avocação. Fundamentação: Lei 9.784/1999, art. 15.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "A proposta atende à lei, porque a hierarquia autoriza avocação permanente sem justificativa.",
+          "comentario": "A norma exige excepcionalidade, temporariedade e motivos relevantes.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "A proposta não atende à lei apenas porque avocação só cabe entre órgãos sem hierarquia.",
+          "comentario": "A norma exige competência atribuída a órgão hierarquicamente inferior.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "A proposta não atende à lei: a avocação deve ser temporária, excepcional e baseada em motivos relevantes justificados.",
+          "comentario": "A hierarquia, isoladamente, não supre os demais requisitos da avocação.",
+          "correta": true
+        },
+        {
+          "letra": "D",
+          "texto": "A proposta atende à lei desde que a avocação permanente seja publicada no meio oficial.",
+          "comentario": "A publicação não dispensa temporariedade, excepcionalidade e motivos relevantes justificados.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Lei 9.784/1999, processo administrativo federal, texto atualizado na Câmara dos Deputados",
+            "article": "art. 15",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/1999/lei-9784-29-janeiro-1999-322239-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Substituído distrator de mera troca de nome por confusão entre publicidade e requisitos de avocação."
+        ],
+        "difficultyReason": "Aplica cumulativamente requisitos e identifica por que a hierarquia não basta.",
+        "remainingHumanChecks": [
+          "Avaliar excesso de pistas no enunciado e a utilidade de caso com justificativa administrativa concreta."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-ADM-A-01",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Um ato de autarquia federal apresenta defeito de competência não exclusiva, qualificado no caso como sanável. A autoridade competente pode ratificá-lo, e a decisão demonstra ausência de lesão ao interesse público e de prejuízo a terceiros. Sob os pressupostos descritos, a Lei 9.784/1999 permite:",
+      "disciplina": "Direito Administrativo",
+      "assunto": "Convalidação de atos administrativos",
+      "nivel": "INTERMEDIARIO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Articular defeito sanável e proteção ao interesse público e a terceiros.",
+      "justificativaNivel": "Intermediário: todos os pressupostos da convalidação já estão reconhecidos no enunciado; exige distingui-la de anulação e revogação.",
+      "gabarito": "B",
+      "fundamentacaoJuridica": "Nas premissas dadas, o art. 55 da Lei 9.784/1999 permite convalidação pela Administração. A sanabilidade e a ausência de lesão ao interesse público ou prejuízo a terceiros foram expressamente reconhecidas. Não se afirma que todo vício de competência seja sanável.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Somente revogação, porque qualquer vício de competência é questão de conveniência.",
+          "comentario": "Vício de legalidade não se transforma em simples questão de mérito administrativo.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "Convalidação pela própria Administração, mediante decisão que demonstre os requisitos legais.",
+          "comentario": "A conclusão depende do defeito ser sanável e da inexistência dos prejuízos indicados.",
+          "correta": true
+        },
+        {
+          "letra": "C",
+          "texto": "Somente anulação, pois nenhum defeito de competência admite saneamento.",
+          "comentario": "O enunciado delimita competência não exclusiva e defeito sanável.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Convalidação mesmo se houver prejuízo comprovado a terceiro, desde que o ato seja eficiente.",
+          "comentario": "A eficiência não afasta os limites expressos de proteção a terceiros e ao interesse público.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Lei 9.784/1999, processo administrativo federal, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 11, 13, III, e 55",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/1999/lei-9784-29-janeiro-1999-322239-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "originalLevel": "AVANCADO",
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "RECLASSIFICAR_COM_AJUSTES",
+        "changes": [
+          "Delimitado o alcance da conclusão para não generalizar sanabilidade.",
+          "Reclassificado como intermediário: o caso já fornece os pressupostos decisivos."
+        ],
+        "difficultyReason": "Intermediário: todos os pressupostos da convalidação já estão reconhecidos no enunciado; exige distingui-la de anulação e revogação.",
+        "remainingHumanChecks": [
+          "Conferir se a futura contextualização exige análise concreta de sanabilidade, competência exclusiva e prejuízos."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-ADM-A-04",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Uma interessada é oficialmente cientificada em 3 de junho de 2026, quarta-feira, de decisão de autarquia federal. Aplica-se o prazo recursal geral da Lei 9.784/1999, sem regra especial ou suspensão por força maior. O décimo dia da contagem cai em sábado, 13 de junho, sem expediente; também não há expediente no domingo, mas há expediente normal na segunda-feira, 15. Ela protocola o recurso no dia 15. Não existe regra legal de efeito suspensivo nem decisão que o conceda. Quanto ao prazo e ao efeito do recurso:",
+      "disciplina": "Direito Administrativo",
+      "assunto": "Prazo recursal e efeito suspensivo",
+      "nivel": "AVANCADO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Combinar prazo geral, contagem contínua, prorrogação do vencimento e ausência de efeito suspensivo automático.",
+      "justificativaNivel": "Avançado provisório: articula quatro regras e distingue prazo em dias contínuos de prorrogação do vencimento. Requer validação humana.",
+      "gabarito": "D",
+      "fundamentacaoJuridica": "O prazo geral é de dez dias. Exclui-se a ciência e a contagem é contínua; vencendo sem expediente, prorroga-se ao primeiro dia útil seguinte. O recurso do dia 15 é tempestivo. O art. 61 afasta efeito suspensivo automático, admitindo concessão nas hipóteses legais, não realizada no caso.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "É intempestivo, pois os dez dias se encerraram no sábado, e todo recurso tem efeito suspensivo automático.",
+          "comentario": "Ignora a prorrogação e atribui efeito suspensivo não previsto.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "É tempestivo, mas apenas porque o prazo geral é de dez dias úteis; seu protocolo suspende automaticamente a decisão.",
+          "comentario": "O prazo geral conta continuamente, e o efeito suspensivo não decorre apenas do protocolo.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "É intempestivo, pois deveria ter sido apresentado na sexta-feira anterior; não tem efeito suspensivo automático.",
+          "comentario": "O vencimento não é antecipado para a sexta; prorroga-se ao primeiro dia útil seguinte.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "É tempestivo pela prorrogação ao dia 15 e não tem efeito suspensivo automático nas condições dadas.",
+          "comentario": "A contagem é contínua, mas o vencimento sem expediente é prorrogado; o art. 61 afasta suspensão automática.",
+          "correta": true
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Lei 9.784/1999, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 59, 61, 66 e 67",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/1999/lei-9784-29-janeiro-1999-322239-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "NOVA_CANDIDATA_AVANCADA",
+        "difficultyReason": "Avançado provisório: articula quatro regras e distingue prazo em dias contínuos de prorrogação do vencimento. Requer validação humana.",
+        "remainingHumanChecks": [
+          "Conferir calendário e expediente ao alterar datas ou ente público.",
+          "Não confundir prazo do recurso com os cinco dias úteis para alegações dos demais interessados.",
+          "Validar resposta única, plausibilidade dos distratores e dificuldade com docente e piloto."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-TRA-B-01",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Uma empregada urbana celetista recebe salário fixo estipulado por mês. Sem regra especial ou condição contratual mais favorável, qual é o prazo máximo previsto na CLT para o pagamento do mês vencido?",
+      "disciplina": "Direito do Trabalho",
+      "assunto": "Pagamento do salário mensal",
+      "nivel": "BASICO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Identificar o prazo geral do salário estipulado por mês.",
+      "justificativaNivel": "Identificação de prazo expresso sem cálculo de calendário.",
+      "gabarito": "A",
+      "fundamentacaoJuridica": "Para o salário mensal nas condições descritas, o art. 459, § 1º, da CLT fixa o quinto dia útil do mês seguinte como limite. O item não fornece calendário nem decide quais dias são úteis para uma contagem concreta.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Até o quinto dia útil do mês seguinte.",
+          "comentario": "Essa é a regra geral para salário estipulado por mês.",
+          "correta": true
+        },
+        {
+          "letra": "B",
+          "texto": "Até o quinto dia corrido do mês seguinte.",
+          "comentario": "A CLT utiliza dias úteis na regra indicada.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Até o décimo dia útil do mês seguinte.",
+          "comentario": "Esse prazo excede o limite geral do art. 459, § 1º.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Até o último dia do mês seguinte.",
+          "comentario": "Esse prazo não corresponde ao limite legal do salário mensal.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "CLT, Decreto-Lei 5.452/1943, texto atualizado na Câmara dos Deputados",
+            "article": "art. 459, § 1º",
+            "url": "https://www2.camara.leg.br/legin/fed/declei/1940-1949/decreto-lei-5452-1-maio-1943-415500-normaatualizada-pe.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Preservados enunciado, alternativas e gabarito.",
+          "Delimitado que a questão não calcula calendário nem equipara dias úteis a segunda a sexta."
+        ],
+        "difficultyReason": "Identificação de prazo expresso sem cálculo de calendário.",
+        "remainingHumanChecks": [
+          "Ao introduzir datas, conferir tratamento do sábado e dos feriados para pagamento de salário."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-TRA-B-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Para empregado urbano sujeito à regra geral da CLT, sem regime especial ou exceção aplicável, o intervalo mínimo entre o término de uma jornada e o início da seguinte é de:",
+      "disciplina": "Direito do Trabalho",
+      "assunto": "Intervalo entre jornadas",
+      "nivel": "BASICO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Reconhecer o descanso mínimo geral entre duas jornadas.",
+      "justificativaNivel": "Distingue dois períodos de descanso sem regime especial.",
+      "gabarito": "B",
+      "fundamentacaoJuridica": "O art. 66 da CLT exige onze horas consecutivas entre jornadas na regra geral. As 24 horas do art. 67 referem-se ao repouso semanal; o item não examina a combinação de descansos nem efeitos de sua supressão.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Oito horas consecutivas.",
+          "comentario": "Confunde o período de descanso com referência comum à duração de jornada.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "Onze horas consecutivas.",
+          "comentario": "Esse é o mínimo geral previsto entre duas jornadas.",
+          "correta": true
+        },
+        {
+          "letra": "C",
+          "texto": "Dez horas consecutivas.",
+          "comentario": "O período é inferior ao mínimo geral legal.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Vinte e quatro horas consecutivas em toda troca de jornada.",
+          "comentario": "Confunde intervalo entre jornadas com descanso semanal.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "CLT, Decreto-Lei 5.452/1943, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 66 e 67",
+            "url": "https://www2.camara.leg.br/legin/fed/declei/1940-1949/decreto-lei-5452-1-maio-1943-415500-normaatualizada-pe.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Explicitada diferença entre interjornada e repouso semanal no comentário.",
+          "Mantidos caso e gabarito."
+        ],
+        "difficultyReason": "Distingue dois períodos de descanso sem regime especial.",
+        "remainingHumanChecks": [
+          "Não deduzir daqui regime indenizatório da supressão, que a pergunta não aborda."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-TRA-I-01",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Empregada e empregador, sujeitos ao regime geral de jornada da CLT, querem compensar horas acumuladas ao longo de meses por acordo individual escrito, sem instrumento coletivo e observados os demais limites legais. Para esse banco de horas individual, qual é o prazo máximo de compensação?",
+      "disciplina": "Direito do Trabalho",
+      "assunto": "Banco de horas individual",
+      "nivel": "INTERMEDIARIO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Aplicar o limite do acordo individual escrito e distinguir compensação mensal.",
+      "justificativaNivel": "Distingue instrumentos e prazos de três modalidades de compensação.",
+      "gabarito": "A",
+      "fundamentacaoJuridica": "A CLT admite banco de horas por acordo individual escrito com compensação nesse limite. Fundamentação: CLT, art. 59, §§ 2º, 5º e 6º.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Seis meses.",
+          "comentario": "A CLT admite banco de horas por acordo individual escrito com compensação nesse limite.",
+          "correta": true
+        },
+        {
+          "letra": "B",
+          "texto": "Um ano, sem necessidade de instrumento coletivo.",
+          "comentario": "A alternativa atribui ao acordo individual o prazo da disciplina coletiva anual.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Somente o mesmo mês, pois acordo individual escrito nunca permite banco de horas semestral.",
+          "comentario": "Confunde o regime de compensação mensal com o banco individual escrito.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Dois anos, desde que haja consentimento inicial do empregado.",
+          "comentario": "Esse prazo não é previsto para a modalidade indicada.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "CLT, Decreto-Lei 5.452/1943, texto atualizado na Câmara dos Deputados",
+            "article": "art. 59, §§ 2º, 5º e 6º",
+            "url": "https://www2.camara.leg.br/legin/fed/declei/1940-1949/decreto-lei-5452-1-maio-1943-415500-normaatualizada-pe.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Explicitado regime geral de jornada e finalidade de compensação ao longo de meses.",
+          "Mantida classificação intermediária pela distinção entre modalidades mensal, semestral e coletiva anual."
+        ],
+        "difficultyReason": "Distingue instrumentos e prazos de três modalidades de compensação.",
+        "remainingHumanChecks": [
+          "Calibrar dificuldade; reconhecer literalmente o prazo pode resultar em item básico para alunos mais avançados."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-TRA-I-02",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Uma empresa determina a mudança de uma empregada do teletrabalho para o regime presencial. O caso está sujeito à regra geral do art. 75-C da CLT, sem norma especial ou condição mais favorável. A alteração por determinação do empregador:",
+      "disciplina": "Direito do Trabalho",
+      "assunto": "Retorno do teletrabalho ao presencial",
+      "nivel": "INTERMEDIARIO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Distinguir iniciativa do empregador e garantias da transição.",
+      "justificativaNivel": "Relaciona sentido da alteração, iniciativa e garantias da transição.",
+      "gabarito": "D",
+      "fundamentacaoJuridica": "A determinação empresarial é prevista, acompanhada das duas garantias formais indicadas. Fundamentação: CLT, art. 75-C, §§ 1º e 2º.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Exige sempre mútuo acordo, pois não há previsão de determinação empresarial para esse retorno.",
+          "comentario": "Confunde o retorno ao presencial com a regra de alteração consensual do regime presencial para teletrabalho.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "É admitida para o dia seguinte, sem aditivo, porque o empregador dirige a prestação.",
+          "comentario": "O poder de direção não dispensa prazo mínimo e aditivo previstos na lei.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "É admitida, mas exige transição mínima de trinta dias e dispensa aditivo se comunicada por escrito.",
+          "comentario": "A regra prevê quinze dias e registro em aditivo, não a combinação descrita.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "É admitida, com transição mínima de quinze dias e correspondente registro em aditivo contratual.",
+          "comentario": "A determinação empresarial é prevista, acompanhada das duas garantias formais indicadas.",
+          "correta": true
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "CLT, Decreto-Lei 5.452/1943, texto atualizado na Câmara dos Deputados",
+            "article": "art. 75-C, §§ 1º e 2º",
+            "url": "https://www2.camara.leg.br/legin/fed/declei/1940-1949/decreto-lei-5452-1-maio-1943-415500-normaatualizada-pe.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "MANTER_COM_AJUSTES",
+        "changes": [
+          "Substituído distrator de homologação judicial por confusão plausível entre prazo e formalização.",
+          "Mantido contraste entre retorno determinado e migração consensual para teletrabalho."
+        ],
+        "difficultyReason": "Relaciona sentido da alteração, iniciativa e garantias da transição.",
+        "remainingHumanChecks": [
+          "Não inferir destas premissas responsabilidade por despesas ou validade de mudanças de localidade."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-TRA-A-03",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Uma empregada urbana adulta tem direito a trinta dias de férias e concorda em dividi-las em 14, 8 e 8 dias corridos, dentro do período concessivo. Seu repouso semanal é aos domingos. Para o primeiro período, a empresa propõe início numa sexta-feira e comunicação escrita com apenas vinte dias de antecedência. Não há feriados próximos, regra especial ou condição coletiva diferente; os demais requisitos estão atendidos. Considerando os três pontos apresentados, qual orientação é correta?",
+      "disciplina": "Direito do Trabalho",
+      "assunto": "Férias: fracionamento, início e comunicação",
+      "nivel": "AVANCADO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Combinar mínimos do fracionamento, restrição ao início antes do repouso e antecedência da comunicação.",
+      "justificativaNivel": "Avançado provisório: analisa simultaneamente três dimensões de regularidade, sem confundir concordância com dispensa dos requisitos.",
+      "gabarito": "B",
+      "fundamentacaoJuridica": "O fracionamento 14/8/8 satisfaz os mínimos do art. 134, § 1º. Sexta e sábado antecedem o repouso dominical e integram a vedação do § 3º. A comunicação escrita deve anteceder em ao menos trinta dias, pelo art. 135. A concordância não afasta essas exigências.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "O plano atende aos três pontos, pois a concordância da empregada afasta restrições de início e antecedência.",
+          "comentario": "A concordância permite fracionar, mas não afasta os demais requisitos.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "A divisão atende aos mínimos; o início na sexta-feira deve ser alterado e a comunicação precisa respeitar antecedência mínima de trinta dias.",
+          "comentario": "14/8/8 atende aos mínimos; sexta integra os dois dias anteriores ao repouso dominical, e vinte dias não bastam para o aviso.",
+          "correta": true
+        },
+        {
+          "letra": "C",
+          "texto": "Basta elevar o primeiro período para quinze dias; podem ser mantidos início e comunicação propostos.",
+          "comentario": "O mínimo já foi atendido, mas permanecem os dois outros problemas.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Basta antecipar a comunicação para trinta dias; início na sexta-feira é permitido sempre que não houver feriado.",
+          "comentario": "A restrição também alcança os dois dias anteriores ao repouso semanal, mesmo sem feriado.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "CLT, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 134, §§ 1º e 3º, e 135",
+            "url": "https://www2.camara.leg.br/legin/fed/declei/1940-1949/decreto-lei-5452-1-maio-1943-415500-normaatualizada-pe.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "NOVA_CANDIDATA_AVANCADA",
+        "difficultyReason": "Avançado provisório: analisa simultaneamente três dimensões de regularidade, sem confundir concordância com dispensa dos requisitos.",
+        "remainingHumanChecks": [
+          "Conferir datas de cada período e feriados quando o plano for concretizado.",
+          "Não inferir sanções pecuniárias ou pagamento em dobro apenas destes dados.",
+          "Validar resposta única, plausibilidade dos distratores e dificuldade com docente e piloto."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-TRA-A-04",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Uma empregada, em regime geral de jornada, tem banco de horas individual escrito válido, com compensação em até seis meses. O contrato termina antes desse prazo, restando vinte horas extraordinárias positivas não compensadas. A hora normal valia R$ 10 quando foram prestadas e vale R$ 15 na data da rescisão. Incide apenas adicional de 50%, sem regra especial ou norma mais favorável. Considerando exclusivamente o pagamento dessas horas, sem reflexos, qual solução corresponde à CLT?",
+      "disciplina": "Direito do Trabalho",
+      "assunto": "Banco de horas: extinção antes da compensação",
+      "nivel": "AVANCADO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Combinar regime válido, rescisão antes da compensação, remuneração atual e adicional de horas extras.",
+      "justificativaNivel": "Avançado provisório: distingue validade do banco e exigibilidade na rescisão, seleciona a base temporal e calcula a remuneração com adicional.",
+      "gabarito": "D",
+      "fundamentacaoJuridica": "O art. 59, § 3º, prevê pagamento das horas extras não compensadas na rescisão, calculadas pela remuneração dessa data. Aplica-se o adicional de 50% nas premissas: 20 × 15 × 1,5 = R$ 450. Não se aguarda o fim do prazo semestral nem se adota o valor histórico.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Aguardar o fim dos seis meses e pagar R$ 300, porque o banco ainda estava no prazo.",
+          "comentario": "A rescisão gera o direito ao pagamento das horas não compensadas, sem esperar o semestre.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "Pagar R$ 300, usando a hora de R$ 10 com adicional de 50%.",
+          "comentario": "Usa o valor histórico em vez da remuneração na data da rescisão.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "Pagar R$ 300, usando a hora de R$ 15 sem adicional por se tratar de banco válido.",
+          "comentario": "A validade do banco não retira o adicional das horas extraordinárias não compensadas.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "Pagar R$ 450, usando a hora de R$ 15 com adicional de 50%.",
+          "comentario": "São vinte horas multiplicadas por R$ 15 e por 1,5, conforme a base na rescisão.",
+          "correta": true
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "CLT, texto atualizado na Câmara dos Deputados",
+            "article": "art. 59, §§ 1º, 3º e 5º",
+            "url": "https://www2.camara.leg.br/legin/fed/declei/1940-1949/decreto-lei-5452-1-maio-1943-415500-normaatualizada-pe.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "NOVA_CANDIDATA_AVANCADA",
+        "difficultyReason": "Avançado provisório: distingue validade do banco e exigibilidade na rescisão, seleciona a base temporal e calcula a remuneração com adicional.",
+        "remainingHumanChecks": [
+          "Confirmar composição da remuneração e adicional real em aplicação concreta.",
+          "Não estender a conclusão a saldo negativo nem calcular reflexos não fornecidos.",
+          "Validar resposta única, plausibilidade dos distratores e dificuldade com docente e piloto."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CON-A-03",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Em julgamento de mérito de uma ação direta de inconstitucionalidade, nove dos onze ministros do STF estão presentes. Não há vagas nem impedimentos. Seis votam pela inconstitucionalidade da norma. Em votação específica, seis apoiam que a declaração produza efeitos apenas a partir de uma data futura, por razões de segurança jurídica. Considerando exclusivamente os quóruns legais, quais requisitos foram atingidos nessas votações?",
+      "disciplina": "Direito Constitucional",
+      "assunto": "Controle concentrado: quóruns e modulação",
+      "nivel": "AVANCADO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Distinguir presença mínima, votos para declaração de inconstitucionalidade e votos para modulação temporal.",
+      "justificativaNivel": "Combina três regras de quórum e distingue membros presentes da composição total. Candidata avançada; depende de validação humana e piloto.",
+      "gabarito": "D",
+      "fundamentacaoJuridica": "Na hipótese delimitada, nove presentes atendem ao art. 22 e seis votos pela inconstitucionalidade atendem ao art. 23 da Lei 9.868/1999. Para a modulação do art. 27 são necessários dois terços dos onze membros, ou seja, pelo menos oito votos. O item pergunta apenas pelos quóruns; não pressupõe encerramento da votação, nem trata de modulação em declaração de constitucionalidade.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "A presença é insuficiente para deliberar; por isso, nem a declaração nem a modulação atingiram seus requisitos de quórum.",
+          "comentario": "A presença de nove supera o mínimo de oito previsto no art. 22.",
+          "correta": false
+        },
+        {
+          "letra": "B",
+          "texto": "A presença e ambas as votações atingiram os quóruns, pois seis votos correspondem a dois terços dos nove presentes.",
+          "comentario": "A modulação exige dois terços dos membros do Tribunal, não apenas dos presentes.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "A presença é suficiente, mas a declaração exige oito votos; a modulação, por sua vez, pode ser aprovada com seis.",
+          "comentario": "Inverte os patamares: seis votos bastam para a declaração; a modulação descrita exige oito.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "A presença e a votação pela inconstitucionalidade atingiram os quóruns; os seis votos pela modulação são insuficientes, pois ela exige oito.",
+          "comentario": "Os arts. 22, 23 e 27 distinguem oito presentes, seis votos no mérito e dois terços dos onze membros para modular.",
+          "correta": true
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Lei 9.868/1999, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 22, 23 e 27",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/1999/lei-9868-10-novembro-1999-369587-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "NOVA_CANDIDATA_AVANCADA",
+        "difficultyReason": "Combina três regras de quórum e distingue membros presentes da composição total. Candidata avançada; depende de validação humana e piloto.",
+        "remainingHumanChecks": [
+          "Conferir resposta única, clareza e plausibilidade dos distratores.",
+          "Validar classificação de dificuldade com docente e piloto; classificação ainda não calibrada."
+        ]
+      }
+    },
+    {
+      "_draftSlot": "AUT-CON-A-04",
+      "status": "RASCUNHO_PENDENTE_REVISAO_HUMANA",
+      "eligibleForImport": false,
+      "enunciado": "Lívia teve ciência inequívoca de um ato administrativo único, de efeitos concretos, há 130 dias. No vigésimo dia, apresentou mero pedido de reconsideração, sem efeito suspensivo, ainda não decidido. Não cabe recurso administrativo com efeito suspensivo, não houve novo ato e não existe outra circunstância que altere a contagem do prazo. Ao avaliar agora a impetração de mandado de segurança contra aquele ato original, qual conclusão é adequada?",
+      "disciplina": "Direito Constitucional",
+      "assunto": "Mandado de segurança: decadência e reconsideração",
+      "nivel": "AVANCADO",
+      "origem": "IA",
+      "publica": true,
+      "turmaId": null,
+      "habilidade": "Combinar termo inicial e prazo decadencial com os efeitos do pedido de reconsideração, distinguindo-o de recurso administrativo suspensivo.",
+      "justificativaNivel": "Exige combinar prazo e termo inicial, ausência de interrupção por reconsideração e distinção de recurso suspensivo. Candidata avançada; depende de validação humana e piloto.",
+      "gabarito": "A",
+      "fundamentacaoJuridica": "O art. 23 da Lei 12.016/2009 estabelece 120 dias contados da ciência do ato. A Súmula 430 do STF afasta a interrupção por pedido administrativo de reconsideração. Pelas premissas, contam-se os 130 dias desde a ciência, sem novo termo inicial. A hipótese do art. 5º, I, de recurso administrativo com efeito suspensivo, foi expressamente excluída. A decadência aqui se refere ao mandado de segurança contra o ato original, sem afirmar impossibilidade de toda outra via judicial.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "O prazo de 120 dias já transcorreu, pois o pedido de reconsideração descrito não reinicia a contagem a partir de seu protocolo.",
+          "comentario": "O prazo conta da ciência do ato original. A Súmula 430 afasta a interrupção pela reconsideração; as premissas excluem outras alterações da contagem.",
+          "correta": true
+        },
+        {
+          "letra": "B",
+          "texto": "O prazo de 120 dias só começará após a decisão sobre o pedido de reconsideração, pois ainda não há resposta administrativa final.",
+          "comentario": "A ciência inequívoca do ato original inicia o prazo; a pendência descrita não transfere o termo inicial à resposta administrativa.",
+          "correta": false
+        },
+        {
+          "letra": "C",
+          "texto": "O mandado de segurança continua tempestivo, mas só poderá ser impetrado depois da resposta, pois qualquer pedido administrativo impede seu uso.",
+          "comentario": "Não existe essa exigência geral de esgotamento administrativo. O caso afasta recurso com efeito suspensivo e o prazo já transcorreu.",
+          "correta": false
+        },
+        {
+          "letra": "D",
+          "texto": "O mandado de segurança ainda é tempestivo, pois o protocolo da reconsideração reiniciou os 120 dias e desde então passaram apenas 110.",
+          "comentario": "O cálculo pressupõe uma interrupção que a Súmula 430 expressamente afasta.",
+          "correta": false
+        }
+      ],
+      "source": {
+        "name": "Rascunho original assistido por IA para o JurisSim",
+        "reference": [
+          {
+            "name": "Lei 12.016/2009, texto atualizado na Câmara dos Deputados",
+            "article": "arts. 5º, I, e 23",
+            "url": "https://www2.camara.leg.br/legin/fed/lei/2009/lei-12016-7-agosto-2009-590271-normaatualizada-pl.html",
+            "consultedOn": "2026-11-11"
+          },
+          {
+            "name": "Supremo Tribunal Federal",
+            "article": "Súmula 430 e MS 28.793 AgR",
+            "url": "https://portal.stf.jus.br/jurisprudencia/sumariosumulas.asp?base=30&sumula=2771",
+            "consultedOn": "2026-11-11"
+          }
+        ],
+        "licenseOrAuthorization": "PENDENTE_CONFERENCIA_DE_AUTORIA_ORIGINALIDADE_E_LIBERACAO"
+      },
+      "legalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "pedagogicalReview": {
+        "reviewerId": null,
+        "reviewedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "release": {
+        "releasedById": null,
+        "releasedAt": null,
+        "evidenceRef": null,
+        "status": "PENDENTE"
+      },
+      "preliminaryReview": {
+        "kind": "REVISAO_PRELIMINAR_ASSISTIDA_POR_IA",
+        "reviewedOn": "2026-11-11",
+        "humanApproval": false,
+        "decision": "NOVA_CANDIDATA_AVANCADA",
+        "difficultyReason": "Exige combinar prazo e termo inicial, ausência de interrupção por reconsideração e distinção de recurso suspensivo. Candidata avançada; depende de validação humana e piloto.",
+        "remainingHumanChecks": [
+          "Conferir resposta única, clareza e plausibilidade dos distratores.",
+          "Validar classificação de dificuldade com docente e piloto; classificação ainda não calibrada."
+        ]
+      }
+    }
+  ]
+}
