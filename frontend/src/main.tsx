@@ -23,6 +23,7 @@ import { ClassesPage, ExamsPage, ClassExamAttempt } from "./class-exams";
 import { GoalsPage } from "./goals-reports";
 import { useStudentProgress, ProgressStatus, Evolution, RecentActivities, PerformanceIndicators, StudentHistory, PersistedResult } from "./student-progress";
 import { StudyTrail } from "./study-trail";
+import { useAttemptResume } from './attempt-resume';
 
 
 type Alternative = { id: string; text: string };
@@ -128,7 +129,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const [answer, setAnswer] = useState<string>();
   const [currentResult, setResult] = useState<Result>();
   const progress = useStudentProgress();
-  const result = currentResult ?? (["/dashboard", "/desempenho", "/trilha", "/estudar"].includes(route) ? progress.latestResult : undefined);
+  const result = (currentResult?.level || route === '/diagnostico' ? currentResult : undefined)
+    ?? (["/dashboard", "/desempenho", "/trilha", "/estudar"].includes(route) ? progress.latestResult : undefined);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [trailId, setTrailId] = useState<string>();
@@ -136,6 +138,24 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const [trailIndex, setTrailIndex] = useState(0);
   const [trailAnswer, setTrailAnswer] = useState<string>();
   const [trailResult, setTrailResult] = useState<TrailResult>();
+  const recovery = useAttemptResume(route);
+  useEffect(() => {
+    const saved = recovery.restored;
+    if (!saved) return;
+    setError('');
+    const firstUnanswered = saved.questions.findIndex(question => !question.selectedOptionId);
+    const position = firstUnanswered < 0 ? Math.max(0, saved.questions.length - 1) : firstUnanswered;
+    if (saved.kind === 'diagnostico') {
+      setId(saved.id); setQuestions(saved.questions); setIndex(position);
+      setAnswer(saved.questions[position]?.selectedOptionId ?? undefined);
+      setResult(saved.result); setTrailId(undefined); setTrailQuestions([]); setTrailResult(undefined);
+    } else {
+      setId(undefined); setTrailId(saved.id); setTrailQuestions(saved.questions); setTrailIndex(position);
+      setTrailAnswer(saved.questions[position]?.selectedOptionId ?? undefined);
+      setResult({ overallPercentage: 0, level: '', recommendation: '', performances: [], trail: null });
+      setTrailResult(saved.result);
+    }
+  }, [recovery.restored]);
 
 
 
@@ -150,6 +170,10 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     }
   }, [route, role, initialDestination]);
 
+  if (recovery.requested && (recovery.loading || recovery.error)) return <section className="page">
+    <h1>{recovery.loading ? 'Retomando sua tentativa…' : 'Não foi possível retomar a tentativa'}</h1>
+    {recovery.error && <><p className="error" role="alert">{recovery.error}</p><button className="outline-button" onClick={recovery.retry}>Tentar novamente</button></>}
+  </section>;
   if (route === "/diagnostico-inicial") return <InitialDiagnosticPage studentId={userId} onBack={() => navigate("/")} />;
   const practiceRoute = /^\/questoes\/pratica\/([^/]+)$/.exec(route);
 
@@ -159,13 +183,13 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   if (route === "/turmas") return <ClassesPage teacher={false} />;
   if (route === "/simulados") return <ExamsPage teacher={false} />;
   if (classAttemptRoute) return <ClassExamAttempt key={classAttemptRoute[1]} id={classAttemptRoute[1]} onCompleted={() => void progress.refresh()} />;
-  const resultRoute = /^\/resultados\/(diagnostico|trilha)\/([^/]+)$/.exec(route);
+  const resultRoute = /^\/resultados\/(diagnostico|diagnostico-inicial|trilha)\/([^/]+)$/.exec(route);
   const diagnosticReviewRoute = /^\/resultados\/diagnostico\/([^/]+)\/correcao$/.exec(route);
   if (diagnosticReviewRoute) return <DiagnosticReview attemptId={diagnosticReviewRoute[1]} onBack={() => navigate(`/resultados/diagnostico/${diagnosticReviewRoute[1]}`)} />;
   if (route === "/historico") return <StudentHistory />;
   if (route === "/estudar") return <StudyTrail mode="study" userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
   if (route === "/trilha") return <StudyTrail mode="trail" userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
-  if (resultRoute) return <PersistedResult type={resultRoute[1] as "diagnostico" | "trilha"} id={resultRoute[2]} />;
+  if (resultRoute) return <PersistedResult type={resultRoute[1] as "diagnostico" | "diagnostico-inicial" | "trilha"} id={resultRoute[2]} />;
 
   if (route === "/dashboard" && role === "ALUNO") {
     const firstName = nome.trim().split(/\s+/)[0] || "estudante";
@@ -261,11 +285,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
         method: "POST",
         body: JSON.stringify({ questionCount: 30 }),
       });
-      const response = await call<{ questions: Question[] }>(
-        `/diagnostics/${attempt.id}/questions`,
-      );
-      setId(attempt.id);
-      setQuestions(response.questions);
+      navigate(`/diagnostico?tentativa=${encodeURIComponent(attempt.id)}`);
+      recovery.retry();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
     } finally {
@@ -278,21 +299,19 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     setLoading(true);
     setError("");
     try {
-      await call(`/diagnostics/${id}/answers/${questions[index].id}`, {
+      if (!questions[index].selectedOptionId) await call(`/diagnostics/${id}/answers/${questions[index].id}`, {
         method: "PUT",
         body: JSON.stringify({ selectedOptionId: answer }),
       });
-      setAnswer(undefined);
+      setQuestions(current => current.map(question => question.id === questions[index].id ? { ...question, selectedOptionId: answer } : question));
       if (index + 1 < questions.length) {
+        setAnswer(questions[index + 1].selectedOptionId ?? undefined);
         setIndex(index + 1);
         return;
       }
       await call(`/diagnostics/${id}/finalize`, { method: "POST" });
       const diagnosticResult = await call<Result>(`/diagnostics/${id}/result`);
-      const trailResponse = await call<{ trail: Trail }>(
-        `/diagnostics/${id}/trail`,
-      );
-      setResult({ ...diagnosticResult, trail: trailResponse.trail });
+      setResult(diagnosticResult);
       void progress.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
@@ -310,13 +329,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
         `/trilhas/${result.trail.id}/gerar`,
         { method: "POST" },
       );
-      const response = await call<{ questions: Question[] }>(
-        `/trilhas/attempts/${attempt.id}/questions`,
-      );
-      if (route === "/desempenho") navigate("/diagnostico");
-      setResult({ ...result, trail: { ...result.trail, simuladoGeradoId: attempt.id } });
-      setTrailId(attempt.id);
-      setTrailQuestions(response.questions);
+      navigate(`/diagnostico?trilha=${encodeURIComponent(attempt.id)}`);
+      recovery.retry();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
     } finally {
@@ -329,15 +343,16 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     setLoading(true);
     setError("");
     try {
-      await call(
+      if (!trailQuestions[trailIndex].selectedOptionId) await call(
         `/trilhas/attempts/${trailId}/answers/${trailQuestions[trailIndex].id}`,
         {
           method: "PUT",
           body: JSON.stringify({ selectedOptionId: trailAnswer }),
         },
       );
-      setTrailAnswer(undefined);
+      setTrailQuestions(current => current.map(question => question.id === trailQuestions[trailIndex].id ? { ...question, selectedOptionId: trailAnswer } : question));
       if (trailIndex + 1 < trailQuestions.length) {
+        setTrailAnswer(trailQuestions[trailIndex + 1].selectedOptionId ?? undefined);
         setTrailIndex(trailIndex + 1);
         return;
       }
@@ -561,7 +576,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
               <div>
                 <p className="gold">NÍVEL ANTERIOR → NÍVEL ATUAL</p>
                 <h2>
-                  {labels[result.level]} → {labels[trailResult.level]}
+                  {labels[result.level] ?? '—'} → {labels[trailResult.level]}
                 </h2>
                 <p>{trailResult.recommendation}</p>
                 <div className="result-actions">
@@ -626,10 +641,10 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
                 </p>
                 <button
                   className="primary"
-                  disabled={loading || !!trail.simuladoGeradoId}
+                  disabled={loading}
                   onClick={generateTrail}
                 >
-                  {trail.simuladoGeradoId ? "Exercícios já gerados" : loading ? "Gerando..." : "Gerar exercícios"} <b>→</b>
+                  {loading ? "Carregando..." : trail.simuladoGeradoId ? "Retomar exercícios" : "Gerar exercícios"} <b>→</b>
                 </button>
                 {trail.simuladoGeradoId && <button className="text-button" onClick={() => navigate("/historico")}>Consultar exercícios no histórico</button>}
                 {error && <small className="error">{error}</small>}

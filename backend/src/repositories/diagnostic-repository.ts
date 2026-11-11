@@ -1,4 +1,6 @@
-import { AuditAction, Prisma, TipoMetricaDiagnostico } from '@prisma/client';
+import { AuditAction, Prisma, PrismaClient, TipoMetricaDiagnostico } from '@prisma/client';
+import { ApiError } from '../errors/api-error';
+import { lockAttempt, saveLockedAnswer } from './attempt-write';
 import { prisma } from '../lib/prisma';
 import type { AdaptiveResult } from '../types/diagnostic';
 
@@ -98,8 +100,15 @@ export const diagnosticResultSelect = {
 export type DiagnosticResultAttempt = Prisma.SimuladoGetPayload<{
   select: typeof diagnosticResultSelect;
 }>;
+export const legacyDiagnosticScope = { tipo: 'DIAGNOSTICO', diagnosticoInicial: null } satisfies Prisma.SimuladoWhereInput;
+type Attempt = Prisma.SimuladoGetPayload<{ select: typeof diagnosticAttemptSelect }>;
 
 export class DiagnosticRepository {
+  constructor(private readonly db: PrismaClient = prisma) {}
+  findActiveAttempt(studentId: string) {
+    return this.db.simulado.findFirst({ where: { alunoId: studentId, ...legacyDiagnosticScope, finalizadoEm: null },
+      orderBy: [{ iniciadoEm: 'desc' }, { id: 'desc' }], select: { id: true, iniciadoEm: true, questoes: { select: { id: true } } } });
+  }
   async findStudent(studentId: string) {
     return prisma.user.findUnique({ where: { id: studentId }, select: { id: true } });
   }
@@ -109,7 +118,12 @@ export class DiagnosticRepository {
   }
 
   async createAttempt(studentId: string, questionIds: string[]) {
-    return prisma.$transaction(async (tx) => {
+    return this.db.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE id = ${studentId} FOR UPDATE`;
+      if (!locked.length) throw new ApiError(404, 'Aluno não encontrado.');
+      const active = await tx.simulado.findFirst({ where: { alunoId: studentId, ...legacyDiagnosticScope, finalizadoEm: null },
+        orderBy: [{ iniciadoEm: 'desc' }, { id: 'desc' }], select: { id: true, iniciadoEm: true, questoes: { select: { id: true } } } });
+      if (active) return active;
       const attempt = await tx.simulado.create({
         data: {
           tipo: 'DIAGNOSTICO', alunoId: studentId,
@@ -119,38 +133,41 @@ export class DiagnosticRepository {
       });
       await tx.auditLog.create({ data: { userId: studentId, action: 'DIAGNOSTICO_INICIADO' as AuditAction, resourceId: attempt.id } });
       return attempt;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   }
 
   async findAttempt(attemptId: string, studentId: string) {
-    return prisma.simulado.findFirst({
-      where: { id: attemptId, alunoId: studentId, tipo: 'DIAGNOSTICO' },
+    return this.db.simulado.findFirst({
+      where: { id: attemptId, alunoId: studentId, ...legacyDiagnosticScope },
       select: diagnosticAttemptSelect,
     });
   }
 
   async findAttemptForResult(attemptId: string, studentId: string) {
-    return prisma.simulado.findFirst({
-      where: { id: attemptId, alunoId: studentId, tipo: 'DIAGNOSTICO' },
+    return this.db.simulado.findFirst({
+      where: { id: attemptId, alunoId: studentId, ...legacyDiagnosticScope },
       select: diagnosticResultSelect,
     });
   }
 
-  async saveAnswer(simuladoId: string, questaoId: string, questaoSimuladoId: string, alternativaEscolhidaId: string, correta: boolean) {
-    return prisma.resposta.create({ data: { simuladoId, questaoId, questaoSimuladoId, alternativaEscolhidaId, correta } });
+  async saveAnswer(simuladoId: string, questaoId: string, questaoSimuladoId: string, alternativaEscolhidaId: string, _correta: boolean, studentId: string) {
+    return this.db.$transaction(tx => saveLockedAnswer(tx, { attemptId: simuladoId, studentId, questionId: questaoId,
+      linkId: questaoSimuladoId, alternativeId: alternativaEscolhidaId, scope: legacyDiagnosticScope }), { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   }
 
-  async finalize(attemptId: string, studentId: string, result: AdaptiveResult) {
-    return prisma.$transaction(async (tx) => {
-    const markedAsFinalized = await tx.simulado.updateMany({
-      where: { id: attemptId, tipo: 'DIAGNOSTICO', finalizadoEm: null },
-      data: { finalizadoEm: new Date() },
-    });
-    if (markedAsFinalized.count === 0) return null;
+  async finalize(attemptId: string, studentId: string, analyze: (attempt: Attempt) => AdaptiveResult) {
+    return this.db.$transaction(async (tx) => {
+    await lockAttempt(tx, attemptId, studentId);
+    const current = await tx.simulado.findFirst({ where: { id: attemptId, alunoId: studentId, ...legacyDiagnosticScope }, select: diagnosticAttemptSelect });
+    if (!current) throw new ApiError(404, 'Diagnóstico não encontrado.');
+    if (current.finalizadoEm) return current;
+    if (!current.questoes.some(q => q.resposta)) throw new ApiError(422, 'Não é possível finalizar um diagnóstico sem respostas.');
+    const result = analyze(current);
 
     const attempt = await tx.simulado.update({
       where: { id: attemptId },
       data: {
+        finalizadoEm: new Date(),
         desempenhosDiagnostico: {
           create: result.performances.map((performance) => ({
             tipo: performance.metricType as TipoMetricaDiagnostico,
@@ -174,8 +191,9 @@ export class DiagnosticRepository {
       },
       select: diagnosticAttemptSelect,
     });
+    await tx.user.update({ where: { id: studentId }, data: { nivelAtual: result.level } });
     await tx.auditLog.create({ data: { userId: studentId, action: 'DIAGNOSTICO_FINALIZADO' as AuditAction, resourceId: attemptId } });
     return attempt;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   }
 }

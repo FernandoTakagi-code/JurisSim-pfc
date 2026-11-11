@@ -25,6 +25,7 @@ export type StudyResult = {
   } | null;
 };
 type Activity = {
+  initialDiagnostic?: boolean;
   id: string;
   type: "DIAGNOSTICO" | "PERSONALIZADO" | "AVALIACAO" | "PRATICA";
   startedAt: string;
@@ -52,6 +53,7 @@ type Overview = {
   evolution: Activity[];
   recentActivities: Activity[];
   latestDiagnosticId: string | null;
+  latestDiagnosticInitial?: boolean;
   learning?: { disciplines: { discipline: string; total: number; correct: number; percentage: number | null }[]; priorityTopic: { discipline: string; topic: string; total: number; percentage: number } | null; trailProgress: { id: string; discipline: string; topic: string | null; finalizedAt: string | null; total: number; answered: number; completed: boolean }[] };
 };
 type StudyDashboard = { streak: { current: number; longest: number; lastActivityDate: string | null }; totalAnsweredQuestions: number; todayAnsweredQuestions: number; todayGoal: { targetQuestions: number; progressPercentage: number } | null; currentLevel: string | null };
@@ -62,7 +64,9 @@ const formatDate = (value: string) =>
   });
 const typeLabel = (type: Activity["type"]) =>
   type === "DIAGNOSTICO" ? "Diagnóstico" : type === "AVALIACAO" ? "Simulado de turma" : type === "PRATICA" ? "Prática individual" : "Trilha de exercícios";
-const resultPath = (item: Activity) => item.type === "AVALIACAO" ? `/simulados/tentativas/${item.id}` : item.type === "PRATICA" ? `/questoes/pratica/${item.id}` : `/resultados/${item.type === "DIAGNOSTICO" ? "diagnostico" : "trilha"}/${item.id}`;
+const resultPath = (item: Activity) => item.type === "AVALIACAO" ? `/simulados/tentativas/${item.id}` : item.type === "PRATICA" ? `/questoes/pratica/${item.id}` : `/resultados/${item.initialDiagnostic ? "diagnostico-inicial" : item.type === "DIAGNOSTICO" ? "diagnostico" : "trilha"}/${item.id}`;
+const resumePath = (item: Activity) => item.type === 'AVALIACAO' || item.type === 'PRATICA' ? resultPath(item)
+  : item.initialDiagnostic ? '/diagnostico-inicial' : `/diagnostico?${item.type === 'DIAGNOSTICO' ? 'tentativa' : 'trilha'}=${encodeURIComponent(item.id)}`;
 const errorMessage = (cause: unknown) =>
   cause instanceof Error
     ? cause.message
@@ -103,7 +107,7 @@ export function useStudentProgress() {
         ? latest.current?.id === overview.latestDiagnosticId
           ? latest.current
           : await apiRequest<StudyResult>(
-              `/diagnostics/${overview.latestDiagnosticId}/result`,
+              `/${overview.latestDiagnosticInitial ? 'initial-diagnostic' : 'diagnostics'}/${overview.latestDiagnosticId}/result`,
             )
         : undefined;
       if (current !== revision.current) return;
@@ -169,7 +173,7 @@ export function Evolution({ items }: { items?: Activity[] }) {
       {items.map((item) => (
         <li key={item.id}>
           <button
-            onClick={() => navigate(`/resultados/diagnostico/${item.id}`)}
+            onClick={() => navigate(resultPath(item))}
           >
             <span>{formatDate(item.finalizedAt!)}</span>
             <strong>
@@ -209,7 +213,7 @@ export function RecentActivities({ items }: { items?: Activity[] }) {
             >
               Ver resultado
             </button>
-            {item.type === "DIAGNOSTICO" && <button className="outline-button" onClick={() => navigate(`/resultados/diagnostico/${item.id}/correcao`)}>Ver correção completa</button>}
+            {item.type === "DIAGNOSTICO" && !item.initialDiagnostic && <button className="outline-button" onClick={() => navigate(`/resultados/diagnostico/${item.id}/correcao`)}>Ver correção completa</button>}
             </>
           ) : (
             <small>
@@ -397,6 +401,7 @@ export function StudentHistory() {
                     )}
                   </p>
                 </div>
+                {!item.finalizedAt && <button className="outline-button" onClick={() => navigate(resumePath(item))}>Retomar atividade</button>}
                 {item.finalizedAt && (
                   <div>
                     <strong>
@@ -414,7 +419,7 @@ export function StudentHistory() {
                     >
                       Ver resultado
                     </button>
-                    {item.type === "DIAGNOSTICO" && <button className="outline-button" onClick={() => navigate(`/resultados/diagnostico/${item.id}/correcao`)}>Ver correção completa</button>}
+                    {item.type === "DIAGNOSTICO" && !item.initialDiagnostic && <button className="outline-button" onClick={() => navigate(`/resultados/diagnostico/${item.id}/correcao`)}>Ver correção completa</button>}
                   </div>
                 )}
               </li>
@@ -453,7 +458,7 @@ export function PersistedResult({
   type,
   id,
 }: {
-  type: "diagnostico" | "trilha";
+  type: "diagnostico" | "diagnostico-inicial" | "trilha";
   id: string;
 }) {
   const [data, setData] = useState<StudyResult>();
@@ -466,8 +471,8 @@ export function PersistedResult({
     setError("");
     setData(undefined);
     const endpoint =
-      type === "diagnostico"
-        ? `/diagnostics/${encodeURIComponent(id)}/result`
+      type !== "trilha"
+        ? `/${type === "diagnostico-inicial" ? "initial-diagnostic" : "diagnostics"}/${encodeURIComponent(id)}/result`
         : `/trilhas/attempts/${encodeURIComponent(id)}/result`;
     void apiRequest<StudyResult>(endpoint)
       .then((value) => {
@@ -487,7 +492,7 @@ export function PersistedResult({
     <section className="page result study-result">
       <p className="gold">RESULTADO REGISTRADO</p>
       <h1>
-        {type === "diagnostico"
+        {type !== "trilha"
           ? "Resultado do diagnóstico"
           : "Resultado da trilha"}
       </h1>

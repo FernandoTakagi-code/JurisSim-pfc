@@ -1053,15 +1053,18 @@ try {
   pass('entrada do diagnóstico legado não promete quantidade nem origem inexistentes');
   await evaluate(`
     window.legacyCalls=[];
+    window.legacyAnswers={};window.legacyCompleted=false;
     const originalFetch=window.fetch;
     window.fetch=async(input,init={})=>{
       const p=new URL(typeof input==='string'?input:input.url,location.origin).pathname;
       if(!p.startsWith('/diagnostics'))return originalFetch(input,init);
       window.legacyCalls.push({path:p,method:init.method||'GET'});
-      const reply=x=>Promise.resolve(new Response(JSON.stringify(x),{status:200,headers:{'Content-Type':'application/json'}}));
+      const reply=(x,status=200)=>Promise.resolve(new Response(JSON.stringify(x),{status,headers:{'Content-Type':'application/json'}}));
       if(p==='/diagnostics')return reply({id:'legacy-seven',totalQuestions:7});
-      if(p.endsWith('/questions'))return reply({questions:Array.from({length:7},(_,i)=>({id:'legacy-q-'+i,statement:'Item técnico de interface '+(i+1),discipline:'Disciplina de teste',alternatives:[{id:'legacy-a-'+i,text:'Alternativa técnica'}]}))});
-      if(p.endsWith('/result'))return reply({level:'BASICO',overallPercentage:0,recommendation:'Resultado técnico de teste',performances:[]});
+      if(p.endsWith('/questions'))return reply({questions:Array.from({length:7},(_,i)=>({id:'legacy-q-'+i,statement:'Item técnico de interface '+(i+1),discipline:'Disciplina de teste',selectedOptionId:window.legacyAnswers['legacy-q-'+i]??null,alternatives:[{id:'legacy-a-'+i,text:'Alternativa técnica'}]}))});
+      if(p.includes('/answers/')&&init.method==='PUT'){window.legacyAnswers[p.split('/').pop()]=JSON.parse(init.body).selectedOptionId;return reply({message:'Resposta registrada.'});}
+      if(p.endsWith('/finalize')){window.legacyCompleted=true;return reply({message:'Concluído.'});}
+      if(p.endsWith('/result'))return window.legacyCompleted?reply({level:'BASICO',overallPercentage:0,recommendation:'Resultado técnico de teste',performances:[],trail:{id:'legacy-trail',disciplinaPrioritaria:'Disciplina de teste',assuntoPrioritario:null,nivelRecomendado:'BASICO',quantidadeRecomendada:5}}):reply({message:'Finalize o diagnóstico.'},409);
       if(p.endsWith('/trail'))return reply({trail:{id:'legacy-trail',disciplinaPrioritaria:'Disciplina de teste',assuntoPrioritario:null,nivelRecomendado:'BASICO',quantidadeRecomendada:5}});
       return reply({message:'Operação técnica capturada'});
     };

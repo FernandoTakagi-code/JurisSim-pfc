@@ -24,7 +24,7 @@ describe('DiagnosticRepository.findAttemptForResult', () => {
     await repository.findAttemptForResult('attempt-1', 'student-1');
 
     expect(findFirst).toHaveBeenCalledWith({
-      where: { id: 'attempt-1', alunoId: 'student-1', tipo: 'DIAGNOSTICO' },
+      where: { id: 'attempt-1', alunoId: 'student-1', tipo: 'DIAGNOSTICO', diagnosticoInicial: null },
       select: diagnosticResultSelect,
     });
     expect(findFirst.mock.calls[0][0]).not.toHaveProperty('include');
@@ -46,7 +46,8 @@ describe('DiagnosticRepository.findAttemptForResult', () => {
   it('a tentativa inicial grava e retorna apenas campos legados necessários ao controller', async () => {
     const created = { id: 'attempt-1', iniciadoEm: new Date(), questoes: [{ id: 'link-1' }] };
     const tx = {
-      simulado: { create: vi.fn().mockResolvedValue(created) },
+      $queryRaw: vi.fn().mockResolvedValue([{ id: 'student-1' }]),
+      simulado: { create: vi.fn().mockResolvedValue(created), findFirst: vi.fn().mockResolvedValue(null) },
       auditLog: { create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
     };
     vi.mocked(prisma.$transaction).mockImplementation(((callback: (client: typeof tx) => unknown) => callback(tx)) as never);

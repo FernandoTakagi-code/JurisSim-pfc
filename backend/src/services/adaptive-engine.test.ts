@@ -10,6 +10,19 @@ function questions(correctAnswers: number, total = 100): AnsweredQuestion[] {
 }
 
 describe('motor adaptativo', () => {
+  it.each([[49.5, 'BASICO'], [79.5, 'INTERMEDIARIO']] as const)(
+    'preserva a faixa contínua para %s%%', (percentage, level) => expect(getLevel(percentage)).toBe(level),
+  );
+
+  it('seleciona o assunto mais fraco dentro da disciplina priorizada', () => {
+    const result = analyzeDiagnostic([
+      ...Array.from({ length: 4 }, (_, i) => ({ discipline: 'Civil', topic: 'Contratos', difficulty: 'BASICO' as const, isCorrect: i === 0 })),
+      { discipline: 'Penal', topic: 'Crimes', difficulty: 'BASICO' as const, isCorrect: false },
+      ...Array.from({ length: 9 }, () => ({ discipline: 'Penal', topic: 'Penas', difficulty: 'BASICO' as const, isCorrect: true })),
+    ]);
+    expect(result.weakestDiscipline).toBe('Civil');
+    expect(result.weakestTopic).toBe('Contratos');
+  });
   it.each([[49, 'BASICO'], [50, 'INTERMEDIARIO'], [79, 'INTERMEDIARIO'], [80, 'AVANCADO']] as const)(
     'classifica %s%% como %s', (percentage, level) => expect(getLevel(percentage)).toBe(level),
   );

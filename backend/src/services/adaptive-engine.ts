@@ -1,7 +1,7 @@
 import type { AdaptiveResult, AnsweredQuestion, Level, MetricType, PerformanceMetric, TrailFilter } from '../types/diagnostic';
 export function getLevel(percentage: number): Level {
-  if (percentage <= 49) return 'BASICO';
-  if (percentage <= 79) return 'INTERMEDIARIO';
+  if (percentage < 50) return 'BASICO';
+  if (percentage < 80) return 'INTERMEDIARIO';
   return 'AVANCADO';
 }
 
@@ -49,8 +49,7 @@ export function analyzeDiagnostic(questions: AnsweredQuestion[]): AdaptiveResult
   const correctAnswers = questions.filter((question) => question.isCorrect).length;
   const overallPercentage = percentage(correctAnswers, questions.length);
   const weakestDiscipline = [...disciplineMetrics].sort(compareByWeakness)[0];
-  const weakestTopic = [...topicMetrics].sort(compareByWeakness)[0];
-  const focusTopic = weakestTopic?.discipline === weakestDiscipline.discipline ? weakestTopic : null;
+  const focusTopic = topicMetrics.filter(metric => metric.discipline === weakestDiscipline.discipline).sort(compareByWeakness)[0] ?? null;
   const focusPercentage = focusTopic?.percentage ?? weakestDiscipline.percentage;
   const focusDescription = focusTopic ? `${focusTopic.discipline} — ${focusTopic.topic}` : weakestDiscipline.discipline;
   const recommendedLevel = getLevel(focusPercentage);

@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { TrailController } from '../controllers/trail-controller';
-import { requireAuth } from '../middlewares/auth-middleware';
+import { requireAuth, requireRoles } from '../middlewares/auth-middleware';
 
 const controller = new TrailController();
 export const trailRoutes = Router();
 
-trailRoutes.use(requireAuth);
+trailRoutes.use(requireAuth, requireRoles('ALUNO'));
 
 trailRoutes.post('/:trilhaId/gerar', controller.generate);
 trailRoutes.get('/attempts/:attemptId/questions', controller.getQuestions);

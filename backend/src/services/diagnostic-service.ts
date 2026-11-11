@@ -14,6 +14,8 @@ export class DiagnosticService {
   async start(studentId: string, quantity: number) {
     const student = await this.repository.findStudent(studentId);
     if (!student) throw new ApiError(404, 'Aluno nao encontrado.');
+    const active = await this.repository.findActiveAttempt(studentId);
+    if (active) return active;
     const questions = await this.repository.findQuestionsForDiagnostic(quantity);
     if (questions.length === 0) throw new ApiError(409, 'Nao ha questoes publicas cadastradas para iniciar o diagnostico.');
     return this.repository.createAttempt(studentId, questions.map((question) => question.id));
@@ -34,11 +36,14 @@ export class DiagnosticService {
     if (attempt.finalizadoEm) throw new ApiError(409, 'Esta tentativa de diagnostico ja foi finalizada.');
     const attemptQuestion = attempt.questoes.find((item) => item.questaoId === questionId);
     if (!attemptQuestion) throw new ApiError(404, 'A questao nao pertence a este diagnostico.');
-    if (attemptQuestion.resposta) throw new ApiError(409, 'Esta questao ja foi respondida neste diagnostico.');
+    if (attemptQuestion.resposta) {
+      if (attemptQuestion.resposta.alternativaEscolhidaId === selectedOptionId) return { message: 'Resposta registrada.' };
+      throw new ApiError(409, 'Esta questao ja foi respondida neste diagnostico.');
+    }
     const alternative = attemptQuestion.questao.alternativas.find((item) => item.id === selectedOptionId);
     if (!alternative) throw new ApiError(422, 'A alternativa informada nao pertence a esta questao.');
     try {
-      await this.repository.saveAnswer(attempt.id, questionId, attemptQuestion.id, alternative.id, alternative.correta);
+      await this.repository.saveAnswer(attempt.id, questionId, attemptQuestion.id, alternative.id, alternative.correta, studentId);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ApiError(409, 'Esta questao ja foi respondida neste diagnostico.');
@@ -50,7 +55,7 @@ export class DiagnosticService {
 
   async finalize(attemptId: string, studentId: string) {
     const attempt = await this.getAttemptOrFail(attemptId, studentId);
-    if (attempt.finalizadoEm) throw new ApiError(409, 'Esta tentativa de diagnostico ja foi finalizada.');
+    if (attempt.finalizadoEm) return this.getResult(attemptId, studentId);
     if (!attempt.questoes.some((question) => question.resposta)) throw new ApiError(422, 'Nao e possivel finalizar um diagnostico sem respostas.');
     const result = analyzeDiagnostic(this.answeredQuestions(attempt));
 
@@ -60,9 +65,20 @@ export class DiagnosticService {
       result.recommendation = textoEnriquecido;
     }
 
-    const finalizedAttempt = await this.repository.finalize(attemptId, studentId, result);
-    if (!finalizedAttempt) throw new ApiError(409, 'Esta tentativa de diagnostico ja foi finalizada.');
-    return { attempt: finalizedAttempt, result };
+    const finalizedAttempt = await this.repository.finalize(attemptId, studentId, current => {
+      const fresh = analyzeDiagnostic(this.answeredQuestions(current));
+      // Never attach feedback for a different answer snapshot after a race.
+      if (textoEnriquecido && JSON.stringify(fresh.performances) === JSON.stringify(result.performances)) {
+        fresh.trail.reason = textoEnriquecido; fresh.recommendation = textoEnriquecido;
+      }
+      return fresh;
+    });
+    const persisted = analyzeDiagnostic(this.answeredQuestions(finalizedAttempt));
+    if (finalizedAttempt.trilhaAdaptativa?.justificativa) {
+      persisted.recommendation = finalizedAttempt.trilhaAdaptativa.justificativa;
+      persisted.trail.reason = persisted.recommendation;
+    }
+    return { attempt: finalizedAttempt, result: persisted };
   }
 
   async getResult(attemptId: string, studentId: string) {

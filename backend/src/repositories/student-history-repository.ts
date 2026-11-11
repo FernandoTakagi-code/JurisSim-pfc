@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { isQuestionPracticeSchemaEnabled } from '../config/question-practice-feature';
 
 export type ActivitySummary = {
+  initialDiagnostic?: boolean;
   id: string; type: 'DIAGNOSTICO' | 'PERSONALIZADO' | 'AVALIACAO' | 'PRATICA'; startedAt: Date; finalizedAt: Date | null;
   totalQuestions: number; answeredQuestions: number; correctAnswers: number | null;
   incorrectAnswers: number | null; unansweredQuestions: number; overallPercentage: number | null;
@@ -28,6 +29,7 @@ const historyType = () => practiceEnabled()
   ? Prisma.sql`CASE WHEN EXISTS (SELECT 1 FROM "SessaoPratica" p WHERE p."simuladoId" = s.id) THEN 'PRATICA' ELSE s.tipo::text END`
   : Prisma.sql`s.tipo::text`;
 const summary = () => Prisma.sql`s.id, ${historyType()} AS type, s."iniciadoEm" AS "startedAt", s."finalizadoEm" AS "finalizedAt",
+  EXISTS (SELECT 1 FROM "DiagnosticoInicial" d WHERE d."simuladoId" = s.id AND d."alunoId" = s."alunoId") AS "initialDiagnostic",
   c.total AS "totalQuestions", c.answered AS "answeredQuestions",
   CASE WHEN s."finalizadoEm" IS NOT NULL THEN c.correct ELSE NULL END AS "correctAnswers",
   CASE WHEN s."finalizadoEm" IS NOT NULL THEN c.incorrect ELSE NULL END AS "incorrectAnswers",
@@ -86,7 +88,8 @@ export class StudentHistoryRepository {
       this.historyQuery(studentId, 5),
     ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
     return { totals: totals[0], evolution: evolution.reverse(), recentActivities: recent,
-      latestDiagnosticId: evolution[evolution.length - 1]?.id ?? null };
+      latestDiagnosticId: evolution[evolution.length - 1]?.id ?? null,
+      latestDiagnosticInitial: evolution[evolution.length - 1]?.initialDiagnostic ?? false };
   }
 
   history(studentId: string, limit: number, cursor?: HistoryCursor, diagnosticsOnly = false) {
