@@ -28,7 +28,7 @@ export function QuestionPracticePage({ attemptId, initialDiscipline }: { attempt
   }, [attemptId, initialDiscipline]);
 
   useEffect(() => {
-    if (attemptId) return;
+    if (!featureEnabled || attemptId) return;
     let active = true;
     setTopic(''); setTopics([]);
     void apiRequest<{ topics: string[] }>(`/question-practice/catalog/${encodeURIComponent(discipline)}/topics`)
@@ -38,7 +38,7 @@ export function QuestionPracticePage({ attemptId, initialDiscipline }: { attempt
   }, [attemptId, discipline]);
 
   useEffect(() => {
-    if (!attemptId) return;
+    if (!featureEnabled || !attemptId) return;
     let active = true;
     setBusy(true); setError('');
     void apiRequest<{ attempt: Attempt }>(`/question-practice/${attemptId}`)
@@ -97,19 +97,20 @@ export function QuestionPracticePage({ attemptId, initialDiscipline }: { attempt
 
   if (!attemptId) return <section className="page practice-page">
     <p className="gold">PRÁTICA INDIVIDUAL</p><h1>O que você quer estudar hoje?</h1>
-    <p className="muted">Escolha uma disciplina e o tamanho da prática. Serão usadas somente questões públicas elegíveis, revisadas e com direitos documentados quando aplicável.</p>
+    <p className="muted">Na prática, você estuda por disciplina ou assunto e recebe a correção a cada resposta. As questões disponíveis e a quantidade de cada treino dependerão do acervo liberado que você ainda não respondeu.</p>
     <div className="panel practice-picker">
       <label htmlFor="practice-discipline">Disciplina</label>
-      <select id="practice-discipline" value={discipline} onChange={event => setDiscipline(event.target.value)}>{disciplines.map(item => <option key={item}>{item}</option>)}</select>
+      <select id="practice-discipline" disabled={!featureEnabled || busy} value={discipline} onChange={event => setDiscipline(event.target.value)}>{disciplines.map(item => <option key={item}>{item}</option>)}</select>
       <label htmlFor="practice-topic">Assunto (opcional)</label>
-      <select id="practice-topic" value={topic} onChange={event => setTopic(event.target.value)}><option value="">Todos os assuntos</option>{topics.map(item => <option key={item} value={item}>{item}</option>)}</select>
-      <fieldset><legend>Quantidade de questões</legend>{quantities.map(value => <label key={value} className="practice-quantity"><input type="radio" name="practice-quantity" checked={quantity === value} onChange={() => setQuantity(value)} />{value}</label>)}</fieldset>
+      <select id="practice-topic" disabled={!featureEnabled || busy} value={topic} onChange={event => setTopic(event.target.value)}><option value="">Todos os assuntos</option>{topics.map(item => <option key={item} value={item}>{item}</option>)}</select>
+      <fieldset disabled={!featureEnabled || busy}><legend>Quantidade de questões</legend>{quantities.map(value => <label key={value} className="practice-quantity"><input type="radio" name="practice-quantity" checked={quantity === value} onChange={() => setQuantity(value)} />{value}</label>)}</fieldset>
       <button className="primary" disabled={!featureEnabled || busy} onClick={() => void start()}>{busy ? 'Preparando prática…' : 'Iniciar prática'}</button>
-      {!featureEnabled && <p className="muted" role="status">A prática individual está preparada, mas indisponível até a validação da migration e do acervo elegível.</p>}
+      {!featureEnabled && <p className="muted" role="status">Estamos preparando questões diferentes das usadas no diagnóstico. A prática individual será liberada após a revisão desse acervo.</p>}
       {error && <p className="error" role="alert">{error}</p>}
     </div>
   </section>;
 
+  if (!featureEnabled) return <section className="page"><h1>Prática individual em preparação</h1><p className="muted" role="status">A prática está indisponível enquanto preparamos e revisamos o acervo.</p><button className="outline-button" onClick={() => navigate('/questoes')}>Voltar às questões</button></section>;
   if (busy && !attempt) return <section className="page"><p role="status">Carregando sua prática…</p></section>;
   if (error && !attempt) return <section className="page"><p className="error" role="alert">{error}</p><button className="outline-button" onClick={() => navigate('/questoes')}>Voltar às questões</button></section>;
   if (result) return <section className="page practice-page">
