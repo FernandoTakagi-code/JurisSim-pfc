@@ -56,13 +56,23 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
 
-      - name: Instalar dependências
+      - name: Instalar dependências do backend
+        run: npm ci
+
+      # Um teste de integração abre o frontend (Vite) no Chrome contra a API e o banco reais.
+      - name: Instalar dependências do frontend
+        working-directory: frontend
         run: npm ci
 
       - name: Gerar o Prisma Client
         run: npx prisma generate
+
+      - name: Localizar o Chrome do runner
+        run: echo "CHROME_PATH=$(command -v google-chrome || command -v google-chrome-stable)" >> "$GITHUB_ENV"
 
       # Mesma versão major do banco do projeto (Supabase/PostgreSQL 17); o script recusa outra.
       - name: Instalar o PostgreSQL 17
