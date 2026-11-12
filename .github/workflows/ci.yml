@@ -72,12 +72,18 @@ jobs:
           sudo apt-get install -y -qq --no-install-recommends postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y -qq --no-install-recommends postgresql-17
+          # O PostgreSQL do Ubuntu cria o socket em /var/run/postgresql; o usuário do runner precisa escrever nele.
+          sudo chmod a+rwx /var/run/postgresql
           echo "bin=/usr/lib/postgresql/17/bin" >> "$GITHUB_OUTPUT"
 
       # O script cria um cluster PostgreSQL descartável (só 127.0.0.1), aplica as
       # migrations e executa apenas vitest.integration.config.ts (*.integration.test.ts).
       - name: Executar somente os testes de integração em banco descartável
         run: npm run test:integration:disposable -- "${{ steps.postgres.outputs.bin }}" --integration-suite-only
+
+      - name: Mostrar o log do PostgreSQL descartável (somente em falha)
+        if: failure()
+        run: tail -n 50 /tmp/jurissim-migrations-*/postgres.log || true
 
   lint:
     name: Linter
