@@ -1,6 +1,6 @@
 # Questões e simulados individuais — preparação do acervo
 
-Atualizado em 12/11/2026. Branch: `fernando/questoes-diagnostico-autoral`. O lote está cadastrado no Supabase como rascunho privado. A disponibilidade por aluno foi implementada; o motor de simulados individuais ainda não foi implementado.
+Atualizado em 12/11/2026. Branch: `fernando/questoes-diagnostico-autoral`. O lote está cadastrado no Supabase como rascunho privado. A disponibilidade por aluno e o simulado misto de 30 foram implementados. O fluxo passou no teste integrado em PostgreSQL descartável; permanece desativado, sem aplicação da nova migration no Supabase compartilhado. Ver `docs/simulado-individual-e-capacidade.md` para o estado e os testes mais recentes.
 
 ## Decisão e estado da entrega
 
@@ -21,7 +21,7 @@ Lote no banco: `9218bdec-f4e3-43a1-8b54-cdc40720dea5`. Total de questões passou
 | Diagnóstico inicial | Fluxo próprio de diagnóstico | O piloto existente tem seu lote e sua configuração. O novo lote não altera esse fluxo. |
 | Questões | `question-practice.tsx` e `question-practice-service.ts` | Consulta estoque inédito por aluno e filtro, permite apenas quantidades viáveis e indica tentativa para retomar. Correção a cada resposta e resultado final. Exige acervo elegível. Continua desativado. |
 | Simulados das turmas | `class-exams.tsx` e API de avaliações | Avaliações publicadas pelo professor para turmas em que o aluno está matriculado; podem ter duração definida. É funcionalidade distinta da prática individual. |
-| Simulados individuais | Aviso na tela de Simulados | Ainda sem fluxo próprio implementado. A proposta é misturar disciplinas e mostrar correção ao terminar. Não existe catálogo de provas oficiais publicado por esta entrega. |
+| Simulados individuais | `individual-exam.tsx`, API e serviço próprios | Fluxo implementado de 30 questões, seis por disciplina, salvamento, retomada e correção na entrega. Desativado até validar migration, acervo liberado e interface. Não é catálogo de provas oficiais. |
 
 Na interface, os textos foram ajustados para explicar essa distinção. A tela de Questões não busca o catálogo desativado e não exibe erro de indisponibilidade como se fosse falha de carregamento. Seus controles ficam desabilitados enquanto a funcionalidade está fechada, inclusive em acesso direto à rota de tentativa. As avaliações de turma mantêm seu funcionamento.
 
@@ -39,7 +39,7 @@ Estas quantidades são teóricas, considerando todos os itens aprovados e nenhum
 
 Prática e simulado precisam compartilhar o histórico de questões respondidas. Exemplo: dez respostas em Constitucional deixam apenas duas questões inéditas nessa disciplina, impedindo um simulado balanceado que peça seis. Depois de um simulado inicial de seis por disciplina restariam seis em cada disciplina; a disponibilidade por assunto dependeria de quais itens foram selecionados. Não somar essas capacidades como se fossem estoques independentes.
 
-A prática agora calcula as quantidades possíveis por aluno, disciplina e assunto e apresenta falta de estoque antes do início. O histórico de respostas já usado pelo repositório cobre as respostas de simulados do aluno, incluindo diagnóstico; o lote privado não compõe a seleção elegível. O futuro simulado misto ainda precisa usar essa mesma política. Não completar silenciosamente uma tentativa com questões repetidas. Se houver modo de revisão no futuro, identificá-lo explicitamente.
+A prática agora calcula as quantidades possíveis por aluno, disciplina e assunto e apresenta falta de estoque antes do início. O histórico de respostas já usado pelo repositório cobre as respostas de simulados do aluno, incluindo diagnóstico; o lote privado não compõe a seleção elegível. O simulado misto implementado também exclui questões já respondidas. Não completar silenciosamente uma tentativa com questões repetidas. Se houver modo de revisão no futuro, identificá-lo explicitamente.
 
 Nova consulta autenticada: `GET /question-practice/catalog/:discipline/availability?topic=...`. Retorna contagem disponível, quantidades viáveis entre 5/10/20, contagens por assunto e ID/quantidade/assunto da prática em andamento, sem enunciados ou gabaritos. Usa as mesmas restrições de funcionalidade e papel ALUNO das demais rotas e resposta `Cache-Control: no-store`. A disponibilidade é uma fotografia do momento: iniciar a prática continua verificando o estoque no servidor. Retomar não depende de haver estoque para uma nova tentativa.
 
@@ -57,7 +57,7 @@ Revisores devem resolver os itens sem consultar o gabarito, procurar outra alter
 2. Converter apenas itens liberados em manifesto próprio para prática, com assuntos-alvo compatíveis com o importador existente. Este JSON de rascunho não deve ser passado diretamente ao importador do diagnóstico ou ao importador elegível.
 3. Validar o fluxo de publicação aprovado e sua reversão em banco isolado, preservando as revisões verdadeiras e sem interferir no diagnóstico. O cadastro privado já foi realizado; não repeti-lo pelo importador elegível como se fossem questões diferentes.
 4. A disponibilidade da prática está implementada na API e na tela de Questões. Depois da liberação do acervo, validar funcionalmente esse fluxo no navegador antes de ativar as flags para alunos.
-5. Implementar o fluxo de simulado individual misto: criação balanceada proposta de 30, duração a definir, retomada, salvamento, entrega e correção apenas ao final. Manter separado das avaliações de turma e do treino com feedback imediato.
+5. Simulado misto implementado e testado em banco isolado: 30 questões, seis por disciplina, retomada, salvamento e correção na entrega, sem limite de tempo nesta versão. Falta aplicar a migration no destino conferido e validar no navegador antes da ativação.
 6. Testar seleção inédita, filtros, isolamento entre alunos, retomada, entrega incompleta, correção final, histórico e esgotamento do estoque. Fazer teste funcional do navegador e validação com aluno antes da liberação.
 
 Fernando pode começar revisando o caderno por IDs e marcando dúvidas; a aprovação técnica estrutural não exige que ele assuma revisão jurídica que não realizou. Depois do piloto de conteúdo, analisar dificuldade observada, taxa de acerto e escolha dos distratores, sem concluir calibração com amostra pequena.
@@ -80,5 +80,5 @@ Essa auditoria verifica estrutura pelo schema real do cadastro e registros edito
 - Build do frontend: passou (`tsc -b` e Vite); permanece o aviso de tamanho do bundle.
 - Testes focados: 25/25 passaram em cinco arquivos, incluindo novo importador privado, disponibilidade, isolamento de histórico por aluno, estoque insuficiente, retomada e proteção da rota. Build do backend também passou.
 - `git diff --check`: passou.
-- Sem teste visual ou nova navegação funcional do navegador nesta etapa. O build e os testes existentes não demonstram o funcionamento completo do futuro simulado individual, ainda não implementado.
+- Sem teste visual ou nova navegação funcional do navegador nesta etapa. O simulado misto passou posteriormente no teste HTTP/banco isolado, documentado em `docs/simulado-individual-e-capacidade.md`; isso não substitui a validação de interface no navegador.
 - Importação no Supabase: 60/60 questões privadas e pendentes, quatro alternativas e um gabarito em cada. Nova execução criou zero duplicatas. Integridade dos 63 registros anteriores confirmada. Nenhuma publicação ou alteração de flag foi realizada.

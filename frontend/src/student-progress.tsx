@@ -26,7 +26,7 @@ export type StudyResult = {
 };
 type Activity = {
   id: string;
-  type: "DIAGNOSTICO" | "PERSONALIZADO" | "AVALIACAO" | "PRATICA";
+  type: "DIAGNOSTICO" | "PERSONALIZADO" | "AVALIACAO" | "PRATICA" | "INDIVIDUAL";
   startedAt: string;
   finalizedAt: string | null;
   totalQuestions: number;
@@ -61,8 +61,8 @@ const formatDate = (value: string) =>
     timeStyle: "short",
   });
 const typeLabel = (type: Activity["type"]) =>
-  type === "DIAGNOSTICO" ? "Diagnóstico" : type === "AVALIACAO" ? "Simulado de turma" : type === "PRATICA" ? "Prática individual" : "Trilha de exercícios";
-const resultPath = (item: Activity) => item.type === "AVALIACAO" ? `/simulados/tentativas/${item.id}` : item.type === "PRATICA" ? `/questoes/pratica/${item.id}` : `/resultados/${item.type === "DIAGNOSTICO" ? "diagnostico" : "trilha"}/${item.id}`;
+  type === "DIAGNOSTICO" ? "Diagnóstico" : type === "AVALIACAO" ? "Simulado de turma" : type === "PRATICA" ? "Prática individual" : type === "INDIVIDUAL" ? "Simulado individual" : "Trilha de exercícios";
+const resultPath = (item: Activity) => item.type === "INDIVIDUAL" ? `/simulados/individual/${item.id}` : item.type === "AVALIACAO" ? `/simulados/tentativas/${item.id}` : item.type === "PRATICA" ? `/questoes/pratica/${item.id}` : `/resultados/${item.type === "DIAGNOSTICO" ? "diagnostico" : "trilha"}/${item.id}`;
 const errorMessage = (cause: unknown) =>
   cause instanceof Error
     ? cause.message

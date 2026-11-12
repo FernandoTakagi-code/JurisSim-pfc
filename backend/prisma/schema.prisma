@@ -190,6 +190,7 @@ model Simulado {
   trilhaAdaptativa       TrilhaAdaptativa?       @relation("TrilhaDoDiagnostico")
   diagnosticoInicial     DiagnosticoInicial?     @relation("DiagnosticoInicialSimulado")
   sessaoPratica          SessaoPratica?          @relation("SessaoPraticaSimulado")
+  sessaoIndividual       SessaoSimuladoIndividual? @relation("SessaoIndividualSimulado")
 
   @@index([alunoId, iniciadoEm, id])
   @@index([alunoId, finalizadoEm, id])
@@ -221,6 +222,17 @@ model SessaoPratica {
 
   @@unique([simuladoId, alunoId], map: "SessaoPratica_simuladoId_alunoId_key")
   @@index([alunoId, criadaEm])
+}
+
+model SessaoSimuladoIndividual {
+  id         String @id @default(uuid())
+  simuladoId String @unique
+  alunoId    String
+  criadaEm   DateTime @default(now())
+  simulado   Simulado @relation("SessaoIndividualSimulado", fields: [simuladoId, alunoId], references: [id, alunoId], onDelete: Restrict, map: "SessaoIndividual_simuladoId_alunoId_fkey")
+
+  @@unique([simuladoId, alunoId], map: "SessaoIndividual_simuladoId_alunoId_key")
+  @@index([alunoId, criadaEm], map: "SessaoIndividual_alunoId_criadaEm_idx")
 }
 model Avaliacao {
   id String @id @default(uuid())

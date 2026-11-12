@@ -9,6 +9,7 @@ import { apiRequest } from './api';
 import { useSession, refreshSession, endSession, logoutSession, sessionDestination, setLocalDiagnosticDemoMode } from './auth-session';
 import { EmailConfirmationGate } from './email-confirmation-gate';
 import { QuestionPracticePage } from './question-practice';
+import { IndividualExamPage } from './individual-exam';
 import { LegalBoundary, LegalLinks } from './legal';
 import { Brand } from "./shell";
 import { ProfessorArea } from "./ProfessorArea";
@@ -155,6 +156,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
 
 
   const classAttemptRoute = /^\/simulados\/tentativas\/([^/]+)$/.exec(route);
+  const individualExamRoute = /^\/simulados\/individual\/([^/]+)$/.exec(route);
+  if (individualExamRoute) return <IndividualExamPage key={individualExamRoute[1]} id={individualExamRoute[1]} />;
   if (route === "/metas") return <GoalsPage />;
   if (route === "/turmas") return <ClassesPage teacher={false} />;
   if (route === "/simulados") return <ExamsPage teacher={false} />;

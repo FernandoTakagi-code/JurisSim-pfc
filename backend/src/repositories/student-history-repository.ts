@@ -1,15 +1,17 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { isQuestionPracticeSchemaEnabled } from '../config/question-practice-feature';
+import { isIndividualExamSchemaEnabled } from '../config/individual-exam-feature';
 
 export type ActivitySummary = {
-  id: string; type: 'DIAGNOSTICO' | 'PERSONALIZADO' | 'AVALIACAO' | 'PRATICA'; startedAt: Date; finalizedAt: Date | null;
+  id: string; type: 'DIAGNOSTICO' | 'PERSONALIZADO' | 'AVALIACAO' | 'PRATICA' | 'INDIVIDUAL'; startedAt: Date; finalizedAt: Date | null;
   totalQuestions: number; answeredQuestions: number; correctAnswers: number | null;
   incorrectAnswers: number | null; unansweredQuestions: number; overallPercentage: number | null;
 };
 export type HistoryCursor = { startedAt: string; id: string };
 export type StudyTotals = {
   completedActivities: number; completedDiagnostics: number; completedTrails: number; completedExams: number; completedPractices: number;
+  completedIndividualExams?: number;
   totalQuestions: number; answeredQuestions: number; correctAnswers: number;
   incorrectAnswers: number; unansweredQuestions: number;
 };
@@ -24,9 +26,12 @@ const counts = Prisma.sql`LEFT JOIN LATERAL (
   WHERE q."simuladoId" = s.id
 ) c ON true`;
 const practiceEnabled = isQuestionPracticeSchemaEnabled;
-const historyType = () => practiceEnabled()
+const baseHistoryType = () => practiceEnabled()
   ? Prisma.sql`CASE WHEN EXISTS (SELECT 1 FROM "SessaoPratica" p WHERE p."simuladoId" = s.id) THEN 'PRATICA' ELSE s.tipo::text END`
   : Prisma.sql`s.tipo::text`;
+const historyType = () => isIndividualExamSchemaEnabled()
+  ? Prisma.sql`CASE WHEN EXISTS (SELECT 1 FROM "SessaoSimuladoIndividual" e WHERE e."simuladoId"=s.id) THEN 'INDIVIDUAL' ELSE ${baseHistoryType()} END`
+  : baseHistoryType();
 const summary = () => Prisma.sql`s.id, ${historyType()} AS type, s."iniciadoEm" AS "startedAt", s."finalizadoEm" AS "finalizedAt",
   c.total AS "totalQuestions", c.answered AS "answeredQuestions",
   CASE WHEN s."finalizadoEm" IS NOT NULL THEN c.correct ELSE NULL END AS "correctAnswers",
@@ -42,7 +47,8 @@ export class StudentHistoryRepository {
         count(*) FILTER (WHERE r.correta)::int AS correct
       FROM "Simulado" s JOIN "QuestaoSimulado" sq ON sq."simuladoId"=s.id
       JOIN "Questao" q ON q.id=sq."questaoId" JOIN "Resposta" r ON r."questaoSimuladoId"=sq.id
-      WHERE s."alunoId"=${studentId} AND (s."finalizadoEm" IS NOT NULL OR s.tipo <> 'DIAGNOSTICO')
+      WHERE s."alunoId"=${studentId} AND (s."finalizadoEm" IS NOT NULL OR (s.tipo <> 'DIAGNOSTICO'
+        ${isIndividualExamSchemaEnabled() ? Prisma.sql`AND NOT EXISTS (SELECT 1 FROM "SessaoSimuladoIndividual" e WHERE e."simuladoId"=s.id)` : Prisma.empty}))
       GROUP BY q.disciplina, q.assunto`);
     const groups = new Map<string, { discipline: string; topic: string; total: number; correct: number }[]>();
     for (const row of rows) groups.set(row.discipline, [...(groups.get(row.discipline) ?? []), row]);
@@ -67,7 +73,9 @@ export class StudentHistoryRepository {
       prisma.$queryRaw<StudyTotals[]>(Prisma.sql`
         SELECT count(*)::int AS "completedActivities",
           count(*) FILTER (WHERE s.tipo = 'DIAGNOSTICO')::int AS "completedDiagnostics",
-          count(*) FILTER (WHERE s.tipo = 'PERSONALIZADO' ${practiceEnabled() ? Prisma.sql`AND NOT EXISTS (SELECT 1 FROM "SessaoPratica" p WHERE p."simuladoId" = s.id)` : Prisma.empty})::int AS "completedTrails",
+          count(*) FILTER (WHERE s.tipo = 'PERSONALIZADO' ${practiceEnabled() ? Prisma.sql`AND NOT EXISTS (SELECT 1 FROM "SessaoPratica" p WHERE p."simuladoId" = s.id)` : Prisma.empty}
+            ${isIndividualExamSchemaEnabled() ? Prisma.sql`AND NOT EXISTS (SELECT 1 FROM "SessaoSimuladoIndividual" e WHERE e."simuladoId"=s.id)` : Prisma.empty})::int AS "completedTrails",
+          ${isIndividualExamSchemaEnabled() ? Prisma.sql`count(*) FILTER (WHERE EXISTS (SELECT 1 FROM "SessaoSimuladoIndividual" e WHERE e."simuladoId"=s.id))::int` : Prisma.sql`0::int`} AS "completedIndividualExams",
           count(*) FILTER (WHERE s.tipo = 'AVALIACAO')::int AS "completedExams",
           ${practiceEnabled() ? Prisma.sql`count(*) FILTER (WHERE EXISTS (SELECT 1 FROM "SessaoPratica" p WHERE p."simuladoId" = s.id))::int` : Prisma.sql`0::int`} AS "completedPractices",
           coalesce(sum(c.total), 0)::int AS "totalQuestions",

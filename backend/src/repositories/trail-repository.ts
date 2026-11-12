@@ -51,7 +51,7 @@ export class TrailRepository {
   }
 
   async findAttempt(attemptId: string) {
-    return prisma.simulado.findFirst({ where: { id: attemptId, tipo: 'PERSONALIZADO' }, include: trailAttemptDetails });
+    return prisma.simulado.findFirst({ where: { id: attemptId, tipo: 'PERSONALIZADO', trilhaOrigem: { isNot: null } }, include: trailAttemptDetails });
   }
 
   async saveAnswer(simuladoId: string, questaoId: string, questaoSimuladoId: string, alternativaEscolhidaId: string, correta: boolean) {

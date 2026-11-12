@@ -3,6 +3,7 @@ import { apiRequest } from "./api";
 import { navigate } from "./navigation";
 import "./class-exams.css";
 import { ClassMembershipManager } from './administration';
+import { IndividualExamLobby } from './individual-exam';
 
 type Page<T> = { items: T[]; page: number; hasMore: boolean };
 type Class = {
@@ -467,13 +468,7 @@ export function ExamsPage({ teacher,institutional=false }: { teacher: boolean;in
           ? "Selecione questões autorizadas e publique para suas turmas. Publicados ficam bloqueados para edição."
           : "Acompanhe a preparação dos simulados individuais e acesse as avaliações publicadas para suas turmas."}
       </p>
-      {!teacher && <section className="panel individual-exams-section" aria-labelledby="individual-exams-title">
-        <p className="gold">PREPARAÇÃO INDIVIDUAL</p>
-        <h2 id="individual-exams-title">Simulados individuais em preparação</h2>
-        <p className="muted">Estamos preparando um acervo autoral separado do diagnóstico. A proposta é reunir questões de diferentes disciplinas em uma tentativa, com correção ao final. Esses simulados ainda não estão disponíveis.</p>
-        <p className="muted">Em Questões, o treino será por disciplina ou assunto, com correção a cada resposta. As questões autorais não são questões oficiais da OAB.</p>
-        <div className="class-actions"><button className="outline-button" onClick={() => navigate('/questoes')}>Ver preparação dos treinos</button></div>
-      </section>}
+      {!teacher && <IndividualExamLobby />}
       {!teacher && <div className="class-section-heading"><p className="gold">AVALIAÇÕES DE TURMA</p><h2>Simulados das minhas turmas</h2><p className="muted">Somente avaliações publicadas nas turmas em que você está matriculado.</p></div>}
       {teacher && !editing && (
         <button className="primary" onClick={() => setEditing("new")}>
