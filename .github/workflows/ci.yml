@@ -64,9 +64,13 @@ jobs:
       - name: Gerar o Prisma Client
         run: npx prisma generate
 
-      - name: Localizar os binários do PostgreSQL do runner
+      # Mesma versão major do banco do projeto (Supabase/PostgreSQL 17); o script recusa outra.
+      - name: Instalar o PostgreSQL 17
         id: postgres
-        run: echo "bin=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -n 1)" >> "$GITHUB_OUTPUT"
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends postgresql-17
+          echo "bin=/usr/lib/postgresql/17/bin" >> "$GITHUB_OUTPUT"
 
       # O script cria um cluster PostgreSQL descartável (só 127.0.0.1), aplica as
       # migrations e executa apenas vitest.integration.config.ts (*.integration.test.ts).
