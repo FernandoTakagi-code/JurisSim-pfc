@@ -25,7 +25,7 @@ export const institutionInput = z
     registrationNumber: z
       .string()
       .trim()
-      .transform((v) => v.replace(/[.\/\-\s]/g, "").toUpperCase())
+      .transform((v) => v.replace(/[./\-\s]/g, "").toUpperCase())
       .refine(
         (v) => /^[A-Z0-9]{12}[0-9]{2}$/.test(v),
         "CNPJ deve ter 14 posições, com dois dígitos finais.",

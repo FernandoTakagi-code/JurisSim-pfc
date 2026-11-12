@@ -148,5 +148,6 @@ export function createBrevoSmtpTransport(user?: string, key?: string): Transacti
 
 let sharedBrevoApiTransport: BrevoApiTransport | undefined;
 export function getSharedBrevoApiTransport(): BrevoApiTransport {
-  return sharedBrevoApiTransport ??= new BrevoApiTransport();
+  if (!sharedBrevoApiTransport) sharedBrevoApiTransport = new BrevoApiTransport();
+  return sharedBrevoApiTransport;
 }

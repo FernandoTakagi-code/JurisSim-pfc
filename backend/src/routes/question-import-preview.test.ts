@@ -43,10 +43,9 @@ beforeEach(() => {
 });
 
 describe('POST /questoes/importacao/preview', () => {
-  it('permite ADMIN e não consulta nem grava questões', async () => {
+  it('nega ADMIN, pois a importação pedagógica global foi descontinuada, e não consulta nem grava questões', async () => {
     const response = await fetch(base, { method: 'POST', headers: { Authorization: authorization('ADMIN'), 'Content-Type': 'text/csv' }, body: `${headers.join(',')}\n${row}` });
-    expect(response.status).toBe(200);
-    expect((await response.json()).totals).toEqual({ total: 1, valid: 1, invalid: 0, duplicated: 0 });
+    expect(response.status).toBe(403);
     expect(db.questao.findMany).not.toHaveBeenCalled();
     expect(db.questao.create).not.toHaveBeenCalled();
   });
@@ -57,11 +56,11 @@ describe('POST /questoes/importacao/preview', () => {
     expect(db.questao.findMany).not.toHaveBeenCalled();
   });
 
-  it('exige autenticação e rejeita tipo de conteúdo diferente de CSV', async () => {
+  it('exige autenticação e continua negando ADMIN com outro tipo de conteúdo', async () => {
     const missing = await fetch(base, { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: `${headers.join(',')}\n${row}` });
     expect(missing.status).toBe(401);
     const contentType = await fetch(base, { method: 'POST', headers: { Authorization: authorization('ADMIN'), 'Content-Type': 'application/json' }, body: JSON.stringify({ csv: row }) });
-    expect(contentType.status).toBe(422);
+    expect(contentType.status).toBe(403);
     expect(db.questao.create).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError } from '../errors/api-error';
 import { QuestionPracticeService, type PracticeAttempt, type PracticeQuestion, type QuestionPracticeRepository } from './question-practice-service';
 
 const question = (id: string, correctId = `${id}-a`): PracticeQuestion => ({
