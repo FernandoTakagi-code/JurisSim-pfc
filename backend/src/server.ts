@@ -51,7 +51,7 @@ app.use(cors({
 app.use(express.json());
 app.use(administrationAudit);
 
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', message: 'JurisSim API rodando' });
 });
 app.use('/auth', authRoutes);
@@ -95,7 +95,8 @@ async function startServer() {
     try {
       localEmailVerificationCapture.assertLocalConfiguration();
       if (isLocalDiagnosticDemoRequested()) localEmailVerificationCapture.assertLocalDiagnosticDemoConfiguration();
-      const identity = await prisma.$queryRawUnsafe<any[]>(`SELECT current_database() AS database,
+      const identity = await prisma.$queryRawUnsafe<{ database: string; username: string; address: string; port: number;
+        systemIdentifier: string; versionMajor: number }[]>(`SELECT current_database() AS database,
         current_user AS username, inet_server_addr()::text AS address, inet_server_port() AS port,
         (pg_control_system()).system_identifier::text AS "systemIdentifier",
         split_part(current_setting('server_version'), '.', 1)::int AS "versionMajor"`);
