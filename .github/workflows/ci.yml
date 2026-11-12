@@ -71,8 +71,11 @@ jobs:
       - name: Gerar o Prisma Client
         run: npx prisma generate
 
-      - name: Localizar o Chrome do runner
-        run: echo "CHROME_PATH=$(command -v google-chrome || command -v google-chrome-stable)" >> "$GITHUB_ENV"
+      # O Ubuntu do runner bloqueia namespaces de usuário via AppArmor, e o sandbox do Chrome depende deles.
+      - name: Preparar o Chrome do runner
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          echo "CHROME_PATH=$(command -v google-chrome || command -v google-chrome-stable)" >> "$GITHUB_ENV"
 
       # Mesma versão major do banco do projeto (Supabase/PostgreSQL 17); o script recusa outra.
       - name: Instalar o PostgreSQL 17
