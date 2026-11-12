@@ -22,7 +22,7 @@ describe('motor adaptativo', () => {
     expect(result.weakestDiscipline).toBe('Constitucional');
     expect(result.weakestTopic).toBe('Controle');
     expect(result.recommendation).toContain('Constitucional');
-    expect(result.trail.recommendedLevel).toBe('BASICO');
+    expect(result.trail.recommendedLevel).toBe('AVANCADO'); // quebra proposital (será revertida)
   });
 
   it('calcula o percentual a partir das respostas registradas', () => {

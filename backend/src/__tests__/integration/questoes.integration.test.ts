@@ -31,7 +31,7 @@ describe('POST /questoes (Controller + Service + Repository + BD)', () => {
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token: tokenPara(professor), corpo: questaoValida() });
 
     // Assert - status e corpo da resposta
-    expect(resposta.status).toBe(201);
+    expect(resposta.status).toBe(500); // quebra proposital (será revertida)
     expect(resposta.corpo.id).toEqual(expect.any(String));
     expect(resposta.corpo).toMatchObject({ disciplina: 'Direito Civil', assunto: 'Locação', autorId: professor.id });
     expect(resposta.corpo.alternativas).toHaveLength(4);
