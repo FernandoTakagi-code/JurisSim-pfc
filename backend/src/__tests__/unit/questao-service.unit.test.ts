@@ -127,7 +127,7 @@ describe('QuestaoService.listar() - visibilidade por perfil', () => {
       { id: 'alt-1', texto: 'Alternativa A' },
       { id: 'alt-2', texto: 'Alternativa B' },
     ]);
-    expect(repositorio.listar).toHaveBeenCalledWith({}, 'aluno-1', 'ALUNO', false);
+    expect(repositorio.listar).toHaveBeenCalledWith({}, 'aluno-1', 'ALUNO', false, undefined);
   });
 
   it('deveFiltrarSomenteAsQuestoesDoProfessorQuandoSolicitado', async () => {
@@ -139,6 +139,6 @@ describe('QuestaoService.listar() - visibilidade por perfil', () => {
 
     // Assert
     expect(questao.alternativas[0]).toHaveProperty('correta', true);
-    expect(repositorio.listar).toHaveBeenCalledWith({ disciplina: 'Direito Civil' }, PROFESSOR_ID, 'PROFESSOR', true);
+    expect(repositorio.listar).toHaveBeenCalledWith({ disciplina: 'Direito Civil' }, PROFESSOR_ID, 'PROFESSOR', true, undefined);
   });
 });
