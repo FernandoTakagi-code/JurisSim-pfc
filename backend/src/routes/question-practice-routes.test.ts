@@ -17,6 +17,7 @@ const attemptId = '00000000-0000-4000-8000-000000000101';
 let server: Server; let base: string; let studentToken: string; let teacherToken: string;
 
 const controller = {
+  availability: vi.fn((_req: Request, res: Response) => res.json({ availableCount: 0, availableQuantities: [], topics: [], activeAttempt: null })),
   topics: vi.fn((_req: Request, res: Response) => res.json({ topics: [] })),
   start: vi.fn((_req: Request, res: Response) => res.status(201).json({ attempt: { id: attemptId } })),
   get: vi.fn((_req: Request, res: Response) => res.json({ attempt: { id: attemptId } })),
@@ -64,5 +65,15 @@ describe('question practice routes', () => {
     expect(controller.start).not.toHaveBeenCalled();
     expect((await request('POST', '/', studentToken, { discipline: 'Direito Civil', quantity: 5 })).status).toBe(201);
     expect(controller.start).toHaveBeenCalledOnce();
+  });
+  it('protects per-student availability with the same feature and role gates', async () => {
+    const path = '/catalog/Direito%20Civil/availability';
+    expect((await request('GET', path, studentToken)).status).toBe(503);
+    expect(controller.availability).not.toHaveBeenCalled();
+    process.env.TEST_QUESTION_PRACTICE_ENABLED = 'true';
+    expect((await request('GET', path)).status).toBe(401);
+    expect((await request('GET', path, teacherToken)).status).toBe(403);
+    expect((await request('GET', path, studentToken)).status).toBe(200);
+    expect(controller.availability).toHaveBeenCalledOnce();
   });
 });

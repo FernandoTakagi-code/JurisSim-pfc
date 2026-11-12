@@ -5,6 +5,7 @@ import { navigate } from './navigation';
 type Option = { id: string; letter: string; text: string };
 type Question = { id: string; position: number; statement: string; discipline: string; topic: string; level: string; selectedOptionId: string | null; alternatives: Option[] };
 type Attempt = { id: string; state: 'IN_PROGRESS' | 'COMPLETED'; discipline: string; topic: string | null; questions: Question[] };
+type Availability = { availableCount: number; availableQuantities: number[]; topics: { name: string; availableCount: number }[]; activeAttempt: { id: string; quantity: number; topic: string | null } | null };
 type Result = { total: number; correct: number; incorrect: number; percentage: number; consistency: number | null; recommendation: string; answers: { questionId: string; statement: string; discipline: string; selectedOptionId: string | null; correctOptionId: string | null; correct: boolean; explanation: string; alternatives: Option[] }[] };
 const disciplines = ['Direito Constitucional', 'Direito Civil', 'Direito Penal', 'Direito Administrativo', 'Direito do Trabalho'];
 const quantities = [5, 10, 20] as const;
@@ -14,7 +15,8 @@ export function QuestionPracticePage({ attemptId, initialDiscipline }: { attempt
   const [discipline, setDiscipline] = useState(() => disciplines.includes(initialDiscipline ?? "") ? initialDiscipline! : disciplines[0]);
   const [quantity, setQuantity] = useState<number>(5);
   const [topic, setTopic] = useState('');
-  const [topics, setTopics] = useState<string[]>([]);
+  const [availability, setAvailability] = useState<Availability>();
+  const [loadingCatalog, setLoadingCatalog] = useState(featureEnabled && !attemptId);
   const [feedback, setFeedback] = useState<{ correct: boolean; explanation: string; answeredCount: number; totalQuestions: number; consistency: number | null; recommendation: string }>();
   const [attempt, setAttempt] = useState<Attempt>();
   const [result, setResult] = useState<Result>();
@@ -24,18 +26,24 @@ export function QuestionPracticePage({ attemptId, initialDiscipline }: { attempt
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!attemptId && initialDiscipline && disciplines.includes(initialDiscipline)) setDiscipline(initialDiscipline);
+    if (!attemptId && initialDiscipline && disciplines.includes(initialDiscipline)) { setDiscipline(initialDiscipline); setTopic(''); }
   }, [attemptId, initialDiscipline]);
 
   useEffect(() => {
     if (!featureEnabled || attemptId) return;
     let active = true;
-    setTopic(''); setTopics([]);
-    void apiRequest<{ topics: string[] }>(`/question-practice/catalog/${encodeURIComponent(discipline)}/topics`)
-      .then(result => { if (active) setTopics(result.topics); })
-      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'Não foi possível carregar os assuntos.'); });
+    setAvailability(undefined); setLoadingCatalog(true); setError('');
+    const query = topic ? `?topic=${encodeURIComponent(topic)}` : '';
+    void apiRequest<Availability>(`/question-practice/catalog/${encodeURIComponent(discipline)}/availability${query}`)
+      .then(result => {
+        if (!active) return;
+        setAvailability(result);
+        setQuantity(current => result.availableQuantities.includes(current) ? current : result.availableQuantities[0] ?? 5);
+      })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'Não foi possível consultar as questões disponíveis.'); })
+      .finally(() => { if (active) setLoadingCatalog(false); });
     return () => { active = false; };
-  }, [attemptId, discipline]);
+  }, [attemptId, discipline, topic]);
 
   useEffect(() => {
     if (!featureEnabled || !attemptId) return;
@@ -63,6 +71,9 @@ export function QuestionPracticePage({ attemptId, initialDiscipline }: { attempt
   const current = attempt?.questions[index];
   const answeredCount = useMemo(() => attempt?.questions.filter(question => question.selectedOptionId).length ?? 0, [attempt]);
   const start = async () => {
+    if (!featureEnabled || loadingCatalog || !availability) return;
+    if (availability.activeAttempt) { navigate(`/questoes/pratica/${availability.activeAttempt.id}`); return; }
+    if (!availability.availableQuantities.includes(quantity)) return;
     setBusy(true); setError('');
     try {
       const response = await apiRequest<{ attempt: Attempt }>('/question-practice', { method: 'POST', body: JSON.stringify({ discipline, quantity, topic: topic || null }) });
@@ -100,11 +111,13 @@ export function QuestionPracticePage({ attemptId, initialDiscipline }: { attempt
     <p className="muted">Na prática, você estuda por disciplina ou assunto e recebe a correção a cada resposta. As questões disponíveis e a quantidade de cada treino dependerão do acervo liberado que você ainda não respondeu.</p>
     <div className="panel practice-picker">
       <label htmlFor="practice-discipline">Disciplina</label>
-      <select id="practice-discipline" disabled={!featureEnabled || busy} value={discipline} onChange={event => setDiscipline(event.target.value)}>{disciplines.map(item => <option key={item}>{item}</option>)}</select>
+      <select id="practice-discipline" disabled={!featureEnabled || busy} value={discipline} onChange={event => { setDiscipline(event.target.value); setTopic(''); setAvailability(undefined); }}>{disciplines.map(item => <option key={item}>{item}</option>)}</select>
       <label htmlFor="practice-topic">Assunto (opcional)</label>
-      <select id="practice-topic" disabled={!featureEnabled || busy} value={topic} onChange={event => setTopic(event.target.value)}><option value="">Todos os assuntos</option>{topics.map(item => <option key={item} value={item}>{item}</option>)}</select>
-      <fieldset disabled={!featureEnabled || busy}><legend>Quantidade de questões</legend>{quantities.map(value => <label key={value} className="practice-quantity"><input type="radio" name="practice-quantity" checked={quantity === value} onChange={() => setQuantity(value)} />{value}</label>)}</fieldset>
-      <button className="primary" disabled={!featureEnabled || busy} onClick={() => void start()}>{busy ? 'Preparando prática…' : 'Iniciar prática'}</button>
+      <select id="practice-topic" disabled={!featureEnabled || busy || loadingCatalog || !availability} value={topic} onChange={event => { setTopic(event.target.value); setAvailability(undefined); }}><option value="">Todos os assuntos</option>{availability?.topics.map(item => <option key={item.name} value={item.name}>{item.name} · {item.availableCount} inéditas</option>)}</select>
+      <fieldset disabled={!featureEnabled || busy || loadingCatalog || !availability || Boolean(availability.activeAttempt)}><legend>Quantidade de questões</legend>{quantities.map(value => <label key={value} className="practice-quantity"><input type="radio" name="practice-quantity" checked={quantity === value && Boolean(availability?.availableQuantities.includes(value))} disabled={!availability?.availableQuantities.includes(value)} onChange={() => setQuantity(value)} />{value}{featureEnabled && availability && !availability.availableQuantities.includes(value) ? ' · indisponível' : ''}</label>)}</fieldset>
+      <button className="primary" disabled={!featureEnabled || busy || loadingCatalog || !availability || (!availability.activeAttempt && !availability.availableQuantities.includes(quantity))} onClick={() => void start()}>{busy ? 'Preparando prática…' : availability?.activeAttempt ? 'Continuar prática em andamento' : 'Iniciar prática'}</button>
+      {featureEnabled && loadingCatalog && <p className="muted" role="status">Consultando questões disponíveis…</p>}
+      {featureEnabled && availability && <p className="muted" role="status">{availability.availableCount} questões liberadas que você ainda não respondeu neste filtro. {availability.activeAttempt ? `Você tem uma prática de ${availability.activeAttempt.quantity} questões em andamento. Continue para concluí-la.` : availability.availableQuantities.length === 0 ? 'Não há questões suficientes para um novo treino de pelo menos 5 questões. Escolha outro assunto ou disciplina, ou aguarde a ampliação do acervo.' : 'Escolha uma das quantidades disponíveis.'}</p>}
       {!featureEnabled && <p className="muted" role="status">Estamos preparando questões diferentes das usadas no diagnóstico. A prática individual será liberada após a revisão desse acervo.</p>}
       {error && <p className="error" role="alert">{error}</p>}
     </div>

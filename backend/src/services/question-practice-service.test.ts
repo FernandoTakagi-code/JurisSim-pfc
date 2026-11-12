@@ -24,6 +24,39 @@ function repository(overrides: Partial<QuestionPracticeRepository> = {}): Questi
 }
 
 describe('QuestionPracticeService', () => {
+  it('counts only unseen eligible inventory and exposes viable quantities by topic', async () => {
+    const pool = Array.from({ length: 12 }, (_, i) => ({ ...question(`q${i}`), topic: i < 6 ? 'Contratos' : 'Obrigações' }));
+    const repo = repository({ listEligibleQuestions: vi.fn(async () => pool), listAnsweredQuestionIds: vi.fn(async () => new Set(['q0', 'q6'])) });
+    const service = new QuestionPracticeService(repo);
+    expect(await service.availability('student-a', 'Direito Civil', null)).toMatchObject({ availableCount: 10, availableQuantities: [5, 10], topics: [{ name: 'Contratos', availableCount: 5 }, { name: 'Obrigações', availableCount: 5 }] });
+    expect(await service.availability('student-a', 'Direito Civil', 'Contratos')).toMatchObject({ availableCount: 5, availableQuantities: [5] });
+    expect(repo.listAnsweredQuestionIds).toHaveBeenCalledWith('student-a', 'Direito Civil');
+    expect(repo.createAttempt).not.toHaveBeenCalled();
+  });
+
+  it('handles empty inventory and exhausted topics without offering unsupported quantities', async () => {
+    const service = new QuestionPracticeService(repository({ listEligibleQuestions: vi.fn(async () => []) }));
+    await expect(service.availability('s1', 'Direito Civil', null)).resolves.toMatchObject({ availableCount: 0, availableQuantities: [], topics: [], activeAttempt: null });
+    await expect(service.availability('s1', 'Inválida', null)).rejects.toMatchObject({ statusCode: 422 });
+    const repo = repository({ listEligibleQuestions: vi.fn(async () => Array.from({ length: 6 }, (_, i) => question(`q${i}`))), listAnsweredQuestionIds: vi.fn(async () => new Set(['q0', 'q1'])) });
+    expect(await new QuestionPracticeService(repo).availability('s1', 'Direito Civil', 'Contratos')).toMatchObject({ availableCount: 4, availableQuantities: [] });
+  });
+
+  it('keeps resumable attempts available even when unseen stock is exhausted, without exposing keys', async () => {
+    const active = attempt([question('q1')]);
+    const repo = repository({ listEligibleQuestions: vi.fn(async () => []), findActiveAttempt: vi.fn(async () => active) });
+    const result = await new QuestionPracticeService(repo).availability('s1', 'Direito Civil', null);
+    expect(result).toMatchObject({ availableQuantities: [], activeAttempt: { id: active.id, quantity: 1, topic: null } });
+    expect(result.activeAttempt).not.toHaveProperty('questions');
+  });
+
+  it('uses each student history independently and leaves start responsible for rechecking stock', async () => {
+    const repo = repository({ listEligibleQuestions: vi.fn(async () => Array.from({ length: 12 }, (_, i) => question(`q${i}`))), listAnsweredQuestionIds: vi.fn(async id => id === 's1' ? new Set(Array.from({ length: 10 }, (_, i) => `q${i}`)) : new Set<string>()) });
+    const service = new QuestionPracticeService(repo);
+    expect((await service.availability('s1', 'Direito Civil', null)).availableQuantities).toEqual([]);
+    expect((await service.availability('s2', 'Direito Civil', null)).availableQuantities).toEqual([5, 10]);
+    await expect(service.start('s1', 'Direito Civil', null, 5)).rejects.toMatchObject({ statusCode: 409 });
+  });
   it('validates the canonical discipline and supported quantities', async () => {
     const repo = repository(); const service = new QuestionPracticeService(repo);
     await expect(service.start('s1', 'Outra disciplina', null, 5)).rejects.toMatchObject({ statusCode: 422 });

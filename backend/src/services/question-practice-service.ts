@@ -51,6 +51,24 @@ export class QuestionPracticeService {
     return [...new Set((await this.repository.listEligibleQuestions(discipline)).map(question => question.topic))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }
 
+  async availability(studentId: string, discipline: string, topic: string | null) {
+    if (!PRACTICE_DISCIPLINES.includes(discipline as typeof PRACTICE_DISCIPLINES[number])) throw new ApiError(422, 'Selecione uma disciplina válida.');
+    const [pool, answered, active] = await Promise.all([
+      this.repository.listEligibleQuestions(discipline),
+      this.repository.listAnsweredQuestionIds(studentId, discipline),
+      this.repository.findActiveAttempt(studentId, discipline, topic),
+    ]);
+    const unseen = pool.filter(question => !answered.has(question.id));
+    const count = topic ? unseen.filter(question => question.topic === topic).length : unseen.length;
+    return {
+      discipline, topic, availableCount: count,
+      availableQuantities: PRACTICE_QUANTITIES.filter(quantity => quantity <= count),
+      topics: [...new Set(pool.map(question => question.topic))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+        .map(name => ({ name, availableCount: unseen.filter(question => question.topic === name).length })),
+      activeAttempt: active ? { id: active.id, quantity: active.questions.length, topic: active.topic ?? null } : null,
+    };
+  }
+
   async start(studentId: string, discipline: string, topic: string | null, quantity: number) {
     if (!PRACTICE_DISCIPLINES.includes(discipline as typeof PRACTICE_DISCIPLINES[number])) {
       throw new ApiError(422, 'Selecione uma disciplina válida.');

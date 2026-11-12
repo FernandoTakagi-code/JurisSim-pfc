@@ -1,10 +1,12 @@
 # Questões e simulados individuais — preparação do acervo
 
-Atualizado em 12/11/2026. Branch: `fernando/questoes-diagnostico-autoral`. Esta etapa prepara conteúdo e esclarece a interface; não publica questões nem implementa o motor de simulados individuais.
+Atualizado em 12/11/2026. Branch: `fernando/questoes-diagnostico-autoral`. O lote está cadastrado no Supabase como rascunho privado. A disponibilidade por aluno foi implementada; o motor de simulados individuais ainda não foi implementado.
 
 ## Decisão e estado da entrega
 
-Fernando escolheu preparar questões diferentes das respondidas no diagnóstico antes de liberar os treinos. Foram redigidos 60 rascunhos autorais assistidos por IA, separados dos 30 itens do piloto: 12 por disciplina, dois assuntos por disciplina e seis itens por assunto. Não são questões oficiais de provas anteriores. Não foi feita importação deste lote no Supabase nem ativação da prática.
+Fernando escolheu preparar questões diferentes das respondidas no diagnóstico antes de liberar os treinos. Foram redigidos 60 rascunhos autorais assistidos por IA, separados dos 30 itens do piloto: 12 por disciplina, dois assuntos por disciplina e seis itens por assunto. Não são questões oficiais de provas anteriores. Após autorização de Fernando, os 60 foram cadastrados no Supabase como privados, sem preencher revisões ou liberação. A prática continua desativada.
+
+Lote no banco: `9218bdec-f4e3-43a1-8b54-cdc40720dea5`. Total de questões passou de 63 para 123. A comparação posterior confirmou que os 63 registros anteriores, incluindo suas alternativas, permaneceram intactos. Repetir a importação recuperou o mesmo lote e criou zero registros adicionais. A autoria administrativa registra o operador da importação; a origem continua `IA`, sem atribuição de revisão humana.
 
 - Dados editoriais: `backend/scripts/drafts/authorial-practice-60.draft.json`.
 - Caderno com enunciados, alternativas, comentários e fontes: `docs/caderno-pratica-60-rascunhos.md`.
@@ -17,7 +19,7 @@ Fernando escolheu preparar questões diferentes das respondidas no diagnóstico 
 | Área | Código atual | Comportamento e limite |
 |---|---|---|
 | Diagnóstico inicial | Fluxo próprio de diagnóstico | O piloto existente tem seu lote e sua configuração. O novo lote não altera esse fluxo. |
-| Questões | `question-practice.tsx` e `question-practice-service.ts` | Treino por disciplina/assunto, 5/10/20 questões, correção a cada resposta e resultado final. Exige acervo elegível e exclui questões já respondidas pelo aluno. Continua desativado. |
+| Questões | `question-practice.tsx` e `question-practice-service.ts` | Consulta estoque inédito por aluno e filtro, permite apenas quantidades viáveis e indica tentativa para retomar. Correção a cada resposta e resultado final. Exige acervo elegível. Continua desativado. |
 | Simulados das turmas | `class-exams.tsx` e API de avaliações | Avaliações publicadas pelo professor para turmas em que o aluno está matriculado; podem ter duração definida. É funcionalidade distinta da prática individual. |
 | Simulados individuais | Aviso na tela de Simulados | Ainda sem fluxo próprio implementado. A proposta é misturar disciplinas e mostrar correção ao terminar. Não existe catálogo de provas oficiais publicado por esta entrega. |
 
@@ -37,7 +39,9 @@ Estas quantidades são teóricas, considerando todos os itens aprovados e nenhum
 
 Prática e simulado precisam compartilhar o histórico de questões respondidas. Exemplo: dez respostas em Constitucional deixam apenas duas questões inéditas nessa disciplina, impedindo um simulado balanceado que peça seis. Depois de um simulado inicial de seis por disciplina restariam seis em cada disciplina; a disponibilidade por assunto dependeria de quais itens foram selecionados. Não somar essas capacidades como se fossem estoques independentes.
 
-O sistema deve calcular as quantidades possíveis por aluno, disciplina e assunto, excluir o diagnóstico e os demais itens já respondidos e apresentar falta de estoque antes do início. Não completar silenciosamente uma tentativa com questões repetidas. Se houver modo de revisão no futuro, identificá-lo explicitamente.
+A prática agora calcula as quantidades possíveis por aluno, disciplina e assunto e apresenta falta de estoque antes do início. O histórico de respostas já usado pelo repositório cobre as respostas de simulados do aluno, incluindo diagnóstico; o lote privado não compõe a seleção elegível. O futuro simulado misto ainda precisa usar essa mesma política. Não completar silenciosamente uma tentativa com questões repetidas. Se houver modo de revisão no futuro, identificá-lo explicitamente.
+
+Nova consulta autenticada: `GET /question-practice/catalog/:discipline/availability?topic=...`. Retorna contagem disponível, quantidades viáveis entre 5/10/20, contagens por assunto e ID/quantidade/assunto da prática em andamento, sem enunciados ou gabaritos. Usa as mesmas restrições de funcionalidade e papel ALUNO das demais rotas e resposta `Cache-Control: no-store`. A disponibilidade é uma fotografia do momento: iniciar a prática continua verificando o estoque no servidor. Retomar não depende de haver estoque para uma nova tentativa.
 
 ## Qualidade e fontes
 
@@ -51,8 +55,8 @@ Revisores devem resolver os itens sem consultar o gabarito, procurar outra alter
 
 1. Revisar o lote com responsável jurídico e pedagógico; registrar correções, identidade, data real e evidência. Confirmar o escopo autoral com o orientador continua sendo pendência acadêmica.
 2. Converter apenas itens liberados em manifesto próprio para prática, com assuntos-alvo compatíveis com o importador existente. Este JSON de rascunho não deve ser passado diretamente ao importador do diagnóstico ou ao importador elegível.
-3. Validar a importação e sua reversão em banco isolado, preservando as revisões verdadeiras e sem interferir no diagnóstico. Só então realizar a publicação aprovada.
-4. Implementar disponibilidade de estoque por aluno na API e na tela de Questões; oferecer apenas quantidades viáveis. Tratar retomada da tentativa, consumo do estoque e falta de questões.
+3. Validar o fluxo de publicação aprovado e sua reversão em banco isolado, preservando as revisões verdadeiras e sem interferir no diagnóstico. O cadastro privado já foi realizado; não repeti-lo pelo importador elegível como se fossem questões diferentes.
+4. A disponibilidade da prática está implementada na API e na tela de Questões. Depois da liberação do acervo, validar funcionalmente esse fluxo no navegador antes de ativar as flags para alunos.
 5. Implementar o fluxo de simulado individual misto: criação balanceada proposta de 30, duração a definir, retomada, salvamento, entrega e correção apenas ao final. Manter separado das avaliações de turma e do treino com feedback imediato.
 6. Testar seleção inédita, filtros, isolamento entre alunos, retomada, entrega incompleta, correção final, histórico e esgotamento do estoque. Fazer teste funcional do navegador e validação com aluno antes da liberação.
 
@@ -74,7 +78,7 @@ Essa auditoria verifica estrutura pelo schema real do cadastro e registros edito
 
 - Auditoria offline: 60/60 itens aceitos pela projeção de campos do schema real; quatro alternativas distintas, um gabarito coerente e comentários presentes. Nenhum enunciado normalizado idêntico às referências locais comparadas.
 - Build do frontend: passou (`tsc -b` e Vite); permanece o aviso de tamanho do bundle.
-- Testes existentes de prática: 16/16 passaram nos quatro arquivos de serviço, repositório, rotas e configuração. A primeira execução teve três falhas de conexão local por restrição do sandbox; a repetição com acesso local passou.
+- Testes focados: 25/25 passaram em cinco arquivos, incluindo novo importador privado, disponibilidade, isolamento de histórico por aluno, estoque insuficiente, retomada e proteção da rota. Build do backend também passou.
 - `git diff --check`: passou.
 - Sem teste visual ou nova navegação funcional do navegador nesta etapa. O build e os testes existentes não demonstram o funcionamento completo do futuro simulado individual, ainda não implementado.
-- Nenhuma chamada de importação ou escrita no Supabase nesta etapa.
+- Importação no Supabase: 60/60 questões privadas e pendentes, quatro alternativas e um gabarito em cada. Nova execução criou zero duplicatas. Integridade dos 63 registros anteriores confirmada. Nenhuma publicação ou alteração de flag foi realizada.
