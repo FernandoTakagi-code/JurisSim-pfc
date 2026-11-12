@@ -1,0 +1,189 @@
+{
+  "checkedOn": "2026-11-12",
+  "draft": "authorial-practice-60.draft.json",
+  "sha256": "a925adbfffe6b0af85253ccfd28cfd0addfeb23d3e619443d3ebf951a195d704",
+  "total": 60,
+  "disciplineCounts": {
+    "Direito Constitucional": 12,
+    "Direito Civil": 12,
+    "Direito Penal": 12,
+    "Direito Administrativo": 12,
+    "Direito do Trabalho": 12
+  },
+  "topicCounts": {
+    "Direito Constitucional / Direitos individuais e coletivos": 6,
+    "Direito Constitucional / Organização do Estado e processo legislativo": 6,
+    "Direito Civil / Modalidades das obrigações": 6,
+    "Direito Civil / Contratos e negócios jurídicos": 6,
+    "Direito Penal / Culpabilidade e imputabilidade": 6,
+    "Direito Penal / Excludentes e concurso de pessoas": 6,
+    "Direito Administrativo / Imparcialidade e participação no processo": 6,
+    "Direito Administrativo / Instrução e decisão administrativa": 6,
+    "Direito do Trabalho / Contrato e alterações contratuais": 6,
+    "Direito do Trabalho / Extinção do contrato e efeitos": 6
+  },
+  "levelCounts": {
+    "INTERMEDIARIO": 31,
+    "BASICO": 29
+  },
+  "answerKeyCounts": {
+    "C": 15,
+    "A": 15,
+    "D": 15,
+    "B": 15
+  },
+  "structuralValidation": {
+    "passed": 60,
+    "fourDistinctOptionsAndOneKey": true,
+    "allOptionsCommented": true,
+    "actualCrudSchema": true,
+    "legalApprovalValidated": false
+  },
+  "referenceFiles": [
+    {
+      "file": "authorial-question-bank-39.draft.json",
+      "sha256": "49f2f1e1994d71aad8ec708c38a89bc0c7b9494f71950429eb12ed89a73cc436",
+      "count": 39
+    },
+    {
+      "file": "authorial-diagnostic-30.draft.json",
+      "sha256": "89a9af972ea7f03ea342b38c9c0adc331ad1743bad89cc4839ec6cd857868b06",
+      "count": 30
+    },
+    {
+      "file": "eligible-ai-questions-15.draft.json",
+      "sha256": "18b9b6cf040eb68ba90181aa65c1c104f4e7498a3642757662a2810b295265ac",
+      "count": 15
+    },
+    {
+      "file": "acervo-atual-revisao.json",
+      "sha256": "cd359605a026de47aee2751699342d7694575663a1bac238764705297fc924ad",
+      "count": 33
+    }
+  ],
+  "referenceEntries": 117,
+  "uniqueReferenceStatements": 87,
+  "exactNormalizedStatementDuplicates": [],
+  "topLexicalPairs": [
+    {
+      "left": "TRE-ADM-03",
+      "right": "TRE-ADM-01",
+      "jaccard": 0.2759
+    },
+    {
+      "left": "TRE-ADM-11",
+      "right": "TRE-ADM-03",
+      "jaccard": 0.2581
+    },
+    {
+      "left": "TRE-ADM-04",
+      "right": "TRE-ADM-03",
+      "jaccard": 0.2333
+    },
+    {
+      "left": "TRE-ADM-10",
+      "right": "TRE-ADM-06",
+      "jaccard": 0.2258
+    },
+    {
+      "left": "TRE-ADM-11",
+      "right": "TRE-ADM-01",
+      "jaccard": 0.2121
+    },
+    {
+      "left": "TRE-ADM-02",
+      "right": "TRE-ADM-01",
+      "jaccard": 0.2
+    },
+    {
+      "left": "TRE-ADM-03",
+      "right": "authorial-question-bank-39.draft.json#AUT-ADM-B-02",
+      "jaccard": 0.2
+    },
+    {
+      "left": "TRE-ADM-03",
+      "right": "authorial-diagnostic-30.draft.json#AUT-ADM-B-02",
+      "jaccard": 0.2
+    },
+    {
+      "left": "TRE-ADM-10",
+      "right": "TRE-ADM-02",
+      "jaccard": 0.2
+    },
+    {
+      "left": "TRE-ADM-01",
+      "right": "authorial-question-bank-39.draft.json#AUT-ADM-B-02",
+      "jaccard": 0.1944
+    },
+    {
+      "left": "TRE-ADM-01",
+      "right": "authorial-diagnostic-30.draft.json#AUT-ADM-B-02",
+      "jaccard": 0.1944
+    },
+    {
+      "left": "TRE-ADM-09",
+      "right": "authorial-question-bank-39.draft.json#AUT-ADM-B-02",
+      "jaccard": 0.1944
+    }
+  ],
+  "originalityLimit": "Comparação de enunciados locais; similaridade lexical não prova equivalência nem originalidade global. Sobreposição de conceitos continua pendente de revisão humana.",
+  "capacity": [
+    {
+      "discipline": "Direito Constitucional",
+      "draftCount": 12,
+      "initialPracticeQuantitiesAfterApproval": [
+        5,
+        10
+      ],
+      "shortfallFor20": 8
+    },
+    {
+      "discipline": "Direito Civil",
+      "draftCount": 12,
+      "initialPracticeQuantitiesAfterApproval": [
+        5,
+        10
+      ],
+      "shortfallFor20": 8
+    },
+    {
+      "discipline": "Direito Penal",
+      "draftCount": 12,
+      "initialPracticeQuantitiesAfterApproval": [
+        5,
+        10
+      ],
+      "shortfallFor20": 8
+    },
+    {
+      "discipline": "Direito Administrativo",
+      "draftCount": 12,
+      "initialPracticeQuantitiesAfterApproval": [
+        5,
+        10
+      ],
+      "shortfallFor20": 8
+    },
+    {
+      "discipline": "Direito do Trabalho",
+      "draftCount": 12,
+      "initialPracticeQuantitiesAfterApproval": [
+        5,
+        10
+      ],
+      "shortfallFor20": 8
+    }
+  ],
+  "initialDraftsPerTopic": 6,
+  "initialBalancedMock30AfterApprovalAndImplementation": true,
+  "limitations": [
+    "Capacidade teórica antes de respostas do aluno, com todos os 60 aprovados; atualmente zero deste lote está liberado.",
+    "Treino e simulado devem compartilhar exclusão de questões já respondidas; 10 em uma disciplina deixam 2 e inviabilizam um futuro simulado balanceado de 6 por disciplina.",
+    "Dois assuntos por disciplina não cobrem todo o programa da OAB.",
+    "O esquema comum do cadastro valida forma; não valida gabarito jurídico, nível, direitos ou elegibilidade de importação."
+  ],
+  "httpRequests": 0,
+  "databaseWrites": 0,
+  "importedQuestions": 0,
+  "releasedQuestions": 0
+}
