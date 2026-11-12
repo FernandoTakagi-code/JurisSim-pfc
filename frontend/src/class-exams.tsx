@@ -466,7 +466,7 @@ export function ExamsPage({ teacher,institutional=false }: { teacher: boolean;in
       <p className="muted">
         {teacher
           ? "Selecione questões autorizadas e publique para suas turmas. Publicados ficam bloqueados para edição."
-          : "Acompanhe a preparação dos simulados individuais e acesse as avaliações publicadas para suas turmas."}
+          : "Escolha seu simulado individual ou acesse as avaliações das suas turmas."}
       </p>
       {!teacher && <IndividualExamLobby />}
       {!teacher && <div className="class-section-heading"><p className="gold">AVALIAÇÕES DE TURMA</p><h2>Simulados das minhas turmas</h2><p className="muted">Somente avaliações publicadas nas turmas em que você está matriculado.</p></div>}
