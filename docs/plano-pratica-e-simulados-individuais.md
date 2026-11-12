@@ -1,6 +1,6 @@
 # Questões e simulados individuais — preparação do acervo
 
-Atualizado em 12/11/2026. Branch: `fernando/questoes-diagnostico-autoral`. O lote está cadastrado no Supabase como rascunho privado. A disponibilidade por aluno e o simulado misto de 30 foram implementados. O fluxo passou no teste integrado em PostgreSQL descartável; permanece desativado, sem aplicação da nova migration no Supabase compartilhado. Ver `docs/simulado-individual-e-capacidade.md` para o estado e os testes mais recentes.
+Atualizado em 12/11/2026. Branch: `fernando/questoes-diagnostico-autoral`. O simulado misto de 30 está ativo como piloto provisório no ambiente local, com migration aplicada no Supabase e teste de navegador concluído. O lote permanece privado e sem revisão humana; somente esse piloto tem seleção especial restrita ao lote. A prática em Questões segue desativada. Ver `docs/piloto-simulado-ativado.md` para o estado e os testes mais recentes.
 
 ## Decisão e estado da entrega
 
@@ -21,7 +21,7 @@ Lote no banco: `9218bdec-f4e3-43a1-8b54-cdc40720dea5`. Total de questões passou
 | Diagnóstico inicial | Fluxo próprio de diagnóstico | O piloto existente tem seu lote e sua configuração. O novo lote não altera esse fluxo. |
 | Questões | `question-practice.tsx` e `question-practice-service.ts` | Consulta estoque inédito por aluno e filtro, permite apenas quantidades viáveis e indica tentativa para retomar. Correção a cada resposta e resultado final. Exige acervo elegível. Continua desativado. |
 | Simulados das turmas | `class-exams.tsx` e API de avaliações | Avaliações publicadas pelo professor para turmas em que o aluno está matriculado; podem ter duração definida. É funcionalidade distinta da prática individual. |
-| Simulados individuais | `individual-exam.tsx`, API e serviço próprios | Fluxo implementado de 30 questões, seis por disciplina, salvamento, retomada e correção na entrega. Desativado até validar migration, acervo liberado e interface. Não é catálogo de provas oficiais. |
+| Simulados individuais | `individual-exam.tsx`, API e serviço próprios | Piloto provisório ativo localmente: 30 questões, seis por disciplina, salvamento, retomada e correção na entrega. Revisões humanas pendentes e aviso preservado no resultado. Não é catálogo de provas oficiais. |
 
 Na interface, os textos foram ajustados para explicar essa distinção. A tela de Questões não busca o catálogo desativado e não exibe erro de indisponibilidade como se fosse falha de carregamento. Seus controles ficam desabilitados enquanto a funcionalidade está fechada, inclusive em acesso direto à rota de tentativa. As avaliações de turma mantêm seu funcionamento.
 
@@ -57,7 +57,7 @@ Revisores devem resolver os itens sem consultar o gabarito, procurar outra alter
 2. Converter apenas itens liberados em manifesto próprio para prática, com assuntos-alvo compatíveis com o importador existente. Este JSON de rascunho não deve ser passado diretamente ao importador do diagnóstico ou ao importador elegível.
 3. Validar o fluxo de publicação aprovado e sua reversão em banco isolado, preservando as revisões verdadeiras e sem interferir no diagnóstico. O cadastro privado já foi realizado; não repeti-lo pelo importador elegível como se fossem questões diferentes.
 4. A disponibilidade da prática está implementada na API e na tela de Questões. Depois da liberação do acervo, validar funcionalmente esse fluxo no navegador antes de ativar as flags para alunos.
-5. Simulado misto implementado e testado em banco isolado: 30 questões, seis por disciplina, retomada, salvamento e correção na entrega, sem limite de tempo nesta versão. Falta aplicar a migration no destino conferido e validar no navegador antes da ativação.
+5. Simulado misto implementado, migration aplicada e piloto validado no navegador: 30 questões, seis por disciplina, retomada, salvamento e correção na entrega, sem limite de tempo nesta versão. A publicação definitiva continua dependendo de revisão real; o piloto usa rascunhos identificados como provisórios.
 6. Testar seleção inédita, filtros, isolamento entre alunos, retomada, entrega incompleta, correção final, histórico e esgotamento do estoque. Fazer teste funcional do navegador e validação com aluno antes da liberação.
 
 Fernando pode começar revisando o caderno por IDs e marcando dúvidas; a aprovação técnica estrutural não exige que ele assuma revisão jurídica que não realizou. Depois do piloto de conteúdo, analisar dificuldade observada, taxa de acerto e escolha dos distratores, sem concluir calibração com amostra pequena.

@@ -1,6 +1,7 @@
 import { ApiError } from '../errors/api-error';
 import { PRACTICE_DISCIPLINES } from './question-practice-service';
 import type { DiagnosticQuestionSnapshot } from './diagnostic-question-snapshot';
+import { individualExamPilotBatchId } from '../config/individual-exam-feature';
 
 export const INDIVIDUAL_EXAM_PER_DISCIPLINE = 6;
 export type ExamCandidate = { id: string; discipline: string };
@@ -25,7 +26,7 @@ export class IndividualExamService {
       const available = new Set(pool.filter(q => q.discipline === discipline).map(q => q.id)).size;
       return { discipline, available, required: 6, missing: Math.max(0, 6 - available) };
     });
-    return { quantity: 30, disciplines, canStart: disciplines.every(d => d.missing === 0), activeAttemptId: active?.id ?? null };
+    return { quantity: 30, provisional: Boolean(individualExamPilotBatchId()) || Boolean(active?.questions.some(q => q.snapshot.provisional)), disciplines, canStart: disciplines.every(d => d.missing === 0), activeAttemptId: active?.id ?? null };
   }
   async start(studentId: string) {
     const active = await this.repo.active(studentId);
@@ -67,7 +68,7 @@ export class IndividualExamService {
     return attempt;
   }
   private publicAttempt(attempt: IndividualExamAttempt) {
-    return { id: attempt.id, state: attempt.completed ? 'COMPLETED' : 'IN_PROGRESS', quantity: attempt.questions.length,
+    return { id: attempt.id, provisional: attempt.questions.some(q => q.snapshot.provisional), state: attempt.completed ? 'COMPLETED' : 'IN_PROGRESS', quantity: attempt.questions.length,
       questions: attempt.questions.map(q => ({ id: q.id, position: q.position, statement: q.snapshot.statement, discipline: q.snapshot.discipline, topic: q.snapshot.topic, selectedOptionId: q.selectedOptionId,
         alternatives: q.snapshot.alternatives.map(({ id, letter, text }) => ({ id, letter, text })) })) };
   }
@@ -77,7 +78,7 @@ export class IndividualExamService {
       correct: q.snapshot.alternatives.some(a => a.id === q.selectedOptionId && a.correct), explanation: q.snapshot.explanation,
       alternatives: q.snapshot.alternatives.map(({ id, letter, text }) => ({ id, letter, text })) }));
     const correct = answers.filter(a => a.correct).length;
-    return { total: answers.length, correct, percentage: Number((100 * correct / answers.length).toFixed(2)),
+    return { provisional: attempt.questions.some(q => q.snapshot.provisional), total: answers.length, correct, percentage: Number((100 * correct / answers.length).toFixed(2)),
       disciplines: PRACTICE_DISCIPLINES.map(discipline => ({ discipline, total: answers.filter(a => a.discipline === discipline).length, correct: answers.filter(a => a.discipline === discipline && a.correct).length })), answers };
   }
   private shuffle<T>(items: T[]) {

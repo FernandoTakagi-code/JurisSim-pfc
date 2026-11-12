@@ -5,10 +5,13 @@ import { navigate } from './navigation';
 const enabled = import.meta.env.VITE_INDIVIDUAL_EXAM_UI_ENABLED === 'true';
 type Option = { id: string; letter: string; text: string };
 type Question = { id: string; position: number; statement: string; discipline: string; topic: string; selectedOptionId: string | null; alternatives: Option[] };
-type Attempt = { id: string; state: 'IN_PROGRESS' | 'COMPLETED'; quantity: number; questions: Question[] };
-type Availability = { quantity: number; canStart: boolean; activeAttemptId: string | null; disciplines: { discipline: string; available: number; required: number; missing: number }[] };
-type Result = { total: number; correct: number; percentage: number; disciplines: { discipline: string; total: number; correct: number }[]; answers: { id: string; statement: string; discipline: string; selectedOptionId: string | null; correctOptionId: string; correct: boolean; explanation: string; alternatives: Option[] }[] };
+type Attempt = { id: string; provisional: boolean; state: 'IN_PROGRESS' | 'COMPLETED'; quantity: number; questions: Question[] };
+type Availability = { quantity: number; provisional: boolean; canStart: boolean; activeAttemptId: string | null; disciplines: { discipline: string; available: number; required: number; missing: number }[] };
+type Result = { provisional: boolean; total: number; correct: number; percentage: number; disciplines: { discipline: string; total: number; correct: number }[]; answers: { id: string; statement: string; discipline: string; selectedOptionId: string | null; correctOptionId: string; correct: boolean; explanation: string; alternatives: Option[] }[] };
 const message = (error: unknown) => error instanceof Error ? error.message : 'Não foi possível concluir a solicitação.';
+function ProvisionalNotice() {
+  return <p className="panel" role="status"><strong>Piloto provisório.</strong> Questões autorais assistidas por IA, ainda sem revisão humana. Gabaritos e resultados estão sujeitos a correção. Este simulado não é uma avaliação oficial.</p>;
+}
 
 export function IndividualExamLobby() {
   const [data, setData] = useState<Availability>();
@@ -41,7 +44,7 @@ export function IndividualExamLobby() {
     <p className="muted">Este recorte de cinco disciplinas não é uma prova completa ou oficial da OAB. Em Questões, o treino é por disciplina ou assunto, com correção a cada resposta.</p>
     {!enabled && <p className="muted" role="status">Estamos preparando o fluxo e o acervo liberado, separado das questões já respondidas no diagnóstico. O simulado individual ainda não está disponível.</p>}
     {enabled && busy && <p role="status">Consultando disponibilidade…</p>}
-    {data && <><ul>{data.disciplines.map(d => <li key={d.discipline}>{d.discipline}: {d.available} inéditas disponíveis · necessárias {d.required}{d.missing > 0 ? ` · faltam ${d.missing}` : ''}</li>)}</ul>
+    {data && <>{data.provisional && <ProvisionalNotice />}<ul>{data.disciplines.map(d => <li key={d.discipline}>{d.discipline}: {d.available} inéditas disponíveis · necessárias {d.required}{d.missing > 0 ? ` · faltam ${d.missing}` : ''}</li>)}</ul>
       {data.activeAttemptId ? <p className="muted">Você tem um simulado em andamento. Continue para concluí-lo.</p> : !data.canStart && <p className="muted" role="status">Ainda não há seis questões inéditas liberadas em cada disciplina. Aguarde a ampliação do acervo.</p>}
       <button className="primary" disabled={busy || (!data.canStart && !data.activeAttemptId)} onClick={() => void start()}>{data.activeAttemptId ? 'Continuar simulado' : 'Iniciar simulado de 30 questões'}</button>
     </>}
@@ -95,6 +98,7 @@ export function IndividualExamPage({ id }: { id: string }) {
   if (!enabled) return <section className="page"><h1>Simulado individual em preparação</h1><p>A funcionalidade ainda não está disponível.</p>{back}</section>;
   if (busy && !attempt) return <section className="page"><p role="status">Carregando simulado…</p></section>;
   if (result) return <section className="page practice-page"><p className="gold">SIMULADO INDIVIDUAL · RESULTADO</p><h1>{result.correct} de {result.total} acertos · {result.percentage}%</h1>
+    {result.provisional && <ProvisionalNotice />}
     <p className="muted">Resultado deste conjunto de questões; não representa nota oficial da OAB nem altera seu diagnóstico inicial.</p>
     <ul>{result.disciplines.map(d => <li key={d.discipline}>{d.discipline}: {d.correct}/{d.total}</li>)}</ul>
     {result.answers.map((answer, i) => <article className="panel" key={answer.id}><p className="gold">QUESTÃO {i + 1} · {answer.discipline}</p><h2>{answer.statement}</h2>
@@ -103,6 +107,7 @@ export function IndividualExamPage({ id }: { id: string }) {
   if (!attempt || !current || attempt.state === 'COMPLETED') return <section className="page"><h1>Simulado individual</h1><p className="error" role="alert">{error || 'Não foi possível carregar a correção.'}</p><button className="outline-button" disabled={busy} onClick={() => setRefresh(v => v + 1)}>Tentar novamente</button>{back}</section>;
   const answered = attempt.questions.filter(q => q.selectedOptionId).length;
   return <section className="page practice-page"><p className="gold">SIMULADO INDIVIDUAL · QUESTÃO {index + 1} DE {attempt.quantity}</p><h1>{current.discipline}</h1>
+    {attempt.provisional && <ProvisionalNotice />}
     <p className="muted" role="status">{answered} de {attempt.quantity} respostas salvas. A correção será exibida somente na entrega. {busy ? 'Salvando…' : ''}</p>
     <nav aria-label="Navegação das questões">{attempt.questions.map((q, i) => <button className="outline-button" key={q.id} disabled={busy} aria-current={i === index ? 'step' : undefined} aria-label={`Questão ${i + 1}${q.selectedOptionId ? ', respondida' : ', pendente'}`} onClick={() => setIndex(i)}>{i + 1}{q.selectedOptionId ? ' ✓' : ''}</button>)}</nav>
     <article className="panel practice-question"><p className="muted">{current.topic}</p><h2>{current.statement}</h2><div className="practice-options">{current.alternatives.map(a => <label key={a.id} className={current.selectedOptionId === a.id ? 'picked' : ''}><input type="radio" name="exam-answer" disabled={busy} checked={current.selectedOptionId === a.id} onChange={() => void save(current, a.id)} /><b>{a.letter}</b><span>{a.text}</span></label>)}</div></article>

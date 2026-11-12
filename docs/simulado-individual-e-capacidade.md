@@ -2,6 +2,8 @@
 
 Entrega de 12/11/2026, branch `fernando/questoes-diagnostico-autoral`.
 
+Atualização posterior: o piloto provisório foi ativado localmente com dados no Supabase e testado no navegador. Ver `docs/piloto-simulado-ativado.md`. A medição de capacidade abaixo permanece sendo uma fotografia anterior à ativação, sem teste de carga.
+
 ## Medição do banco
 
 Leitura do Supabase configurado em 12/11/2026, 15:29 UTC:
@@ -40,7 +42,7 @@ API autenticada de ALUNO em `/individual-exams`: `GET /availability`, `POST /`, 
 
 A migration `20261112130000_individual_exam_sessions` cria a identidade de sessão com vínculo composto de propriedade e índice por aluno/data. Tem RLS e nega acesso direto a PUBLIC/anon/authenticated. Não modifica os lotes de questões existentes.
 
-**A migration não foi aplicada no Supabase compartilhado e as flags não foram ativadas.** As 60 novas questões permanecem privadas e pendentes de revisão. O teste utilizou somente PostgreSQL descartável próprio.
+Na entrega inicial, a migration e as flags estavam desativadas. Após autorização de Fernando, a migration foi aplicada no Supabase e o piloto foi ativado no ambiente local, com seleção exclusiva do lote de 60 rascunhos privados. Revisões continuam pendentes; a seleção provisória não usa nem altera o status de aprovação do acervo padrão. A ativação e o teste real de navegador estão registrados em `docs/piloto-simulado-ativado.md`.
 
 Para liberar: aplicar a migration no destino conferido, validar acervo liberado suficiente, ativar `INDIVIDUAL_EXAM_SCHEMA_ENABLED`, depois `INDIVIDUAL_EXAM_API_ENABLED` e `VITE_INDIVIDUAL_EXAM_UI_ENABLED`. Validar também o fluxo real no navegador antes de liberar para alunos. A flag de schema deve permanecer verdadeira se houver sessões históricas, mesmo com a API fechada, para preservar a classificação do histórico. Sem as duas flags da API, a rota não consulta a nova tabela; a interface desativada também não busca dados.
 

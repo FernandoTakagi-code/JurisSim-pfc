@@ -8,6 +8,12 @@ const attempt = (completed = false): IndividualExamAttempt => ({ id: 'exam', com
 const repo = (overrides: Partial<IndividualExamRepository> = {}): IndividualExamRepository => ({ available: vi.fn(async () => pool()), active: vi.fn(async () => null), find: vi.fn(async () => attempt()), create: vi.fn(async () => attempt()), answer: vi.fn(async () => {}), finalize: vi.fn(async () => attempt(true)), ...overrides });
 
 describe('IndividualExamService', () => {
+  it('keeps the provisional marker in attempts and results independently of later pilot flags', async () => {
+    const source = attempt(true); source.questions.forEach(q => { q.snapshot.provisional = true; });
+    const service = new IndividualExamService(repo({ find: vi.fn(async () => source) }));
+    expect((await service.get('s1', 'exam')).provisional).toBe(true);
+    expect((await service.getResult('s1', 'exam')).provisional).toBe(true);
+  });
   it('selects 30 distinct unseen eligible candidates, six per discipline, without answer keys', async () => {
     const repository = repo(); const response = await new IndividualExamService(repository, () => 0.25).start('s1');
     const selected = vi.mocked(repository.create).mock.calls[0][1];

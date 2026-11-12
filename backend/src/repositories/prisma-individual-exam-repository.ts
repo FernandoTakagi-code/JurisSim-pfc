@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
-import { inventorySelect, inventoryWhere, toEligibleCandidate } from './prisma-initial-diagnostic-repository';
+import { inventorySelect } from './prisma-initial-diagnostic-repository';
+import { individualExamInventoryWhere, isIndividualExamSelectable, isIndividualExamPilotQuestion } from '../services/individual-exam-pilot';
 import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
 import { PRACTICE_DISCIPLINES } from '../services/question-practice-service';
 import type { ExamCandidate, IndividualExamAttempt, IndividualExamRepository } from '../services/individual-exam-service';
@@ -28,8 +29,8 @@ export class PrismaIndividualExamRepository implements IndividualExamRepository 
   constructor(private readonly db: PrismaClient = prisma) {}
   async available(studentId: string): Promise<ExamCandidate[]> {
     // One inventory query across all five disciplines; never one query per question.
-    const rows = await this.db.questao.findMany({ where: { ...inventoryWhere, respostas: { none: { simulado: { alunoId: studentId } } } }, select: inventorySelect });
-    return rows.flatMap(row => toEligibleCandidate(row) ? [{ id: row.id, discipline: row.disciplina }] : []);
+    const rows = await this.db.questao.findMany({ where: { ...individualExamInventoryWhere(), respostas: { none: { simulado: { alunoId: studentId } } } }, select: inventorySelect });
+    return rows.flatMap(row => isIndividualExamSelectable(row) ? [{ id: row.id, discipline: row.disciplina }] : []);
   }
   async active(studentId: string) {
     const id = await activeId(this.db, studentId);
@@ -60,12 +61,15 @@ export class PrismaIndividualExamRepository implements IndividualExamRepository 
       const previous = await activeId(tx, studentId);
       if (previous) return previous;
       // Recheck eligibility and history inside the student-serialized transaction.
-      const rows = await tx.questao.findMany({ where: { ...inventoryWhere, id: { in: candidates.map(q => q.id) }, respostas: { none: { simulado: { alunoId: studentId } } } }, select: inventorySelect });
-      const valid = rows.filter(row => toEligibleCandidate(row));
+      const rows = await tx.questao.findMany({ where: { ...individualExamInventoryWhere(), id: { in: candidates.map(q => q.id) }, respostas: { none: { simulado: { alunoId: studentId } } } }, select: inventorySelect });
+      const valid = rows.filter(row => isIndividualExamSelectable(row));
       if (valid.length !== 30 || PRACTICE_DISCIPLINES.some(d => valid.filter(q => q.disciplina === d).length !== 6)) throw new ApiError(409, 'O acervo disponível mudou. Consulte a disponibilidade e tente novamente.');
       const byId = new Map(valid.map(q => [q.id, q]));
       const exam = await tx.simulado.create({ data: { tipo: 'PERSONALIZADO', alunoId: studentId }, select: { id: true } });
-      await tx.questaoSimulado.createMany({ data: candidates.map((q, index) => ({ simuladoId: exam.id, questaoId: q.id, posicao: index + 1, conteudoSnapshot: createDiagnosticQuestionSnapshot(byId.get(q.id)!) })) });
+      await tx.questaoSimulado.createMany({ data: candidates.map((q, index) => {
+        const row = byId.get(q.id)!;
+        return { simuladoId: exam.id, questaoId: q.id, posicao: index + 1, conteudoSnapshot: createDiagnosticQuestionSnapshot(row, isIndividualExamPilotQuestion(row)) };
+      }) });
       await tx.$executeRaw`INSERT INTO "SessaoSimuladoIndividual" (id,"simuladoId","alunoId") VALUES (${randomUUID()},${exam.id},${studentId})`;
       return exam.id;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });

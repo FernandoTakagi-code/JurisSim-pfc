@@ -11,6 +11,7 @@ export default defineConfig({
       INITIAL_DIAGNOSTIC_PILOT_ENABLED: 'false', INITIAL_DIAGNOSTIC_PILOT_BATCH_ID: '',
       INITIAL_DIAGNOSTIC_COMPOSITION_MODE: 'MISTA_15_15',
       INDIVIDUAL_EXAM_SCHEMA_ENABLED: 'false', INDIVIDUAL_EXAM_API_ENABLED: 'false',
+      INDIVIDUAL_EXAM_PILOT_ENABLED: 'false', INDIVIDUAL_EXAM_PILOT_BATCH_ID: '',
     },
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
     exclude: ['node_modules/**', 'dist/**', 'src/**/*.integration.test.ts'],

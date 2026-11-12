@@ -114,7 +114,7 @@ function hasOfficialSource(row: InventoryRow): boolean {
   }
 }
 
-function hasCompleteContent(row: InventoryRow): boolean {
+export function hasCompleteContent(row: InventoryRow): boolean {
   if (row.enunciado.trim().length < 10 || !row.disciplina.trim() || !row.assunto.trim()
     || !row.fundamentacaoJuridica.trim() || row.alternativas.length !== 4) {
     return false;
