@@ -1,3 +1,4 @@
+import { emailFrontendContext } from '../services/email-frontend';
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth-controller';
 import { requireAuth, requireLimitedAuth } from '../middlewares/auth-middleware';
@@ -7,6 +8,7 @@ import { isAllowedCorsOrigin } from '../config/cors-policy';
 
 export function createAuthRoutes(controller = new AuthController()) {
   const authRoutes = Router();
+  authRoutes.use(emailFrontendContext);
   authRoutes.use((_req, res, next) => { res.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' }); next(); });
   authRoutes.use((req, _res, next) => {
     const origin = req.get('origin');

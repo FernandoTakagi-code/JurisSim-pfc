@@ -14,7 +14,7 @@ import { passwordSchema } from '../services/password-policy';
 import { ApiError } from '../errors/api-error';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
-const emailSchema = z.string().trim().email('E-mail inválido').max(254);
+const emailSchema = z.string().trim().email('E-mail inválido').max(254).transform(value => value.toLowerCase());
 const perfilSchema = z.enum(['ALUNO', 'PROFESSOR']).optional();
 
 const registerSchema = z.object({

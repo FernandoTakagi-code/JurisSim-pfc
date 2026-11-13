@@ -7,7 +7,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 const mocks = vi.hoisted(() => ({
-  userFind: vi.fn(), userUpdate: vi.fn(), userUpdateMany: vi.fn(),
+  userFind: vi.fn(), userList: vi.fn(), userUpdate: vi.fn(), userUpdateMany: vi.fn(),
   auditCreate: vi.fn(), auditFind: vi.fn(), diagnosticFind: vi.fn(), transaction: vi.fn(),
   tokenCreate: vi.fn(), tokenFind: vi.fn(), tokenClaim: vi.fn(),
   recoveryFind: vi.fn(), recoveryCount: vi.fn(), recoveryCreate: vi.fn(), recoveryClaim: vi.fn(),
@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   trailGenerate: vi.fn(), trailQuestions: vi.fn(), trailAnswer: vi.fn(), trailFinalize: vi.fn(),
 }));
 vi.mock('../lib/prisma', () => ({ prisma: {
-  user: { findUnique: mocks.userFind, update: mocks.userUpdate, updateMany: mocks.userUpdateMany },
+  user: { findUnique: mocks.userFind, findMany: mocks.userList, update: mocks.userUpdate, updateMany: mocks.userUpdateMany },
   auditLog: { create: mocks.auditCreate, findMany: mocks.auditFind },
   simulado: { findFirst: mocks.diagnosticFind },
   authToken: { create: mocks.tokenCreate, updateMany: mocks.tokenClaim },
@@ -116,6 +116,7 @@ beforeEach(() => {
   claimed = false;
   account = { id: userId, nome: 'Fixture', email: 'user@example.invalid', role: 'ALUNO', sessionVersion: 0, emailVerifiedAt: null, deletedAt: null, senhaHash: passwordHash };
   mocks.userFind.mockImplementation(async ({ where }) => account && (where.id === account.id || where.email === account.email) ? { ...account } : null);
+  mocks.userList.mockImplementation(async ({ where }) => account && where.email.equals.toLowerCase() === account.email.toLowerCase() ? [{ ...account }] : []);
   mocks.userUpdate.mockImplementation(async () => { account!.emailVerifiedAt = new Date(); return { id: userId }; });
   mocks.userUpdateMany.mockImplementation(async ({ data }) => { account!.senhaHash = data.senhaHash; account!.sessionVersion += data.sessionVersion.increment; return { count: 1 }; });
   mocks.auditCreate.mockResolvedValue({});

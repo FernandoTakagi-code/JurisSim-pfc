@@ -7,15 +7,18 @@ import { institutionsEnabled, institutionRegistrationEnabled, administrationEnab
 export const GOOGLE_PASSWORD_SENTINEL = '!GOOGLE_OAUTH_ACCOUNT!';
 
 export class AuthRepository {
-  findByEmail(email: string) {
-    return prisma.user.findUnique({
-      where: { email },
+  async findByEmail(email: string) {
+    const matches = await prisma.user.findMany({
+      where: { email: { equals: email.trim(), mode: 'insensitive' } },
+      take: 2,
       select: {
         id: true, nome: true, email: true, senhaHash: true, role: true, sessionVersion: true,
         legalAcceptedAt: true, termsVersion: true, privacyVersion: true,
         deletedAt: true,
       },
     });
+    if (matches.length > 1) throw new ApiError(409, 'Há mais de uma conta com este e-mail. Procure o suporte para evitar vinculação incorreta.');
+    return matches[0] ?? null;
   }
 
   findGoogleAccountsByEmail(email: string) {

@@ -1,3 +1,4 @@
+import { emailFrontendContext } from '../services/email-frontend';
 import { Router } from "express";
 import { z } from "zod";
 import {
@@ -12,6 +13,7 @@ import { ApiError } from "../errors/api-error";
 import { InvitationOnboardingService } from '../services/invitation-onboarding';
 
 export const institutionRoutes = Router();
+institutionRoutes.use(emailFrontendContext);
 const service = new InstitutionService();
 const onboarding = new InvitationOnboardingService();
 const invitationToken = z.string().regex(/^[a-f0-9]{64}$/);

@@ -91,7 +91,7 @@ describe('solicitação de recuperação', () => {
   it('revoga o token se o envio falhar sem registrar token ou destinatário', async () => {
     const { service, repository, sender } = recoveryDependencies();
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-    sender.sendPasswordRecovery.mockRejectedValue(new Error('provider response contains sensitive details'));
+    sender.sendPasswordRecovery.mockRejectedValue(new EmailDeliveryFailure('not_accepted','connect'));
     await expect(service.requestRecovery(email)).resolves.toMatch(/^Se existir uma conta associada/);
     expect(repository.invalidateToken).toHaveBeenCalledWith('recovery-row-1', expect.any(Date));
     expect(log).toHaveBeenCalledWith('Falha no envio do e-mail de recuperação de senha.');
@@ -99,9 +99,9 @@ describe('solicitação de recuperação', () => {
     log.mockRestore();
   });
 
-  it('preserva o token quando o resultado do envio é indeterminado para evitar invalidar link entregue', async () => {
+  it.each(['classified','unclassified'])('preserva o token quando o resultado do envio é indeterminado para evitar invalidar link entregue: %s', async kind => {
     const { service, repository, sender } = recoveryDependencies();
-    sender.sendPasswordRecovery.mockRejectedValue(new EmailDeliveryFailure('indeterminate', 'request_deadline'));
+    sender.sendPasswordRecovery.mockRejectedValue(kind==='classified'?new EmailDeliveryFailure('indeterminate', 'request_deadline'):new Error('private unclassified failure'));
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     await expect(service.requestRecovery(email)).resolves.toMatch(/^Se existir uma conta associada/);
     expect(repository.invalidateToken).not.toHaveBeenCalled();

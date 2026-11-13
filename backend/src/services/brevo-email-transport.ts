@@ -131,12 +131,21 @@ class BrevoSmtpTransport implements TransactionalEmailTransport {
 }
 
 export function createBrevoEmailTransport(): TransactionalEmailTransport {
+  if (runtimeTransport) return runtimeTransport;
   const selected = (process.env.BREVO_EMAIL_TRANSPORT ?? 'api').trim().toLowerCase();
   if (selected === 'api') return getSharedBrevoApiTransport();
   if (selected === 'smtp') {
     return createBrevoSmtpTransport();
   }
   return { isConfigured: false, async send() { throw new Error('Unsupported Brevo transport.'); } };
+}
+
+// Set only by the guarded local launcher before importing the API. Never a route.
+let runtimeTransport: TransactionalEmailTransport | undefined;
+export function configureLocalRuntimeEmailTransport(transport: TransactionalEmailTransport) {
+  if (runtimeTransport || process.env.NODE_ENV !== 'development' || process.env.HOST !== '127.0.0.1' || process.env.PORT !== '3333' || process.env.APP_PUBLIC_URL !== 'http://localhost:5173' || !transport.isConfigured)
+    throw new Error('Local runtime email configuration refused.');
+  runtimeTransport = transport;
 }
 
 export function createBrevoSmtpTransport(user?: string, key?: string): TransactionalEmailTransport {

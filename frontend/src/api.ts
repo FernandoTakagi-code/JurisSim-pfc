@@ -1,4 +1,7 @@
-const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3333';
+// The local API listens on IPv4 loopback. Avoid `localhost` here because some
+// Windows resolvers prefer ::1 while the development server is intentionally
+// bound to 127.0.0.1.
+const api = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3333';
 
 export class ApiError extends Error {
   constructor(readonly status: number, message: string, readonly code?: string, readonly payload?: unknown) { super(message); }

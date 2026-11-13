@@ -4,7 +4,9 @@ import { AuthRepository } from '../repositories/auth-repository';
 import { EmailVerificationSender, UnconfiguredEmailVerificationSender } from './email-verification-sender';
 import { isValidAppUrl } from './app-url';
 import { EMAIL_VERIFICATION_TOKEN_TTL_MINUTES } from './auth-token-policy';
-import { isIndeterminateEmailDelivery } from './email-delivery-failure';
+import { classifyEmailDeliveryFailure } from './email-delivery-failure';
+import { emailFrontendUrl } from './email-frontend';
+import { emailAccepted, emailFailed } from './transactional-email-log';
 
 export class EmailVerificationService {
   constructor(
@@ -14,7 +16,8 @@ export class EmailVerificationService {
   ) {}
 
   async requestVerification(userId: string) {
-    if (!this.emailSender.isConfigured || !isValidAppUrl(this.publicAppUrl)) {
+    const publicAppUrl=emailFrontendUrl(this.publicAppUrl);
+    if (!this.emailSender.isConfigured || !isValidAppUrl(publicAppUrl)) {
       throw new ApiError(503, 'A confirmação de e-mail está temporariamente indisponível.');
     }
     const user = await this.repository.findById(userId);
@@ -26,7 +29,7 @@ export class EmailVerificationService {
     const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MINUTES * 60 * 1000);
     const record = await this.repository.createToken(userId, 'EMAIL_VERIFICATION', tokenHash, expiresAt);
 
-    const verifyUrl = `${new URL(this.publicAppUrl).toString().replace(/\/$/, '')}/#/verificar-email?token=${encodeURIComponent(token)}`;
+    const verifyUrl = `${publicAppUrl}/#/verificar-email?token=${encodeURIComponent(token)}`;
     try {
       await this.emailSender.sendEmailVerification({
         userId,
@@ -34,8 +37,10 @@ export class EmailVerificationService {
         verifyUrl,
         expiresInMinutes: EMAIL_VERIFICATION_TOKEN_TTL_MINUTES,
       });
+      emailAccepted('email_verification',record.id);
     } catch (error) {
-      const indeterminate = isIndeterminateEmailDelivery(error);
+      emailFailed('email_verification',record.id,error);
+      const indeterminate = classifyEmailDeliveryFailure(error).outcome==='indeterminate';
       if (!indeterminate) await this.repository.markTokenUsed(record.id);
       console.error('Falha no envio do e-mail de confirmação.');
       throw new ApiError(503, indeterminate

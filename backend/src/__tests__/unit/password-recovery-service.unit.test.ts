@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../errors/api-error';
 import { GOOGLE_PASSWORD_SENTINEL } from '../../repositories/auth-repository';
 import { PasswordRecoveryService, PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from '../../services/password-recovery-service';
+import {EmailDeliveryFailure} from '../../services/email-delivery-failure';
 
 // Teste unitário: repositório e envio de e-mail são dublês injetados pelo construtor.
 const APP_URL = 'http://localhost:5173';
@@ -97,7 +98,7 @@ describe('PasswordRecoveryService.requestRecovery()', () => {
   it('deveInvalidarOTokenQuandoOEnvioDoEmailFalha', async () => {
     // Arrange
     const { repositorio, emailSender } = criarDependencias({ id: 'user-1', senhaHash: 'hash-bcrypt' });
-    emailSender.sendPasswordRecovery.mockRejectedValue(new Error('SMTP indisponível'));
+    emailSender.sendPasswordRecovery.mockRejectedValue(new EmailDeliveryFailure('not_accepted','connect'));
     const service = new PasswordRecoveryService(repositorio as never, emailSender, APP_URL);
 
     // Act

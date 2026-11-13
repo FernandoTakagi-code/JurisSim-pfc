@@ -1,4 +1,5 @@
 import { createBrevoEmailTransport, createBrevoSmtpTransport, type TransactionalEmailTransport } from './brevo-email-transport';
+import {escapeMail} from './email-html';
 
 export type PasswordRecoveryEmail = {
   to: string;
@@ -29,10 +30,11 @@ export class BrevoRecoveryEmailSender implements RecoveryEmailSender {
   constructor(
     smtpUser?: string,
     smtpKey?: string,
+    transport?: TransactionalEmailTransport,
   ) {
-    this.transport = smtpUser !== undefined || smtpKey !== undefined
+    this.transport = transport ?? (smtpUser !== undefined || smtpKey !== undefined
       ? createBrevoSmtpTransport(smtpUser, smtpKey)
-      : createBrevoEmailTransport();
+      : createBrevoEmailTransport());
     this.isConfigured = this.transport.isConfigured;
   }
 
@@ -47,7 +49,7 @@ export class BrevoRecoveryEmailSender implements RecoveryEmailSender {
           <h2 style="color: #0b1f3a;">Recuperação de senha</h2>
           <p>Recebemos uma solicitação para redefinir a senha da sua conta JurisSim.</p>
           <p>
-            <a href="${resetUrl}" style="display: inline-block; background: #0b1f3a; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none;">
+            <a href="${escapeMail(resetUrl)}" style="display: inline-block; background: #0b1f3a; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none;">
               Redefinir minha senha
             </a>
           </p>
@@ -55,7 +57,7 @@ export class BrevoRecoveryEmailSender implements RecoveryEmailSender {
             Este link expira em ${expiresInMinutes} minutos. Se você não solicitou essa alteração, ignore este e-mail.
           </p>
           <p style="color: #68758a; font-size: 12px; word-break: break-all;">
-            Ou copie e cole este link no navegador: ${resetUrl}
+            Ou copie e cole este link no navegador: ${escapeMail(resetUrl)}
           </p>
         </div>
       `,
