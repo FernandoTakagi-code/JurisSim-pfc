@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRoles, type AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { StudentHistoryRepository } from '../repositories/student-history-repository';
+import { PERFORMANCE_KINDS, StudentPerformanceRepository } from '../repositories/student-performance-repository';
 
 const cursorSchema = z.object({ startedAt: z.iso.datetime(), id: z.string().uuid() }).strict();
 const querySchema = z.object({
@@ -16,6 +17,11 @@ const querySchema = z.object({
 export const studentHistoryRoutes = Router();
 const repository = new StudentHistoryRepository();
 studentHistoryRoutes.use(requireAuth, requireRoles('ALUNO'));
+studentHistoryRoutes.get('/performance', async (request: AuthenticatedRequest, response) => {
+  const { kind } = z.object({ kind: z.enum(PERFORMANCE_KINDS).optional() }).strict().parse(request.query);
+  response.setHeader('Cache-Control', 'no-store');
+  response.json(await new StudentPerformanceRepository().summary(request.auth!.userId, kind));
+});
 studentHistoryRoutes.get('/overview', async (request: AuthenticatedRequest, response) => {
   z.object({}).strict().parse(request.query);
   response.setHeader('Cache-Control', 'no-store');

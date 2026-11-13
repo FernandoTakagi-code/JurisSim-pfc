@@ -14,6 +14,7 @@ import {
 import { assertDisposableDatabase } from "./disposable-database";
 import { createQuestionReviewRoutes } from "../../routes/question-review-routes";
 import { errorHandler } from "../../middlewares/error-handler";
+import { StudentPerformanceRepository } from "../../repositories/student-performance-repository";
 import { importPracticeDrafts } from "../../services/practice-draft-import";
 import { createDiagnosticQuestionSnapshot } from "../../services/diagnostic-question-snapshot";
 import {
@@ -350,4 +351,108 @@ it("saves a separate immutable review, resumes feedback, and preserves original 
       >`SELECT relrowsecurity AS rls FROM pg_class WHERE relname='SessaoRevisaoQuestao'`
     )[0].rls,
   ).toBe(true);
+});
+
+it("aggregates only completed originals by modality and snapshot topic, preserving review rules and student isolation", async () => {
+  process.env.QUESTION_REVIEW_SCHEMA_ENABLED = "true";
+  process.env.QUESTION_REVIEW_API_ENABLED = "true";
+  process.env.QUESTION_PRACTICE_SCHEMA_ENABLED = "true";
+  process.env.INDIVIDUAL_EXAM_SCHEMA_ENABLED = "true";
+  const completed = await prisma.simulado.findMany({
+    where: { alunoId: studentId, finalizadoEm: { not: null } },
+    orderBy: { finalizadoEm: "asc" },
+  });
+  await prisma.simulado.update({
+    where: { id: completed[0].id },
+    data: { tipo: "DIAGNOSTICO" },
+  });
+  await prisma.sessaoPratica.create({
+    data: {
+      simuladoId: completed[1].id,
+      alunoId: studentId,
+      disciplina: "Direito Constitucional",
+    },
+  });
+  const source = await prisma.questaoSimulado.findFirstOrThrow({
+    where: { simuladoId: completed[0].id },
+  });
+  for (const kind of ["individual", "class", "trail"]) {
+    const exam = await prisma.simulado.create({
+      data: {
+        tipo: kind === "class" ? "AVALIACAO" : "PERSONALIZADO",
+        alunoId: studentId,
+        finalizadoEm: new Date(),
+        questoes: {
+          create: {
+            questaoId: source.questaoId,
+            posicao: 1,
+            conteudoSnapshot: source.conteudoSnapshot!,
+          },
+        },
+      },
+    });
+    if (kind === "individual")
+      await prisma.sessaoSimuladoIndividual.create({
+        data: { simuladoId: exam.id, alunoId: studentId },
+      });
+  }
+  await prisma.questao.update({
+    where: { id: source.questaoId },
+    data: {
+      disciplina: "Disciplina alterada",
+      assunto: "Assunto alterado no banco isolado",
+    },
+  });
+  const before = hash(await originalState());
+  const repository = new StudentPerformanceRepository(prisma);
+  const summary = await repository.summary(studentId);
+  expect(summary.totals).toMatchObject({
+    activities: 5,
+    assigned: 10,
+    answered: 7,
+    correct: 4,
+    incorrect: 3,
+    unanswered: 3,
+    percentage: 57.1,
+  });
+  expect(summary.modalities.every((m) => m.activities === 1)).toBe(true);
+  expect(summary.provisional).toBe(true);
+  expect(JSON.stringify(summary)).not.toMatch(
+    /correctOptionId|alternativeId|Assunto alterado|Disciplina alterada/,
+  );
+  expect(summary.disciplines).toHaveLength(1);
+  expect(summary.disciplines[0].discipline).toBe("Direito Constitucional");
+  const availability = await new QuestionReviewService(prisma).availability(
+    studentId,
+    "Direito Constitucional",
+    null,
+    "incorrect",
+  );
+  expect(summary.topics.reduce((n, t) => n + t.reviewCount, 0)).toBe(
+    availability.availableCount,
+  );
+  for (const modality of summary.modalities) {
+    const filtered = await repository.summary(studentId, modality.kind);
+    expect(filtered.totals.activities).toBe(1);
+    if (modality.kind === "individual")
+      expect(filtered.totals).toMatchObject({
+        assigned: 1,
+        answered: 0,
+        unanswered: 1,
+        percentage: null,
+      });
+  }
+  const emptyStudent = await criarUsuario("ALUNO");
+  expect((await repository.summary(emptyStudent.id)).totals).toMatchObject({
+    activities: 0,
+    assigned: 0,
+    answered: 0,
+    percentage: null,
+  });
+  process.env.QUESTION_REVIEW_API_ENABLED = "false";
+  const disabled = await repository.summary(studentId);
+  expect(disabled.reviewEnabled).toBe(false);
+  expect(disabled.topics.every((t) => t.reviewCount === 0)).toBe(true);
+  expect(hash(await originalState())).toBe(before);
+  process.env.QUESTION_REVIEW_SCHEMA_ENABLED = "false";
 });
