@@ -6,16 +6,20 @@ import { PrismaClient } from '@prisma/client';
 import { parse } from 'dotenv';
 import { resolveInventoryCheckDatabaseUrl } from '../src/config/inventory-check-database-url';
 
-const migration = '20261112130000_individual_exam_sessions';
+const defaultMigration = '20261112130000_individual_exam_sessions';
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
 async function main() {
   const args = process.argv.slice(2), flags = new Map<string, string>();
   for (let i = 0; i < args.length; i++) {
     const flag = args[i];
-    if (!['--apply', '--target-id', '--operator-id', '--receipt'].includes(flag) || flags.has(flag)) throw new Error('Argumento inválido.');
+    if (!['--apply', '--target-id', '--operator-id', '--receipt', '--migration'].includes(flag) || flags.has(flag)) throw new Error('Argumento inválido.');
     if (flag === '--apply') { flags.set(flag, 'true'); continue; }
     const value = args[++i]; if (!value || value.startsWith('--')) throw new Error('Argumento sem valor.'); flags.set(flag, value);
   }
+  const migration = flags.get('--migration') ?? defaultMigration;
+  if (![defaultMigration, '20261112160000_private_practice_sessions'].includes(migration)) throw new Error('Migration não suportada por esta manutenção.');
+  const table = migration === defaultMigration ? 'SessaoSimuladoIndividual' : 'SessaoPratica';
+  const foreignKey = migration === defaultMigration ? 'SessaoIndividual_simuladoId_alunoId_fkey' : 'SessaoPratica_simuladoId_alunoId_fkey';
   const url = resolveInventoryCheckDatabaseUrl(); if (!url) throw new Error('Destino não configurado.');
   const target = new URL(url), targetId = sha([target.hostname, target.port, target.pathname, target.username].join('|'));
   const local = parse(fs.readFileSync(path.resolve('.env'), 'utf8'));
@@ -52,8 +56,8 @@ async function main() {
       if (result.error || result.status !== 0) throw new Error('Prisma recusou a aplicação; saída de conexão omitida. Verifique o histórico antes de repetir.');
     }
     const [security] = await db.$queryRaw<{ rls: boolean; ownerForeignKey: boolean }[]>`SELECT c.relrowsecurity AS rls,
-      EXISTS (SELECT 1 FROM pg_constraint WHERE conname='SessaoIndividual_simuladoId_alunoId_fkey') AS "ownerForeignKey"
-      FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='SessaoSimuladoIndividual'`;
+      EXISTS (SELECT 1 FROM pg_constraint WHERE conname=${foreignKey}) AS "ownerForeignKey"
+      FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=${table}`;
     const confirmed = await db.$queryRaw<{ checksum: string }[]>`SELECT checksum FROM "_prisma_migrations" WHERE migration_name=${migration} AND finished_at IS NOT NULL AND rolled_back_at IS NULL`;
     const after = await db.questao.count();
     const receipt = { appliedAt: new Date().toISOString(), migration, targetId, operatorId: operator.id, externalMigrationsPreserved: externalMigrations, appliedNow: pending.length === 1, migrationRecorded: confirmed.length === 1, rls: security?.rls, ownerForeignKey: security?.ownerForeignKey, questionsBefore: before, questionsAfter: after };

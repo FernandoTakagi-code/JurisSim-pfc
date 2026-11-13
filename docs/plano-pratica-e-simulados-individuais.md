@@ -1,5 +1,7 @@
 # Questões e simulados individuais — preparação do acervo
 
+> Estado posterior: o treino de Questões foi implementado e ativado como piloto local provisório. Consulte [piloto-questoes-ativado.md](piloto-questoes-ativado.md). As descrições de prática desativada abaixo registram a etapa de preparação, anterior a essa ativação; o acervo continua privado e pendente de revisão humana.
+
 Atualizado em 12/11/2026. Branch: `fernando/questoes-diagnostico-autoral`. O simulado misto de 30 está ativo como piloto provisório no ambiente local, com migration aplicada no Supabase e teste de navegador concluído. O lote permanece privado e sem revisão humana; somente esse piloto tem seleção especial restrita ao lote. A prática em Questões segue desativada. Ver `docs/piloto-simulado-ativado.md` para o estado e os testes mais recentes.
 
 ## Decisão e estado da entrega

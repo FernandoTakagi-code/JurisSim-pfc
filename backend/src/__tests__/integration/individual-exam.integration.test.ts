@@ -3,7 +3,7 @@ import type { Server } from 'node:http';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createIndividualExamRoutes } from '../../routes/individual-exam-routes';
 import { errorHandler } from '../../middlewares/error-handler';
-import { criarUsuario, prisma, tokenPara, encerrar } from './helpers';
+import { criarUsuario, prisma, tokenPara, encerrar, limparBanco } from './helpers';
 import { assertDisposableDatabase } from './disposable-database';
 import { PRACTICE_DISCIPLINES } from '../../services/question-practice-service';
 import { StudentHistoryRepository } from '../../repositories/student-history-repository';
@@ -16,6 +16,7 @@ import { PrismaQuestionPracticeRepository } from '../../repositories/prisma-ques
 let server: Server, base: string;
 beforeAll(async () => {
   await assertDisposableDatabase(prisma);
+  await limparBanco();
   process.env.INDIVIDUAL_EXAM_SCHEMA_ENABLED = 'true';
   const app = express(); app.use(express.json());
   app.use('/individual-exams', createIndividualExamRoutes({ isEnabled: () => true }));

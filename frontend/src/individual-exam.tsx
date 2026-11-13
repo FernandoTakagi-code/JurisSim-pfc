@@ -54,7 +54,7 @@ const message = (error: unknown) =>
   error instanceof Error
     ? error.message
     : "Não foi possível concluir a solicitação.";
-function ProvisionalNotice() {
+export function ProvisionalNotice() {
   return (
     <details className="individual-notice">
       <summary>
@@ -63,13 +63,19 @@ function ProvisionalNotice() {
       </summary>
       <p>
         Questões autorais assistidas por IA. Gabaritos e resultados estão
-        sujeitos a correção. Este simulado não é uma avaliação oficial.
+        sujeitos a correção. Esta atividade não é uma avaliação oficial.
       </p>
     </details>
   );
 }
 
-export function ExamResult({ result }: { result: Result }) {
+export function ExamResult({
+  result,
+  kind = "exam",
+}: {
+  result: Result;
+  kind?: "exam" | "practice";
+}) {
   const [incorrectOnly, setIncorrectOnly] = useState(false);
   const [selectedId, setSelectedId] = useState(result.answers[0]?.id);
   const answers = result.answers.filter(
@@ -85,12 +91,18 @@ export function ExamResult({ result }: { result: Result }) {
   return (
     <section className="individual-exam individual-results">
       <div className="individual-topline">
-        <span className="individual-eyebrow">SIMULADO INDIVIDUAL</span>
+        <span className="individual-eyebrow">
+          {kind === "practice" ? "TREINO POR QUESTÕES" : "SIMULADO INDIVIDUAL"}
+        </span>
         <button
           className="individual-link"
-          onClick={() => navigate("/simulados")}
+          onClick={() =>
+            navigate(kind === "practice" ? "/questoes" : "/simulados")
+          }
         >
-          ← Voltar aos simulados
+          {kind === "practice"
+            ? "← Voltar às questões"
+            : "← Voltar aos simulados"}
         </button>
       </div>
       <h1>Seu resultado</h1>

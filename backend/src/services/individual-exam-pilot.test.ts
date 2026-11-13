@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { individualExamInventoryWhere, isIndividualExamPilotQuestion, isIndividualExamSelectable } from './individual-exam-pilot';
 import { toEligibleCandidate, type InventoryRow } from '../repositories/prisma-initial-diagnostic-repository';
+import { isPracticeSelectable } from './question-practice-pilot';
 
 const batchId = '9218bdec-f4e3-43a1-8b54-cdc40720dea5';
 function row(): InventoryRow {
@@ -15,6 +16,15 @@ function row(): InventoryRow {
 }
 beforeEach(() => { vi.stubEnv('INDIVIDUAL_EXAM_PILOT_ENABLED', 'true'); vi.stubEnv('INDIVIDUAL_EXAM_PILOT_BATCH_ID', batchId); });
 afterEach(() => vi.unstubAllEnvs());
+it('keeps practice pilot authorization independent from the individual exam pilot', () => {
+  vi.stubEnv('QUESTION_PRACTICE_PILOT_ENABLED', 'false');
+  expect(isPracticeSelectable(row())).toBe(false);
+  vi.stubEnv('QUESTION_PRACTICE_PILOT_ENABLED', 'true'); vi.stubEnv('QUESTION_PRACTICE_PILOT_BATCH_ID', batchId);
+  expect(isPracticeSelectable(row())).toBe(true);
+  vi.stubEnv('INDIVIDUAL_EXAM_PILOT_ENABLED', 'false');
+  expect(isPracticeSelectable(row())).toBe(true);
+  expect(toEligibleCandidate(row())).toBeNull();
+});
 it('selects only the explicit private batch without treating it as human-approved', () => {
   const q = row();
   expect(individualExamInventoryWhere()).toMatchObject({ loteImportacaoId: batchId, publica: false, revisaoJuridicaEm: null });

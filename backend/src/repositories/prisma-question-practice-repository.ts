@@ -1,14 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { inventorySelect, inventoryWhere, toEligibleCandidate, type InventoryRow } from './prisma-initial-diagnostic-repository';
+import { inventorySelect, type InventoryRow } from './prisma-initial-diagnostic-repository';
+import { practiceInventoryWhere, isPracticePilotQuestion, isPracticeSelectable } from '../services/question-practice-pilot';
+import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
+import { ApiError } from '../errors/api-error';
 import type { PracticeAttempt, PracticeQuestion, QuestionPracticeRepository } from '../services/question-practice-service';
 import type { Level } from '../types/diagnostic';
 
 type SessionRow = { id: string; simuladoId: string; alunoId: string; disciplina: string; assunto?: string | null; finalizadoEm: Date | null };
 type AttemptRow = Prisma.SimuladoGetPayload<{ select: {
   id: true; finalizadoEm: true; questoes: { orderBy: { posicao: 'asc' }; select: {
-    posicao: true; questao: { select: { id: true; disciplina: true; assunto: true; nivel: true; enunciado: true; fundamentacaoJuridica: true; alternativas: { orderBy: { letra: 'asc' }; select: { id: true; letra: true; texto: true; correta: true } } } }; resposta: { select: { alternativaEscolhidaId: true } };
+    posicao: true; conteudoSnapshot: true; questao: { select: { id: true; disciplina: true; assunto: true; nivel: true; enunciado: true; fundamentacaoJuridica: true; alternativas: { orderBy: { letra: 'asc' }; select: { id: true; letra: true; texto: true; correta: true } } } }; resposta: { select: { alternativaEscolhidaId: true } };
   } };
 } }>;
 
@@ -19,6 +22,7 @@ const attemptSelect = {
     orderBy: { posicao: 'asc' as const },
     select: {
       posicao: true,
+      conteudoSnapshot: true,
       questao: { select: {
         id: true, disciplina: true, assunto: true, nivel: true, enunciado: true,
         fundamentacaoJuridica: true,
@@ -30,10 +34,10 @@ const attemptSelect = {
 } as const satisfies Prisma.SimuladoSelect;
 
 function questionFromRow(row: InventoryRow): PracticeQuestion | null {
-  if (!toEligibleCandidate(row)) return null;
+  if (!isPracticeSelectable(row)) return null;
   return {
     id: row.id, discipline: row.disciplina, topic: row.assunto, level: row.nivel,
-    statement: row.enunciado, explanation: row.fundamentacaoJuridica,
+    statement: row.enunciado, explanation: row.fundamentacaoJuridica, provisional: isPracticePilotQuestion(row),
     alternatives: row.alternativas.map(alternative => ({
       id: alternative.id, letter: alternative.letra!, text: alternative.texto, correct: alternative.correta,
     })),
@@ -43,16 +47,18 @@ function questionFromRow(row: InventoryRow): PracticeQuestion | null {
 function mapAttempt(row: AttemptRow, discipline: string): PracticeAttempt {
   return {
     id: row.id, state: row.finalizadoEm ? 'COMPLETED' : 'IN_PROGRESS', discipline,
-    questions: row.questoes.map(item => ({
+    questions: row.questoes.map(item => {
+      const snapshot = readDiagnosticQuestionSnapshot(item.conteudoSnapshot);
+      return ({
       position: item.posicao,
       question: {
-        id: item.questao.id, discipline: item.questao.disciplina, topic: item.questao.assunto,
-        level: item.questao.nivel, statement: item.questao.enunciado,
-        explanation: item.questao.fundamentacaoJuridica,
-        alternatives: item.questao.alternativas.map(option => ({ id: option.id, letter: option.letra ?? '', text: option.texto, correct: option.correta })),
+        id: item.questao.id, discipline: snapshot?.discipline ?? item.questao.disciplina, topic: snapshot?.topic ?? item.questao.assunto,
+        level: snapshot?.difficulty ?? item.questao.nivel, statement: snapshot?.statement ?? item.questao.enunciado,
+        explanation: snapshot?.explanation ?? item.questao.fundamentacaoJuridica, provisional: Boolean(snapshot?.provisional),
+        alternatives: snapshot ? snapshot.alternatives.map(option => ({ ...option, letter: option.letter! })) : item.questao.alternativas.map(option => ({ id: option.id, letter: option.letra ?? '', text: option.texto, correct: option.correta })),
       },
       selectedOptionId: item.resposta?.alternativaEscolhidaId ?? null,
-    })),
+    }); }),
   };
 }
 
@@ -64,13 +70,13 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
   }
 
   async listEligibleQuestions(discipline: string, topic?: string | null): Promise<PracticeQuestion[]> {
-    const rows = await this.db.questao.findMany({ where: { ...inventoryWhere, disciplina: discipline, ...(topic ? { assunto: topic } : {}) }, select: inventorySelect });
+    const rows = await this.db.questao.findMany({ where: { ...practiceInventoryWhere(), disciplina: discipline, ...(topic ? { assunto: topic } : {}) }, select: inventorySelect });
     return rows.flatMap(row => { const question = questionFromRow(row); return question ? [question] : []; });
   }
 
   async listAnsweredQuestionIds(studentId: string, discipline: string, topic?: string | null): Promise<ReadonlySet<string>> {
     const eligible = await this.db.questao.findMany({
-      where: { ...inventoryWhere, disciplina: discipline, ...(topic ? { assunto: topic } : {}) }, select: { id: true },
+      where: { ...practiceInventoryWhere(), disciplina: discipline, ...(topic ? { assunto: topic } : {}) }, select: { id: true },
     });
     if (!eligible.length) return new Set();
     const answers = await this.db.resposta.findMany({
@@ -94,7 +100,7 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
       SELECT p."id", p."simuladoId", p."alunoId", p."disciplina", p."assunto", s."finalizadoEm"
       FROM "SessaoPratica" p JOIN "Simulado" s ON s."id" = p."simuladoId" AND s."alunoId" = p."alunoId"
       WHERE p."alunoId" = ${studentId} AND p."disciplina" = ${discipline} AND s."finalizadoEm" IS NULL
-        AND (${topic ?? null}::text IS NULL OR EXISTS (SELECT 1 FROM "QuestaoSimulado" q JOIN "Questao" x ON x.id=q."questaoId" WHERE q."simuladoId"=s.id AND x.assunto=${topic ?? null}))
+        AND (${topic ?? null}::text IS NULL OR p."assunto"=${topic ?? null})
       ORDER BY p."criadaEm" ASC LIMIT 1`;
     return rows[0] ? this.findAttempt(studentId, rows[0].simuladoId) : null;
   }
@@ -112,11 +118,14 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
       const active = await tx.$queryRaw<{ simuladoId: string }[]>`
         SELECT p."simuladoId" FROM "SessaoPratica" p JOIN "Simulado" s ON s."id" = p."simuladoId" AND s."alunoId" = p."alunoId"
         WHERE p."alunoId" = ${studentId} AND p."disciplina" = ${discipline} AND s."finalizadoEm" IS NULL
-          AND (${topic}::text IS NULL OR EXISTS (SELECT 1 FROM "QuestaoSimulado" q JOIN "Questao" x ON x.id=q."questaoId" WHERE q."simuladoId"=s.id AND x.assunto=${topic}))
+          AND (${topic}::text IS NULL OR p."assunto"=${topic})
         ORDER BY p."criadaEm" ASC LIMIT 1`;
       if (active[0]) return active[0].simuladoId;
+      const answered = await tx.resposta.findMany({ where: { simulado: { alunoId: studentId }, questaoId: { in: questions.map(q => q.id) } }, select: { questaoId: true } });
+      if (answered.length) throw new ApiError(409, 'O estoque mudou. Atualize a disponibilidade para iniciar um treino inédito.');
       const simulado = await tx.simulado.create({ data: { tipo: 'PERSONALIZADO', alunoId: studentId }, select: { id: true } });
-      await tx.questaoSimulado.createMany({ data: questions.map((question, index) => ({ simuladoId: simulado.id, questaoId: question.id, posicao: index + 1 })) });
+      await tx.questaoSimulado.createMany({ data: questions.map((q, index) => ({ simuladoId: simulado.id, questaoId: q.id, posicao: index + 1,
+        conteudoSnapshot: createDiagnosticQuestionSnapshot({ enunciado: q.statement, disciplina: q.discipline, assunto: q.topic, nivel: q.level, fundamentacaoJuridica: q.explanation, alternativas: q.alternatives.map(a => ({ id: a.id, letra: a.letter, texto: a.text, correta: a.correct })) }, Boolean(q.provisional)) })) });
       await tx.$executeRaw`
         INSERT INTO "SessaoPratica" ("id", "simuladoId", "alunoId", "disciplina", "assunto", "criadaEm")
         VALUES (${sessionId}, ${simulado.id}, ${studentId}, ${discipline}, ${topic}, CURRENT_TIMESTAMP)`;
@@ -135,19 +144,23 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
         WHERE p."alunoId" = ${studentId} AND p."simuladoId" = ${attemptId} FOR UPDATE OF s`;
       if (!session[0]) throw new Error('Practice attempt not found.');
       if (session[0].finalizadoEm) throw new Error('Practice attempt already completed.');
-      const link = await tx.questaoSimulado.findFirst({ where: { simuladoId: attemptId, questaoId: questionId }, select: { id: true } });
-      const alternative = await tx.alternativa.findFirst({ where: { id: alternativeId, questaoId: questionId }, select: { id: true, correta: true } });
+      const link = await tx.questaoSimulado.findFirst({ where: { simuladoId: attemptId, questaoId: questionId }, select: { id: true, conteudoSnapshot: true } });
+      const snapshot = readDiagnosticQuestionSnapshot(link?.conteudoSnapshot);
+      const snapshotAlternative = snapshot?.alternatives.find(a => a.id === alternativeId);
+      const alternative = snapshot ? snapshotAlternative ? { id: snapshotAlternative.id, correta: snapshotAlternative.correct } : null : await tx.alternativa.findFirst({ where: { id: alternativeId, questaoId: questionId }, select: { id: true, correta: true } });
       if (!link || !alternative) throw new Error('Invalid practice answer relation.');
+      const previous = await tx.resposta.findUnique({ where: { questaoSimuladoId: link.id }, select: { alternativaEscolhidaId: true } });
+      if (previous && previous.alternativaEscolhidaId !== alternativeId) throw new ApiError(409, 'Esta resposta já foi confirmada e não pode ser alterada após a correção.');
       const saved = await tx.resposta.upsert({
         where: { questaoSimuladoId: link.id },
         create: { simuladoId: attemptId, questaoId: questionId, questaoSimuladoId: link.id, alternativaEscolhidaId: alternative.id, correta: alternative.correta },
-        update: { alternativaEscolhidaId: alternative.id, correta: alternative.correta, respondidoEm: new Date() },
+        update: {},
       });
       const [progress, question, totalQuestions, priorAnswers] = await Promise.all([
         tx.questaoSimulado.count({ where: { simuladoId: attemptId, resposta: { isNot: null } } }),
         tx.questao.findUnique({ where: { id: questionId }, select: { fundamentacaoJuridica: true, disciplina: true, assunto: true } }),
         tx.questaoSimulado.count({ where: { simuladoId: attemptId } }),
-        tx.resposta.findMany({ where: { simulado: { alunoId: studentId }, questaoSimulado: { simuladoId: { not: attemptId } } }, orderBy: { respondidoEm: 'desc' }, take: 20,
+        tx.resposta.findMany({ where: { simulado: { alunoId: studentId, finalizadoEm: { not: null } }, questaoSimulado: { simuladoId: { not: attemptId } } }, orderBy: { respondidoEm: 'desc' }, take: 20,
           select: { correta: true, questao: { select: { disciplina: true, assunto: true } } } }),
       ]);
       const recent = [...priorAnswers.map(row => row.correta), saved.correta].slice(0, 10);
@@ -160,7 +173,7 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
         topicCounts.set(key, value);
       }
       const weak = [...topicCounts.values()].sort((a, b) => a.correct / a.total - b.correct / b.total)[0];
-      return { correct: saved.correta, explanation: question?.fundamentacaoJuridica ?? '', selectedOptionId: alternativeId,
+      return { correct: saved.correta, explanation: snapshot?.explanation ?? question?.fundamentacaoJuridica ?? '', selectedOptionId: alternativeId,
         answeredCount: progress, totalQuestions,
         consistency: recentConsistency,
         recommendation: weak ? `Próximo foco: ${weak.topic} (${weak.discipline}), com ${Number(100 * weak.correct / weak.total).toFixed(2)}% no histórico disponível.` : 'Ainda não há histórico suficiente para recomendar outro assunto.' };

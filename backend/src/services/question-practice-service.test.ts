@@ -24,6 +24,26 @@ function repository(overrides: Partial<QuestionPracticeRepository> = {}): Questi
 }
 
 describe('QuestionPracticeService', () => {
+  it('locks corrected answers while allowing a safe retry of the same option', async () => {
+    const source = attempt([question('q1')], true);
+    const repo = repository({ findAttempt: vi.fn(async () => source) });
+    const service = new QuestionPracticeService(repo);
+    await expect(service.answer('s1', source.id, 'q1', 'q1-b')).rejects.toMatchObject({ statusCode: 409 });
+    await expect(service.answer('s1', source.id, 'q1', 'q1-a')).resolves.toMatchObject({ saved: true, correctOptionId: 'q1-a' });
+    expect(repo.saveAnswer).toHaveBeenCalledOnce();
+  });
+  it('recovers feedback only for confirmed questions and never changes level for provisional practice', async () => {
+    const source = attempt([question('q1'), question('q2')]); source.questions[0].selectedOptionId = 'q1-a';
+    const completed = attempt([{ ...question('q1'), provisional: true }], true, 'COMPLETED');
+    const repo = repository({ findAttempt: vi.fn(async () => source), finalize: vi.fn(async () => completed) });
+    const service = new QuestionPracticeService(repo);
+    const restored = await service.get('s1', source.id);
+    expect(restored.questions[0].feedback).toMatchObject({ correct: true, correctOptionId: 'q1-a' });
+    expect(restored.questions[1]).not.toHaveProperty('feedback');
+    source.questions[1].selectedOptionId = 'q2-a';
+    expect((await service.finalize('s1', source.id)).provisional).toBe(true);
+    expect(repo.updateLevel).not.toHaveBeenCalled();
+  });
   it('counts only unseen eligible inventory and exposes viable quantities by topic', async () => {
     const pool = Array.from({ length: 12 }, (_, i) => ({ ...question(`q${i}`), topic: i < 6 ? 'Contratos' : 'Obrigações' }));
     const repo = repository({ listEligibleQuestions: vi.fn(async () => pool), listAnsweredQuestionIds: vi.fn(async () => new Set(['q0', 'q6'])) });

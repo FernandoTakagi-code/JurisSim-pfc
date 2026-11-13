@@ -8,7 +8,12 @@ import { errorHandler } from '../../middlewares/error-handler';
 import { createQuestionPracticeRoutes } from '../../routes/question-practice-routes';
 import { PrismaQuestionPracticeRepository } from '../../repositories/prisma-question-practice-repository';
 import { assertDisposableDatabase } from './disposable-database';
-import { criarUsuario, encerrar, prisma, tokenPara } from './helpers';
+import { criarUsuario, encerrar, prisma, tokenPara, limparBanco } from './helpers';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { importPracticeDrafts } from '../../services/practice-draft-import';
+import { PrismaIndividualExamRepository } from '../../repositories/prisma-individual-exam-repository';
+import { IndividualExamService } from '../../services/individual-exam-service';
 
 let server: Server;
 let baseUrl: string;
@@ -62,6 +67,7 @@ async function request(method: string, path: string, token?: string, body?: unkn
 
 async function setupServer() {
   await assertDisposableDatabase(prisma);
+  await limparBanco();
   const app = express();
   app.use(express.json());
   // Enable only within this isolated integration server. This does not alter
@@ -75,7 +81,7 @@ async function setupServer() {
 }
 
 beforeAll(setupServer);
-afterAll(async () => { await encerrar(server); });
+afterAll(async () => { delete process.env.QUESTION_PRACTICE_PILOT_ENABLED; delete process.env.QUESTION_PRACTICE_PILOT_BATCH_ID; delete process.env.INDIVIDUAL_EXAM_PILOT_ENABLED; delete process.env.INDIVIDUAL_EXAM_PILOT_BATCH_ID; await encerrar(server); });
 
 describe('question practice with disposable PostgreSQL', () => {
   it('creates and resumes separate discipline sessions and filters private questions', async () => {
@@ -140,7 +146,10 @@ describe('question practice with disposable PostgreSQL', () => {
       expect(recovered.body.attempt.questions.find((question: { id: string }) => question.id === saved.questionId).selectedOptionId)
         .toBe(saved.alternativeId);
     }
-    expect(JSON.stringify(recovered.body)).not.toMatch(/correctOptionId|explanation|"correct"/);
+    expect(recovered.body.attempt.questions.every((q: any) => q.feedback && typeof q.feedback.correct === 'boolean' && q.feedback.explanation)).toBe(true);
+    expect((await request('PUT', `/question-practice/${attempt.id}/answers/${attempt.questions[0].id}`, token, { alternativeId: savedAnswers[0].alternativeId })).status).toBe(200);
+    const different = attempt.questions[0].alternatives.find((a: any) => a.id !== savedAnswers[0].alternativeId).id;
+    expect((await request('PUT', `/question-practice/${attempt.id}/answers/${attempt.questions[0].id}`, token, { alternativeId: different })).status).toBe(409);
 
     const finalized = await request('POST', `/question-practice/${attempt.id}/finalize`, token);
     expect(finalized.status).toBe(200);
@@ -178,5 +187,44 @@ describe('question practice with disposable PostgreSQL', () => {
     expect(started.status).toBe(201);
     const stolen = await request('GET', `/question-practice/${started.body.attempt.id}`, tokenPara(otherStudent));
     expect(stolen.status).toBe(404);
+  });
+  it('runs provisional practice with real draft snapshots and shared exam history without changing the student level', async () => {
+    const operator = await criarUsuario('PROFESSOR'); await prisma.user.update({ where: { id: operator.id }, data: { role: 'ADMIN' } });
+    const draft = JSON.parse(readFileSync(resolve('scripts/drafts/authorial-practice-60.draft.json'), 'utf8'));
+    const imported = await importPracticeDrafts(prisma, draft, operator.id);
+    process.env.QUESTION_PRACTICE_PILOT_ENABLED = 'true'; process.env.QUESTION_PRACTICE_PILOT_BATCH_ID = imported.batchId;
+    process.env.INDIVIDUAL_EXAM_PILOT_ENABLED = 'true'; process.env.INDIVIDUAL_EXAM_PILOT_BATCH_ID = imported.batchId;
+    const student = await criarUsuario('ALUNO'), token = tokenPara(student);
+    const catalog = await request('GET', '/question-practice/catalog/Direito%20Civil/availability', token);
+    expect(catalog.body).toMatchObject({ provisional: true, availableCount: 12, availableQuantities: [5, 10] });
+    expect(catalog.body.topics.every((t: any) => t.availableCount === 6)).toBe(true);
+    const topic = catalog.body.topics[0].name;
+    const filtered = await request('GET', `/question-practice/catalog/Direito%20Civil/availability?topic=${encodeURIComponent(topic)}`, token);
+    expect(filtered.body).toMatchObject({ availableCount: 6, availableQuantities: [5] });
+    expect((await request('POST', '/question-practice', token, { discipline: 'Direito Civil', topic, quantity: 10 })).status).toBe(409);
+    const started = await request('POST', '/question-practice', token, { discipline: 'Direito Civil', topic, quantity: 5 });
+    expect(started.body.attempt.provisional).toBe(true);
+    const attempt = started.body.attempt, first = attempt.questions[0];
+    await prisma.questao.update({ where: { id: first.id }, data: { fundamentacaoJuridica: 'Texto alterado apenas no banco isolado.' } });
+    for (const q of attempt.questions) {
+      const saved = await request('PUT', `/question-practice/${attempt.id}/answers/${q.id}`, token, { alternativeId: q.alternatives[0].id });
+      expect(saved.status).toBe(200); expect(saved.body.provisional).toBe(true);
+      if (q.id === first.id) expect(saved.body.explanation).not.toBe('Texto alterado apenas no banco isolado.');
+    }
+    expect((await request('GET', `/question-practice/${attempt.id}`, token)).body.attempt.questions.every((q: any) => q.feedback?.explanation)).toBe(true);
+    expect((await request('POST', `/question-practice/${attempt.id}/finalize`, token)).body.result.provisional).toBe(true);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: student.id } })).nivelAtual).toBe(student.nivelAtual);
+    const examRepo = new PrismaIndividualExamRepository(prisma);
+    expect((await examRepo.available(student.id)).filter(q => q.discipline === 'Direito Civil')).toHaveLength(7);
+    const mixed = await new IndividualExamService(examRepo).start(student.id);
+    const civilQuestion = mixed.attempt.questions.find(q => q.discipline === 'Direito Civil')!;
+    await new IndividualExamService(examRepo).answer(student.id, mixed.attempt.id, civilQuestion.id, civilQuestion.alternatives[0].id);
+    expect((await request('GET', '/question-practice/catalog/Direito%20Civil/availability', token)).body.availableCount).toBe(6);
+    const [table] = await prisma.$queryRaw<{ rls: boolean }[]>`SELECT relrowsecurity AS rls FROM pg_class WHERE relname='SessaoPratica'`;
+    expect(table.rls).toBe(true);
+    expect(await prisma.questao.count({ where: { loteImportacaoId: imported.batchId, publica: false, revisaoJuridicaEm: null, revisaoPedagogicaEm: null, liberadaAcervoEm: null } })).toBe(60);
+    process.env.QUESTION_PRACTICE_PILOT_ENABLED = 'false';
+    expect((await request('GET', `/question-practice/${attempt.id}/result`, token)).body.result.provisional).toBe(true);
+    process.env.INDIVIDUAL_EXAM_PILOT_ENABLED = 'false';
   });
 });
