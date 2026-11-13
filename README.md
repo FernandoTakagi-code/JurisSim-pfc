@@ -140,29 +140,37 @@ Para mais detalhes, veja [docs/diagrams/class-diagram.xml](docs/diagrams/class-d
 
 ### Pré-requisitos
 
-- Node.js (v18+)
-- npm ou yarn
-- Conta no [Supabase](https://supabase.com) (PostgreSQL)
+- Node.js 24 e npm (mesma versão principal usada no CI)
+- Acesso autorizado a um banco PostgreSQL/Supabase; as credenciais são configuradas fora do Git.
 
-### Backend
+### Preparação local
 
 ```bash
-cd backend
-npm install
-cp .env.example .env   # preencher com as variáveis necessárias
-npm run dev
+npm run setup
+npm ci --prefix backend
+npm ci --prefix frontend
+npm --prefix backend run prisma:generate
 ```
 
-O servidor sobe por padrão em `http://localhost:3333`.
+O setup cria os arquivos locais ausentes e gera uma chave JWT privada. Nunca sobrescreve um `.env` existente. Preencha `DATABASE_URL` e `DIRECT_URL` em `backend/.env` com o destino autorizado, sem enviar credenciais pelo Git ou pelo chat. Execute `npm run config:check` para conferir o formato, sem conectar ao banco e sem exibir valores.
 
-### Variáveis de Ambiente
+Se estiver usando o banco compartilhado já preparado, não execute reset, seed ou migrations para iniciar. Um banco novo precisa ser preparado separadamente conforme o procedimento documentado.
 
-```env
-DATABASE_URL=postgresql://user:password@host:5432/database
-JWT_SECRET=sua_chave_super_secreta_com_minimo_32_caracteres
-GOOGLE_CLIENT_ID=seu_google_client_id
+Em dois terminais:
+
+```bash
+npm --prefix backend run dev
+# Em outro terminal:
+npm --prefix frontend run dev
 ```
 
+A API local usa `http://localhost:3333` e o site usa `http://localhost:5173`.
+
+### Configuração por ambiente
+
+O projeto publicado usa [Vercel](https://jurissim.vercel.app) para o frontend e [Render](https://jurissim-pfc.onrender.com/health) para a API. `VITE_*` é configuração pública do build; banco, JWT e provedores de e-mail ficam no ambiente de execução do backend.
+
+Consulte [docs/variaveis-de-ambiente.md](docs/variaveis-de-ambiente.md) para a matriz completa, flags de funcionalidades, configuração de GitHub Environments/Variables/Secrets, Render e Vercel. A validação manual do GitHub usa apenas variáveis públicas; não precisa das credenciais do Supabase. Os `.env.example` documentam o contrato; os valores privados ficam fora do repositório.
 ## 📌 Status do Projeto
 
 Projeto em desenvolvimento ativo, seguindo o cronograma da disciplina de Análise e Projeto de Software (2026/2º semestre).
