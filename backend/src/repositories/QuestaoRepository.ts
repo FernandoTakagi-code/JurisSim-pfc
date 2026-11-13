@@ -3,6 +3,7 @@ import { AuditAction, Nivel, Prisma } from '@prisma/client';
 import { ApiError } from '../errors/api-error';
 import { fingerprintQuestionContent } from '../services/question-fingerprint';
 import { institutionsEnabled } from '../config/institution-feature';
+import { QUESTION_LETTERS } from '../question-alternatives';
 const institutionalVisibility = (): Prisma.TurmaWhereInput => institutionsEnabled()
   ? { OR: [{ institutionalClass: null }, { institutionalClass: { institution: { status: 'ACTIVE' } } }] } : {};
 
@@ -29,7 +30,7 @@ const questaoReadSelect = {
   createdAt: true,
   turmaId: true,
   autorId: true,
-  alternativas: { select: { id: true, texto: true, correta: true, questaoId: true } },
+  alternativas: { orderBy: { letra: 'asc' }, select: { id: true, letra: true, texto: true, correta: true, questaoId: true } },
 } satisfies Prisma.QuestaoSelect;
 
 export class QuestaoRepository {
@@ -47,8 +48,8 @@ export class QuestaoRepository {
           alternativas,
         });
         const questao = await tx.questao.create({
-          data: { ...questaoDados, fingerprint, alternativas: { create: alternativas } },
-          include: { alternativas: true },
+          data: { ...questaoDados, fingerprint, alternativas: { create: alternativas.map((alternative, index) => ({ ...alternative, letra: QUESTION_LETTERS[index] })) } },
+          include: { alternativas: { orderBy: { letra: 'asc' } } },
         });
         await tx.auditLog.create({ data: { userId: actorId, action: 'QUESTAO_CRIADA' as AuditAction, resourceId: questao.id } });
         return questao;
@@ -109,9 +110,9 @@ export class QuestaoRepository {
           data: {
             ...questaoDados,
             fingerprint,
-            ...(alternativas ? { alternativas: { deleteMany: {}, create: alternativas } } : {}),
+            ...(alternativas ? { alternativas: { deleteMany: {}, create: alternativas.map((alternative, index) => ({ ...alternative, letra: QUESTION_LETTERS[index] })) } } : {}),
           },
-          include: { alternativas: true },
+          include: { alternativas: { orderBy: { letra: 'asc' } } },
         });
         await tx.auditLog.create({ data: { userId: actorId, action: 'QUESTAO_ATUALIZADA' as AuditAction, resourceId: id } });
         return questao;

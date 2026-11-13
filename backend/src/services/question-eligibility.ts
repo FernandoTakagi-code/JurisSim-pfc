@@ -10,7 +10,7 @@ export interface QuestionCandidate {
   id: string;
   origin: QuestionOrigin;
   level: QuestionLevel;
-  /** Only approved questions intended for the public platform are true. */
+  /** Platform-wide scope. Publication and review are checked separately. */
   public: boolean;
   complete: boolean;
   annulled: boolean;
@@ -125,7 +125,9 @@ export function planQuestionSelection(
   for (const question of inventory) {
     if (question.level !== request.level || !isEligiblePublicQuestion(question)) continue;
     if (question.origin !== 'IA' && question.origin !== 'OAB_OFICIAL') continue;
-    (eligibleByOrigin[question.origin] ??= []).push(question);
+    const bucket = eligibleByOrigin[question.origin] ?? [];
+    bucket.push(question);
+    eligibleByOrigin[question.origin] = bucket;
   }
 
   const availableByOrigin: Partial<Record<QuestionOrigin, number>> = {};

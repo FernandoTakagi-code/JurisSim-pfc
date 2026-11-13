@@ -134,6 +134,7 @@ describe('POST /questoes', () => {
     const noBanco = await prisma.questao.findUnique({ where: { id: resposta.corpo.id }, include: { alternativas: true } });
     expect(noBanco?.enunciado).toBe(corpo.enunciado);
     expect(noBanco?.alternativas).toHaveLength(4);
+    expect(noBanco?.alternativas.map(a => a.letra).sort()).toEqual(['A', 'B', 'C', 'D']);
     expect(await prisma.auditLog.count({ where: { resourceId: resposta.corpo.id, action: 'QUESTAO_CRIADA' } })).toBe(1);
   });
 
@@ -168,6 +169,7 @@ describe('POST /questoes', () => {
         { texto: 'Primeira correta.', correta: true },
         { texto: 'Segunda correta.', correta: true },
         { texto: 'Incorreta.', correta: false },
+        { texto: 'Outra incorreta.', correta: false },
       ],
     });
 
@@ -176,7 +178,7 @@ describe('POST /questoes', () => {
 
     // Assert
     expect(resposta.status).toBe(400);
-    expect(resposta.corpo).toEqual({ message: 'A questão deve ter exatamente uma alternativa correta' });
+    expect(resposta.corpo).toMatchObject({ message: 'A questão deve ter exatamente uma alternativa correta' });
     expect(await prisma.questao.count()).toBe(0);
   });
 

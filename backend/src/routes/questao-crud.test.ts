@@ -37,7 +37,7 @@ const accountRoles: Record<string, string> = { PROFESSOR: 'PROFESSOR', ALUNO: 'A
 const body = {
   enunciado: 'Enunciado original da questão', disciplina: 'Civil', assunto: 'Contratos',
   nivel: 'BASICO', fundamentacaoJuridica: 'Fundamentação de teste', publica: true,
-  alternativas: [{ texto: 'Alternativa A', correta: true }, { texto: 'Alternativa B', correta: false }],
+  alternativas: [{ texto: 'Alternativa A', correta: true }, { texto: 'Alternativa B', correta: false }, { texto: 'Alternativa C', correta: false }, { texto: 'Alternativa D', correta: false }],
 };
 const clone = <T,>(value: T): T => structuredClone(value);
 const prismaError = (code: string) => new Prisma.PrismaClientKnownRequestError('Erro simulado', { code, clientVersion: '6.19.3' });
@@ -104,11 +104,11 @@ beforeEach(() => {
   db.questao.update.mockImplementation(async ({ where, data }) => {
     const q = records.get(where.id);
     if (!q || !matches(q, where)) throw prismaError('P2025');
-    const { alternativas, ...fields } = data;
+    const { alternativas: alternativeChanges, ...fields } = data;
     Object.assign(q, fields);
-    if (alternativas) {
-      if (alternativas.deleteMany) q.alternativas = [];
-      q.alternativas.push(...alternatives(alternativas.create, q.id));
+    if (alternativeChanges) {
+      if (alternativeChanges.deleteMany) q.alternativas = [];
+      q.alternativas.push(...alternatives(alternativeChanges.create, q.id));
     }
     return publicRecord(q);
   });
@@ -143,6 +143,47 @@ async function create() {
 }
 
 describe('CRUD completo de questões por HTTP', () => {
+  it('atribui A–D no servidor sem aceitar letras, origem ou aprovações forjadas', async () => {
+    const response = await call('POST', '', {
+      ...body, origem: 'IA', revisaoJuridicaEm: new Date().toISOString(), liberadaAcervoEm: new Date().toISOString(),
+      alternativas: body.alternativas.map(a => ({ ...a, letra: 'D' })),
+    });
+    expect(response.status).toBe(201);
+    const saved = await response.json();
+    expect(saved.alternativas.map((a: any) => a.letra)).toEqual(['A', 'B', 'C', 'D']);
+    const persisted = db.questao.create.mock.calls[0][0].data;
+    expect(persisted).not.toHaveProperty('origem');
+    expect(persisted).not.toHaveProperty('revisaoJuridicaEm');
+    expect(persisted).not.toHaveProperty('liberadaAcervoEm');
+    expect(saved.autorId).toBe(professorId);
+  });
+
+  it.each([0, 1, 2, 3, 5, 6])('recusa %i alternativas em cadastro e edição sem gravar', async count => {
+    const q = await create();
+    const invalid = Array.from({ length: count }, (_, i) => ({ texto: `Opção ${i}`, correta: i === 0 }));
+    db.questao.create.mockClear();
+    for (const method of ['POST', 'PUT']) {
+      const response = await call(method, method === 'POST' ? '' : `/${q.id}`, method === 'POST' ? { ...body, alternativas: invalid } : { alternativas: invalid });
+      expect(response.status).toBe(400);
+      expect((await response.json()).message).toContain('quatro alternativas');
+    }
+    expect(db.questao.create).not.toHaveBeenCalled();
+    expect(db.questao.update).not.toHaveBeenCalled();
+    expect(publicRecord(records.get(q.id)!)).toEqual(q);
+  });
+
+  it.each(['vazia', 'repetida', 'sem gabarito', 'dois gabaritos'])('recusa conjunto de quatro com alternativa %s', async scenario => {
+    const options = clone(body.alternativas);
+    if (scenario === 'vazia') options[1].texto = '   ';
+    if (scenario === 'repetida') options[1].texto = '  ALTERNATIVA   A  ';
+    if (scenario === 'sem gabarito') options[0].correta = false;
+    if (scenario === 'dois gabaritos') options[1].correta = true;
+    const response = await call('POST', '', { ...body, alternativas: options });
+    expect(response.status).toBe(400);
+    expect((await response.json()).message).toEqual(expect.any(String));
+    expect(db.questao.create).not.toHaveBeenCalled();
+  });
+
   it('calcula fingerprint no cadastro manual e traduz colisão única sem salvar a questão', async () => {
     const saved = await create();
     expect(saved.fingerprint).toMatch(/^[a-f0-9]{64}$/);
@@ -180,7 +221,7 @@ describe('CRUD completo de questões por HTTP', () => {
     expect((await list.json())[0].id).toBe(q.id);
     const listQuery = db.questao.findMany.mock.calls[0][0];
     expect(listQuery).toHaveProperty('select.alternativas.select', {
-      id: true, texto: true, correta: true, questaoId: true,
+      id: true, letra: true, texto: true, correta: true, questaoId: true,
     });
     for (const field of [
       'fonteNome', 'fonteReferencia', 'licencaOuAutorizacao', 'loteImportacaoId', 'fingerprint', 'origem',
@@ -195,13 +236,14 @@ describe('CRUD completo de questões por HTTP', () => {
     expect(detail.status).toBe(200);
     expect((await detail.json()).alternativas[0].correta).toBe(true);
     const edits = { enunciado: 'Enunciado corrigido da questão', alternativas: [
-      { texto: 'Nova A', correta: false }, { texto: 'Nova B', correta: true }, { texto: 'Nova C', correta: false },
+      { texto: 'Nova A', correta: false }, { texto: 'Nova B', correta: true }, { texto: 'Nova C', correta: false }, { texto: 'Nova D', correta: false },
     ] };
     const edited = await call('PUT', `/${q.id}`, edits, role);
     expect(edited.status).toBe(200);
     const saved = await (await call('GET', `/${q.id}`, undefined, role)).json();
     expect(saved.enunciado).toBe(edits.enunciado);
     expect(saved.alternativas.map(({ texto, correta }: any) => ({ texto, correta }))).toEqual(edits.alternativas);
+    expect(saved.alternativas.map((a: any) => a.letra)).toEqual(['A', 'B', 'C', 'D']);
     expect(saved.alternativas.every((a: any) => !q.alternativas.some((old: any) => old.id === a.id))).toBe(true);
     const removed = await call('DELETE', `/${q.id}`, undefined, role);
     expect(removed.status).toBe(204);

@@ -10,6 +10,12 @@ const param = (request: AuthenticatedRequest, key: string) => uuid.parse(request
 
 export class QuestionPracticeController {
   constructor(private readonly service: QuestionPracticeService) {}
+  availability = async (request: AuthenticatedRequest, response: Response) => {
+    response.setHeader('Cache-Control', 'no-store');
+    const discipline = z.string().trim().min(1).max(100).parse(request.params.discipline);
+    const topic = z.string().trim().min(1).max(150).optional().parse(request.query.topic);
+    response.json(await this.service.availability(request.auth!.userId, discipline, topic ?? null));
+  };
   topics = async (request: AuthenticatedRequest, response: Response) => {
     response.setHeader('Cache-Control', 'no-store');
     const discipline = z.string().trim().min(1).max(100).parse(request.params.discipline);

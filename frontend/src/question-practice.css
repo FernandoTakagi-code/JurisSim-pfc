@@ -1,0 +1,373 @@
+.practice-study .practice-setup-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  align-items: start;
+  gap: 22px;
+  margin-top: 24px;
+}
+.practice-setup-card,
+.practice-summary {
+  padding: 26px;
+  border: 1px solid var(--exam-line);
+  border-radius: 14px;
+  background: var(--exam-surface);
+}
+.practice-setup-card h2 {
+  font-size: 14px;
+  margin: 0 0 18px;
+  font-weight: 700;
+}
+.practice-disciplines {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.practice-disciplines button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  min-height: 52px;
+  text-align: left;
+  padding: 13px;
+  border: 1px solid var(--exam-line);
+  border-radius: 8px;
+  background: var(--exam-surface);
+  color: var(--exam-ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+.practice-disciplines button span {
+  color: var(--exam-accent);
+}
+.practice-disciplines button[aria-pressed="true"] {
+  border-color: var(--exam-accent);
+  background: color-mix(in srgb, var(--exam-surface), var(--exam-accent) 7%);
+  box-shadow: inset 0 0 0 1px var(--exam-accent);
+}
+.practice-field {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 28px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.practice-field select {
+  width: 100%;
+  min-width: 0;
+  padding: 13px 10px;
+  border: 1px solid var(--exam-line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--exam-ink);
+  background: var(--exam-surface);
+}
+.practice-sizes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.practice-sizes label {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  padding: 16px 10px;
+  border: 1px solid var(--exam-line);
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: center;
+}
+.practice-sizes label strong {
+  font-size: 25px;
+  font-weight: 700;
+}
+.practice-sizes label span {
+  font-size: 11px;
+  color: var(--exam-muted);
+}
+.practice-sizes label small {
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--exam-muted);
+}
+.practice-sizes input,
+.practice-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.practice-sizes label:has(input:focus-visible) {
+  outline: 3px solid var(--exam-accent);
+  outline-offset: 3px;
+}
+.practice-sizes .is-selected {
+  border-color: var(--exam-accent);
+  background: color-mix(in srgb, var(--exam-surface), var(--exam-accent) 7%);
+  box-shadow: inset 0 0 0 1px var(--exam-accent);
+}
+.practice-sizes .is-unavailable {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.practice-inventory-status {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--exam-muted);
+  margin: 18px 0 0;
+}
+.practice-summary {
+  position: sticky;
+  top: 24px;
+}
+.practice-summary h2 {
+  font-size: 22px;
+  margin: 12px 0;
+}
+.practice-summary > p:not(.individual-eyebrow) {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--exam-muted);
+}
+.practice-summary-number {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 22px 0;
+}
+.practice-summary-number strong {
+  font-size: 44px;
+  letter-spacing: -2px;
+}
+.practice-summary-number span {
+  font-size: 12px;
+  color: var(--exam-muted);
+}
+.practice-summary ul {
+  padding-left: 16px;
+  display: grid;
+  gap: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--exam-muted);
+  margin-bottom: 24px;
+}
+.practice-summary .individual-primary {
+  width: 100%;
+}
+.practice-resume-note {
+  padding: 12px;
+  border: 1px solid var(--exam-line);
+  border-radius: 8px;
+}
+.practice-study .practice-question-map {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0;
+}
+.practice-question-map button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 8px;
+  border: 1px solid var(--exam-line);
+  border-radius: 7px;
+  background: var(--exam-surface);
+  color: var(--exam-muted);
+  font-size: 11px;
+}
+.practice-question-map .is-answered {
+  border-color: var(--exam-accent);
+  color: var(--exam-ink);
+}
+.practice-question-map .is-current {
+  background: #183454;
+  border-color: #183454;
+  color: white;
+}
+.practice-study .individual-options label.is-correct {
+  border-color: #75ad90;
+  background: color-mix(in srgb, var(--exam-surface), #359567 6%);
+}
+.practice-study .individual-options label.is-incorrect {
+  border-color: #ce9292;
+  background: color-mix(in srgb, var(--exam-surface), #c65050 5%);
+}
+.practice-study .individual-options label:has(input:disabled) {
+  cursor: default;
+}
+.practice-option-caption {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--exam-muted);
+}
+.practice-feedback {
+  margin-top: 22px;
+  padding: 20px;
+  border-left: 3px solid var(--exam-accent);
+  border-radius: 0 9px 9px 0;
+  background: var(--v0-bg, #f6f7f9);
+}
+.practice-feedback.is-correct {
+  border-left-color: #3b9164;
+}
+.practice-feedback.is-incorrect {
+  border-left-color: #bd6464;
+}
+.practice-feedback > strong {
+  font-size: 13px;
+}
+.practice-feedback h3 {
+  font-size: 11px;
+  margin: 16px 0 8px;
+}
+.practice-feedback p {
+  font-size: 13px;
+  color: var(--exam-muted);
+  line-height: 1.8;
+  margin: 0;
+}
+@media (min-width: 1440px) {
+  .practice-disciplines {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1000px) {
+  .practice-study .practice-setup-grid {
+    grid-template-columns: 1fr;
+  }
+  .practice-summary {
+    position: static;
+  }
+  .practice-summary ul {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .practice-summary-number {
+    margin: 12px 0;
+  }
+  .practice-summary .individual-primary {
+    width: auto;
+  }
+}
+@media (max-width: 560px) {
+  .practice-setup-card,
+  .practice-summary {
+    padding: 20px 16px;
+  }
+  .practice-summary ul {
+    grid-template-columns: 1fr;
+  }
+  .practice-summary .individual-primary {
+    width: 100%;
+  }
+  .practice-sizes {
+    gap: 7px;
+  }
+  .practice-sizes label {
+    padding: 14px 5px;
+  }
+  .practice-study .individual-question-actions > .individual-primary {
+    max-width: 62%;
+  }
+  .practice-disciplines button {
+    font-size: 11px;
+    padding: 12px 10px;
+  }
+}
+.practice-mode-switch {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 22px 0;
+}
+.practice-mode-switch button {
+  padding: 12px 18px;
+  border: 1px solid var(--exam-line);
+  border-radius: 9px;
+  background: var(--exam-surface);
+  color: var(--exam-ink);
+  font: inherit;
+  font-size: 13px;
+}
+.practice-mode-switch button[aria-pressed="true"] {
+  background: var(--exam-navy, #183450);
+  color: #fff;
+  border-color: var(--exam-navy, #183450);
+}
+.practice-review-filter {
+  margin: 0 0 22px;
+  padding: 18px;
+  border: 1px solid var(--exam-line);
+  border-radius: 10px;
+  background: var(--exam-surface);
+  color: var(--exam-ink);
+}
+.practice-review-filter legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.practice-review-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 20px 8px 0;
+  font-size: 13px;
+}
+.practice-review-filter p {
+  color: var(--exam-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 8px 0 0;
+}
+.practice-review-history {
+  margin-top: 28px;
+}
+.practice-review-history h2 {
+  font-size: 18px;
+}
+.practice-review-history button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 10px 0;
+  padding: 18px;
+  text-align: left;
+  border: 1px solid var(--exam-line);
+  border-radius: 10px;
+  background: var(--exam-surface);
+  color: var(--exam-ink);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.practice-review-history small {
+  display: block;
+  color: var(--exam-muted);
+  margin-top: 5px;
+}
+.practice-review-history b {
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .practice-review-history button {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .practice-mode-switch button {
+    flex: 1;
+    padding: 12px 8px;
+  }
+}

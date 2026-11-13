@@ -36,7 +36,7 @@ export async function validInvitation(tx:Tx, token:string) {
   await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${found.institutionId} FOR UPDATE`;
   const invitation = await tx.teacherInvitation.findUnique({where:{id:found.id}});
   const institution = await tx.institution.findUnique({where:{id:found.institutionId},select:{id:true,name:true,status:true}});
-  if(!invitation || institution?.status!=='ACTIVE')
+  if (!invitation || institution?.status !== 'ACTIVE')
     throw new ApiError(409,'Convite inválido ou indisponível. Solicite orientação à instituição.');
   if(invitation.status==='ACCEPTED') throw new ApiError(409,'Este convite já foi aceito. Entre na sua conta para acessar sua área.',undefined,'INVITATION_ACCEPTED');
   if(invitation.status==='CANCELLED') throw new ApiError(409,'Este convite foi revogado. Procure a instituição para orientação.',undefined,'INVITATION_REVOKED');

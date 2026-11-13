@@ -152,7 +152,7 @@ No histórico versionado, `npm run dev` executado em `backend` inicia `tsx watch
 
 Os comandos abaixo destinam-se a uma instalação nova e não aplicam migrations, seeds ou provisionamento. O ambiente de banco deve ser aprovado e preparado separadamente.
 
-### Backend
+### Preparação local
 
 ```powershell
 cd backend
@@ -185,6 +185,31 @@ Consulte os exemplos públicos [backend/.env.example](backend/.env.example) e [f
 As flags institucionais, os requisitos do acervo e a política privada de homologação continuam sendo verificados pelo backend. Não habilite funcionalidades apenas para contornar uma mensagem de indisponibilidade.
 
 ## 📌 Status do Projeto
+
+### Setup automatizado e configuração por ambiente
+
+Para uma instalação nova, o projeto também oferece os comandos:
+
+```bash
+npm run setup
+npm ci --prefix backend
+npm ci --prefix frontend
+npm --prefix backend run prisma:generate
+```
+
+O setup prepara arquivos locais ausentes e gera uma chave JWT privada, sem sobrescrever um `.env` existente. Configure `DATABASE_URL` e `DIRECT_URL` somente com o banco autorizado.
+
+Use `npm run config:check` para validar a configuração sem conectar ao banco ou exibir credenciais.
+
+Não execute reset, seed ou migrations no banco compartilhado.
+
+### Publicação
+
+O projeto utiliza [Vercel](https://jurissim.vercel.app) para o frontend e [Render](https://jurissim-pfc.onrender.com/health) para a API.
+
+Consulte [docs/variaveis-de-ambiente.md](docs/variaveis-de-ambiente.md) para a configuração de ambientes, funcionalidades e variáveis do GitHub, Render e Vercel.
+
+As credenciais permanecem fora do Git. Variáveis `VITE_*` são públicas no navegador.
 
 Projeto em desenvolvimento ativo, seguindo o cronograma da disciplina de Análise e Projeto de Software (2026/2º semestre).
 

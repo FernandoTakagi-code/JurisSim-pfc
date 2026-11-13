@@ -1,0 +1,51 @@
+name: Validar configuração pública do ambiente
+
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: Ambiente cadastrado em Settings > Environments
+        type: choice
+        required: true
+        default: production
+        options: [production, staging]
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: ${{ inputs.ambiente }}
+      deployment: false
+    env:
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
+      VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+      VITE_QUESTION_PRACTICE_UI_ENABLED: ${{ vars.VITE_QUESTION_PRACTICE_UI_ENABLED || 'false' }}
+      VITE_QUESTION_REVIEW_UI_ENABLED: ${{ vars.VITE_QUESTION_REVIEW_UI_ENABLED || 'false' }}
+      VITE_INDIVIDUAL_EXAM_UI_ENABLED: ${{ vars.VITE_INDIVIDUAL_EXAM_UI_ENABLED || 'false' }}
+      VITE_INITIAL_DIAGNOSTIC_UI_ENABLED: ${{ vars.VITE_INITIAL_DIAGNOSTIC_UI_ENABLED || 'false' }}
+      VITE_INITIAL_DIAGNOSTIC_PILOT_UI_ENABLED: ${{ vars.VITE_INITIAL_DIAGNOSTIC_PILOT_UI_ENABLED || 'false' }}
+      VITE_JURISSIM_DEMO_MODE: "false"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Instalar backend para usar o verificador
+        run: npm ci --prefix backend
+      - name: Validar variáveis públicas sem credenciais de banco
+        run: npm --prefix backend run config:check -- --frontend-only --production
+      - name: Testar preparação local sem sobrescrever configurações
+        run: npm run test:environment
+      - name: Instalar e compilar frontend com as variáveis do ambiente
+        run: npm ci --prefix frontend && npm --prefix frontend run build
+      - name: Registrar resultado
+        run: |
+          echo 'Configuração pública validada e frontend compilado. Este workflow não publica, não altera o banco e não sincroniza variáveis com Render/Vercel.' >> "$GITHUB_STEP_SUMMARY"

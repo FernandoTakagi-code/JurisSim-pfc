@@ -2,6 +2,9 @@
   --initial-gold: #c19a4b;
   max-width: 1080px;
 }
+.initial-diagnostic-pilot-notice { max-width:1080px; box-sizing:border-box; margin:16px auto; padding:15px 18px; border:1px solid #e5d09d; border-radius:12px; background:#fff7df; color:#614915; font-size:14px; line-height:1.6; }
+.mandatory-diagnostic-screen .initial-diagnostic>h1,.mandatory-diagnostic-screen .initial-diagnostic-workspace-head h1,.mandatory-diagnostic-screen .initial-diagnostic-count { color:#f3f6fc; }
+.mandatory-diagnostic-screen .initial-diagnostic>.initial-diagnostic-lead,.mandatory-diagnostic-screen .initial-diagnostic-count small,.mandatory-diagnostic-screen .initial-diagnostic-question-head>span { color:#c6d3e7; }
 .dashboard-heading-actions { display: grid; justify-items: end; gap: 5px; }
 .initial-diagnostic h1 { margin: 5px 0 10px; color: var(--v0-text); font-size: clamp(27px, 4vw, 38px); letter-spacing: -1.1px; }
 .initial-diagnostic h2 { color: var(--v0-text); }

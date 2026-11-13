@@ -27,7 +27,7 @@ export type StudyResult = {
 type Activity = {
   initialDiagnostic?: boolean;
   id: string;
-  type: "DIAGNOSTICO" | "PERSONALIZADO" | "AVALIACAO" | "PRATICA";
+  type: "DIAGNOSTICO" | "PERSONALIZADO" | "AVALIACAO" | "PRATICA" | "INDIVIDUAL";
   startedAt: string;
   finalizedAt: string | null;
   totalQuestions: number;
@@ -63,9 +63,9 @@ const formatDate = (value: string) =>
     timeStyle: "short",
   });
 const typeLabel = (type: Activity["type"]) =>
-  type === "DIAGNOSTICO" ? "Diagnóstico" : type === "AVALIACAO" ? "Simulado de turma" : type === "PRATICA" ? "Prática individual" : "Trilha de exercícios";
-const resultPath = (item: Activity) => item.type === "AVALIACAO" ? `/simulados/tentativas/${item.id}` : item.type === "PRATICA" ? `/questoes/pratica/${item.id}` : `/resultados/${item.initialDiagnostic ? "diagnostico-inicial" : item.type === "DIAGNOSTICO" ? "diagnostico" : "trilha"}/${item.id}`;
-const resumePath = (item: Activity) => item.type === 'AVALIACAO' || item.type === 'PRATICA' ? resultPath(item)
+  type === "DIAGNOSTICO" ? "Diagnóstico" : type === "AVALIACAO" ? "Simulado de turma" : type === "PRATICA" ? "Prática individual" : type === "INDIVIDUAL" ? "Simulado individual" : "Trilha de exercícios";
+const resultPath = (item: Activity) => item.type === "INDIVIDUAL" ? `/simulados/individual/${item.id}` : item.type === "AVALIACAO" ? `/simulados/tentativas/${item.id}` : item.type === "PRATICA" ? `/questoes/pratica/${item.id}` : `/resultados/${item.initialDiagnostic ? "diagnostico-inicial" : item.type === "DIAGNOSTICO" ? "diagnostico" : "trilha"}/${item.id}`;
+const resumePath = (item: Activity) => item.type === 'AVALIACAO' || item.type === 'PRATICA' || item.type === 'INDIVIDUAL' ? resultPath(item)
   : item.initialDiagnostic ? '/diagnostico-inicial' : `/diagnostico?${item.type === 'DIAGNOSTICO' ? 'tentativa' : 'trilha'}=${encodeURIComponent(item.id)}`;
 const errorMessage = (cause: unknown) =>
   cause instanceof Error

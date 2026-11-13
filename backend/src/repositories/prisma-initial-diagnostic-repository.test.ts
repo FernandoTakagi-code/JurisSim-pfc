@@ -37,7 +37,7 @@ function dbMock(overrides: Record<string, unknown> = {}) {
     diagnosticoInicial: { findUnique: vi.fn().mockResolvedValue(null) },
     resposta: { findMany: vi.fn().mockResolvedValue([]) },
     questao: { findMany: vi.fn() },
-    $transaction: vi.fn(async (callback: (client: typeof tx) => Promise<unknown>, options?: unknown) => callback(tx)),
+    $transaction: vi.fn(async (callback: (client: typeof tx) => Promise<unknown>, _options?: unknown) => callback(tx)),
     ...overrides,
   } as unknown as PrismaClient;
   return { db, tx };

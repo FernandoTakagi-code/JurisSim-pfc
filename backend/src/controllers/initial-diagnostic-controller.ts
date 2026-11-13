@@ -39,6 +39,7 @@ export class InitialDiagnosticController {
         attemptId: result.attempt.id,
         status: result.status,
         created: result.created,
+        ...(result.attempt.provisional ? { provisional: true } : {}),
       });
     } catch (error) {
       if (error instanceof InitialDiagnosticServiceUnavailableError) {

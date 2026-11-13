@@ -97,6 +97,7 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
   const [error, setError] = useState<DiagnosticUiError | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmFinalize, setConfirmFinalize] = useState(false);
+  const [provisional, setProvisional] = useState(false);
   const finalizationInFlight = useRef(false);
   const answerSaveInFlight = useRef(false);
   const storageKey = `${STORAGE_PREFIX}${studentId}`;
@@ -125,6 +126,7 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
       throw new Error("O servidor não retornou uma tentativa completa e consistente.");
     }
     const saved = answerMap(answerResponse.answers);
+    setProvisional(answerResponse.provisional === true);
     setAttemptId(id);
     setQuestions(loadedQuestions);
     setDraftAnswers(saved);
@@ -277,6 +279,7 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
   </div>;
 
   if (phase === "attempt" && attemptId) return <>
+    {provisional && <PilotNotice />}
     <InitialDiagnosticWorkspace
       key={attemptId}
       attempt={{ id: attemptId, questions }}
@@ -308,7 +311,8 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
       {mandatory && <img className="initial-diagnostic-full-logo" src="/brand/jurissim-logo.png" alt="JurisSim — Educação Jurídica" />}
       <p className="initial-diagnostic-eyebrow">JURISSIM · DIAGNÓSTICO</p>
       <h1 id="initial-diagnostic-title">Seu ponto de partida para a OAB</h1>
-      <p className="initial-diagnostic-lead">Esta avaliação obrigatória estabelece seu ponto de partida. São {INITIAL_DIAGNOSTIC_QUESTION_COUNT} questões, distribuídas por {INITIAL_DIAGNOSTIC_DISCIPLINES.length} disciplinas; o resultado identifica seus focos de estudo e orienta uma trilha personalizada.</p>
+      {import.meta.env.VITE_INITIAL_DIAGNOSTIC_PILOT_UI_ENABLED === 'true' && <PilotNotice />}
+      <p className="initial-diagnostic-lead">Este diagnóstico estabelece seu ponto de partida. São {INITIAL_DIAGNOSTIC_QUESTION_COUNT} questões, distribuídas por {INITIAL_DIAGNOSTIC_DISCIPLINES.length} disciplinas; o resultado identifica seus focos de estudo e orienta uma trilha personalizada.</p>
       <div className="initial-diagnostic-summary" aria-label="Composição do diagnóstico">
         <article><strong>{INITIAL_DIAGNOSTIC_QUESTION_COUNT}</strong><span>questões</span></article>
         <article><strong>{INITIAL_DIAGNOSTIC_QUESTIONS_PER_DISCIPLINE}</strong><span>por disciplina</span></article>
@@ -318,7 +322,7 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
         <div>
           <p className="initial-diagnostic-eyebrow">CONTEÚDO DA AVALIAÇÃO</p>
           <h2>Uma visão equilibrada do seu conhecimento</h2>
-          <p className="initial-diagnostic-muted">A seleção combina níveis de dificuldade e origens conforme os critérios do JurisSim. O conteúdo só será apresentado quando houver questões completas, revisadas e autorizadas.</p>
+          <p className="initial-diagnostic-muted">A seleção combina níveis de dificuldade conforme a composição ativa. Quando houver um piloto com conteúdo ainda em revisão, essa condição será identificada na tentativa e no resultado.</p>
           <ul className="initial-diagnostic-disciplines">{INITIAL_DIAGNOSTIC_DISCIPLINES.map(discipline => <li key={discipline}>{discipline}</li>)}</ul>
         </div>
         <div className="initial-diagnostic-notice" role="status">
@@ -345,13 +349,18 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
   );
 }
 
+function PilotNotice() {
+  return <p className="initial-diagnostic-pilot-notice" role="note"><strong>Piloto com questões em revisão.</strong> Os gabaritos e níveis ainda aguardam revisão humana. O resultado é provisório e pode mudar após a validação do conteúdo.</p>;
+}
+
 function InitialDiagnosticResultPage({ result, onBack, mandatory }: { result: InitialDiagnosticResult; onBack: () => void; mandatory: boolean }) {
   const [showReview, setShowReview] = useState(false);
-  if (showReview) return <DiagnosticReview attemptId={result.id} onBack={() => setShowReview(false)} />;
+  if (showReview) return <>{result.provisional && <PilotNotice />}<DiagnosticReview attemptId={result.id} onBack={() => setShowReview(false)} /></>;
   const disciplineResults = result.performances.filter(metric => metric.tipo === "DISCIPLINA");
   return <section className="v0-page initial-diagnostic initial-diagnostic-result" aria-labelledby="initial-diagnostic-result-title">
     <p className="initial-diagnostic-eyebrow">DIAGNÓSTICO CONCLUÍDO</p>
-    <h1 id="initial-diagnostic-result-title">Seu resultado</h1>
+    <h1 id="initial-diagnostic-result-title">{result.provisional ? 'Seu resultado provisório' : 'Seu resultado'}</h1>
+    {result.provisional && <PilotNotice />}
     <p className="initial-diagnostic-lead">Este resultado foi carregado do servidor após a finalização.</p>
     <article className="initial-diagnostic-result-summary">
       <div><strong>{result.overallPercentage}%</strong><span>aproveitamento geral</span></div>

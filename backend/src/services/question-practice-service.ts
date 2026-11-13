@@ -1,6 +1,6 @@
 import { ApiError } from '../errors/api-error';
-import { analyzeDiagnostic } from './adaptive-engine';
 import type { Level } from '../types/diagnostic';
+import { questionPracticePilotBatchId } from '../config/question-practice-feature';
 
 export const PRACTICE_DISCIPLINES = [
   'Direito Constitucional', 'Direito Civil', 'Direito Penal',
@@ -11,7 +11,7 @@ export const PRACTICE_QUANTITIES = [5, 10, 20] as const;
 export type PracticeQuestion = {
   id: string; discipline: string; topic: string; level: string; statement: string;
   alternatives: { id: string; letter: string; text: string; correct: boolean }[];
-  explanation: string;
+  explanation: string; provisional?: boolean;
 };
 export type PracticeAttempt = {
   id: string; state: 'IN_PROGRESS' | 'COMPLETED'; discipline: string;
@@ -20,6 +20,7 @@ export type PracticeAttempt = {
   questions: { position: number; question: PracticeQuestion; selectedOptionId: string | null }[];
 };
 export type PracticeResult = {
+  provisional: boolean;
   total: number; correct: number; incorrect: number; percentage: number;
   consistency: number | null; recommendation: string;
   answers: {
@@ -49,6 +50,24 @@ export class QuestionPracticeService {
   async topics(discipline: string) {
     if (!PRACTICE_DISCIPLINES.includes(discipline as typeof PRACTICE_DISCIPLINES[number])) throw new ApiError(422, 'Selecione uma disciplina válida.');
     return [...new Set((await this.repository.listEligibleQuestions(discipline)).map(question => question.topic))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }
+
+  async availability(studentId: string, discipline: string, topic: string | null) {
+    if (!PRACTICE_DISCIPLINES.includes(discipline as typeof PRACTICE_DISCIPLINES[number])) throw new ApiError(422, 'Selecione uma disciplina válida.');
+    const [pool, answered, active] = await Promise.all([
+      this.repository.listEligibleQuestions(discipline),
+      this.repository.listAnsweredQuestionIds(studentId, discipline),
+      this.repository.findActiveAttempt(studentId, discipline, topic),
+    ]);
+    const unseen = pool.filter(question => !answered.has(question.id));
+    const count = topic ? unseen.filter(question => question.topic === topic).length : unseen.length;
+    return {
+      discipline, topic, provisional: Boolean(questionPracticePilotBatchId()), availableCount: count,
+      availableQuantities: PRACTICE_QUANTITIES.filter(quantity => quantity <= count),
+      topics: [...new Set(pool.map(question => question.topic))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+        .map(name => ({ name, availableCount: unseen.filter(question => question.topic === name).length })),
+      activeAttempt: active ? { id: active.id, quantity: active.questions.length, topic: active.topic ?? null } : null,
+    };
   }
 
   async start(studentId: string, discipline: string, topic: string | null, quantity: number) {
@@ -84,11 +103,12 @@ export class QuestionPracticeService {
     if (attempt.state !== 'IN_PROGRESS') throw new ApiError(409, 'Esta prática já foi finalizada.');
     const item = attempt.questions.find(row => row.question.id === questionId);
     if (!item) throw new ApiError(404, 'A questão não pertence a esta prática.');
+    if (item.selectedOptionId && item.selectedOptionId !== alternativeId) throw new ApiError(409, 'Esta resposta já foi confirmada e não pode ser alterada após a correção.');
     if (!item.question.alternatives.some(option => option.id === alternativeId)) {
       throw new ApiError(422, 'A alternativa informada não pertence à questão.');
     }
     const feedback = await this.repository.saveAnswer(studentId, attemptId, questionId, alternativeId);
-    return { saved: true, ...feedback };
+    return { saved: true, ...feedback, provisional: Boolean(item.question.provisional), correctOptionId: item.question.alternatives.find(a => a.correct)?.id ?? null };
   }
 
   async finalize(studentId: string, attemptId: string) {
@@ -98,7 +118,7 @@ export class QuestionPracticeService {
       throw new ApiError(409, 'Responda todas as questões antes de finalizar a prática.');
     }
     const completed = await this.repository.finalize(studentId, attemptId);
-    // The repository finalizes and updates the level in the same transaction.
+    // The repository finalizes and updates the level of non-provisional attempts atomically.
     return this.result(completed);
   }
 
@@ -117,11 +137,12 @@ export class QuestionPracticeService {
   private publicAttempt(attempt: PracticeAttempt) {
     const completed = attempt.state === 'COMPLETED';
     return {
-      id: attempt.id, state: attempt.state, discipline: attempt.discipline, topic: attempt.topic ?? null,
+      id: attempt.id, state: attempt.state, provisional: attempt.questions.some(item => item.question.provisional), discipline: attempt.discipline, topic: attempt.topic ?? null,
       questions: attempt.questions.map(({ position, question, selectedOptionId }) => ({
         id: question.id, position, statement: question.statement, discipline: question.discipline,
         topic: question.topic, level: question.level, selectedOptionId,
         alternatives: question.alternatives.map(({ id, letter, text }) => ({ id, letter, text })),
+        ...(selectedOptionId ? { feedback: { correct: Boolean(question.alternatives.find(a => a.id === selectedOptionId)?.correct), correctOptionId: question.alternatives.find(a => a.correct)?.id ?? null, explanation: question.explanation } } : {}),
         ...(completed ? { explanation: question.explanation } : {}),
       })),
     };
@@ -149,7 +170,7 @@ export class QuestionPracticeService {
       groups.set(key, group);
     }
     const weakest = [...groups.values()].sort((a, b) => a.correct / a.total - b.correct / b.total)[0];
-    return { total: answers.length, correct, incorrect: answers.length - correct, percentage: answers.length ? Math.round(correct / answers.length * 100) : 0,
+    return { provisional: attempt.questions.some(item => item.question.provisional), total: answers.length, correct, incorrect: answers.length - correct, percentage: answers.length ? Math.round(correct / answers.length * 100) : 0,
       answers, consistency: answers.length < 3 ? null : Number((100 * Math.max(correct, answers.length - correct) / answers.length).toFixed(2)),
       recommendation: weakest ? `Próximo foco: ${weakest.topic} (${weakest.discipline}), com ${Number(100 * weakest.correct / weakest.total).toFixed(2)}% de acerto nesta prática.` : 'Responda mais questões para receber uma recomendação.' };
   }

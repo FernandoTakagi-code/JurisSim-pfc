@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { OAuth2Client } from 'google-auth-library';
+import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import { acceptanceSchema } from '../services/legal-acceptance';
 import { AuthService } from '../services/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
@@ -100,7 +100,7 @@ export class AuthController {
     }
     const { nome, email, senha, acceptance } = parsed.data;
     const resultado = await this.service.register(nome, email, senha, acceptance, parsed.data.registrationIntent);
-    let emailVerification;
+    let emailVerification: { status: 'captured' | 'accepted' | 'unavailable'; message: string };
     try {
       const verification = await this.emailVerification.requestVerification(resultado.usuario.id);
       emailVerification = isLocalEmailCaptureRequested()
@@ -140,7 +140,7 @@ export class AuthController {
       response.status(400).json({ message: 'Envie uma credencial Google válida e, quando solicitado, o aceite legal atual.' });
       return;
     }
-    let payload;
+    let payload: TokenPayload | undefined;
     try {
       const ticket = await new OAuth2Client(clientId).verifyIdToken({
         idToken: parsed.data.credential,

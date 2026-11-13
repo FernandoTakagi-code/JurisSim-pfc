@@ -74,8 +74,8 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     expect(repositorio.criar).not.toHaveBeenCalled();
   });
 
-  it('deveAceitarQuestaoComOMinimoDeDuasAlternativas', async () => {
-    // Arrange - caso-limite: exatamente o mínimo permitido
+  it('deveRecusarQuestaoComDuasAlternativas', async () => {
+    // O formato Certo/Errado não pertence ao contrato A–D do cadastro.
     const dados = dadosQuestao([
       { texto: 'Certo', correta: true },
       { texto: 'Errado', correta: false },
@@ -83,14 +83,14 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     repositorio.criar.mockResolvedValue({ id: 'questao-2', ...dados } as never);
 
     // Act
-    await QuestaoService.criar(dados, PROFESSOR_ID, 'PROFESSOR');
+    await expect(QuestaoService.criar(dados, PROFESSOR_ID, 'PROFESSOR')).rejects.toMatchObject({ statusCode: 400, message: 'A questão deve ter exatamente quatro alternativas (A–D).' });
 
     // Assert
-    expect(repositorio.criar).toHaveBeenCalledWith(expect.objectContaining({ alternativas: dados.alternativas }), PROFESSOR_ID, 'PROFESSOR');
+    expect(repositorio.criar).not.toHaveBeenCalled();
   });
 
   it('deveRecusarQuestaoComApenasUmaAlternativaMesmoQueSejaCorreta', async () => {
-    // Arrange - caso-limite: uma abaixo do mínimo
+    // Uma única alternativa também deve ser recusada.
     const dados = dadosQuestao([{ texto: 'Única alternativa', correta: true }]);
 
     // Act
@@ -99,7 +99,7 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     // Assert
     await expect(tentativa).rejects.toMatchObject({
       statusCode: 400,
-      message: 'A questão deve ter pelo menos duas alternativas',
+      message: 'A questão deve ter exatamente quatro alternativas (A–D).',
     });
     expect(repositorio.criar).not.toHaveBeenCalled();
   });
@@ -127,7 +127,7 @@ describe('QuestaoService.listar() - visibilidade por perfil', () => {
       { id: 'alt-1', texto: 'Alternativa A' },
       { id: 'alt-2', texto: 'Alternativa B' },
     ]);
-    expect(repositorio.listar).toHaveBeenCalledWith({}, 'aluno-1', 'ALUNO', false);
+    expect(repositorio.listar).toHaveBeenCalledWith({}, 'aluno-1', 'ALUNO', false, undefined);
   });
 
   it('deveFiltrarSomenteAsQuestoesDoProfessorQuandoSolicitado', async () => {
@@ -139,6 +139,6 @@ describe('QuestaoService.listar() - visibilidade por perfil', () => {
 
     // Assert
     expect(questao.alternativas[0]).toHaveProperty('correta', true);
-    expect(repositorio.listar).toHaveBeenCalledWith({ disciplina: 'Direito Civil' }, PROFESSOR_ID, 'PROFESSOR', true);
+    expect(repositorio.listar).toHaveBeenCalledWith({ disciplina: 'Direito Civil' }, PROFESSOR_ID, 'PROFESSOR', true, undefined);
   });
 });

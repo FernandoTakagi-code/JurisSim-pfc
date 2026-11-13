@@ -17,6 +17,11 @@ const candidate = (id: string, correct = 0) => ({
   fonteOficialUrl: null, situacaoQuestaoOficial: null, fonteNome: null, fonteReferencia: null, licencaOuAutorizacao: null,
   alternativas: ['A', 'B', 'C', 'D'].map((letra, index) => ({ id: `${id}-${letra}`, letra, texto: `Alternativa ${letra}`, correta: index === correct })),
 });
+const practiceQuestion = (id: string) => {
+  const row = candidate(id);
+  return { id, discipline: row.disciplina, topic: row.assunto, level: row.nivel, statement: row.enunciado, explanation: row.fundamentacaoJuridica,
+    alternatives: row.alternativas.map(a => ({ id: a.id, letter: a.letra, text: a.texto, correct: a.correta })) };
+};
 
 describe('PrismaQuestionPracticeRepository isolation contract', () => {
   beforeEach(() => {
@@ -59,13 +64,13 @@ describe('PrismaQuestionPracticeRepository isolation contract', () => {
       questoes: [candidate('q1'), candidate('q2')].map((q, index) => ({ posicao: index + 1, questao: q, resposta: null })),
     });
     const repository = new PrismaQuestionPracticeRepository(fakeDb as never);
-    const created = await repository.createAttempt('student-1', 'Direito Civil', null, [candidate('q1') as never, candidate('q2') as never]);
+    const created = await repository.createAttempt('student-1', 'Direito Civil', null, [practiceQuestion('q1'), practiceQuestion('q2')]);
     expect(created.questions.map(question => question.position)).toEqual([1, 2]);
     expect(fakeDb.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'ReadCommitted' });
     expect(fakeDb.simulado.create).toHaveBeenCalledWith({ data: { tipo: 'PERSONALIZADO', alunoId: 'student-1' }, select: { id: true } });
-    expect(fakeDb.questaoSimulado.createMany).toHaveBeenCalledWith({ data: [
-      { simuladoId: 'simulado-1', questaoId: 'q1', posicao: 1 }, { simuladoId: 'simulado-1', questaoId: 'q2', posicao: 2 },
-    ] });
+    const links = fakeDb.questaoSimulado.createMany.mock.calls[0][0].data;
+    expect(links.map((q: any) => ({ id: q.questaoId, position: q.posicao }))).toEqual([{ id: 'q1', position: 1 }, { id: 'q2', position: 2 }]);
+    expect(links[0].conteudoSnapshot).toMatchObject({ version: 1, statement: candidate('q1').enunciado, explanation: candidate('q1').fundamentacaoJuridica });
     expect(fakeDb.$executeRaw).toHaveBeenCalledOnce();
   });
 
@@ -73,7 +78,7 @@ describe('PrismaQuestionPracticeRepository isolation contract', () => {
     fakeDb.questaoSimulado.createMany.mockRejectedValue(new Error('simulated link failure'));
     fakeDb.$queryRaw.mockResolvedValueOnce([{ id: 'student-1' }]).mockResolvedValueOnce([]);
     const repository = new PrismaQuestionPracticeRepository(fakeDb as never);
-    await expect(repository.createAttempt('student-1', 'Direito Civil', null, [candidate('q1') as never])).rejects.toThrow('simulated link failure');
+    await expect(repository.createAttempt('student-1', 'Direito Civil', null, [practiceQuestion('q1')])).rejects.toThrow('simulated link failure');
     expect(fakeDb.$executeRaw).not.toHaveBeenCalled();
   });
 });

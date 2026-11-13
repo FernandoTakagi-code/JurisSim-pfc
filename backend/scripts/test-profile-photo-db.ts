@@ -108,7 +108,7 @@ async function main() {
   pass('revoked and expired tokens cannot read or replace photos; other user sessions stay valid');
 
   const deleteToken = await login(users.alice.email);
-  await call('/auth/conta', deleteToken, 'DELETE', JSON.stringify({ senhaAtual: password }));
+  await call('/auth/conta', deleteToken, 'DELETE', JSON.stringify({ senhaAtual: password, confirmation: 'EXCLUIR' }));
   assert.equal(await prisma.profilePhoto.count({ where: { userId: users.alice.id } }), 0);
   await call('/profile/photo', deleteToken, 'GET', undefined, undefined, 401);
   await call('/profile/photo/image', deleteToken, 'PUT', original, 'image/jpeg', 401);
@@ -118,7 +118,7 @@ async function main() {
   pass('official account anonymization atomically removes photo; hard deletion cascades and cannot recreate images with old token');
   const [uploadRace] = await Promise.all([
     fetch(base + '/profile/photo/image', { method: 'PUT', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'image/jpeg' }, body: Uint8Array.from(original) }),
-    call('/auth/conta', t, 'DELETE', JSON.stringify({ senhaAtual: password })),
+    call('/auth/conta', t, 'DELETE', JSON.stringify({ senhaAtual: password, confirmation: 'EXCLUIR' })),
   ]);
   assert.ok([200, 401].includes(uploadRace.status)); await uploadRace.text();
   assert.equal(await prisma.profilePhoto.count({ where: { userId: users.teacher.id } }), 0);

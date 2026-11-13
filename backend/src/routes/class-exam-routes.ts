@@ -15,7 +15,7 @@ const examSchema = z.object({ titulo: z.string().trim().min(2).max(150), descric
 }).strict().refine(value => new Set(value.turmaIds).size === value.turmaIds.length && new Set(value.questaoIds).size === value.questaoIds.length, 'Não repita turmas ou questões.');
 
 export const classRoutes = Router(), examRoutes = Router();
-for (const router of [classRoutes, examRoutes]) router.use(requireAuth, denyGlobalAcademicAccess, (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); });
+for (const router of [classRoutes, examRoutes]) router.use((_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); }, requireAuth, denyGlobalAcademicAccess);
 const staff = requireAcademicStaff, student = requireRoles('ALUNO');
 classRoutes.use((request, _response, next) => {
   if (!institutionsEnabled() && (/\/requests(?:\/|$)/.test(request.path) || (request.method === 'DELETE' && /\/students\//.test(request.path)))) return next(new ApiError(503, 'Gestão institucional aguarda ativação autorizada.'));

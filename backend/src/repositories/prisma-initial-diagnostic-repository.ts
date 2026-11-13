@@ -8,6 +8,7 @@ import {
   type InitialDiagnosticRepository,
 } from '../services/initial-diagnostic-service';
 import { createDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
+import { readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
 
 const initialInclude = {
   simulado: {
@@ -16,7 +17,7 @@ const initialInclude = {
       alunoId: true,
       tipo: true,
       finalizadoEm: true,
-      questoes: { orderBy: { posicao: 'asc' as const }, select: { posicao: true, questaoId: true } },
+      questoes: { orderBy: { posicao: 'asc' as const }, select: { posicao: true, questaoId: true, conteudoSnapshot: true } },
     },
   },
 };
@@ -25,6 +26,7 @@ type InitialIdentity = Prisma.DiagnosticoInicialGetPayload<{ include: typeof ini
 
 export const inventorySelect = {
   id: true,
+  loteImportacaoId: true,
   enunciado: true,
   disciplina: true,
   assunto: true,
@@ -112,7 +114,7 @@ function hasOfficialSource(row: InventoryRow): boolean {
   }
 }
 
-function hasCompleteContent(row: InventoryRow): boolean {
+export function hasCompleteContent(row: InventoryRow): boolean {
   if (row.enunciado.trim().length < 10 || !row.disciplina.trim() || !row.assunto.trim()
     || !row.fundamentacaoJuridica.trim() || row.alternativas.length !== 4) {
     return false;
@@ -170,6 +172,8 @@ function toAttempt(identity: InitialIdentity, expectedStudentId: string): Initia
 
   return {
     id: identity.simulado.id,
+    ...(identity.simulado.questoes.some(q => readDiagnosticQuestionSnapshot(q.conteudoSnapshot)?.provisional)
+      ? { provisional: true } : {}),
     state: identity.simulado.finalizadoEm ? 'COMPLETED' : 'IN_PROGRESS',
     orderedQuestionIds: identity.simulado.questoes.map(question => question.questaoId),
   };
@@ -189,7 +193,7 @@ function validateCreateInput(input: CreateInitialDiagnosticInput): void {
 }
 
 export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepository {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  constructor(private readonly db: PrismaClient = prisma, private readonly pilotBatchId?: string) {}
 
   async findInitialAttempt(studentId: string): Promise<InitialDiagnosticAttempt | null> {
     const identity = await this.db.diagnosticoInicial.findUnique({
@@ -203,10 +207,24 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
     // The checked-in generated client can lag local schema work; this narrow
     // delegate shape keeps the query contract explicit until prisma generate
     // can complete in the Windows workspace.
-    const rows = await this.db.questao.findMany({ where: inventoryWhere, select: inventorySelect });
+    const where = this.pilotBatchId ? {
+      publica: true, turmaId: null, origem: 'IA' as const, loteImportacaoId: this.pilotBatchId,
+      disciplina: { in: [...INITIAL_DIAGNOSTIC_DISCIPLINES] },
+    } : inventoryWhere;
+    const rows = await this.db.questao.findMany({ where, select: inventorySelect });
     return rows.flatMap(row => {
+      if (this.pilotBatchId && row.loteImportacaoId !== this.pilotBatchId) return [];
       const candidate = toEligibleCandidate(row);
-      return candidate ? [candidate] : [];
+      if (candidate) return [{ ...candidate,
+        ...(this.pilotBatchId && row.loteImportacaoId === this.pilotBatchId ? { draftPilotBatchId: this.pilotBatchId } : {}) }];
+      if (!this.pilotBatchId || row.loteImportacaoId !== this.pilotBatchId || row.origem !== 'IA'
+        || !row.publica || row.turmaId !== null || row.situacaoQuestaoOficial === 'ANULADA'
+        || !hasCompleteContent(row) || !row.fonteNome?.trim() || !row.fonteReferencia?.trim()) return [];
+      return [{ id: row.id, discipline: row.disciplina, level: row.nivel, origin: row.origem,
+        public: true, complete: true, annulled: false, published: false,
+        legalReviewApproved: Boolean(row.revisorJuridicoId && row.revisaoJuridicaEm),
+        pedagogicalReviewApproved: Boolean(row.revisorPedagogicoId && row.revisaoPedagogicaEm),
+        reproductionRightsDocumented: false, draftPilotBatchId: this.pilotBatchId }];
     });
   }
 
@@ -259,7 +277,7 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
             simuladoId: simulado.id,
             questaoId,
             posicao: index + 1,
-            conteudoSnapshot: createDiagnosticQuestionSnapshot(byId.get(questaoId)!),
+            conteudoSnapshot: createDiagnosticQuestionSnapshot(byId.get(questaoId)!, input.provisional === true),
           })),
         });
         if (links.count !== 30) {
@@ -267,7 +285,8 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
         }
 
         return {
-          attempt: { id: simulado.id, state: 'IN_PROGRESS', orderedQuestionIds: [...input.orderedQuestionIds] },
+          attempt: { id: simulado.id, state: 'IN_PROGRESS', orderedQuestionIds: [...input.orderedQuestionIds],
+            ...(input.provisional ? { provisional: true } : {}) },
           created: true,
         };
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

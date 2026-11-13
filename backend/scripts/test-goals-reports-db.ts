@@ -65,7 +65,8 @@ async function main() {
     const result = await request('/avaliacoes', token, 'POST', { titulo: title, descricao: '', duracaoSegundos: duration, turmaIds, questaoIds: questions.map(q => q.id) }, 201);
     await request(`/avaliacoes/${result.id}/publish`, token, 'POST'); return result.id as string;
   };
-  const shared = await exam(admin, 'Shared A and B', [classA, classB]);
+  await prisma.turma.update({ where: { id: classB }, data: { professores: { connect: { id: users.teacherA.id } } } });
+  const shared = await exam(a, 'Shared A and B', [classA, classB]);
   const next = await exam(a, 'Second A exam', [classA], 3600);
   const onlyB = await exam(b, 'Private B report exam', [classB]);
   const attempt = async (examId: string, name: string, answers?: boolean[]) => {
@@ -106,14 +107,15 @@ async function main() {
   const pendingReport = await request(`/reports/classes/${classA}/students/${users.dave.id}`, a);
   assert.equal(pendingReport.attempts.items[0].percentage, null); assert.equal(pendingReport.attempts.items[0].correctAnswers, null);
   await request(`/reports/classes/${classA}/students/${users.bob.id}`, a, 'GET', undefined, 404);
+  await prisma.turma.update({ where: { id: classB }, data: { professores: { disconnect: { id: users.teacherA.id } } } });
   await request(`/reports/classes/${classA}`, b, 'GET', undefined, 404);
   await request(`/reports/classes/${classB}`, a, 'GET', undefined, 404);
-  await request(`/reports/classes/${classA}`, admin, 'GET', undefined, 404);
-  assert.deepEqual((await request('/reports/classes', admin)).items, []);
+  await request(`/reports/classes/${classA}`, admin, 'GET', undefined, 403);
+  await request('/reports/classes', admin, 'GET', undefined, 403);
   await prisma.turma.update({ where: { id: classA }, data: { professores: { connect: { id: users.admin.id } } } });
-  await request(`/reports/classes/${classA}`, admin);
-  await request(`/reports/classes/${classB}`, admin, 'GET', undefined, 404);
-  pass('individual reports are class-scoped, unfinished scores stay private and ADMIN requires an explicit responsible-teacher link');
+  await request(`/reports/classes/${classA}`, admin, 'GET', undefined, 403);
+  await request(`/reports/classes/${classB}`, admin, 'GET', undefined, 403);
+  pass('individual reports are class-scoped, unfinished scores stay private and global ADMIN remains blocked even with an explicit teacher link');
 
   // Explicit timestamps exercise both local-day boundaries and all existing study types.
   const sharedResponses = await prisma.resposta.findMany({ where: { simuladoId: aliceShared }, orderBy: { questaoId: 'asc' } });

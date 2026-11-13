@@ -6,7 +6,7 @@ import { QuestionImportService } from './question-import-service';
 const adminId = '00000000-0000-4000-8000-000000000001';
 const otherId = '00000000-0000-4000-8000-000000000002';
 const headers = QUESTION_CSV_HEADERS.join(',');
-const row = ['"Questão original para demonstrar persistência atômica"', 'Direito Civil', 'Contratos', 'BASICO', 'Explicação original e didática', 'Opção A', 'Opção B', '', '', '', 'A', 'true', 'JurisSim', 'Referência fictícia', 'Autorização declarada para demonstração'].join(',');
+const row = ['"Questão original para demonstrar persistência atômica"', 'Direito Civil', 'Contratos', 'BASICO', 'Explicação original e didática', 'Opção A', 'Opção B', 'Opção C', 'Opção D', '', 'A', 'true', 'JurisSim', 'Referência fictícia', 'Autorização declarada para demonstração'].join(',');
 const csv = (...rows: string[]) => `${headers}\n${rows.join('\n')}`;
 
 type PersistedQuestion = Record<string, any> & { id: string; fingerprint: string };
@@ -65,7 +65,7 @@ describe('persistência preparada da importação CSV', () => {
     expect(database.state.questions[0]).toMatchObject({
       autorId: adminId, loteImportacaoId: result.batchId, publica: true, fonteNome: 'JurisSim',
       fonteReferencia: 'Referência fictícia', licencaOuAutorizacao: 'Autorização declarada para demonstração',
-      alternativas: [{ correta: true }, { correta: false }],
+      alternativas: [{ correta: true }, { correta: false }, { correta: false }, { correta: false }],
     });
     expect(database.state.questions[0].fingerprint).toMatch(/^[a-f0-9]{64}$/);
   });
@@ -101,7 +101,7 @@ describe('persistência preparada da importação CSV', () => {
 
   it('reverte lote e questões anteriores se a criação de alternativas falhar', async () => {
     const database = new MockImportDatabase();
-    database.failAlternativeAt = 3;
+    database.failAlternativeAt = 5;
     const { service } = harness(database);
     await expect(service.confirm(csv(row, row.replace('Questão original', 'Outra questão original')), adminId)).rejects.toThrow(/alternativas/);
     expect(database.state.batches).toHaveLength(0);

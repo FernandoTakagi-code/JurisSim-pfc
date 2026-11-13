@@ -6,13 +6,19 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "config:check": "tsx scripts/check-environment.ts",
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "npm test && npm run test:integration",
+    "test:integration:disposable": "node scripts/test-migrations-local.cjs",
+    "lint": "biome lint --error-on-warnings",
     "test:watch": "vitest",
     "inventory:check": "tsx scripts/check-question-inventory.ts",
     "question-bank:import": "tsx scripts/import-eligible-question-batch.ts",
+    "question-bank:prepare-authorial": "tsx scripts/prepare-authorial-question-batch.ts",
+    "question-bank:pilot": "tsx scripts/import-authorial-pilot.ts",
+    "account:bootstrap-pilot-admin": "tsx scripts/bootstrap-pilot-admin.ts",
     "email:verify": "tsx scripts/verify-email-config.ts",
     "test:legal-db": "node scripts/verify-legal-db.cjs",
     "prisma:generate": "prisma generate",
@@ -35,6 +41,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.7",
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

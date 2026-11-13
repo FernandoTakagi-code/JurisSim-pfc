@@ -58,7 +58,7 @@ let claimed: boolean;
 const question = {
   enunciado: 'Questão de teste de autorização', disciplina: 'Civil', assunto: 'Contratos', nivel: 'BASICO',
   fundamentacaoJuridica: 'Fixture', publica: true,
-  alternativas: [{ texto: 'A', correta: true }, { texto: 'B', correta: false }],
+  alternativas: [{ texto: 'A', correta: true }, { texto: 'B', correta: false }, { texto: 'C', correta: false }, { texto: 'D', correta: false }],
 };
 const protectedEndpoints: [string, string][] = [
   ['GET', '/questoes'], ['GET', `/questoes/${resourceId}`],

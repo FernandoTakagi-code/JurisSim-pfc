@@ -1,6 +1,7 @@
 import { QuestaoRepository } from '../repositories/QuestaoRepository';
 import { Nivel } from '@prisma/client';
 import { ApiError } from '../errors/api-error';
+import { questionAlternativesError } from '../question-alternatives';
 
 interface DadosCriarQuestao {
   enunciado: string;
@@ -21,14 +22,8 @@ export class QuestaoService {
   }
 
   static validarAlternativas(alternativas: DadosCriarQuestao['alternativas']) {
-    const corretas = alternativas.filter((a) => a.correta);
-    if (corretas.length !== 1) {
-      throw new ApiError(400, 'A questão deve ter exatamente uma alternativa correta');
-    }
-
-    if (alternativas.length < 2) {
-      throw new ApiError(400, 'A questão deve ter pelo menos duas alternativas');
-    }
+    const error = questionAlternativesError(alternativas);
+    if (error) throw new ApiError(400, error);
   }
 
   static async listar(

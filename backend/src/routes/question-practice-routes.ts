@@ -23,6 +23,7 @@ export function createQuestionPracticeRoutes(options: {
     next();
   });
   router.use(requireAuth, requireRoles('ALUNO'));
+  router.get('/catalog/:discipline/availability', controller.availability);
   router.get('/catalog/:discipline/topics', controller.topics.bind(controller));
   router.post('/', controller.start);
   router.get('/:attemptId', controller.get);

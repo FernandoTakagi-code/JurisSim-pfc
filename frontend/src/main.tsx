@@ -9,6 +9,8 @@ import { apiRequest } from './api';
 import { useSession, refreshSession, endSession, logoutSession, sessionDestination, setLocalDiagnosticDemoMode } from './auth-session';
 import { EmailConfirmationGate } from './email-confirmation-gate';
 import { QuestionPracticePage } from './question-practice';
+import { IndividualExamPage } from './individual-exam';
+import { StudentPerformancePage } from './student-performance';
 import { LegalBoundary, LegalLinks } from './legal';
 import { Brand } from "./shell";
 import { TeacherWorkspace } from './teacher-workspace';
@@ -23,7 +25,7 @@ import { navigate as navigateTo, usePath } from "./navigation";
 import { sessionRedirectTarget } from './auth-routing';
 import { ClassesPage, ExamsPage, ClassExamAttempt } from "./class-exams";
 import { GoalsPage } from "./goals-reports";
-import { useStudentProgress, ProgressStatus, Evolution, RecentActivities, PerformanceIndicators, StudentHistory, PersistedResult } from "./student-progress";
+import { useStudentProgress, ProgressStatus, Evolution, RecentActivities, StudentHistory, PersistedResult } from "./student-progress";
 import { AdaptiveTrail } from "./adaptive-trail";
 import { TrailLaunchButton } from "./trail-launch";
 import { StudyTrail } from "./study-trail";
@@ -189,9 +191,12 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   </section>;
   if (route === "/diagnostico-inicial") return <InitialDiagnosticPage studentId={userId} onBack={() => navigate("/")} />;
   const practiceRoute = /^\/questoes\/pratica\/([^/]+)$/.exec(route);
+  const reviewRoute = /^\/questoes\/revisao\/([^/]+)$/.exec(route);
 
 
   const classAttemptRoute = /^\/simulados\/tentativas\/([^/]+)$/.exec(route);
+  const individualExamRoute = /^\/simulados\/individual\/([^/]+)$/.exec(route);
+  if (individualExamRoute) return <IndividualExamPage key={individualExamRoute[1]} id={individualExamRoute[1]} />;
   if (route === "/metas") return <GoalsPage />;
   if (route === "/turmas") return <ClassesPage teacher={false} />;
   if (route === "/simulados") return <ExamsPage teacher={false} />;
@@ -272,27 +277,12 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     );
   }
 
-  if (route === "/desempenho" && !result) {
-    return (
-      <div className="shell">        <main className="content">
-          <section className="page">
-            <p className="gold">SEU DESEMPENHO</p>
-            <h1>{progress.data?.totals.completedActivities ? "Seu desempenho" : "Dados ainda indisponíveis"}</h1>
-            <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refreshAcademic()} />
-            {progress.resultError ? <p className="error" role="alert">O resultado do diagnóstico antigo está indisponível: {progress.resultError}</p> : <p className="muted">Nenhum diagnóstico concluído foi encontrado na sua conta.</p>}
-            <PerformanceIndicators data={progress.data} />
-            <button className="primary" onClick={() => navigate("/dashboard")}>Ir para o Dashboard <b>→</b></button>
-          </section>
-        </main>
-
-      </div>
-    );
-  }
+  if (route === "/desempenho") return <StudentPerformancePage />;
 
   if (view === "questoes" || practiceRoute) {
     return (
       <div className="shell">        <main className="content">
-          <QuestionPracticePage key={practiceRoute?.[1] ?? 'chooser'} attemptId={practiceRoute?.[1]} initialDiscipline={new URLSearchParams(window.location.search).get('disciplina') ?? undefined} />
+          <QuestionPracticePage key={reviewRoute?.[1] ?? practiceRoute?.[1] ?? (route.startsWith('/questoes/revisao') ? 'review-chooser' : 'chooser')} review={route.startsWith('/questoes/revisao')} attemptId={reviewRoute?.[1] ?? practiceRoute?.[1]} initialDiscipline={new URLSearchParams(window.location.search).get('disciplina') ?? undefined} initialTopic={new URLSearchParams(window.location.search).get('assunto') ?? undefined} />
         </main>
 
       </div>
@@ -616,7 +606,6 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     <div className="shell">      <main className="content">
         <section className="page result">
           <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refreshAcademic()} />
-          {route === "/desempenho" && <PerformanceIndicators data={progress.data} />}
           <p className="gold">DIAGNÓSTICO CONCLUÍDO</p>
           <h1>Seu desempenho</h1>
           <p className="muted">Veja seu ponto de partida para a preparação.</p>

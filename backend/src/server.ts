@@ -10,6 +10,8 @@ import { isInitialDiagnosticRequired } from './config/initial-diagnostic-feature
 import { diagnosticRoutes } from './routes/diagnostic-routes';
 import { initialDiagnosticRoutes } from './routes/initial-diagnostic-routes';
 import { questionPracticeRoutes } from './routes/question-practice-routes';
+import { questionReviewRoutes } from './routes/question-review-routes';
+import { createIndividualExamRoutes } from './routes/individual-exam-routes';
 import { authRoutes } from './routes/auth-routes';
 import questaoRoutes from './routes/questaoRoutes';
 import { trailRoutes } from './routes/trail-routes';
@@ -51,17 +53,17 @@ app.use(cors({
 app.use(express.json());
 app.use(administrationAudit);
 
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', message: 'JurisSim API rodando' });
 });
 app.use('/auth', authRoutes);
 app.use('/institutions', institutionRoutes);
-app.use(['/questoes','/trilhas','/diagnostics','/initial-diagnostic','/students/me','/turmas','/avaliacoes','/goals','/reports','/question-practice'],requireAuth,denyGlobalAcademicAccess);
+app.use(['/questoes','/trilhas','/diagnostics','/initial-diagnostic','/students/me','/turmas','/avaliacoes','/goals','/reports','/question-practice','/individual-exams','/question-review'],requireAuth,denyGlobalAcademicAccess);
 // These study routes are behind a server-side initial-diagnostic gate. Auth is
 // checked here before the gate; route-level authorization remains in place.
 app.use([
   '/questoes', '/trilhas', '/diagnostics', '/students/me', '/turmas',
-  '/avaliacoes', '/goals', '/reports', '/question-practice', '/profile/photo',
+  '/avaliacoes', '/goals', '/reports', '/question-practice', '/profile/photo', '/individual-exams', '/question-review',
 ], (request, response, next) => isInitialDiagnosticRequired()
   ? requireAuth(request, response, next)
   : next(), requireInitialDiagnosticCompletion);
@@ -70,6 +72,8 @@ app.use('/trilhas', trailRoutes);
 app.use('/diagnostics', diagnosticRoutes);
 app.use('/initial-diagnostic', initialDiagnosticRoutes);
 app.use('/question-practice', questionPracticeRoutes);
+app.use('/question-review', questionReviewRoutes);
+app.use('/individual-exams', createIndividualExamRoutes());
 app.use('/audit-logs', auditRoutes);
 app.use('/students/me', studentHistoryRoutes);
 app.use('/turmas', classRoutes);
@@ -95,7 +99,8 @@ async function startServer() {
     try {
       localEmailVerificationCapture.assertLocalConfiguration();
       if (isLocalDiagnosticDemoRequested()) localEmailVerificationCapture.assertLocalDiagnosticDemoConfiguration();
-      const identity = await prisma.$queryRawUnsafe<any[]>(`SELECT current_database() AS database,
+      const identity = await prisma.$queryRawUnsafe<{ database: string; username: string; address: string; port: number;
+        systemIdentifier: string; versionMajor: number }[]>(`SELECT current_database() AS database,
         current_user AS username, inet_server_addr()::text AS address, inet_server_port() AS port,
         (pg_control_system()).system_identifier::text AS "systemIdentifier",
         split_part(current_setting('server_version'), '.', 1)::int AS "versionMajor"`);

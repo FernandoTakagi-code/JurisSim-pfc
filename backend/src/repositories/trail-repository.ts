@@ -27,7 +27,7 @@ export class TrailRepository {
 
     for (const filter of filters) {
       if (collected.length >= quantity) break;
-      const found = await prisma.questao.findMany({
+      const found = await this.db.questao.findMany({
         take: quantity - collected.length,
         where: {
           publica: true,
