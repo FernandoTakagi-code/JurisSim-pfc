@@ -13,7 +13,7 @@ const option = (name: string) => {
   assert(args[index + 1] && !args[index + 1].startsWith('--'), `${name}: missing path`);
   return path.resolve(args[index + 1]);
 };
-const draftPath = path.resolve(__dirname, 'drafts/authorial-practice-60.draft.json');
+const draftPath = option('--input') ?? path.resolve(__dirname, 'drafts/authorial-practice-60.draft.json');
 const raw = fs.readFileSync(draftPath, 'utf8');
 const draft = JSON.parse(raw);
 type Question = typeof draft.questions[number];
@@ -62,11 +62,12 @@ for (const q of questions) {
   }
 }
 const referencePaths = [
+  path.resolve(__dirname, 'drafts/authorial-practice-60.draft.json'),
   path.resolve(__dirname, 'drafts/authorial-question-bank-39.draft.json'),
   path.resolve(__dirname, 'drafts/authorial-diagnostic-30.draft.json'),
   path.resolve(__dirname, 'drafts/eligible-ai-questions-15.draft.json'),
   ...(option('--reference') ? [option('--reference')!] : []),
-];
+].filter(file => file !== draftPath);
 const references: { id: string; statement: string }[] = [];
 const referenceFiles = referencePaths.map(file => {
   const content = fs.readFileSync(file, 'utf8');
