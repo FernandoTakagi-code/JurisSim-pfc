@@ -6,6 +6,8 @@ frontend/tsconfig.tsbuildinfo
 
 .env
 .env.local
+.env.*
+!.env.example
 
 # Migration backup paths, destination fingerprints and integrity plans stay local.
 /backend/.local/
