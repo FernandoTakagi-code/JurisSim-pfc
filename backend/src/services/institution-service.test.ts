@@ -65,6 +65,7 @@ beforeEach(() => {
   db.accountControl.findUnique.mockResolvedValue(null);
   db.teacherInvitationClass.findMany.mockResolvedValue([]);
   db.user.findFirst.mockResolvedValue({id:"authorized"});
+  db.user.findMany.mockResolvedValue([]);
   db.institution.findUnique.mockResolvedValue({
     ...institutionApplication, registrationNumber: "12ABC34501DE35", description: "Declara\u00e7\u00e3o: institui\u00e7\u00e3o sem site oficial.",
     id: "institution",
@@ -132,10 +133,15 @@ describe('institution-owned class delegation',()=>{
     expect(db.turma.update).toHaveBeenCalledWith({where:{id:'class'},data:{professores:{connect:{id:'authorized-teacher'}}},select:{id:true}});
     expect(db.institutionalClass.update).not.toHaveBeenCalled();
   });
-  it('restricts the global directory to administrative identities',async()=>{
-    db.user.findMany.mockResolvedValue([]);db.accountControl.findMany.mockResolvedValue([]);db.institutionalMembership.findMany.mockResolvedValue([]);
-    await service.users(global,1);
-    expect(db.user.findMany.mock.calls[0][0].where.AND[0].OR).toEqual(expect.arrayContaining([{institutionsOwned:{some:{}}},{institutionalMemberships:{some:{role:'INSTITUTION_ADMIN'}}}]));
+  it('does not query accounts without an explicit search',async()=>{
+    await expect(service.users(global,1)).resolves.toMatchObject({items:[]});
+    expect(db.user.findMany).not.toHaveBeenCalled();
+  });
+
+  it('searches all account profiles with bounded server pagination',async()=>{
+    db.user.findMany.mockResolvedValue([]);db.accountControl.findMany.mockResolvedValue([]);
+    await service.users(global,2,'aluno','ALUNO');
+    expect(db.user.findMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({role:'ALUNO',deletedAt:null}),take:26,skip:25}));
   });
 });
 describe('administrative institution maintenance',()=>{
@@ -245,7 +251,7 @@ describe("institutional approval and global authorization", () => {
   });
   it("prevents self-promotion and changing the last active global administrator", async () => {
     await expect(
-      service.controlUser(global, "global", { globalAdmin: true }),
+      service.controlUser(global, "global", { globalAdmin: true, reason: "Authorized review" }),
     ).rejects.toMatchObject({ statusCode: 409 });
     db.user.findUnique.mockResolvedValue({
       role: "ADMIN",
@@ -254,7 +260,7 @@ describe("institutional approval and global authorization", () => {
     db.user.findMany.mockResolvedValue([{ id: "last" }]);
     db.accountControl.findMany.mockResolvedValue([]);
     await expect(
-      service.controlUser(global, "last", { suspended: true }),
+      service.controlUser(global, "last", { suspended: true, reason: "Authorized review" }),
     ).rejects.toMatchObject({ statusCode: 409 });
   });
   it("denies suspended accounts on the next authenticated access", async () => {

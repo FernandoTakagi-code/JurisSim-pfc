@@ -1,3 +1,4 @@
+import { AccountDeletionService } from '../services/account-deletion';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { OAuth2Client } from 'google-auth-library';
@@ -13,7 +14,8 @@ import type { LocalEmailVerificationCapture } from '../services/local-email-capt
 import { passwordSchema } from '../services/password-policy';
 import { ApiError } from '../errors/api-error';
 
-const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
+const deleteAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional(), confirmation: z.literal('EXCLUIR') }).strict();
+const deactivateAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024), confirmation: z.literal('DESATIVAR') }).strict();
 const emailSchema = z.string().trim().email('E-mail inválido').max(254).transform(value => value.toLowerCase());
 const perfilSchema = z.enum(['ALUNO', 'PROFESSOR']).optional();
 
@@ -181,7 +183,7 @@ export class AuthController {
       response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
       return;
     }
-    response.json(await this.service.deleteAccount(request.auth!.userId, parsed.data.senhaAtual));
+    response.json(await new AccountDeletionService().self(request.auth!.userId, parsed.data));
   };
 
   solicitarConfirmacaoEmail = async (request: AuthenticatedRequest, response: Response) => {
@@ -212,5 +214,11 @@ export class AuthController {
       return;
     }
     response.json(await this.emailVerification.confirm(parsed.data.token));
+  };
+
+
+  desativarConta = async (request: AuthenticatedRequest, response: Response) => {
+    const data = deactivateAccountSchema.parse(request.body);
+    response.json(await this.service.deactivateAccount(request.auth!.userId, data.senhaAtual));
   };
 }

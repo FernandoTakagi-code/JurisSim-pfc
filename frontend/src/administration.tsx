@@ -1,3 +1,4 @@
+import { AdminAccountDeletion, EmailReuseRevocation } from './account-deletion';
 import { InstitutionRequest } from './institution-request';
 import { institutionPendingFields, noWebsiteDeclaration } from '../../backend/src/institution-registration';
 import { useEffect, useRef, useState } from "react";
@@ -1135,7 +1136,12 @@ function InstitutionReview({
 function UserAdministration({ initialRole = "",permissionsOnly=false }: { initialRole?: string;permissionsOnly?:boolean }) {
   const currentUserId = useSession().session?.user.id;
   const [page, setPage] = useState(1),
-    [search, setSearch] = useState(""),
+    [search, setSearch] = useState<string | null>(null),
+    [queryRole, setQueryRole] = useState(initialRole),
+    [status, setStatus] = useState(""),
+    [queryStatus, setQueryStatus] = useState(""),
+    [reason, setReason] = useState(""),
+    [historyId, setHistoryId] = useState<string>(),
     [draft, setDraft] = useState(""),
     [role, setRole] = useState(initialRole);
   const [change, setChange] = useState<{
@@ -1144,31 +1150,40 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
     title: string;
   }>();
   const resource = useResource<Page<AdminUser>>(
-      `/institutions/admin/users?${new URLSearchParams({ page: String(page), ...(search ? { search } : {}), ...(role ? { role } : {}) })}`,
+      search ? `/institutions/admin/users?${new URLSearchParams({ page: String(page), search, ...(queryRole ? { role: queryRole } : {}), ...(queryStatus ? {status:queryStatus} : {}) })}` : null,
     ),
     action = useMutation(resource.reload);
   return (
     <>
-      <h2>{permissionsOnly?'Permissões administrativas':'Contas e vínculos administrativos'}</h2>
+      <h2>{permissionsOnly?'Permissões administrativas':initialRole === 'PROFESSOR'?'Consulta de professores e vínculos':'Consulta de contas'}</h2>
+      {!permissionsOnly && <EmailReuseRevocation />}
       <form
         className="admin-form"
         onSubmit={(e) => {
           e.preventDefault();
-          setSearch(draft);
+          if (draft.trim().length < 2) return;
+          setSearch(draft.trim());
+          setQueryRole(role);
+          setQueryStatus(status);
+          setHistoryId(undefined);
+          setChange(undefined);
+          resource.reload();
           setPage(1);
         }}
       >
         <label>
           Nome ou e-mail
           <input
+            required minLength={2}
             maxLength={120}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
         </label>
         <label>
-          Perfil
+          Perfil global
           <select
+            disabled={initialRole === "PROFESSOR"}
             value={role}
             onChange={(e) => {
               setRole(e.target.value);
@@ -1183,8 +1198,10 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
             ))}
           </select>
         </label>
+        <label>Situação da conta<select value={status} onChange={e => setStatus(e.target.value)}><option value="">Todas</option><option value="ACTIVE">Ativa</option><option value="SUSPENDED">Suspensa</option></select></label>
         <button>Pesquisar</button>
       </form>
+      {search === null && <p role="status">Pesquise por nome ou e-mail para consultar contas. Nenhuma conta é carregada automaticamente.</p>}
       {action.feedback}
       <ResourceState resource={resource} />
       {resource.data?.items.length === 0 && <p>Nenhuma conta encontrada.</p>}
@@ -1194,6 +1211,9 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
           <p>
             {u.email} · {label(u.role)} · {u.suspended ? "Suspenso" : "Ativo"}
           </p>
+          <details><summary>Ficha da conta e vínculos</summary>
+          {u.createdAt && <p>Cadastro: {date(u.createdAt)}</p>}
+          <p>Perfil global: {label(u.role)} · E-mail {u.emailVerifiedAt ? "confirmado" : "pendente"}</p>
           {u.role === "PROFESSOR" && (
             <p>
               Transição:{" "}
@@ -1209,8 +1229,7 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
               )
                 ? "vínculo docente ativo"
                 : "vínculo institucional docente pendente"}
-              . A regularização exige confirmação pelo titular e vínculo
-              legítimo autorizado; não é automática.
+              .
             </p>
           )}
           {u.memberships.map((m, index) => (
@@ -1220,9 +1239,14 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
               {label(m.institution.status)})
             </p>
           ))}
-          <div className="admin-actions">
+          {u.memberships.length === 0 && <p>Sem vínculos institucionais registrados.</p>}
+          <button onClick={() => setHistoryId(historyId === u.id ? undefined : u.id)}>Histórico administrativo</button>
+          </details>
+          <div className="admin-actions account-actions">
             {!permissionsOnly&&<button
+              className={`account-action-button${u.suspended ? ' account-action-positive' : ''}`}
               disabled={action.busy || u.id === currentUserId}
+              title={u.id === currentUserId ? 'Sua própria suspensão não pode ser alterada nesta tela.' : undefined}
               onClick={() =>
                 setChange({
                   id: u.id,
@@ -1233,7 +1257,9 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
             >
               {u.suspended ? "Reativar" : "Suspender"}
             </button>}
+            {!permissionsOnly && <AdminAccountDeletion userId={u.id} email={u.email} disabled={action.busy || u.id === currentUserId} onDone={resource.reload} />}
             {permissionsOnly&&<button
+              className="account-action-button"
               disabled={action.busy || u.id === currentUserId}
               onClick={() =>
                 setChange({
@@ -1254,28 +1280,32 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
         </article>
       ))}
       {change && (
-        <div className="panel" role="alert">
+        <div className="panel account-action-form" role="alert" aria-busy={action.busy}>
           <p>{change.title}? As sessões anteriores da conta serão revogadas.</p>
+          <p>Usuário: {resource.data?.items.find(user => user.id === change.id)?.email ?? change.id}. Reativar suspensão não restaura uma conta desativada ou excluída.</p>
+          <label>Justificativa<textarea required minLength={3} maxLength={500} disabled={action.busy} value={reason} onChange={e => setReason(e.target.value)}/></label>
           <button
-            disabled={action.busy}
+            className={`account-action-button${'suspended' in change.body && change.body.suspended === false ? ' account-action-positive' : ''}`}
+            disabled={action.busy || reason.trim().length < 3}
             onClick={() => {
               void action
                 .run(
                   `/institutions/admin/users/${change.id}`,
                   "PATCH",
-                  change.body,
+                  { ...change.body, reason: reason.trim() },
                 )
                 .then((ok) => {
-                  if (ok) setChange(undefined);
+                  if (ok) { setChange(undefined); setReason(""); }
                 });
             }}
           >
-            Confirmar alteração
+            {action.busy ? 'Salvando...' : 'Confirmar alteração'}
           </button>
-          <button onClick={() => setChange(undefined)}>Cancelar</button>
+          <button className="account-action-button" disabled={action.busy} onClick={() => {setChange(undefined);setReason("");}}>Cancelar</button>
         </div>
       )}
-      <Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />
+      {resource.data && <Pages page={page} hasMore={resource.data.hasMore} change={setPage} />}
+      {historyId && <UserHistory key={historyId} userId={historyId}/>}
     </>
   );
 }
@@ -1515,4 +1545,10 @@ function RemoveStudent({
       Remover da turma
     </button>
   );
+}
+
+function UserHistory({userId}: {userId: string}) {
+  const [page, setPage] = useState(1);
+  const resource = useResource<Page<Event>>(`/institutions/admin/users/${userId}/history?page=${page}`);
+  return <section className="panel"><h3>Histórico administrativo da conta</h3><ResourceState resource={resource}/>{resource.data?.items.length === 0 && <p>Nenhuma ocorrência registrada.</p>}{resource.data?.items.map(event => <p key={event.id}>{date(event.occurredAt)} · {event.event} · {auditResult(event.result)}</p>)}{resource.data && <Pages page={page} hasMore={resource.data.hasMore} change={setPage}/>}</section>;
 }

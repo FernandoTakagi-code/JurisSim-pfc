@@ -11,7 +11,7 @@ import { localEmailVerificationCapture } from './local-email-capture';
 import { currentAccess, institutionalTransaction, InstitutionService } from './institution-service';
 import { institutionAccountRegistrationSchema } from './institution-account-registration';
 import { institutionRegistrationEnabled } from '../config/institution-feature';
-import { assertEmailReusable } from './account-deletion';
+import { assertEmailReusable, AccountDeletionService } from './account-deletion';
 
 
 export type PerfilAcesso = 'ALUNO' | 'PROFESSOR';
@@ -148,18 +148,12 @@ export class AuthService {
     return this.repository.updateNome(userId, nome);
   }
   async logout(userId: string) {
-    await this.repository.revokeSessions(userId);
+    const result = await this.repository.revokeSessions(userId);
+    if (result.count !== 1) throw new ApiError(401, 'Conta indisponível para encerrar sessões. Entre novamente.');
     return { message: 'Sessões encerradas. Entre novamente para acessar sua conta.' };
   }
   async deleteAccount(userId: string, senhaAtual?: string) {
-    const user = await this.repository.findByIdWithSenha(userId);
-    if (!user) throw new ApiError(404, 'Usuário não encontrado.');
-    if (user.senhaHash && user.senhaHash !== GOOGLE_PASSWORD_SENTINEL) {
-      if (!senhaAtual) throw new ApiError(400, 'Informe sua senha atual para confirmar a exclusão.');
-      if (!await bcrypt.compare(senhaAtual, user.senhaHash)) throw new ApiError(401, 'Senha incorreta.');
-    }
-    await this.repository.anonymizeUser(userId);
-    return { message: 'Conta excluída com sucesso.' };
+    return new AccountDeletionService().self(userId, { senhaAtual });
   }
 
   async session(userId: string, localDemoRequested = false):Promise<AuthSessionResult> {
@@ -212,5 +206,16 @@ export class AuthService {
     const secret = process.env.JWT_SECRET;
     if (!secret || secret.length < 32) throw new Error('JWT_SECRET precisa ter pelo menos 32 caracteres.');
     return secret;
+  }
+
+
+  async deactivateAccount(userId: string, senhaAtual: string) {
+    const user = await this.repository.findByIdWithSenha(userId);
+    if (!user) throw new ApiError(404, 'Usuário não encontrado.');
+    if (!user.senhaHash || user.senhaHash === GOOGLE_PASSWORD_SENTINEL)
+      throw new ApiError(409, 'Contas Google exigem um fluxo de reautenticação específico para desativação. Procure o suporte.');
+    if (!await bcrypt.compare(senhaAtual, user.senhaHash)) throw new ApiError(400, 'Senha atual incorreta.');
+    await this.repository.deactivateUser(userId, user.senhaHash);
+    return { message: 'Conta desativada e sessões revogadas. Os registros foram preservados; a reativação depende de atendimento.' };
   }
 }

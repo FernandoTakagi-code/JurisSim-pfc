@@ -183,4 +183,32 @@ export class AuthRepository {
       });
     });
   }
+
+
+  deactivateUser(id: string, expectedPasswordHash: string) {
+    return prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${id} FOR UPDATE`;
+      const user = await tx.user.findUnique({ where: { id }, select: { role: true, deletedAt: true, senhaHash: true } });
+      if (!user || user.deletedAt || user.senhaHash !== expectedPasswordHash)
+        throw new ApiError(409, 'Conta ou credenciais alteradas. Entre novamente antes de desativar.');
+      if (user.role === 'ADMIN') throw new ApiError(409, 'A desativação de administrador geral exige transferência de responsabilidade pelo suporte.');
+      // Ownership still matters while institutional feature flags are off.
+      {
+        if (await tx.institution.findFirst({ where: { ownerId: id }, select: { id: true } }))
+          throw new ApiError(409, 'Transfira a responsabilidade institucional antes de desativar sua conta.');
+        if (await tx.institutionalMembership.findFirst({ where: { userId: id, role: 'INSTITUTION_ADMIN', active: true }, select: { id: true } }))
+          throw new ApiError(409, 'Regularize a administração institucional antes de desativar sua conta.');
+        await tx.institutionalMembership.updateMany({ where: { userId: id, active: true }, data: { active: false } });
+      }
+      const now = new Date();
+      await tx.authToken.updateMany({ where: { userId: id, usedAt: null }, data: { usedAt: now } });
+      await tx.passwordRecoveryToken.updateMany({ where: { userId: id, consumedAt: null }, data: { consumedAt: now } });
+      await tx.user.update({ where: { id }, data: { deletedAt: now, sessionVersion: { increment: 1 } } });
+      await tx.administrativeEvent.create({ data: { event: 'ACCOUNT_DEACTIVATED', actorId: id, result: 'SUCCESS' } });
+    }, { isolationLevel: 'Serializable' }).catch(error => {
+      if ((error as { code?: string }).code === 'P2021')
+        throw new ApiError(503, 'Desativação indisponível até validar a estrutura de vínculos. Nenhuma alteração foi aplicada.');
+      throw error;
+    });
+  }
 }

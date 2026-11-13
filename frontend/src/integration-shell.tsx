@@ -1,5 +1,10 @@
+import { GlobalSignOut } from './global-sign-out';
+import { AccountDeletion } from './account-deletion';
+import {accountIdentity,profilePath as canonicalProfilePath,profileRoute,profileTabs,type ProfileTab} from './profile-navigation';
+const subscribeProfile=(listener:()=>void)=>{window.addEventListener('popstate',listener);return()=>window.removeEventListener('popstate',listener);};
+const useProfileLocation=()=>useSyncExternalStore(subscribeProfile,()=>window.location.pathname+window.location.search);
 import {Icon} from './ui-icon';
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { apiRequest } from "./api";
 import { refreshSession, type Session } from "./auth-session";
 import { LegalLinks } from "./legal";
@@ -394,11 +399,18 @@ export function ProfileSettings({
   setCollapsed: (value: boolean) => void;
   onSair: () => void;
 }) {
-  const [tab, setTab] = useState(settings ? "appearance" : "personal");
+  const location=useProfileLocation();
+  const url=new URL(location,window.location.origin);
+  const requested=url.searchParams.get('aba');
+  const tab:ProfileTab=profileTabs.includes(requested as ProfileTab)?requested as ProfileTab:settings?'appearance':'personal';
+  const setTab=(next:ProfileTab)=>{const params=new URLSearchParams(url.search);params.set('aba',next);navigate(url.pathname+'?'+params.toString());};
   const [name, setName] = useState(user.nome);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const profileSession = useSession();
+  const memberships = profileSession.session?.administration?.memberships ?? [];
+  const identity=accountIdentity(profileSession.session??{user},url.pathname==='/instituicoes');
   useEffect(() => {
     setName(user.nome);
   }, [user.nome]);
@@ -426,12 +438,17 @@ export function ProfileSettings({
   };
   return (
     <section className="v0-page">
-      <p className="gold">{roleLabel(user.role)}</p>
+      <p className="gold">{identity.label}</p>
       <h1>Perfil e configurações</h1>
       <p className="v0-description">
         Gerencie seus dados, segurança e preferências do JurisSim.
       </p>
-      <nav className="v0-tabs" aria-label="Seções do perfil">
+      <nav className="v0-tabs" role="tablist" aria-label="Seções do perfil" onKeyDown={event=>{
+        if(!['ArrowRight','ArrowLeft','Home','End'].includes(event.key))return;
+        event.preventDefault();const index=profileTabs.indexOf(tab);
+        const next=event.key==='Home'?0:event.key==='End'?3:(index+(event.key==='ArrowRight'?1:3))%4;
+        setTab(profileTabs[next]);requestAnimationFrame(()=>document.getElementById('profile-tab-'+profileTabs[next])?.focus());
+      }}>
         {[
           ["personal", "Dados pessoais"],
           ["security", "Segurança"],
@@ -440,14 +457,20 @@ export function ProfileSettings({
         ].map(([key, label]) => (
           <button
             key={key}
+            id={'profile-tab-'+key}
+            role="tab"
+            aria-selected={tab===key}
+            aria-controls="profile-tab-panel"
+            tabIndex={tab===key?0:-1}
             aria-current={tab === key ? "page" : undefined}
             className={tab === key ? "active" : ""}
-            onClick={() => setTab(key)}
+            onClick={() => setTab(key as ProfileTab)}
           >
             {label}
           </button>
         ))}
       </nav>
+      <div id="profile-tab-panel" role="tabpanel" aria-labelledby={'profile-tab-'+tab}>
       {tab === "personal" && (
         <div className="v0-profile-grid">
           <article className="v0-panel">
@@ -469,7 +492,7 @@ export function ProfileSettings({
               />
               <label htmlFor="profile-email">E-mail cadastrado</label>
               <input id="profile-email" value={user.email} readOnly />
-              <label htmlFor="profile-role">Tipo de conta</label>
+              <label htmlFor="profile-role">Tipo de conta individual</label>
               <input id="profile-role" value={roleLabel(user.role)} readOnly />
               <button
                 className="primary"
@@ -494,12 +517,13 @@ export function ProfileSettings({
               <dd>{user.emailVerificado ? "Confirmado" : "Pendente"}</dd>
               <dt>Sessão atual</dt>
               <dd>Ativa</dd>
-              <dt>Perfil autenticado</dt>
-              <dd>{roleLabel(user.role)}</dd>
+              <dt>Contexto de acesso</dt>
+              <dd>{identity.label}</dd>
+              <dt>Vínculos operacionais disponíveis</dt>
+              <dd>{memberships.length ? memberships.map(m => `${m.role === 'INSTITUTION_ADMIN' ? 'Administrador institucional' : 'Professor'} — ${m.institution.name}`).join('; ') : identity.institutional&&!profileSession.session?.administration?.enabled?'As operações institucionais ainda não estão disponíveis. Consulte a situação cadastral em Instituições.':'Nenhum vínculo operacional disponível nesta sessão.'}</dd>
             </dl>
             <p>
-              As permissões são verificadas pelo backend em cada operação
-              protegida.
+              Cada operação está sujeita às permissões do seu perfil e aos seus vínculos ativos.
             </p>
           </article>
         </div>
@@ -521,6 +545,8 @@ export function ProfileSettings({
             </button>
           </article>
           <Privacy />
+          <GlobalSignOut />
+          <AccountDeletion />
         </div>
       )}
       {tab === "appearance" && (
@@ -572,6 +598,7 @@ export function ProfileSettings({
           </article>
         </div>
       )}
+      </div>
     </section>
   );
 }

@@ -479,19 +479,21 @@ export class InstitutionService {
     page: number,
     search?: string,
     role?: "ALUNO" | "PROFESSOR" | "ADMIN",
+    status?: 'ACTIVE' | 'SUSPENDED',
   ) {
     requireGlobal(actor);
+    if (!search || search.trim().length < 2) return pageResult([], page);
     const users = await prisma.user.findMany({
       where: {
         deletedAt: null,
         role,
-        AND:[{OR:[{role:{in:['ADMIN','PROFESSOR']}},{institutionsOwned:{some:{}}},{institutionalMemberships:{some:{role:'INSTITUTION_ADMIN'}}}]}],
+        ...(status === 'SUSPENDED' ? {accountControl: {is: {suspended: true}}} : status === 'ACTIVE' ? {OR: [{accountControl: {is: null}}, {accountControl: {is: {suspended: false}}}]} : {}),
         ...(search
           ? {
-              OR: [
+              AND: [{ OR: [
                 { nome: { contains: search, mode: "insensitive" as const } },
                 { email: { contains: search, mode: "insensitive" as const } },
-              ],
+              ] }],
             }
           : {}),
       },
@@ -528,9 +530,11 @@ export class InstitutionService {
   async controlUser(
     actor: InstitutionActor,
     userId: string,
-    data: { suspended?: boolean; globalAdmin?: boolean },
+    data: { suspended?: boolean; globalAdmin?: boolean; reason?: string },
   ) {
     requireGlobal(actor);
+    if (!data.reason || data.reason.trim().length < 3 || data.reason.length > 500) throw new ApiError(400, "Justificativa obrigatoria (3 a 500 caracteres).");
+    const reason = data.reason.trim();
     if (userId === actor.userId)
       throw new ApiError(
         409,
@@ -539,14 +543,18 @@ export class InstitutionService {
     return institutionalTransaction(async (tx) => {
       // Serialize all administrative permission changes, including last-admin checks.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(710911)`;
+      const currentAdmin = await tx.user.findFirst({ where: { id: actor.userId, role: 'ADMIN', deletedAt: null, emailVerifiedAt: { not: null }, OR: [{ accountControl: { is: null } }, { accountControl: { is: { suspended: false } } }] }, select: { id: true } });
+      if (!currentAdmin) throw new ApiError(403, 'Administração revogada ou indisponível.');
       const user = await tx.user.findUnique({
         where: { id: userId },
         select: { role: true, emailVerifiedAt: true, deletedAt: true },
       });
       if (!user || user.deletedAt)
         throw new ApiError(404, "Conta indisponível.");
-      const administrativeAccount = await tx.user.findFirst({where:{id:userId,OR:[{role:{in:['ADMIN','PROFESSOR']}},{institutionsOwned:{some:{}}},{institutionalMemberships:{some:{role:'INSTITUTION_ADMIN'}}}]},select:{id:true}});
-      if(!administrativeAccount) throw new ApiError(403,'Contas individuais de alunos não integram a gestão administrativa rotineira.');
+      if (data.globalAdmin !== undefined) {
+        const eligible = await tx.user.findFirst({where:{id:userId,OR:[{role:{in:['ADMIN','PROFESSOR']}},{institutionsOwned:{some:{}}},{institutionalMemberships:{some:{role:'INSTITUTION_ADMIN'}}}]},select:{id:true}});
+        if (!eligible) throw new ApiError(403, 'Esta conta não integra a gestão de permissões administrativas.');
+      }
       if (data.globalAdmin && !user.emailVerifiedAt)
         throw new ApiError(
           409,
@@ -614,6 +622,7 @@ export class InstitutionService {
         actor.userId,
         undefined,
         userId,
+        JSON.stringify({ status: "SUCCESS", reason }),
       );
       return {
         message: "Conta atualizada. As sessões anteriores foram revogadas.",
@@ -1067,5 +1076,15 @@ export class InstitutionService {
       }),
       page,
     );
+  }
+
+
+  async userHistory(actor: InstitutionActor, userId: string, page: number) {
+    requireGlobal(actor);
+    return pageResult(await prisma.administrativeEvent.findMany({
+      where: { resourceId: userId, event: { in: ['ACCOUNT_SUSPENDED', 'ACCOUNT_REACTIVATED', 'PERMISSION_CHANGED'] } },
+      select: { id: true, occurredAt: true, event: true, result: true, severity: true },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }], ...pagination(page),
+    }), page);
   }
 }

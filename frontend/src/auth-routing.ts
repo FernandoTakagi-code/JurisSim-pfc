@@ -1,3 +1,4 @@
+import {profileRoute} from './profile-navigation';
 export type SessionRoute = {
   registrationIntent?: 'INSTITUTION' | 'TEACHER_INVITATION';
   user: { role: 'ALUNO' | 'PROFESSOR' | 'ADMIN'; emailVerificado: boolean };
@@ -16,6 +17,8 @@ export function sessionDestination(session: SessionRoute): string {
 
 /** Returns the redirect before rendering a protected student page. */
 export function sessionRedirectTarget(session: SessionRoute, path: string, search=''): string | null {
+  const profile = profileRoute(session.user.role, path, search);
+  if (profile) return profile.target === path + search ? null : profile.target;
   if (session.user.role === 'ADMIN') {
     if (path === '/administracao' || path.startsWith('/administracao/')) return null;
     return '/administracao';

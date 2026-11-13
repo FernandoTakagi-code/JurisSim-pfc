@@ -68,7 +68,7 @@ const protectedEndpoints: [string, string][] = [
   ['GET', `/diagnostics/${resourceId}/result`], ['GET', `/diagnostics/${resourceId}/trail`],
   ['POST', `/trilhas/${resourceId}/gerar`], ['GET', `/trilhas/attempts/${resourceId}/questions`],
   ['PUT', `/trilhas/attempts/${resourceId}/answers/${resourceId}`], ['POST', `/trilhas/attempts/${resourceId}/finalize`],
-  ['GET', '/audit-logs'], ['PUT', '/auth/nome'], ['DELETE', '/auth/conta'],
+  ['GET', '/audit-logs'], ['PUT', '/auth/nome'], ['DELETE', '/auth/conta'], ['POST', '/auth/conta/desativacao'],
 ];
 const resourceCalls = () => [mocks.questionList, mocks.questionGet, mocks.questionCreate, mocks.questionUpdate, mocks.questionDelete,
   mocks.diagnosticStart, mocks.diagnosticQuestions, mocks.diagnosticAnswer, mocks.diagnosticFinalize, mocks.diagnosticResult, mocks.diagnosticTrail,
@@ -84,6 +84,9 @@ function callFromOrigin(method: string, route: string, origin: string, headers: 
 }
 
 beforeAll(async () => {
+  vi.stubEnv('INSTITUTIONS_ENABLED', 'false');
+  vi.stubEnv('ADMINISTRATION_ENABLED', 'false');
+  vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED', 'false');
   // Isolate credentials even when this suite is run from a configured shell.
   vi.stubEnv('JWT_SECRET', secret);
   vi.stubEnv('DATABASE_URL', 'postgresql://test:test@127.0.0.1:1/test');
@@ -118,7 +121,7 @@ beforeEach(() => {
   mocks.userFind.mockImplementation(async ({ where }) => account && (where.id === account.id || where.email === account.email) ? { ...account } : null);
   mocks.userList.mockImplementation(async ({ where }) => account && where.email.equals.toLowerCase() === account.email.toLowerCase() ? [{ ...account }] : []);
   mocks.userUpdate.mockImplementation(async () => { account!.emailVerifiedAt = new Date(); return { id: userId }; });
-  mocks.userUpdateMany.mockImplementation(async ({ data }) => { account!.senhaHash = data.senhaHash; account!.sessionVersion += data.sessionVersion.increment; return { count: 1 }; });
+  mocks.userUpdateMany.mockImplementation(async ({ data }) => { if (data.senhaHash !== undefined) account!.senhaHash = data.senhaHash; account!.sessionVersion += data.sessionVersion.increment; return { count: 1 }; });
   mocks.auditCreate.mockResolvedValue({});
   mocks.auditFind.mockResolvedValue([]);
   mocks.diagnosticFind.mockResolvedValue(null);
@@ -222,7 +225,7 @@ describe('confirmação obrigatória em todas as operações protegidas', () => 
     }
     for (const operation of resourceCalls()) expect(operation).not.toHaveBeenCalled();
     expect(mocks.diagnosticFind).not.toHaveBeenCalled();
-    expect(mocks.userFind).toHaveBeenCalledWith({ where: { id: userId }, select: { id: true, role: true, registrationIntent:true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } });
+    expect(mocks.userFind).toHaveBeenCalledWith({ where: { id: userId }, select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true, registrationIntent: true } });
   });
 
   it.each(['inexistente', 'excluída'])('recusa conta %s em recursos, sessão limitada e reenvio', async state => {
@@ -360,6 +363,28 @@ describe('exceções limitadas e continuidade dos fluxos', () => {
 });
 
 describe('revogação de sessões após redefinir senha', () => {
+  it.each(roles)('logout global invalida todos os JWTs anteriores de %s sem alterar identidade ou senha', async role => {
+    account!.role = role; account!.emailVerifiedAt = new Date();
+    const snapshot = { ...account! };
+    const legacy = token(role);
+    const login = await call('POST', '/auth/login', undefined, { email: account!.email, senha: 'fixture-password' });
+    const issued = (await login.json()).token;
+    expect((await call('POST', '/auth/logout', issued, { userId: 'victim' })).status).toBe(200);
+    expect(account).toEqual({ ...snapshot, sessionVersion: 1 });
+    expect(mocks.userUpdateMany).toHaveBeenCalledWith({ where: { id: userId, deletedAt: null }, data: { sessionVersion: { increment: 1 } } });
+    for (const bearer of [legacy, issued]) {
+      for (const [method, route] of [...protectedEndpoints, ['GET', '/auth/session'], ['POST', '/auth/logout'], ['POST', '/auth/email-verification'], ['GET', '/turmas'], ['GET', '/reports/overview'], ['GET', '/profile/photo']])
+        expect((await call(method, route, bearer, method === 'GET' ? undefined : {})).status, route).toBe(401);
+    }
+    const fresh = await call('POST', '/auth/login', undefined, { email: snapshot.email, senha: 'fixture-password' });
+    expect(fresh.status).toBe(200);
+    expect((jwt.verify((await fresh.json()).token, secret) as jwt.JwtPayload).sessionVersion).toBe(1);
+  });
+  it('recusa origem externa no logout sem revogar a conta', async () => {
+    account!.emailVerifiedAt = new Date();
+    const response = await fetch(base + '/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token()}`, Origin: 'https://external.invalid' } });
+    expect(response.status).toBe(403); expect(account!.sessionVersion).toBe(0); expect(mocks.userUpdateMany).not.toHaveBeenCalled();
+  });
   function recoveryLink() {
     const row = { id: 'reset-row', userId, consumedAt: null as Date | null, expiresAt: new Date(Date.now() + 60_000) };
     mocks.recoveryFind.mockImplementation(async () => ({ ...row, user: { senhaHash: account!.senhaHash } }));

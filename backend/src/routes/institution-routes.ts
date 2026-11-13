@@ -1,3 +1,4 @@
+import { AccountDeletionService } from '../services/account-deletion';
 import { Router } from "express";
 import { z } from "zod";
 import {
@@ -203,15 +204,17 @@ institutionRoutes.get(
       page: p,
       search,
       role,
+      status,
     } = z
       .object({
         page,
         search: z.string().trim().max(120).optional(),
+        status: z.enum(['ACTIVE', 'SUSPENDED']).optional(),
         role: z.enum(["ALUNO", "PROFESSOR", "ADMIN"]).optional(),
       })
       .strict()
       .parse(req.query);
-    res.json(await service.users(req.auth!, p, search, role));
+    res.json(await service.users(req.auth!, p, search, role, status));
   },
 );
 institutionRoutes.patch(
@@ -219,12 +222,13 @@ institutionRoutes.patch(
   async (req: AuthenticatedRequest, res) => {
     const input = z
       .object({
+        reason: z.string().trim().min(3).max(500),
         suspended: z.boolean().optional(),
         globalAdmin: z.boolean().optional(),
       })
       .strict()
       .refine(
-        (v) => Object.values(v).length === 1,
+        (v) => Number(v.suspended !== undefined) + Number(v.globalAdmin !== undefined) === 1,
         "Altere uma permissão por vez.",
       )
       .parse(req.body);
@@ -329,6 +333,22 @@ institutionRoutes.get("/:id/logs", async (req: AuthenticatedRequest, res) => {
     ),
   );
 });
+institutionRoutes.get('/admin/users/:id/history', async (req: AuthenticatedRequest, res) => {
+  res.json(await service.userHistory(req.auth!, id(req), z.object({page}).strict().parse(req.query).page));
+});
+
+institutionRoutes.post('/admin/email-reuse/revoke', authRateLimit(10, 900000), async (req: AuthenticatedRequest, res) => {
+  requireGlobal(req.auth!);
+  const data = z.object({ email: z.string().trim().email().max(254), confirmation: z.literal('REVOGAR'), reason: z.string().trim().min(3).max(500) }).strict().parse(req.body);
+  res.json(await new AccountDeletionService().revoke(req.auth!, data.email, data.reason));
+});
+
+institutionRoutes.delete('/admin/users/:userId', authRateLimit(10, 900000), async (req: AuthenticatedRequest, res) => {
+  requireGlobal(req.auth!);
+  const data = z.object({ confirmation: z.literal('EXCLUIR'), blockEmail: z.boolean(), reason: z.string().trim().min(3).max(500), senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional() }).strict().refine(value => !!value.senhaAtual || !!value.googleCredential, 'Confirme a identidade do ADMIN.').parse(req.body);
+  res.json(await new AccountDeletionService().admin(req.auth!, id(req, 'userId'), data.blockEmail, data.reason, data));
+});
+
 
 return institutionRoutes;
 }
