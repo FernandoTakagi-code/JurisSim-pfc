@@ -1,5 +1,7 @@
 # Piloto de treino por questões
 
+> Ampliação em 13/11/2026: o piloto passou a aceitar dois lotes privados, somando 120 itens. Consulte [ampliacao-acervo-120.md](ampliacao-acervo-120.md) para o estado atual e a capacidade; os números do primeiro lote abaixo são históricos.
+
 Implementação na branch `fernando/questoes-diagnostico-autoral`. Ativação local autorizada por Fernando; não representa publicação externa nem aprovação jurídica ou pedagógica.
 
 ## Uso

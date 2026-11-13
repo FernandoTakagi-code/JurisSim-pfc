@@ -230,4 +230,31 @@ describe('question practice with disposable PostgreSQL', () => {
     expect((await request('GET', `/question-practice/${attempt.id}/result`, token)).body.result.provisional).toBe(true);
     process.env.INDIVIDUAL_EXAM_PILOT_ENABLED = 'false';
   });
+  it('combines two explicitly allowed private batches and offers 20 by discipline or 10 by topic', async () => {
+    const operator = await criarUsuario('PROFESSOR');
+    await prisma.user.update({ where: { id: operator.id }, data: { role: 'ADMIN' } });
+    const first = await importPracticeDrafts(prisma, JSON.parse(readFileSync(resolve('scripts/drafts/authorial-practice-60.draft.json'), 'utf8')), operator.id);
+    const second = await importPracticeDrafts(prisma, JSON.parse(readFileSync(resolve('scripts/drafts/authorial-practice-expansion-60.draft.json'), 'utf8')), operator.id);
+    process.env.QUESTION_PRACTICE_PILOT_ENABLED = 'true';
+    process.env.INDIVIDUAL_EXAM_PILOT_ENABLED = 'true';
+    process.env.QUESTION_PRACTICE_PILOT_BATCH_IDS = `${first.batchId},${second.batchId}`;
+    process.env.INDIVIDUAL_EXAM_PILOT_BATCH_IDS = `${first.batchId},${second.batchId}`;
+    try {
+      const student = await criarUsuario('ALUNO'), token = tokenPara(student);
+      const catalog = await request('GET', '/question-practice/catalog/Direito%20Civil/availability', token);
+      expect(catalog.body).toMatchObject({ provisional: true, availableCount: 24, availableQuantities: [5, 10, 20] });
+      expect(catalog.body.topics.every((t: { availableCount: number }) => t.availableCount === 12)).toBe(true);
+      const topic = catalog.body.topics[0].name;
+      const started = await request('POST', '/question-practice', token, { discipline: 'Direito Civil', topic, quantity: 10 });
+      expect(started.status).toBe(201);
+      expect(started.body.attempt).toMatchObject({ provisional: true, topic });
+      expect(started.body.attempt.questions).toHaveLength(10);
+      const eligible = await new PrismaIndividualExamRepository(prisma).available(student.id);
+      expect(eligible).toHaveLength(120);
+      expect(await prisma.questao.count({ where: { loteImportacaoId: { in: [first.batchId, second.batchId] }, publica: false, revisaoJuridicaEm: null, revisaoPedagogicaEm: null, liberadaAcervoEm: null } })).toBe(120);
+    } finally {
+      delete process.env.QUESTION_PRACTICE_PILOT_BATCH_IDS;
+      delete process.env.INDIVIDUAL_EXAM_PILOT_BATCH_IDS;
+    }
+  });
 });

@@ -32,6 +32,13 @@ it('selects only the explicit private batch without treating it as human-approve
   expect(toEligibleCandidate(q)).toBeNull();
   expect(q.revisaoJuridicaEm).toBeNull();
 });
+it('selects either allowlisted batch while refusing unrelated private batches', () => {
+  const second = '2318bdec-f4e3-43a1-8b54-cdc40720dea5';
+  vi.stubEnv('INDIVIDUAL_EXAM_PILOT_BATCH_IDS', `${batchId},${second}`);
+  expect(individualExamInventoryWhere()).toMatchObject({ loteImportacaoId: { in: [batchId, second] } });
+  expect(isIndividualExamSelectable({ ...row(), loteImportacaoId: second })).toBe(true);
+  expect(isIndividualExamSelectable({ ...row(), loteImportacaoId: '3318bdec-f4e3-43a1-8b54-cdc40720dea5' })).toBe(false);
+});
 it('refuses another batch, public records, partial approvals, malformed provenance and incomplete keys', () => {
   for (const changes of [{ loteImportacaoId: 'another' }, { publica: true }, { revisorJuridicoId: 'invented' }, { fonteReferencia: 'anything' }, { origem: 'OAB_OFICIAL' }, { disciplina: 'Outra' }, { alternativas: row().alternativas.slice(0, 3) }]) expect(isIndividualExamPilotQuestion({ ...row(), ...changes } as InventoryRow)).toBe(false);
 });

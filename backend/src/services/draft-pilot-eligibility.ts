@@ -1,13 +1,16 @@
 import type { Prisma } from '@prisma/client';
 import { INITIAL_DIAGNOSTIC_DISCIPLINES } from './initial-diagnostic-config';
 import { hasCompleteContent, inventoryWhere, type InventoryRow } from '../repositories/prisma-initial-diagnostic-repository';
-export function draftPilotInventoryWhere(batchId: string | null): Prisma.QuestaoWhereInput {
-  return batchId ? { loteImportacaoId: batchId, origem: 'IA', publica: false, turmaId: null,
+type Batches = string | readonly string[] | null;
+const list = (batches: Batches): readonly string[] => typeof batches === 'string' ? [batches] : batches ?? [];
+export function draftPilotInventoryWhere(batches: Batches): Prisma.QuestaoWhereInput {
+  const ids = list(batches);
+  return ids.length ? { loteImportacaoId: ids.length === 1 ? ids[0] : { in: [...ids] }, origem: 'IA', publica: false, turmaId: null,
     revisaoJuridicaEm: null, revisorJuridicoId: null, revisaoPedagogicaEm: null, revisorPedagogicoId: null,
     liberadaAcervoEm: null, liberadaAcervoPorId: null } : inventoryWhere;
 }
-export function isDraftPilotQuestion(row: InventoryRow, batchId: string | null) {
-  if (!batchId || row.loteImportacaoId !== batchId || row.origem !== 'IA' || row.publica || row.turmaId !== null
+export function isDraftPilotQuestion(row: InventoryRow, batches: Batches) {
+  if (!row.loteImportacaoId || !list(batches).includes(row.loteImportacaoId) || row.origem !== 'IA' || row.publica || row.turmaId !== null
     || row.revisaoJuridicaEm || row.revisorJuridicoId || row.revisaoPedagogicaEm || row.revisorPedagogicoId
     || row.liberadaAcervoEm || row.liberadaAcervoPorId || !hasCompleteContent(row)
     || !INITIAL_DIAGNOSTIC_DISCIPLINES.includes(row.disciplina as typeof INITIAL_DIAGNOSTIC_DISCIPLINES[number])
