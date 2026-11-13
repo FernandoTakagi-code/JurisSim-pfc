@@ -51,7 +51,7 @@ export const adminSections = [
   {
     id: "settings",
     path: "/administracao/configuracoes",
-    label: "Configurações",
+    label: "Configurações do sistema",
     icon: "settings",
   },
 ] as const;

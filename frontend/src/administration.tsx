@@ -356,23 +356,25 @@ export function InstitutionContext({ session }: { session: Session }) {
     </div>
   );
 }
-function Notifications() {
+function Notifications({recent=false}:{recent?:boolean}={}) {
   const [page, setPage] = useState(1);
+  const [expanded,setExpanded]=useState(false);
   const resource = useResource<
     Page<{ id: string; message: string; createdAt: string }>
   >(`/institutions/notifications?page=${page}`);
+  if(recent&&!expanded&&resource.data?.items.length===0)return null;
   return (
     <section>
-      <h2>Notificações</h2>
+      <h2>{recent&&!expanded?'Notificações recentes':'Notificações'}</h2>
       <ResourceState resource={resource} />
       {resource.data?.items.length === 0 && <p>Nenhuma notificação.</p>}
-      {resource.data?.items.map((n) => (
+      {(recent&&!expanded?resource.data?.items.slice(0,3):resource.data?.items)?.map((n) => (
         <article className="panel" key={n.id}>
           <time>{date(n.createdAt)}</time>
           <p>{n.message}</p>
         </article>
       ))}
-      <Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />
+      {recent&&!expanded?((resource.data?.hasMore||(resource.data?.items.length??0)>3)&&<button className="text-button" onClick={()=>setExpanded(true)}>Ver todas as notificações</button>):<Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />}
     </section>
   );
 }
@@ -410,7 +412,7 @@ export function AuditPanel({
         {["event", "actorId", ...(institutionId ? [] : ["institutionId"])].map(
           (field, i) => (
             <label key={field}>
-              {["Evento", "ID do usuário", "ID da instituição"][i]}
+              {["Tipo de evento", "Identificador do responsável", "Identificador da instituição"][i]}
               <input
                 value={draft[field] ?? ""}
                 maxLength={80}
@@ -428,9 +430,9 @@ export function AuditPanel({
             onChange={(e) => setDraft({ ...draft, severity: e.target.value })}
           >
             <option value="">Todas</option>
-            <option>INFO</option>
-            <option>WARN</option>
-            <option>ERROR</option>
+            <option value="INFO">Informação</option>
+            <option value="WARN">Aviso</option>
+            <option value="ERROR">Erro</option>
           </select>
         </label>
         {["from", "to"].map((field, i) => (
@@ -449,7 +451,7 @@ export function AuditPanel({
             />
           </label>
         ))}
-        <button>Aplicar filtros</button>
+        <button className="primary-button">Aplicar filtros</button>
       </form>
       <ResourceState resource={resource} />
       {resource.data?.items.length === 0 && <p>Nenhum evento neste período.</p>}
@@ -469,15 +471,15 @@ export function AuditPanel({
               <tr key={e.id}>
                 <td>{date(e.occurredAt)}</td>
                 <td>
-                  {e.event}
-                  <small>{e.severity}</small>
+                  <strong>{({CLASS_CREATED:'Turma criada',CLASS_CODE_ROTATED:'Código de convite renovado',ACCESS_DENIED:'Acesso bloqueado'} as Record<string,string>)[e.event] ?? e.event}</strong>
+                  <small>{e.event} · {({INFO:'Informação',WARN:'Aviso',ERROR:'Erro'} as Record<string,string>)[e.severity] ?? e.severity}</small>
                 </td>
                 <td>{e.actorId ?? "Não identificado"}</td>
                 <td>
                   {e.resourceId ?? "—"}
                   <small>{e.institutionId}</small>
                 </td>
-                <td>{e.result}</td>
+                <td>{({SUCCESS:'Sucesso',FAILED:'Falha'} as Record<string,string>)[e.result] ?? e.result}</td>
               </tr>
             ))}
           </tbody>
@@ -592,8 +594,7 @@ function PlatformAuditPanel() {
       {resource.data && (
         <p>
           Exibindo {resource.data.length} registro(s), até o limite de{" "}
-          {new URLSearchParams(query).get("limit")}. A API não fornece total
-          global nem paginação.
+          {new URLSearchParams(query).get("limit")}.
         </p>
       )}
       <div className="admin-table-wrap">
@@ -645,8 +646,7 @@ function AdministrationSecurity() {
         <dd>{user?.emailVerificado ? "Sim" : "Não confirmado"}</dd>
       </dl>
       <p>
-        Consulte LOGIN_SUCESSO e LOGIN_FALHA na auditoria da plataforma. Não há
-        API para contagem global de ameaças ou sessões ativas.
+        Consulte os acessos bem-sucedidos e as tentativas de acesso na auditoria da plataforma.
       </p>
       <div className="admin-actions">
         <button onClick={() => navigate("/administracao/auditoria")}>
@@ -712,12 +712,6 @@ export function GeneralAdministration() {
                   {(tab && institutionalUnavailable[tab]?.message) ||
                     "Os indicadores globais dependem da habilitação administrativa. A auditoria da plataforma e as preferências pessoais continuam independentes."}
                 </p>
-                {tab && institutionalUnavailable[tab] && (
-                  <p>
-                    Recurso protegido:{" "}
-                    <code>{institutionalUnavailable[tab]!.endpoint}</code>.
-                  </p>
-                )}
                 {tab === "users" && (
                   <button onClick={() => navigate("/administracao/perfil")}>
                     Consultar meu perfil
@@ -758,8 +752,7 @@ export function GeneralAdministration() {
                   <div className="empty-chart">
                     <span aria-hidden="true">⌁</span>
                     <p>
-                      Indisponível: a API atual não fornece séries históricas de
-                      cadastros.
+                      O histórico de cadastros não está disponível no momento.
                     </p>
                   </div>
                 </article>
@@ -772,8 +765,7 @@ export function GeneralAdministration() {
                   </div>
                   <div className="empty-chart">
                     <p>
-                      Indisponível: não há endpoint de distribuição global por
-                      perfil.
+                      A distribuição por perfil não está disponível no momento.
                     </p>
                   </div>
                 </article>
@@ -795,24 +787,7 @@ export function GeneralAdministration() {
               </div>
             </>
           ) : tab === "settings" ? (
-            <section className="panel">
-              <h2>Configurações globais</h2>
-              <p>
-                Não há endpoint para alterar configurações globais neste painel.
-                Preferências pessoais continuam disponíveis no menu do perfil.
-              </p>
-              <p>
-                Altere tema e recolhimento do menu nas preferências locais.
-                Nome, foto e segurança da sua própria conta usam os fluxos
-                pessoais existentes, sem ativação institucional.
-              </p>
-              <button
-                className="outline-button"
-                onClick={() => navigate("/administracao/preferencias")}
-              >
-                Preferências pessoais
-              </button>
-            </section>
+            <AdministrationSettings availability={availability.data} />
           ) : tab === 'classes' ? (
             <section className="panel"><h2>Gestão pedagógica institucional</h2><p>Turmas e alunos são gerenciados pelos responsáveis e professores autorizados da própria instituição. A administração geral não possui acesso pedagógico rotineiro.</p></section>
           ) : tab === "security" ? (
@@ -826,9 +801,8 @@ export function GeneralAdministration() {
                 <section className="panel">
                   <h2>Auditoria institucional indisponível</h2>
                   <p>
-                    Os eventos de instituições, convites e vínculos usam
-                    /institutions/admin/logs e permanecem protegidos pela flag.
-                    A consulta da plataforma acima continua disponível.
+                    A auditoria de instituições, convites e vínculos não está disponível no momento.
+                    Você pode consultar a auditoria da plataforma acima.
                   </p>
                 </section>
               ) : null}
@@ -1551,4 +1525,21 @@ function UserHistory({userId}: {userId: string}) {
   const [page, setPage] = useState(1);
   const resource = useResource<Page<Event>>(`/institutions/admin/users/${userId}/history?page=${page}`);
   return <section className="panel"><h3>Histórico administrativo da conta</h3><ResourceState resource={resource}/>{resource.data?.items.length === 0 && <p>Nenhuma ocorrência registrada.</p>}{resource.data?.items.map(event => <p key={event.id}>{date(event.occurredAt)} · {event.event} · {auditResult(event.result)}</p>)}{resource.data && <Pages page={page} hasMore={resource.data.hasMore} change={setPage}/>}</section>;
+}
+
+function AdministrationSettings({ availability }: { availability?: AdministrationAvailability }) {
+  const health = useResource<{status: string}>("/health");
+  return <div className="admin-settings">
+    <section className="panel"><h2>Estado do sistema</h2><ResourceState resource={health}/><dl>
+      <dt>Serviço</dt><dd>{health.loading ? 'Verificando…' : health.error ? 'Não foi possível verificar' : health.data?.status === 'ok' ? 'Disponível' : 'Indisponível'}</dd>
+      <dt>Serviço de e-mails</dt><dd>Não monitorado</dd>
+    </dl><button onClick={health.reload} disabled={health.loading}>Atualizar verificação</button></section>
+    <section className="panel"><h2>Funcionalidades</h2><dl>{[
+      ['Cadastro institucional', availability?.registrationEnabled],
+      ['Administração geral', availability?.administrationEnabled],
+      ['Operações institucionais completas', availability?.enabled],
+      ['Convites e vínculos institucionais', availability?.enabled],
+    ].map(([name, value]) => <div key={String(name)}><dt>{name}</dt><dd>{value === undefined ? 'Não foi possível verificar' : value ? 'Habilitada' : 'Desabilitada'}</dd></div>)}</dl></section>
+    <section className="panel"><h2>Controles administrativos</h2><h3>Controle de novos cadastros</h3><p>A opção de pausar temporariamente novas solicitações institucionais estará disponível em uma atualização futura.</p></section>
+  </div>;
 }

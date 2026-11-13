@@ -15,7 +15,10 @@ function load(name) {
         },
       },
     ).outputText,
-    { exports },
+    { exports, URLSearchParams, require(name) {
+      if (name === './profile-navigation') return load('profile-navigation.ts');
+      throw new Error(name);
+    } },
   );
   return exports;
 }
@@ -60,7 +63,7 @@ assert.equal(
 );
 assert.equal(
   sessionRedirectTarget(session("ADMIN"), "/administracao/preferencias"),
-  null,
+  '/administracao/perfil?aba=appearance',
 );
 assert.equal(sessionDestination(session("ALUNO")), "/dashboard");
 assert.equal(sessionDestination(session("PROFESSOR")), "/professor");

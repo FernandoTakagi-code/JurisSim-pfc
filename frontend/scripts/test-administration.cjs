@@ -43,6 +43,9 @@ vm.runInNewContext(compiled, {
   URLSearchParams,
   exports: exportsObject,
   require(name) {
+    if (name === './institution-request') return { InstitutionRequest: () => null };
+    if (name === './account-deletion') return { AdminAccountDeletion: () => null, EmailReuseRevocation: () => null };
+    if (name === '../../backend/src/institution-registration') return { institutionPendingFields: () => [], noWebsiteDeclaration: 'Não possui website' };
     if (name === "./administration-availability") return availabilityHelpers;
     if (name === "react")
       return {
@@ -108,7 +111,7 @@ const sections = [
   "Logs e auditoria",
   "Segurança",
   "Notificações",
-  "Configurações",
+  "Configurações do sistema",
 ];
 let checks = 0;
 function check(name, fn) {
@@ -141,13 +144,11 @@ check("indicadores reais e ausência das métricas fictícias do v0", () => {
   assert.ok(html.includes("Vínculos de professores ativos"));
   assert.ok(paths.includes("/institutions/admin/summary"));
   assert.ok(!html.includes("12.438"));
-  assert.ok(html.includes("não fornece séries históricas"));
+  assert.ok(html.includes("não está disponível no momento"));
 });
 for (const [tab, expected] of [
   ["institutions", "/institutions/admin/institutions?page=1"],
   ["requests", "/institutions/admin/institutions?page=1&status=PENDING"],
-  ["users", "/institutions/admin/users?page=1"],
-  ["teachers", "/institutions/admin/users?page=1&role=PROFESSOR"],
 
   ["audit", "/institutions/admin/logs?page=1"],
   ["notifications", "/institutions/notifications?page=1"],
@@ -162,6 +163,9 @@ for (const [tab, expected] of [
     );
   });
 check('ADMIN has no academic class query',()=>{const result=render('classes',true);assert.ok(result.html.includes('Gestão pedagógica institucional'));assert.ok(!result.paths.some(p=>p.startsWith('/institutions/admin/classes')));});
+check('account searches do not load users before a search', () => {
+  for (const tab of ['users', 'teachers']) assert.ok(!render(tab, true).paths.some(p => p.startsWith('/institutions/admin/users')));
+});
 check("carregamento e erro com opção de tentar novamente", () => {
   assert.ok(
     render("overview", undefined, { 2: true }).html.includes("Carregando"),
@@ -178,7 +182,7 @@ check("lista vazia não apresenta registros inventados", () => {
 });
 check("segurança e configurações não criam endpoints", () => {
   for (const tab of ["security", "settings"])
-    assert.deepEqual(render(tab, true).paths, tab==="security"?["/institutions/availability","/institutions/admin/users?page=1"]:["/institutions/availability"]);
+    assert.deepEqual(render(tab, true).paths, tab==="security"?["/institutions/availability"]:["/institutions/availability", '/health']);
 });
 check(
   "auditoria independente não desaparece quando a flag ou sua consulta falham",
@@ -203,14 +207,10 @@ check(
       "notifications",
     ]) {
       const { html } = render(tab, false);
-      assert.ok(html.includes(tab==="classes"?"Gestão pedagógica institucional":"Recurso protegido"));
+      assert.ok(html.includes(tab==="classes"?"Gestão pedagógica institucional":"Capacidade administrativa desativada"));
     }
-    assert.ok(
-      render("notifications", false).html.includes(
-        "Não existe uma rota independente GET /notifications",
-      ),
-    );
-    assert.ok(render("settings", false).html.includes("Preferências pessoais"));
+    assert.ok(!render('notifications', false).paths.includes('/notifications'));
+    assert.ok(render("settings", false).html.includes("Estado do sistema"));
   },
 );
 check("novos estilos restritos ao painel administrativo", () => {
@@ -223,7 +223,7 @@ check("novos estilos restritos ao painel administrativo", () => {
     .parse(added)
     .walkRules((rule) => {
       for (const selector of rule.selectors)
-        assert.ok(selector.startsWith(".admin-workspace "), selector);
+        assert.ok(selector.startsWith(".admin-workspace ") || selector.includes('.institution-portal '), selector);
     });
 });
 console.log(

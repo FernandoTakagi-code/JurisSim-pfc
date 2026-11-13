@@ -3,6 +3,12 @@
   margin: auto;
 }
 
+.admin-settings dl { display: grid; gap: 12px; }
+.admin-settings dt { color: var(--v0-muted, #a7b3c5); }
+.admin-settings dd { margin: 4px 0 0; }
+.admin-page details > summary { cursor: pointer; padding: 10px 0; }
+.admin-page dd, .admin-page article p { overflow-wrap: anywhere; }
+
 /* Integrated ADMIN content uses the same dashboard classes as student/teacher. */
 .admin-integrated {
   --panel-bg: var(--v0-panel, white);
@@ -165,6 +171,9 @@
   cursor: wait;
   opacity: 0.6;
 }
+/* H4.23.1: this portal is rendered outside InstitutionDashboard. */
+.admin-form > .primary-button { justify-self:start; min-width:auto; font-size:14px; min-height:42px; padding-inline:16px; }
+.admin-form > .primary-button:disabled { opacity:.55; cursor:not-allowed; }
 @media (max-width: 600px) {
   .admin-page .panel {
     padding: 14px;
