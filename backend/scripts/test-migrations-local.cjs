@@ -37,10 +37,11 @@ const functionalSuite = process.argv[3] === '--functional-suite';
 const authorialDiagnosticOnly = process.argv[3] === '--authorial-diagnostic-only';
 const individualExamOnly = process.argv[3] === '--individual-exam-only';
 const questionPracticeOnly = process.argv[3] === '--question-practice-only';
-const integrationSuiteOnly = process.argv[3] === '--integration-suite-only' || functionalSuite || authorialDiagnosticOnly || individualExamOnly || questionPracticeOnly;
+const accountPrivacyOnly = process.argv[3] === '--account-privacy-only';
+const integrationSuiteOnly = process.argv[3] === '--integration-suite-only' || functionalSuite || authorialDiagnosticOnly || individualExamOnly || questionPracticeOnly || accountPrivacyOnly;
 if (!pgBin || (process.argv.length !== 3
   && !(process.argv.length === 4 && (preflightOnly || startupDiagnosticOnly || integrationSuiteOnly)))) {
-  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite|--authorial-diagnostic-only|--individual-exam-only|--question-practice-only]');
+  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite|--authorial-diagnostic-only|--individual-exam-only|--question-practice-only|--account-privacy-only]');
   process.exit(1);
 }
 const resolvedPgBin = path.resolve(pgBin);
@@ -485,7 +486,7 @@ async function main() {
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-student-history-db.ts', data]));
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-class-exams-db.ts', data]));
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-goals-reports-db.ts', data]));
-  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-profile-photo-db.ts', data]));
+  if (!integrationSuiteOnly || accountPrivacyOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-profile-photo-db.ts', data]));
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-auth-stage7-db.ts', data]));
 
   // Separate database for main's suite, within this same freshly created cluster.
@@ -506,7 +507,7 @@ async function main() {
   if (!integrationSuiteOnly || functionalSuite) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-initial-diagnostic-db.ts', data]));
   if (authorialDiagnosticOnly) {
     console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-authorial-diagnostic-db.ts', data]));
-  } else {
+  } else if (!accountPrivacyOnly) {
     console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', ...(individualExamOnly ? ['src/__tests__/integration/individual-exam.integration.test.ts'] : questionPracticeOnly ? ['src/__tests__/integration/question-practice.integration.test.ts', 'src/__tests__/integration/individual-exam.integration.test.ts', 'src/__tests__/integration/question-review.integration.test.ts', 'src/__tests__/integration/attempt-lifecycle.integration.test.ts'] : [])]));
   }
   assertNoDrift(integrationDatabase);

@@ -1,7 +1,7 @@
 import Groq from 'groq-sdk';
 
 const apiKey = process.env.GROQ_API_KEY;
-const groq = apiKey ? new Groq({ apiKey }) : null;
+const groq = apiKey ? new Groq({ apiKey, timeout: 4000, maxRetries: 0 }) : null;
 
 interface DadosTrilha {
   priorityDiscipline: string;
@@ -28,6 +28,7 @@ Escreva um feedback curto (máximo 3 frases), em português, direto ao aluno, ex
 
     const completion = await groq.chat.completions.create({
       model: 'openai/gpt-oss-120b',
+      max_completion_tokens: 256,
       messages: [{ role: 'user', content: prompt }],
     });
 

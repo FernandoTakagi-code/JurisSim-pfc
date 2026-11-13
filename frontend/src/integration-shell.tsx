@@ -6,6 +6,7 @@ import { LegalLinks } from "./legal";
 import { navigate, usePath } from "./navigation";
 import "./integration-shell.css";
 import { PhotoProvider, ProfileAvatar, ProfilePhotoEditor } from "./profile-photo";
+import { AccountPrivacy } from './account-privacy';
 import { setLocalDiagnosticDemoMode } from "./auth-session";
 import { useSession } from './auth-session';
 import { InstitutionContext } from './administration';
@@ -577,14 +578,5 @@ export function ProfileSettings({
 }
 
 function Privacy() {
-  return (
-    <article className="v0-panel" aria-labelledby="privacy-settings-title">
-      <h2 id="privacy-settings-title">Privacidade e proteção de dados</h2>
-      <p>
-        Consulte as informações sobre o uso da plataforma e o tratamento dos
-        seus dados.
-      </p>
-      <LegalLinks />
-    </article>
-  );
+  return <AccountPrivacy />;
 }
