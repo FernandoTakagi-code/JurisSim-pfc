@@ -1,4 +1,3 @@
-import { AccountDeletionService } from '../services/account-deletion';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { OAuth2Client } from 'google-auth-library';
@@ -13,6 +12,7 @@ import { isLocalEmailCaptureRequested, localEmailVerificationCapture } from '../
 import type { LocalEmailVerificationCapture } from '../services/local-email-capture';
 import { passwordSchema } from '../services/password-policy';
 import { ApiError } from '../errors/api-error';
+import { AccountDeletionService } from '../services/account-deletion';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional(), confirmation: z.literal('EXCLUIR') }).strict();
 const deactivateAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024), confirmation: z.literal('DESATIVAR') }).strict();
@@ -36,6 +36,7 @@ const loginSchema = z.object({
   perfil: perfilSchema,
 });
 const googleSchema = z.object({
+  existingAccountOnly: z.boolean().optional(),
   registrationIntent: z.literal('INSTITUTION').optional(),
   credential: z.string().min(1, 'Credencial do Google não fornecida.'),
   acceptance: acceptanceSchema.optional(),
@@ -156,7 +157,9 @@ export class AuthController {
     }
     const emailVerificado = payload.email.trim().toLowerCase();
     const nomeSugerido = payload.name ?? payload.given_name ?? emailVerificado.split('@')[0];
-    response.json(await this.service.loginWithGoogle(emailVerificado, nomeSugerido, parsed.data.acceptance, parsed.data.perfil, parsed.data.registrationIntent));
+    response.json(await (parsed.data.existingAccountOnly
+      ? this.service.loginWithGoogle(emailVerificado,nomeSugerido,parsed.data.acceptance,parsed.data.perfil,parsed.data.registrationIntent,true)
+      : this.service.loginWithGoogle(emailVerificado, nomeSugerido, parsed.data.acceptance, parsed.data.perfil, parsed.data.registrationIntent)));
   };
 
   logout = async (request: AuthenticatedRequest, response: Response) => {
@@ -184,6 +187,11 @@ export class AuthController {
       return;
     }
     response.json(await new AccountDeletionService().self(request.auth!.userId, parsed.data));
+  };
+
+  desativarConta = async (request: AuthenticatedRequest, response: Response) => {
+    const data = deactivateAccountSchema.parse(request.body);
+    response.json(await this.service.deactivateAccount(request.auth!.userId, data.senhaAtual));
   };
 
   solicitarConfirmacaoEmail = async (request: AuthenticatedRequest, response: Response) => {
@@ -214,11 +222,5 @@ export class AuthController {
       return;
     }
     response.json(await this.emailVerification.confirm(parsed.data.token));
-  };
-
-
-  desativarConta = async (request: AuthenticatedRequest, response: Response) => {
-    const data = deactivateAccountSchema.parse(request.body);
-    response.json(await this.service.deactivateAccount(request.auth!.userId, data.senhaAtual));
   };
 }

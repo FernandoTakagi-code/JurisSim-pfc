@@ -39,6 +39,7 @@ async function authenticate(request: AuthenticatedRequest, next: NextFunction, a
     }
     const access = await currentAccess(user.id, user.role);
     request.auth = { userId: user.id, role: access?.effectiveRole ?? user.role, ...(user.role==='ALUNO'&&user.registrationIntent==='INSTITUTION'?{institutionalAccount:true}: {}) };
+    if(user.role==='ALUNO'&&user.registrationIntent==='TEACHER_INVITATION')request.auth.invitationPending=true;
     const administrativeContext=request.header('x-institution-context') === 'administration';
     if (access && request.auth.role !== 'ADMIN' && (request.auth.role==='PROFESSOR'||administrativeContext)) {
       const requested = request.header('x-institution-id');

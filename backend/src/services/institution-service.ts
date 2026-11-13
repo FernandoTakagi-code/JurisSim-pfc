@@ -1,3 +1,4 @@
+import { assertTeacherInvitationsAvailable, teacherInvitationMode } from '../config/teacher-invitations';
 import { InstitutionDecisionEmail, decisionEmailEvent } from './institution-decision-email';
 import { createHash, randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -759,6 +760,7 @@ export class InstitutionService {
     return pageResult(
       items.map((i) => ({
         ...i,
+        deliveryState: i.status === 'PENDING' ? (i.sentAt ? 'ACCEPTED_BY_PROVIDER' : 'UNCONFIRMED') : 'NOT_PENDING',
         status:
           i.status === "PENDING" && i.expiresAt <= now ? "EXPIRED" : i.status,
       })),
@@ -773,11 +775,10 @@ export class InstitutionService {
     replacingId?: string,
     details: {name?:string;classIds?:string[]} = {},
   ) {
-    if (!this.mail.isConfigured || !isValidAppUrl(process.env.APP_PUBLIC_URL))
-      throw new ApiError(
-        503,
-        "Envio de convites indisponível. Configure o provedor e a URL pública.",
-      );
+    const invitationMode = teacherInvitationMode();
+    if (!replacingId && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new ApiError(422, 'Informe um e-mail válido.');
+    const publicAppUrl=invitationMode === 'institutional' ? emailFrontendUrl() : process.env.APP_PUBLIC_URL;
+    email=email.trim().toLowerCase();
     const token = randomBytes(32).toString("hex");
     const invitation = await institutionalTransaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${institutionId} FOR UPDATE`;
@@ -786,7 +787,7 @@ export class InstitutionService {
       if(institution?.status!=='ACTIVE')throw new ApiError(409,'Instituição indisponível para convites.');
       if (replacingId) {
         const existing = await tx.teacherInvitation.findFirst({
-          where: { id: replacingId, institutionId, status: "PENDING" },
+          where: { id: replacingId, institutionId, status: { in: ["PENDING", "CANCELLED"] } },
         });
         if (!existing)
           throw new ApiError(409, "Convite não disponível para reenvio.");
@@ -794,6 +795,25 @@ export class InstitutionService {
         details = {name: existing.invitedName ?? undefined, classIds:(await tx.teacherInvitationClass.findMany({where:{invitationId:existing.id},select:{classId:true}})).map(c=>c.classId)};
         if (Date.now() - existing.createdAt.getTime() < 60_000)
           throw new ApiError(429, "Aguarde um minuto antes de reenviar.");
+        if (existing.status === 'PENDING' && existing.sentAt === null && existing.expiresAt > new Date())
+          throw new ApiError(409, 'O envio anterior ainda não foi confirmado. Verifique a situação com o responsável antes de reenviar.');
+      }
+      // Eligibility does not confer authority. In normal mode, an unknown
+      // recipient may complete the existing token-based first-access flow.
+      // In restricted mode, retain the explicit pre-existing-account policy.
+      const recipients = await tx.user.findMany({
+        where: { email: { equals: email, mode: 'insensitive' } }, take: 2,
+        select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true },
+      });
+      if (recipients.length > 1) throw new ApiError(409, 'Não foi possível identificar uma conta única para este destinatário. Solicite revisão ao suporte.');
+      const recipient = recipients[0];
+      if (recipient && (recipient.deletedAt || recipient.role === 'ADMIN' || (await tx.accountControl.findUnique({ where: { userId: recipient.id }, select: { suspended: true } }))?.suspended))
+        throw new ApiError(409, 'A conta destinatária não está elegível para convite docente. Oriente a pessoa a verificar sua conta com o suporte.');
+      if (recipient && await tx.institutionalMembership.count({ where: { ...institutionMemberWhere(recipient.id), institutionId, role: 'TEACHER' } }) > 0)
+        throw new ApiError(409, 'A conta já possui vínculo docente ativo nesta instituição.');
+      if (restrictedInstitutionId()) {
+        if (!recipient?.emailVerifiedAt) throw new ApiError(403, 'Nesta homologação, o destinatário precisa ter conta cadastrada, e-mail confirmado e autorização prévia. Nenhum convite foi enviado.');
+        assertInvitedParticipant(recipient.id);
       }
       if (
         (await tx.teacherInvitation.count({
@@ -805,11 +825,11 @@ export class InstitutionService {
       )
         throw new ApiError(429, "Limite de convites por hora atingido.");
       if (
-        !replacingId &&
         (await tx.teacherInvitation.findFirst({
           where: {
             institutionId,
             email,
+            ...(replacingId ? { id: { not: replacingId } } : {}),
             status: "PENDING",
             expiresAt: { gt: new Date() },
           },
@@ -819,13 +839,15 @@ export class InstitutionService {
           409,
           "Já existe um convite pendente para este e-mail.",
         );
+      const classIds = [...new Set(details.classIds ?? [])];
+      if(classIds.length && await tx.institutionalClass.count({where:{institutionId,classId:{in:classIds},turma:{archivedAt:null}}}) !== classIds.length)
+        throw new ApiError(403,'Selecione somente turmas ativas desta instituição.');
+      if (!this.mail.isConfigured || !isValidAppUrl(publicAppUrl))
+        throw new ApiError(503, 'O serviço de envio de convites está indisponível. Nenhum convite foi enviado; tente novamente após a verificação do serviço.');
       await tx.teacherInvitation.updateMany({
         where: { institutionId, email, status: "PENDING" },
         data: { status: "CANCELLED" },
       });
-      const classIds = [...new Set(details.classIds ?? [])];
-      if(classIds.length && await tx.institutionalClass.count({where:{institutionId,classId:{in:classIds},turma:{archivedAt:null}}}) !== classIds.length)
-        throw new ApiError(403,'Selecione somente turmas ativas desta instituição.');
       const created = await tx.teacherInvitation.create({
         data: {
           institutionId,
@@ -845,39 +867,48 @@ export class InstitutionService {
       );
       return {...created,institutionName:institution.name};
     });
-    const url = `${process.env.APP_PUBLIC_URL!.replace(/\/$/, "")}/#/convite-professor?token=${token}`;
+    const url = `${publicAppUrl}/#/convite-professor?token=${token}`;
     try {
       await this.mail.send({
         to: invitation.email,
         subject: "Convite para professor — JurisSim",
         text: `Você recebeu um convite institucional para atuar como professor no JurisSim. Abra o convite para confirmar seu e-mail e definir sua senha no primeiro acesso, ou entre com sua conta existente: ${url}\nValidade: 48 horas. Se não reconhecer, ignore.`,
-        html: `<h1>JurisSim · Educação Jurídica</h1><p>Olá, ${escapeMail(invitation.invitedName??'professor')}.</p><p>${escapeMail(invitation.institutionName??'Sua instituição')} convidou você para atuar como professor.</p><p>No primeiro acesso, confirme o e-mail e defina sua própria senha pelo convite. Se já possui conta, entre pelo login único.</p><p><a href="${escapeMail(url)}">Consultar convite</a></p><p>Validade: 48 horas. Você pode aceitar ou recusar. Se não reconhecer, ignore. Nunca enviamos senhas.</p>`,
+        html: `<h1>JurisSim · Educação Jurídica</h1><p>Olá, ${escapeMail(invitation.invitedName??'professor')}.</p><p>${escapeMail(invitation.institutionName??'Sua instituição')} convidou você para atuar como professor.</p><p>Defina sua própria senha e aceite os termos para ativar seu acesso, sem outro e-mail de confirmação. Se já possui conta, entre pelo login único.</p><p><a href="${escapeMail(url)}">Aceitar convite</a></p><p>Validade: 48 horas. Abrir o link não aceita o convite automaticamente. Se não reconhecer, ignore. Nunca enviamos senhas.</p>`,
       });
-      await prisma.teacherInvitation.update({
-        where: { id: invitation.id },
-        data: { sentAt: new Date() },
-        select: { id: true },
-      });
-    } catch {
+      emailAccepted('teacher_invitation',invitation.id);
+    } catch (error) {
+      const failure=classifyEmailDeliveryFailure(error);
+      const unknown=failure.outcome==='indeterminate';
+      emailFailed('teacher_invitation',invitation.id,error);
       await institutionalTransaction(async (tx) => {
-        await tx.teacherInvitation.updateMany({
+        if(!unknown) {
+          const cancelled = await tx.teacherInvitation.updateMany({
           where: { id: invitation.id, status: "PENDING" },
           data: { status: "CANCELLED" },
-        });
+          });
+          if (cancelled.count !== 1) throw new ApiError(409, 'Não foi possível confirmar o cancelamento. Consulte a situação do convite antes de tentar novamente.');
+        }
         await administrativeEvent(
           tx,
-          "INVITATION_DELIVERY_FAILED",
+          unknown ? 'INVITATION_DELIVERY_UNKNOWN' : "INVITATION_DELIVERY_FAILED",
           actor.userId,
           institutionId,
           invitation.id,
-          "FAILED",
-          "ERROR",
+          JSON.stringify({outcome:failure.outcome,stage:failure.stage}),
+          unknown ? 'WARN' : "ERROR",
         );
       });
       throw new ApiError(
         503,
-        "O envio não foi confirmado. O convite foi cancelado; solicite um novo envio.",
+        unknown ? 'O resultado do envio é indeterminado. O convite permanece válido; confira a caixa e o provedor antes de solicitar reenvio.' : "O envio não foi confirmado. O convite foi cancelado; solicite um novo envio.",
       );
+    }
+    try {
+      await prisma.teacherInvitation.update({where:{id:invitation.id},data:{sentAt:new Date()},select:{id:true}});
+    } catch {
+      // SMTP acceptance must never be undone by a failed metadata write.
+      console.warn('email.invitation.metadata_persistence_failed',{invitationId:invitation.id});
+      return {message:'O provedor aceitou o envio. Não foi possível atualizar o registro de envio; confira o convite antes de tentar novamente.'};
     }
     return { message: "Convite submetido ao provedor. Validade de 48 horas." };
   }
@@ -911,12 +942,16 @@ export class InstitutionService {
   }
 
   async acceptInTransaction(tx: Tx, actor: InstitutionActor, token: string) {
+      assertTeacherInvitationsAvailable();
       if(actor.role === 'ADMIN') throw new ApiError(403, 'A administração geral não recebe gestão pedagógica por convite.');
       const invitation = await tx.teacherInvitation.findUnique({
         where: { tokenHash: hashInvitation(token) },
       });
       if (!invitation)
         throw new ApiError(400, "Convite inválido ou indisponível.");
+      assertRestrictedInstitution(invitation.institutionId);
+      assertRestrictedParticipant(actor.userId);
+      if(restrictedInstitutionId() && !await fixtureProvenance(tx,homologationManifest()!)) throw new ApiError(403,'Fixture sem provisionamento autorizado.');
       await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${invitation.institutionId} FOR UPDATE`;
       const institution = await tx.institution.findUnique({
         where: { id: invitation.institutionId },
@@ -929,13 +964,14 @@ export class InstitutionService {
           emailVerifiedAt: true,
           deletedAt: true,
           role: true,
+          registrationIntent: true,
         },
       });
       if (
         !user ||
         user.deletedAt ||
         !user.emailVerifiedAt ||
-        user.email.toLowerCase() !== invitation.email
+        user.email.toLowerCase() !== invitation.email.toLowerCase()
       )
         throw new ApiError(
           403,
@@ -943,6 +979,12 @@ export class InstitutionService {
         );
       if (institution?.status !== "ACTIVE")
         throw new ApiError(409, "Instituição indisponível.");
+      if(user.role==='ADMIN'||(await tx.accountControl.findUnique({where:{userId:actor.userId}}))?.suspended)
+        throw new ApiError(403,'Conta indisponível para vínculo docente.');
+      if (invitation.status === 'ACCEPTED') {
+        if (invitation.acceptedById !== actor.userId) throw new ApiError(409, 'Convite indisponível.');
+        return { message: 'Este convite já foi aceito por esta conta. Seus vínculos atuais não foram alterados.' };
+      }
       const claimed = await tx.teacherInvitation.updateMany({
         where: {
           id: invitation.id,
@@ -974,10 +1016,9 @@ export class InstitutionService {
         if(!own) throw new ApiError(409,'A turma do convite não está mais disponível nesta instituição. Solicite um novo convite.');
         await tx.turma.update({where:{id:assignment.classId},data:{professores:{connect:{id:actor.userId}}},select:{id:true}});
       }
-      if (user.role !== "ADMIN")
-        await tx.user.update({
+      await tx.user.update({
           where: { id: actor.userId },
-          data: { role: "PROFESSOR" },
+          data: { role: "PROFESSOR", ...(user.registrationIntent === 'TEACHER_INVITATION' ? { registrationIntent: null } : {}) },
           select: { id: true },
         });
       await administrativeEvent(
@@ -1086,5 +1127,15 @@ export class InstitutionService {
       select: { id: true, occurredAt: true, event: true, result: true, severity: true },
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }], ...pagination(page),
     }), page);
+  }
+}
+
+
+function assertInvitedParticipant(userId: string) {
+  try { assertRestrictedParticipant(userId); }
+  catch (error) {
+    if (error instanceof ApiError && error.statusCode === 403 && restrictedInstitutionId())
+      throw new ApiError(403, 'O destinatário não está disponível para convite neste ambiente. Procure o responsável pela plataforma.');
+    throw error;
   }
 }

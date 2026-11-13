@@ -1,3 +1,4 @@
+import { institutionApplication } from '../__tests__/fixtures/institution-request';
 import {
   beforeAll,
   beforeEach,
@@ -42,13 +43,14 @@ vi.mock("../repositories/auth-repository", () => ({
     findByIdForAuth = mocks.user;
   },
 }));
-import { institutionRoutes } from "./institution-routes";
+import { createInstitutionRoutes } from "./institution-routes";
 import { errorHandler } from "../middlewares/error-handler";
 
 const userId = "00000000-0000-4000-8000-000000000091",
   institutionId = "00000000-0000-4000-8000-000000000092";
 const secret = "institution-http-contract-test-secret-over-32-characters";
 let server: Server, base: string;
+let router = createInstitutionRoutes();
 const token = () =>
   jwt.sign({ id: userId, role: "ADMIN", sessionVersion: 0 }, secret, {
     expiresIn: "1h",
@@ -70,7 +72,7 @@ const request = (
 beforeAll(async () => {
   const app = express();
   app.use(express.json());
-  app.use("/institutions", institutionRoutes);
+  app.use("/institutions", (req,res,next) => router(req,res,next));
   app.use(errorHandler);
   server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", resolve));
@@ -80,6 +82,7 @@ afterAll(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 beforeEach(() => {
+  router = createInstitutionRoutes();
   vi.resetAllMocks();
   vi.stubEnv("INSTITUTIONS_ENABLED", "true");
   vi.stubEnv('ADMINISTRATION_ENABLED','false');
@@ -220,8 +223,14 @@ it("blocks suspended and session-revoked accounts", async () => {
   expect((await request("/admin/summary")).status).toBe(401);
 });
 
-const registration = {name:'Instituição de teste',institutionType:'CURSO_PREPARATORIO',responsibleName:'Responsável de teste',phone:'11999999999',description:'Informações para análise administrativa'};
-it('receives a first request with no prior membership and without CNPJ while full operations are off',async()=>{
+const registration = institutionApplication;
+it.each(['registrationNumber','institutionType','postalCode','street','number','district','city','state','representativePosition','representativePhone','contactEmail','representationDeclaration','representationEvidence'] as const)('requires institutional analysis field %s', async field => {
+  const body: Record<string, unknown> = { ...registration };
+  delete body[field];
+  expect((await request('/requests','POST',body)).status).toBe(422);
+  expect(mocks.db.institution.create).not.toHaveBeenCalled();
+});
+it('receives a first request with no prior membership and with valid CNPJ while full operations are off',async()=>{
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','true');
   mocks.db.user.findUnique.mockResolvedValue({email:'owner@example.invalid',emailVerifiedAt:new Date(),deletedAt:null});
   mocks.db.institution.create.mockResolvedValue({id:institutionId,status:'PENDING'});
@@ -259,7 +268,7 @@ it.each([{...registration,institutionType:'ADMIN'},{...registration,registration
 it.each(['ACTIVE','REJECTED'] as const)('allows ADMIN decision %s with only registration enabled, without global promotion',async status=>{
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','true');
   mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(),sessionVersion:0});
-  mocks.db.institution.findUnique.mockResolvedValue({id:institutionId,ownerId:userId,status:'PENDING'});
+  mocks.db.institution.findUnique.mockResolvedValue({...institutionApplication, registrationNumber:'12ABC34501DE35',description:'Declara\u00e7\u00e3o: institui\u00e7\u00e3o sem site oficial.',id:institutionId,ownerId:userId,status:'PENDING'});
   mocks.db.user.findUnique.mockResolvedValue({emailVerifiedAt:new Date(),deletedAt:null});
   mocks.db.institution.update.mockResolvedValue({id:institutionId,status});
   expect((await request(`/admin/institutions/${institutionId}`,'PATCH',{status,reason:'Documentação conferida'})).status).toBe(200);

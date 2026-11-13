@@ -68,7 +68,7 @@ function VisualPanel() {
   );
 }
 
-export function AuthGate() {
+export function AuthGate({initialEmail='',initialNotice='',invitationLogin=false,onInvitationBack}:{initialEmail?:string;initialNotice?:string;invitationLogin?:boolean;onInvitationBack?:()=>void}={}) {
   const [resetToken, setResetToken] = useState(() => resetTokenFromHash());
   const [verifyToken, setVerifyToken] = useState(() => verifyTokenFromHash());
   const [googleNonce] = useState(() => Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join(''));
@@ -76,7 +76,7 @@ export function AuthGate() {
     window.location.hash.startsWith('#/reset-password') ? "reset" : window.location.hash.startsWith('#/verificar-email') ? "verify" : "login"
   );
   const [nome, setNome] = useState("");
-  const [loginEmail, setLoginEmail] = useState("");
+  const [loginEmail, setLoginEmail] = useState(initialEmail);
   const [loginSenha, setLoginSenha] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerSenha, setRegisterSenha] = useState("");
@@ -154,6 +154,7 @@ export function AuthGate() {
       }
       const result = await post("/auth/google", {
         credential: credentialResponse.credential,
+        ...(invitationLogin?{existingAccountOnly:true}:{}),
         ...(window.location.pathname === '/instituicoes' ? { registrationIntent: 'INSTITUTION' } : {}),
         nonce: googleNonce,
       });
@@ -177,6 +178,7 @@ export function AuthGate() {
     try {
       const result = await post("/auth/google", {
         credential: pendingGoogleCredential,
+        ...(invitationLogin?{existingAccountOnly:true}:{}),
         ...(window.location.pathname === '/instituicoes' ? { registrationIntent: 'INSTITUTION' } : {}),
         nonce: googleNonce,
         acceptance: legalAcceptance,
@@ -323,6 +325,7 @@ export function AuthGate() {
                 : institutionalEntry ? "Primeiro, crie sua conta e confirme seu e-mail. Depois, informe os dados da instituição para análise administrativa." : "Crie sua conta de estudante e comece sua preparação para a OAB."}
             </p>
           </header>
+          {isLogin&&initialNotice&&<p role="status" className="recovery-notice">{initialNotice}</p>}
           {choosingRegistration ? <section className="auth-card registration-choice" aria-label="Tipo de cadastro"><button type="button" className="outline-button" onClick={()=>{setChoosingRegistration(false);navigate('/');setMode('register');}}>Sou aluno</button><p>Conta individual para estudar e acompanhar seu progresso.</p><button type="button" className="outline-button" onClick={()=>{setChoosingRegistration(false);navigate('/instituicoes');setMode('register');}}>Represento uma instituição</button><p>Conta do responsável, confirmação de e-mail e solicitação para análise.</p><p>Professores ingressam por convite da instituição.</p><button type="button" className="text-button" onClick={()=>{setChoosingRegistration(false);setMode('login');setError('');}}>Voltar ao login</button></section> : <form className="auth-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
             {isRegister && (
               <>
@@ -458,7 +461,7 @@ export function AuthGate() {
               onError={() => setError("Não foi possível entrar com o Google.")}
             />}
           </form>}
-          {!isRecovery && !choosingRegistration && <p className="auth-switch">
+          {!invitationLogin && !isRecovery && !choosingRegistration && <p className="auth-switch">
             {isLogin ? "Ainda não tem uma conta?" : "Já possui uma conta?"}{" "}
             <button
               type="button"
@@ -470,6 +473,7 @@ export function AuthGate() {
           </p>}
           {isRegister && <p className="muted">É professor? Seu acesso é criado por convite da instituição responsável.</p>}
           <LegalLinks />
+          {invitationLogin&&<button type="button" className="text-button" disabled={loading} onClick={onInvitationBack}>Voltar ao convite</button>}
         </div>
       </section>
     </main>

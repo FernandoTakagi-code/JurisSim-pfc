@@ -1,4 +1,3 @@
-import { AccountDeletionService } from '../services/account-deletion';
 import { Router } from "express";
 import { z } from "zod";
 import {
@@ -17,6 +16,7 @@ import { institutionsGloballyEnabled } from '../config/institution-feature';
 import { InstitutionDecisionEmail } from '../services/institution-decision-email';
 import { requireGlobal } from '../services/institution-service';
 import { emailFrontendContext } from '../services/email-frontend';
+import { AccountDeletionService } from '../services/account-deletion';
 
 const invitationToken = z.string().regex(/^[a-f0-9]{64}$/);
 const page = z.coerce.number().int().min(1).max(10000).default(1);
@@ -104,8 +104,15 @@ institutionRoutes.post('/invitations/inspect', authRateLimit(30, 60_000), async 
   res.json(await onboarding.inspect(token));
 });
 institutionRoutes.post('/invitations/onboarding', authRateLimit(5, 3600_000), async (req, res) => {
-  const input = z.object({token:invitationToken,nome:z.string().trim().min(2).max(120),acceptance:z.unknown()}).strict().parse(req.body);
-  res.json(await onboarding.start(input.token,input.nome,input.acceptance));
+  throw new ApiError(410,'O primeiro acesso agora é concluído pelo convite original, sem outro e-mail. Abra novamente seu convite.');
+});
+institutionRoutes.post('/invitations/register',authRateLimit(10,3600_000),async(req,res)=>{
+  const input=z.object({token:invitationToken,nome:z.string().trim().min(2).max(120),password:z.string().max(128),confirmation:z.string().max(128),acceptance:z.unknown()}).strict().parse(req.body);
+  res.status(201).json(await onboarding.register(input.token,input.nome,input.password,input.confirmation,input.acceptance));
+});
+institutionRoutes.post('/invitations/decline-new',authRateLimit(10,3600_000),async(req,res)=>{
+  const {token}=z.object({token:invitationToken}).strict().parse(req.body);
+  res.json(await onboarding.declineNew(token));
 });
 institutionRoutes.post('/invitations/complete', authRateLimit(10, 3600_000), async (req,res) => {
   const input=z.object({token:invitationToken,proof:invitationToken,password:z.string().max(128),confirmation:z.string().max(128)}).strict().parse(req.body);
@@ -116,6 +123,16 @@ institutionRoutes.post('/invitations/decline-proof',authRateLimit(10,3600_000),a
   res.json(await onboarding.declineWithProof(token,proof));
 });
 institutionRoutes.use(requireAuth);
+institutionRoutes.delete('/admin/users/:userId', authRateLimit(10, 900000), async (req: AuthenticatedRequest, res) => {
+  requireGlobal(req.auth!);
+  const data = z.object({ confirmation: z.literal('EXCLUIR'), blockEmail: z.boolean(), reason: z.string().trim().min(3).max(500), senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional() }).strict().refine(value => !!value.senhaAtual || !!value.googleCredential, 'Confirme a identidade do ADMIN.').parse(req.body);
+  res.json(await new AccountDeletionService().admin(req.auth!, id(req, 'userId'), data.blockEmail, data.reason, data));
+});
+institutionRoutes.post('/admin/email-reuse/revoke', authRateLimit(10, 900000), async (req: AuthenticatedRequest, res) => {
+  requireGlobal(req.auth!);
+  const data = z.object({ email: z.string().trim().email().max(254), confirmation: z.literal('REVOGAR'), reason: z.string().trim().min(3).max(500) }).strict().parse(req.body);
+  res.json(await new AccountDeletionService().revoke(req.auth!, data.email, data.reason));
+});
 institutionRoutes.get('/admin/institutions/:id/decision-email',async(req:AuthenticatedRequest,res)=>{
   requireGlobal(req.auth!);res.json(await decisionEmails.status(id(req)));
 });
@@ -217,6 +234,9 @@ institutionRoutes.get(
     res.json(await service.users(req.auth!, p, search, role, status));
   },
 );
+institutionRoutes.get('/admin/users/:id/history', async (req: AuthenticatedRequest, res) => {
+  res.json(await service.userHistory(req.auth!, id(req), z.object({page}).strict().parse(req.query).page));
+});
 institutionRoutes.patch(
   "/admin/users/:id",
   async (req: AuthenticatedRequest, res) => {
@@ -333,22 +353,6 @@ institutionRoutes.get("/:id/logs", async (req: AuthenticatedRequest, res) => {
     ),
   );
 });
-institutionRoutes.get('/admin/users/:id/history', async (req: AuthenticatedRequest, res) => {
-  res.json(await service.userHistory(req.auth!, id(req), z.object({page}).strict().parse(req.query).page));
-});
-
-institutionRoutes.post('/admin/email-reuse/revoke', authRateLimit(10, 900000), async (req: AuthenticatedRequest, res) => {
-  requireGlobal(req.auth!);
-  const data = z.object({ email: z.string().trim().email().max(254), confirmation: z.literal('REVOGAR'), reason: z.string().trim().min(3).max(500) }).strict().parse(req.body);
-  res.json(await new AccountDeletionService().revoke(req.auth!, data.email, data.reason));
-});
-
-institutionRoutes.delete('/admin/users/:userId', authRateLimit(10, 900000), async (req: AuthenticatedRequest, res) => {
-  requireGlobal(req.auth!);
-  const data = z.object({ confirmation: z.literal('EXCLUIR'), blockEmail: z.boolean(), reason: z.string().trim().min(3).max(500), senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional() }).strict().refine(value => !!value.senhaAtual || !!value.googleCredential, 'Confirme a identidade do ADMIN.').parse(req.body);
-  res.json(await new AccountDeletionService().admin(req.auth!, id(req, 'userId'), data.blockEmail, data.reason, data));
-});
-
 
 return institutionRoutes;
 }

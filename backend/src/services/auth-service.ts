@@ -101,10 +101,11 @@ export class AuthService {
 
   recordLoginFailure() { return this.repository.recordLogin('LOGIN_FALHA'); }
 
-  async loginWithGoogle(email: string, nomeSugerido: string, acceptance?: unknown, perfil?: PerfilAcesso, registrationIntent?: 'INSTITUTION') {
+  async loginWithGoogle(email: string, nomeSugerido: string, acceptance?: unknown, perfil?: PerfilAcesso, registrationIntent?: 'INSTITUTION', existingAccountOnly = false) {
     const matches = await this.repository.findGoogleAccountsByEmail(email);
     if (matches.length > 1) throw new ApiError(409, 'Há mais de uma conta com este e-mail. Procure o suporte para evitar vinculação incorreta.');
     const existing = matches[0] ?? null;
+    if(existingAccountOnly&&!existing)throw new ApiError(409,'Esta conta Google ainda não está cadastrada. Volte ao convite e escolha Primeiro acesso para criar sua conta.');
     if (existing?.deletedAt) throw new ApiError(401, 'Conta indisponível.');
     if (existing) await currentAccess(existing.id, existing.role);
     if (existing) verificarPerfil(existing.role, perfil);
@@ -156,12 +157,27 @@ export class AuthService {
     return new AccountDeletionService().self(userId, { senhaAtual });
   }
 
+  async deactivateAccount(userId: string, senhaAtual: string) {
+    const user = await this.repository.findByIdWithSenha(userId);
+    if (!user) throw new ApiError(404, 'Usuário não encontrado.');
+    if (!user.senhaHash || user.senhaHash === GOOGLE_PASSWORD_SENTINEL)
+      throw new ApiError(409, 'Contas Google exigem um fluxo de reautenticação específico para desativação. Procure o suporte.');
+    if (!await bcrypt.compare(senhaAtual, user.senhaHash)) throw new ApiError(400, 'Senha atual incorreta.');
+    await this.repository.deactivateUser(userId, user.senhaHash);
+    return { message: 'Conta desativada e sessões revogadas. Os registros foram preservados; a reativação depende de atendimento.' };
+  }
+
   async session(userId: string, localDemoRequested = false):Promise<AuthSessionResult> {
     const user = await this.repository.findById(userId);
     if (!user || user.deletedAt) throw new ApiError(401, 'Sessão inválida.');
     const administration = await currentAccess(userId, user.role);
     if (administration) user.role = administration.effectiveRole as typeof user.role;
     const emailVerificado = Boolean(user.emailVerifiedAt);
+    if (user.role === 'ALUNO' && user.registrationIntent === 'TEACHER_INVITATION') return {
+      user: {id:user.id,nome:user.nome,email:user.email,role:user.role,emailVerificado},
+      registrationIntent:'TEACHER_INVITATION' as const,nextStep:'INVITATION' as const,
+      ...(administration?{administration}:{}),
+    };
     const diagnosticRequired = isInitialDiagnosticRequired() && user.registrationIntent!=='INSTITUTION';
     const localDemoRuntimeEnabled = localEmailVerificationCapture.isLocalDiagnosticDemoEnabled;
     const initialDiagnosticCompleted = user.role === 'ALUNO' && diagnosticRequired
@@ -206,16 +222,5 @@ export class AuthService {
     const secret = process.env.JWT_SECRET;
     if (!secret || secret.length < 32) throw new Error('JWT_SECRET precisa ter pelo menos 32 caracteres.');
     return secret;
-  }
-
-
-  async deactivateAccount(userId: string, senhaAtual: string) {
-    const user = await this.repository.findByIdWithSenha(userId);
-    if (!user) throw new ApiError(404, 'Usuário não encontrado.');
-    if (!user.senhaHash || user.senhaHash === GOOGLE_PASSWORD_SENTINEL)
-      throw new ApiError(409, 'Contas Google exigem um fluxo de reautenticação específico para desativação. Procure o suporte.');
-    if (!await bcrypt.compare(senhaAtual, user.senhaHash)) throw new ApiError(400, 'Senha atual incorreta.');
-    await this.repository.deactivateUser(userId, user.senhaHash);
-    return { message: 'Conta desativada e sessões revogadas. Os registros foram preservados; a reativação depende de atendimento.' };
   }
 }

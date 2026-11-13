@@ -8,6 +8,7 @@ export type SessionRoute = {
 
 export function sessionDestination(session: SessionRoute): string {
   if (session.user.role === 'ADMIN') return '/administracao';
+  if(session.user.role==='ALUNO'&&session.registrationIntent==='TEACHER_INVITATION')return '/convite-professor';
   if (session.user.role === 'ALUNO' && session.registrationIntent === 'INSTITUTION') return '/instituicoes';
   if (session.administration?.memberships.some(m => m.role === 'INSTITUTION_ADMIN')) return '/instituicoes';
   if (session.user.role !== 'ALUNO') return '/professor';
@@ -17,6 +18,7 @@ export function sessionDestination(session: SessionRoute): string {
 
 /** Returns the redirect before rendering a protected student page. */
 export function sessionRedirectTarget(session: SessionRoute, path: string, search=''): string | null {
+  if(session.user.role==='ALUNO'&&session.registrationIntent==='TEACHER_INVITATION')return path==='/convite-professor'?null:'/convite-professor';
   const profile = profileRoute(session.user.role, path, search);
   if (profile) return profile.target === path + search ? null : profile.target;
   if (session.user.role === 'ADMIN') {

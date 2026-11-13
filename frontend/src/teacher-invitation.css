@@ -1,0 +1,31 @@
+.teacher-invitation {background:#f4f6fa;}
+.teacher-invitation .auth-content {padding:42px clamp(20px,4vw,70px);}
+.teacher-invitation .invitation-card {max-width:620px;width:100%;padding:32px;border:1px solid #dfe5ed;border-top:4px solid #bd9652;border-radius:22px;background:#fff;box-shadow:0 16px 60px #142b4914;}
+.teacher-invitation .invitation-card h1 {font-size:clamp(23px,2vw,29px);line-height:1.28;letter-spacing:-.5px;color:#142b4d;margin:16px 0;}
+.teacher-invitation .invitation-card h2 {font-size:19px;color:#142b4d;line-height:1.35;}
+.teacher-invitation .invitation-card p {font-size:14px;line-height:1.7;color:#53647b;overflow-wrap:anywhere;}
+.invitation-heading {display:flex;align-items:center;gap:12px;text-transform:uppercase;font-size:11px;font-weight:800;letter-spacing:1.2px;color:#8a682e;}
+.invitation-emblem {display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:#f5efe3;color:#a68042;}
+.teacher-invitation p.invitation-status {display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:20px;background:#edf3f9;color:#233e5d;font-weight:650;font-size:12px;margin:0 0 14px;}
+.invitation-status>span {width:7px;height:7px;flex-shrink:0;border-radius:50%;background:#b58b47;}
+.teacher-invitation p.invitation-status-error {background:#fff0eb;color:#8b3424;}
+.invitation-details {padding:20px;background:#f6f8fb;border:1px solid #e3e8ef;border-radius:14px;margin:12px 0 20px;}
+.invitation-details h2 {margin:0 0 18px;}
+.invitation-details dl {display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0;}
+.invitation-details dl>div:first-child {grid-column:1/-1;}
+.invitation-details dt {font-size:11px;letter-spacing:.4px;color:#64748b;font-weight:700;margin-bottom:5px;}
+.invitation-details dd {margin:0;font-size:15px;font-weight:650;line-height:1.5;color:#1b334f;overflow-wrap:anywhere;}
+.teacher-invitation .invitation-card button {display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;max-width:100%;padding:11px 16px;margin:5px 0;border:1px solid #cbd6e3;border-radius:10px;background:#fff;color:#173457;font:inherit;font-size:14px;font-weight:650;line-height:1.45;white-space:normal;cursor:pointer;}
+.teacher-invitation .invitation-card button:hover:not(:disabled) {background:#f4f0e7;border-color:#b89353;}
+.teacher-invitation .invitation-card button.invitation-primary,.teacher-invitation .invitation-card .auth-submit {background:#142f54;border-color:#142f54;color:#fff;}
+.teacher-invitation .invitation-card button.invitation-primary:hover:not(:disabled),.teacher-invitation .invitation-card .auth-submit:hover:not(:disabled) {background:#214b77;}
+.teacher-invitation .invitation-card button:disabled {opacity:.62;cursor:not-allowed;}
+.teacher-invitation .invitation-card :is(button,input,a):focus-visible {outline:3px solid #b68a41;outline-offset:3px;}
+.teacher-invitation nav[aria-label="Acesso ao convite"],.invitation-actions {display:flex;flex-wrap:wrap;gap:10px;margin:18px 0;}
+.teacher-invitation nav[aria-label="Acesso ao convite"]>button,.invitation-actions>button {flex:1 1 180px;}
+.teacher-invitation .auth-card {padding:18px;background:#f8fafc;border:1px solid #e0e6ef;border-radius:14px;box-shadow:none;margin:15px 0;}
+.teacher-invitation .auth-card label {font-size:13px;}
+.teacher-invitation .auth-card input:not([type=checkbox]) {min-height:44px;font:inherit;}
+.teacher-invitation .error[role=alert] {background:#fff1ed;border:1px solid #efc3b7;border-radius:9px;padding:12px;color:#8a3121;}
+@media(max-width:760px){.teacher-invitation .auth-content {padding:22px 14px;}.teacher-invitation .invitation-card {padding:23px 19px;border-radius:16px;}.invitation-details {padding:16px;}.invitation-details dl {grid-template-columns:1fr;}}
+@media(prefers-reduced-motion:reduce){.teacher-invitation * {transition:none!important;}}
