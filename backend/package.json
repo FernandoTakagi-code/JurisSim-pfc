@@ -16,7 +16,8 @@
     "email:verify": "tsx scripts/verify-email-config.ts",
     "test:legal-db": "node scripts/verify-legal-db.cjs",
     "prisma:generate": "prisma generate",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "test:no-db": "vitest run --config vitest.no-db.config.ts --maxWorkers=2"
   },
   "keywords": [],
   "type": "commonjs",

@@ -10,7 +10,7 @@ export const errorHandler: ErrorRequestHandler = (error, request, response, _nex
       if (diagnostic) console.error(diagnostic);
     }
     if (error.retryAfter) response.set('Retry-After', String(error.retryAfter));
-    response.status(error.statusCode).json({ message: error.message });
+    response.status(error.statusCode).json({ message: error.message, ...(error.code ? { code: error.code } : {}) });
     return;
   }
   if (error instanceof ZodError) {

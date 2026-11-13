@@ -7,6 +7,10 @@ frontend/tsconfig.tsbuildinfo
 .env
 .env.local
 
+# Separate homologation secrets; examples remain versionable.
+/backend/.env.homologacao
+/frontend/.env.homologacao
+
 # Migration backup paths, destination fingerprints and integrity plans stay local.
 /backend/.local/
 /backend/scripts/dashboard-migrations-plan.json
