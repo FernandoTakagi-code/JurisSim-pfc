@@ -120,7 +120,7 @@ describe('JWT do login e consumidores', () => {
     const token = await login(email as string);
     const response = await fetch(`${base}/questoes`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enunciado: 'Questão de teste', disciplina: 'Civil', assunto: 'Contratos', nivel: 'BASICO', fundamentacaoJuridica: 'Teste', publica: true, autorId: 'forjado', alternativas: [{ texto: 'A', correta: true }, { texto: 'B', correta: false }] }),
+      body: JSON.stringify({ enunciado: 'Questão de teste', disciplina: 'Civil', assunto: 'Contratos', nivel: 'BASICO', fundamentacaoJuridica: 'Teste', publica: true, autorId: 'forjado', alternativas: [{ texto: 'A', correta: true }, { texto: 'B', correta: false }, { texto: 'C', correta: false }, { texto: 'D', correta: false }] }),
     });
     expect(response.status).toBe(status);
     if (status === 403) expect(mocks.createQuestion).not.toHaveBeenCalled();

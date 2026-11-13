@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
@@ -9,6 +9,7 @@ import { apiRequest } from './api';
 import { useSession, refreshSession, endSession, logoutSession, sessionDestination, setLocalDiagnosticDemoMode } from './auth-session';
 import { EmailConfirmationGate } from './email-confirmation-gate';
 import { QuestionPracticePage } from './question-practice';
+import { IndividualExamPage } from './individual-exam';
 import { LegalBoundary, LegalLinks } from './legal';
 import { Brand } from "./shell";
 import { ProfessorArea } from "./ProfessorArea";
@@ -22,7 +23,10 @@ import { sessionRedirectTarget } from './auth-routing';
 import { ClassesPage, ExamsPage, ClassExamAttempt } from "./class-exams";
 import { GoalsPage } from "./goals-reports";
 import { useStudentProgress, ProgressStatus, Evolution, RecentActivities, PerformanceIndicators, StudentHistory, PersistedResult } from "./student-progress";
+import { AdaptiveTrail } from "./adaptive-trail";
+import { TrailLaunchButton } from "./trail-launch";
 import { StudyTrail } from "./study-trail";
+import { useAttemptResume } from './attempt-resume';
 
 
 type Alternative = { id: string; text: string };
@@ -128,7 +132,14 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const [answer, setAnswer] = useState<string>();
   const [currentResult, setResult] = useState<Result>();
   const progress = useStudentProgress();
-  const result = currentResult ?? (["/dashboard", "/desempenho", "/trilha", "/estudar"].includes(route) ? progress.latestResult : undefined);
+  const previousProgressRoute = useRef(route);
+  useEffect(() => {
+    const changed = previousProgressRoute.current !== route;
+    previousProgressRoute.current = route;
+    if (changed && ["/dashboard", "/trilha"].includes(route)) void progress.refresh();
+  }, [route, progress.refresh]);
+  const result = (currentResult?.level || route === '/diagnostico' ? currentResult : undefined)
+    ?? (["/dashboard", "/desempenho", "/trilha", "/estudar"].includes(route) ? progress.latestResult : undefined);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [trailId, setTrailId] = useState<string>();
@@ -136,6 +147,25 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const [trailIndex, setTrailIndex] = useState(0);
   const [trailAnswer, setTrailAnswer] = useState<string>();
   const [trailResult, setTrailResult] = useState<TrailResult>();
+  const attemptMutationPending = useRef(false);
+  const recovery = useAttemptResume(route);
+  useEffect(() => {
+    const saved = recovery.restored;
+    if (!saved) return;
+    setError('');
+    const firstUnanswered = saved.questions.findIndex(question => !question.selectedOptionId);
+    const position = firstUnanswered < 0 ? Math.max(0, saved.questions.length - 1) : firstUnanswered;
+    if (saved.kind === 'diagnostico') {
+      setId(saved.id); setQuestions(saved.questions); setIndex(position);
+      setAnswer(saved.questions[position]?.selectedOptionId ?? undefined);
+      setResult(saved.result); setTrailId(undefined); setTrailQuestions([]); setTrailResult(undefined);
+    } else {
+      setId(undefined); setTrailId(saved.id); setTrailQuestions(saved.questions); setTrailIndex(position);
+      setTrailAnswer(saved.questions[position]?.selectedOptionId ?? undefined);
+      setResult({ overallPercentage: 0, level: '', recommendation: '', performances: [], trail: null });
+      setTrailResult(saved.result);
+    }
+  }, [recovery.restored]);
 
 
 
@@ -150,55 +180,73 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     }
   }, [route, role, initialDestination]);
 
+  if (recovery.requested && (recovery.loading || recovery.error)) return <section className="page">
+    <h1>{recovery.loading ? 'Retomando sua tentativa…' : 'Não foi possível retomar a tentativa'}</h1>
+    {recovery.error && <><p className="error" role="alert">{recovery.error}</p><button className="outline-button" onClick={recovery.retry}>Tentar novamente</button></>}
+  </section>;
   if (route === "/diagnostico-inicial") return <InitialDiagnosticPage studentId={userId} onBack={() => navigate("/")} />;
   const practiceRoute = /^\/questoes\/pratica\/([^/]+)$/.exec(route);
+  const reviewRoute = /^\/questoes\/revisao\/([^/]+)$/.exec(route);
 
 
   const classAttemptRoute = /^\/simulados\/tentativas\/([^/]+)$/.exec(route);
+  const individualExamRoute = /^\/simulados\/individual\/([^/]+)$/.exec(route);
+  if (individualExamRoute) return <IndividualExamPage key={individualExamRoute[1]} id={individualExamRoute[1]} />;
   if (route === "/metas") return <GoalsPage />;
   if (route === "/turmas") return <ClassesPage teacher={false} />;
   if (route === "/simulados") return <ExamsPage teacher={false} />;
   if (classAttemptRoute) return <ClassExamAttempt key={classAttemptRoute[1]} id={classAttemptRoute[1]} onCompleted={() => void progress.refresh()} />;
-  const resultRoute = /^\/resultados\/(diagnostico|trilha)\/([^/]+)$/.exec(route);
+  const resultRoute = /^\/resultados\/(diagnostico|diagnostico-inicial|trilha)\/([^/]+)$/.exec(route);
   const diagnosticReviewRoute = /^\/resultados\/diagnostico\/([^/]+)\/correcao$/.exec(route);
   if (diagnosticReviewRoute) return <DiagnosticReview attemptId={diagnosticReviewRoute[1]} onBack={() => navigate(`/resultados/diagnostico/${diagnosticReviewRoute[1]}`)} />;
   if (route === "/historico") return <StudentHistory />;
-  if (route === "/estudar") return <StudyTrail mode="study" userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
-  if (route === "/trilha") return <StudyTrail mode="trail" userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
-  if (resultRoute) return <PersistedResult type={resultRoute[1] as "diagnostico" | "trilha"} id={resultRoute[2]} />;
+  if (route === "/estudar") return <StudyTrail userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
+  if (route === "/trilha") return <AdaptiveTrail progress={progress} />;
+  if (resultRoute) return <PersistedResult type={resultRoute[1] as "diagnostico" | "diagnostico-inicial" | "trilha"} id={resultRoute[2]} />;
 
   if (route === "/dashboard" && role === "ALUNO") {
-    const firstName = nome.trim().split(/\s+/)[0] || "estudante";
-    const metrics = progress.data?.learning?.disciplines.map((item) => ({ disciplina: item.discipline, percentual: item.percentage ?? 0 })) ?? result?.performances.filter((metric) => metric.tipo === "DISCIPLINA") ?? [];
-    const totalAnswered = progress.data?.totals.answeredQuestions ?? 0;
-    const totalCorrect = progress.data?.totals.correctAnswers ?? 0;
-    const trail = result?.trail;
+    const academic = !progress.loading && !progress.error ? progress.data : undefined;
+    const dashboardResult = academic && !progress.resultError ? result : undefined;
+    const metrics = academic?.learning?.disciplines.map((item) => ({ disciplina: item.discipline, percentual: item.percentage ?? 0 })) ?? dashboardResult?.performances.filter((metric) => metric.tipo === "DISCIPLINA") ?? [];
+    const totalAnswered = academic?.totals.answeredQuestions ?? 0;
+    const totalCorrect = academic?.totals.correctAnswers ?? 0;
+    const trail = dashboardResult?.trail;
     return (
       <div className="shell">        <main className="content">
-          <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refresh()} />
+          <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refreshAcademic()} />
+          <ProgressStatus loading={progress.dashboardLoading} error={progress.dashboardError} refresh={() => void progress.refreshDashboard()} loadingMessage="Carregando metas de estudo..." />
           {progress.resultError && <div className="study-notice" role="alert"><p>O resumo da conta foi carregado, mas o resultado do diagnóstico antigo está indisponível: {progress.resultError}</p><button className="outline-button" onClick={() => void progress.refresh()}>Tentar novamente</button></div>}
           <section className="page dashboard-page">
             <div className="dashboard-heading">
               <div><p className="gold">JURISSIM · OAB</p><h1>Seu espaço de estudos</h1><p className="muted">Acompanhe seu preparo e continue de onde parou.</p></div>
               <div className="dashboard-heading-actions">
                 <button className="primary" onClick={() => navigate("/estudar")}>Estudar agora <b>→</b></button>
-                <button className="text-button" onClick={() => navigate("/trilha")}>Minha Trilha de Estudos</button>
+                <button className="text-button" onClick={() => navigate("/trilha")}>Minha Trilha Adaptativa</button>
                 <button className="text-button" onClick={() => navigate("/diagnostico-inicial")}>Conhecer o novo diagnóstico</button>
               </div>
             </div>
             <article className="dashboard-recommendation">
               <div className="recommendation-icon">✦</div>
               <div className="recommendation-copy">
-                <p className="gold">RECOMENDADO PARA VOCÊ</p>
-              {progress.data?.learning?.priorityTopic ? <><h2>{progress.data.learning.priorityTopic.discipline}</h2><p>Retome {progress.data.learning.priorityTopic.topic} · {progress.data.learning.priorityTopic.percentage}% em {progress.data.learning.priorityTopic.total} respostas</p></> : trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{trail.assuntoPrioritario ?? "Conteudos gerais da disciplina"} · nivel {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></> : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem após seu primeiro diagnóstico concluído.</p></>}
+                <p className="gold">{academic?.learning?.priorityTopic || trail ? "RECOMENDADO PARA VOCÊ" : "COMECE POR AQUI"}</p>
+              {academic?.learning?.priorityTopic ? <><h2>{academic.learning.priorityTopic.discipline}</h2><p>Retome {academic.learning.priorityTopic.topic} · {academic.learning.priorityTopic.percentage}% em {academic.learning.priorityTopic.total} respostas</p></> : trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{trail.assuntoPrioritario ?? "Conteudos gerais da disciplina"} · nivel {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></> : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem após seu primeiro diagnóstico concluído.</p></>}
               </div>
-              {trail && <button className="outline-button" onClick={() => navigate("/desempenho")}>Ver trilha</button>}
+              {trail && <button className="outline-button" onClick={() => navigate("/trilha")}>Abrir trilha adaptativa</button>}
             </article>
             <div className="dashboard-stats">
-              <article><span>Seu nível</span><strong>{result ? labels[result.level] ?? result.level : "—"}</strong><small>{result ? "Resultado do diagnóstico" : "Sem resultado disponível"}</small></article>
-              <article><span>Questões respondidas</span><strong>{totalAnswered || "—"}</strong><small>{totalAnswered ? `${totalCorrect} acertos no histórico` : "Aguardando atividade registrada"}</small></article>
-              <article><span>Disciplinas avaliadas</span><strong>{result ? metrics.length : "—"}</strong><small>{result ? "No último diagnóstico" : "Aguardando diagnóstico"}</small></article>
+              <article><span>Seu nível</span><strong>{dashboardResult ? labels[dashboardResult.level] ?? dashboardResult.level : "—"}</strong><small>{dashboardResult ? "Resultado do diagnóstico" : "Sem resultado disponível"}</small></article>
+              <article><span>Questões respondidas</span><strong>{academic ? totalAnswered : "—"}</strong><small>{totalAnswered ? `${totalCorrect} acertos em atividades concluídas` : "Aguardando atividade registrada"}</small></article>
+              <article><span>Disciplinas com respostas</span><strong>{academic ? metrics.length : "—"}</strong><small>{academic ? "No desempenho registrado" : "Aguardando dados"}</small></article>
             </div>
+            <div className="dashboard-grid student-entry-cards">
+              <article className="panel"><p className="gold">CONTEÚDOS E AULAS</p><h2>Estudar</h2><p className="muted">Aprenda por disciplina, revise e continue suas aulas. Leituras e autoavaliações ficam salvas neste navegador.</p><button className="primary" onClick={() => navigate("/estudar")}>Estudar agora</button></article>
+              <article className="panel"><p className="gold">EXERCÍCIOS PERSONALIZADOS</p><h2>Minha Trilha Adaptativa</h2><p className="muted">Consulte as prioridades do diagnóstico, retome exercícios e acompanhe resultados salvos na sua conta.</p><button className="outline-button" onClick={() => navigate("/trilha")}>Abrir trilha adaptativa</button></article>
+            </div>
+            <article className="panel dashboard-today"><div><p className="gold">METAS DIÁRIAS</p><h2>Hoje</h2>
+              {progress.studyDashboard && !progress.dashboardLoading && !progress.dashboardError && <p>{progress.studyDashboard.todayAnsweredQuestions} respostas registradas{progress.studyDashboard.todayGoal ? ` de ${progress.studyDashboard.todayGoal.targetQuestions} da meta (${progress.studyDashboard.todayGoal.progressPercentage}%)` : ". Crie uma meta para acompanhar seu objetivo."}</p>}
+              {progress.dashboardLoading && <p className="muted">Atualizando o resumo de hoje...</p>}
+              {progress.dashboardError && <p className="muted">Resumo indisponível. Use a opção de tentar novamente acima.</p>}
+            </div><button className="text-button" onClick={() => navigate("/metas")}>Gerenciar metas</button></article>
             <div className="dashboard-grid">
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">VISÃO POR MATÉRIA</p><h2>Desempenho por disciplina</h2></div><button className="text-button" onClick={() => navigate("/desempenho")}>Ver meu desempenho</button></div>
@@ -206,15 +254,15 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
               </article>
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">EVOLUÇÃO</p><h2>Seu progresso</h2></div></div>
-                <Evolution items={progress.data?.evolution} />
+                <Evolution items={academic?.evolution} />
               </article>
               <article className="panel dashboard-panel dashboard-activity">
                 <div className="dashboard-panel-heading"><div><p className="gold">ATIVIDADE</p><h2>Atividade recente</h2></div></div>
-                <RecentActivities items={progress.data?.recentActivities} />
+                <RecentActivities items={academic?.recentActivities} />
               </article>
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">TRILHAS</p><h2>Progresso das trilhas adaptativas</h2></div></div>
-                {progress.data?.learning?.trailProgress.length ? progress.data.learning.trailProgress.slice(0, 5).map((item) => <div className="metric" key={item.id}><span>{item.discipline}{item.topic ? ` · ${item.topic}` : ""}</span><div><i style={{ width: `${item.total ? Math.round(item.answered / item.total * 100) : 0}%` }} /></div><b>{item.completed ? "Concluída" : `${item.answered}/${item.total}`}</b></div>) : <p className="empty-dashboard">As trilhas concluídas e em andamento aparecerão aqui.</p>}
+                {academic?.learning?.trailProgress.length ? academic.learning.trailProgress.slice(0, 5).map((item) => <div className="metric" key={item.id}><span>{item.discipline}{item.topic ? ` · ${item.topic}` : ""}</span><div><i style={{ width: `${item.total ? Math.round(item.answered / item.total * 100) : 0}%` }} /></div><b>{item.completed ? "Concluída" : `${item.answered}/${item.total}`}</b></div>) : <p className="empty-dashboard">As trilhas concluídas e em andamento aparecerão aqui.</p>}
               </article>
             </div>
           </section>
@@ -230,7 +278,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
           <section className="page">
             <p className="gold">SEU DESEMPENHO</p>
             <h1>{progress.data?.totals.completedActivities ? "Seu desempenho" : "Dados ainda indisponíveis"}</h1>
-            <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refresh()} />
+            <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refreshAcademic()} />
             {progress.resultError ? <p className="error" role="alert">O resultado do diagnóstico antigo está indisponível: {progress.resultError}</p> : <p className="muted">Nenhum diagnóstico concluído foi encontrado na sua conta.</p>}
             <PerformanceIndicators data={progress.data} />
             <button className="primary" onClick={() => navigate("/dashboard")}>Ir para o Dashboard <b>→</b></button>
@@ -244,7 +292,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   if (view === "questoes" || practiceRoute) {
     return (
       <div className="shell">        <main className="content">
-          <QuestionPracticePage key={practiceRoute?.[1] ?? 'chooser'} attemptId={practiceRoute?.[1]} initialDiscipline={new URLSearchParams(window.location.search).get('disciplina') ?? undefined} />
+          <QuestionPracticePage key={reviewRoute?.[1] ?? practiceRoute?.[1] ?? (route.startsWith('/questoes/revisao') ? 'review-chooser' : 'chooser')} review={route.startsWith('/questoes/revisao')} attemptId={reviewRoute?.[1] ?? practiceRoute?.[1]} initialDiscipline={new URLSearchParams(window.location.search).get('disciplina') ?? undefined} />
         </main>
 
       </div>
@@ -261,11 +309,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
         method: "POST",
         body: JSON.stringify({ questionCount: 30 }),
       });
-      const response = await call<{ questions: Question[] }>(
-        `/diagnostics/${attempt.id}/questions`,
-      );
-      setId(attempt.id);
-      setQuestions(response.questions);
+      navigate(`/diagnostico?tentativa=${encodeURIComponent(attempt.id)}`);
+      recovery.retry();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
     } finally {
@@ -274,70 +319,52 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   };
 
   const next = async () => {
-    if (!id || !answer) return;
+    if (!id || !answer || !questions[index] || attemptMutationPending.current) return;
+    attemptMutationPending.current = true;
     setLoading(true);
     setError("");
     try {
-      await call(`/diagnostics/${id}/answers/${questions[index].id}`, {
+      if (!questions[index].selectedOptionId) await call(`/diagnostics/${id}/answers/${questions[index].id}`, {
         method: "PUT",
         body: JSON.stringify({ selectedOptionId: answer }),
       });
-      setAnswer(undefined);
+      setQuestions(current => current.map(question => question.id === questions[index].id ? { ...question, selectedOptionId: answer } : question));
       if (index + 1 < questions.length) {
+        setAnswer(questions[index + 1].selectedOptionId ?? undefined);
         setIndex(index + 1);
         return;
       }
       await call(`/diagnostics/${id}/finalize`, { method: "POST" });
       const diagnosticResult = await call<Result>(`/diagnostics/${id}/result`);
-      const trailResponse = await call<{ trail: Trail }>(
-        `/diagnostics/${id}/trail`,
-      );
-      setResult({ ...diagnosticResult, trail: trailResponse.trail });
+      setResult(diagnosticResult);
       void progress.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
+      // A lost response does not prove that the write failed. Re-read the owned
+      // attempt before allowing another answer or completion request.
+      recovery.retry();
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateTrail = async () => {
-    if (!result?.trail) return;
-    setLoading(true);
-    setError("");
-    try {
-      const attempt = await call<{ id: string }>(
-        `/trilhas/${result.trail.id}/gerar`,
-        { method: "POST" },
-      );
-      const response = await call<{ questions: Question[] }>(
-        `/trilhas/attempts/${attempt.id}/questions`,
-      );
-      if (route === "/desempenho") navigate("/diagnostico");
-      setResult({ ...result, trail: { ...result.trail, simuladoGeradoId: attempt.id } });
-      setTrailId(attempt.id);
-      setTrailQuestions(response.questions);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Erro inesperado.");
-    } finally {
+      attemptMutationPending.current = false;
       setLoading(false);
     }
   };
 
   const nextTrailQuestion = async () => {
-    if (!trailId || !trailAnswer) return;
+    if (!trailId || !trailAnswer || !trailQuestions[trailIndex] || attemptMutationPending.current) return;
+    attemptMutationPending.current = true;
     setLoading(true);
     setError("");
     try {
-      await call(
+      if (!trailQuestions[trailIndex].selectedOptionId) await call(
         `/trilhas/attempts/${trailId}/answers/${trailQuestions[trailIndex].id}`,
         {
           method: "PUT",
           body: JSON.stringify({ selectedOptionId: trailAnswer }),
         },
       );
-      setTrailAnswer(undefined);
+      setTrailQuestions(current => current.map(question => question.id === trailQuestions[trailIndex].id ? { ...question, selectedOptionId: trailAnswer } : question));
       if (trailIndex + 1 < trailQuestions.length) {
+        setTrailAnswer(trailQuestions[trailIndex + 1].selectedOptionId ?? undefined);
         setTrailIndex(trailIndex + 1);
         return;
       }
@@ -349,7 +376,11 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
       void progress.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
+      // A lost response does not prove that the write failed. Re-read the owned
+      // attempt before allowing another answer or completion request.
+      recovery.retry();
     } finally {
+      attemptMutationPending.current = false;
       setLoading(false);
     }
   };
@@ -561,7 +592,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
               <div>
                 <p className="gold">NÍVEL ANTERIOR → NÍVEL ATUAL</p>
                 <h2>
-                  {labels[result.level]} → {labels[trailResult.level]}
+                  {labels[result.level] ?? '—'} → {labels[trailResult.level]}
                 </h2>
                 <p>{trailResult.recommendation}</p>
                 <div className="result-actions">
@@ -584,7 +615,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   return (
     <div className="shell">      <main className="content">
         <section className="page result">
-          <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refresh()} />
+          <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refreshAcademic()} />
           {route === "/desempenho" && <PerformanceIndicators data={progress.data} />}
           <p className="gold">DIAGNÓSTICO CONCLUÍDO</p>
           <h1>Seu desempenho</h1>
@@ -624,13 +655,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
                 <p>
                   <b>Nível recomendado:</b> {labels[trail.nivelRecomendado]}
                 </p>
-                <button
-                  className="primary"
-                  disabled={loading || !!trail.simuladoGeradoId}
-                  onClick={generateTrail}
-                >
-                  {trail.simuladoGeradoId ? "Exercícios já gerados" : loading ? "Gerando..." : "Gerar exercícios"} <b>→</b>
-                </button>
+                <TrailLaunchButton trail={trail} />
                 {trail.simuladoGeradoId && <button className="text-button" onClick={() => navigate("/historico")}>Consultar exercícios no histórico</button>}
                 {error && <small className="error">{error}</small>}
               </div>

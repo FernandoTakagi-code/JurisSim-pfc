@@ -26,6 +26,7 @@ export interface InitialDiagnosticResolutionQuestion {
 
 export interface InitialDiagnosticResolutionAttempt {
   id: string;
+  provisional?: boolean;
   state: InitialDiagnosticAttemptState;
   finalizedAt: Date | null;
   questions: readonly InitialDiagnosticResolutionQuestion[];
@@ -103,6 +104,7 @@ function resultResponse(attempt: InitialDiagnosticResolutionAttempt, result = to
   const storedTrail = attempt.trail as { justificativa?: string } | null;
   return {
     id: attempt.id,
+    provisional: attempt.provisional === true,
     finalizedAt: attempt.finalizedAt,
     correctAnswers: result.correctAnswers,
     totalQuestions: result.totalQuestions,
@@ -146,7 +148,8 @@ export class InitialDiagnosticResolutionService {
     const answers = attempt.questions.flatMap(question => question.selectedAlternativeId
       ? [{ questionId: question.questionId, selectedOptionId: question.selectedAlternativeId, respondedAt: question.answeredAt }]
       : []);
-    return { attemptId: attempt.id, answered: answers.length, total: 30, answers };
+    return { attemptId: attempt.id, answered: answers.length, total: 30, answers,
+      provisional: attempt.provisional === true };
   }
 
   async saveAnswer(studentId: string, attemptId: string, questionId: string, alternativeId: string) {

@@ -25,13 +25,21 @@ function serviceWith(options: { trilha?: ReturnType<typeof trilha> | null; attem
   const repository = {
     findTrilha: vi.fn().mockResolvedValue(options.trilha ?? null),
     findQuestionsForTrail: vi.fn().mockResolvedValue(options.questions ?? [{ id: 'question-1' }]),
-    createTrailAttempt: vi.fn().mockResolvedValue(options.attempt ?? attempt()),
+    createTrailAttempt: vi.fn().mockImplementation(async (_student, _trail, questionIds: string[]) => {
+      if (!questionIds.length) throw Object.assign(new Error('Sem questões disponíveis'), { statusCode: 409 });
+      return options.attempt ?? attempt();
+    }),
     findAttempt: vi.fn().mockResolvedValue(options.attempt ?? null),
     saveAnswer: vi.fn().mockResolvedValue(undefined),
-    finalize: vi.fn().mockResolvedValue(true),
+    finalize: vi.fn().mockImplementation(async (_id, _student, analyze) => {
+      const current = options.attempt ?? attempt();
+      if (!current.questoes.some(q => q.resposta)) throw Object.assign(new Error('Sem respostas'), { statusCode: 422 });
+      analyze(current);
+      return { ...current, finalizadoEm: new Date() };
+    }),
   };
   const students = { updateLevel: vi.fn().mockResolvedValue(undefined) };
-  return { service: new TrailService(repository as never, students as never), repository, students };
+  return { service: new TrailService(repository as never), repository, students };
 }
 
 describe('regras da trilha de exercicios', () => {
@@ -57,9 +65,11 @@ describe('regras da trilha de exercicios', () => {
     await expect(service.generate('trilha-1', 'student-1')).rejects.toMatchObject({ statusCode: 404 });
   });
 
-  it('nao gera a mesma trilha duas vezes', async () => {
-    const { service } = serviceWith({ trilha: trilha({ simuladoGeradoId: 'simulado-ja-gerado' }) });
-    await expect(service.generate('trilha-1', 'student-1')).rejects.toMatchObject({ statusCode: 409 });
+  it('retoma a trilha já gerada sem consultar nem selecionar novamente o acervo', async () => {
+    const { service, repository } = serviceWith({ trilha: trilha({ simuladoGeradoId: 'trail-attempt-1' }), attempt: attempt() });
+    await expect(service.generate('trilha-1', 'student-1')).resolves.toMatchObject({ id: 'trail-attempt-1' });
+    expect(repository.findQuestionsForTrail).not.toHaveBeenCalled();
+    expect(repository.createTrailAttempt).not.toHaveBeenCalled();
   });
 
   it('nao gera trilha sem questoes disponiveis', async () => {
@@ -115,9 +125,10 @@ describe('regras da trilha de exercicios', () => {
         questao: { id: `question-${index}`, enunciado: 'Pergunta', disciplina: 'Constitucional', assunto: 'Controle', nivel: 'BASICO', alternativas: [] },
       })),
     });
-    const { service, students } = serviceWith({ attempt: currentAttempt });
+    const { service, repository, students } = serviceWith({ attempt: currentAttempt });
     const result = await service.finalize('trail-attempt-1', 'student-1');
     expect(result.level).toBe('AVANCADO');
-    expect(students.updateLevel).toHaveBeenCalledWith('student-1', 'AVANCADO');
+    expect(repository.finalize).toHaveBeenCalledWith('trail-attempt-1', 'student-1', expect.any(Function));
+    expect(students.updateLevel).not.toHaveBeenCalled();
   });
 });

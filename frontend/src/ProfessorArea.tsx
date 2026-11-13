@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { navigate, usePath } from "./navigation";
 import { ClassesPage, ExamsPage, ClassStudents } from "./class-exams";
 import { TeacherReports, StudentClassReport } from "./goals-reports";
+import { QUESTION_LETTERS, questionAlternativesError } from '../../backend/src/question-alternatives';
 
 
 type Nivel = "BASICO" | "INTERMEDIARIO" | "AVANCADO";
-type Alternativa = { id?: string; texto: string; correta: boolean };
+type Alternativa = { id?: string; letra?: string | null; texto: string; correta: boolean };
 type Questao = {
   id: string;
   enunciado: string;
@@ -399,7 +400,7 @@ function BancoQuestoes({
 }
 
 const alternativasIniciais = (): Alternativa[] => [
-  { texto: "", correta: true },
+  { texto: "", correta: false },
   { texto: "", correta: false },
   { texto: "", correta: false },
   { texto: "", correta: false },
@@ -423,7 +424,15 @@ function QuestaoForm({
     nivel: questao?.nivel ?? "BASICO",
     fundamentacaoJuridica: questao?.fundamentacaoJuridica ?? "",
     publica: questao?.publica ?? true,
-    alternativas: questao?.alternativas.map(({ texto, correta }) => ({ texto, correta: Boolean(correta) })) ?? alternativasIniciais(),
+    alternativas: questao ? (() => {
+      const existing = [...questao.alternativas];
+      if (existing.every(a => a.letra && QUESTION_LETTERS.includes(a.letra as typeof QUESTION_LETTERS[number]))) {
+        existing.sort((a, b) => a.letra!.localeCompare(b.letra!));
+      }
+      const editable = existing.map(({ texto, correta }) => ({ texto, correta: Boolean(correta) }));
+      while (editable.length < QUESTION_LETTERS.length) editable.push({ texto: '', correta: false });
+      return editable;
+    })() : alternativasIniciais(),
   }));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -439,12 +448,13 @@ function QuestaoForm({
   if (!dados.disciplina.trim()) problemas.push("Informe a disciplina.");
   if (!dados.assunto.trim()) problemas.push("Informe o assunto.");
   if (!dados.fundamentacaoJuridica.trim()) problemas.push("Informe a fundamentação jurídica.");
-  if (dados.alternativas.some((a) => !a.texto.trim())) problemas.push("Preencha o texto de todas as alternativas.");
-  if (dados.alternativas.filter((a) => a.correta).length !== 1) problemas.push("Marque exatamente uma alternativa correta.");
+  const alternativeError = questionAlternativesError(dados.alternativas);
+  if (alternativeError) problemas.push(alternativeError);
 
   const sugestoes = [...new Set([...disciplinasOab, ...disciplinasExistentes])].sort();
 
   const submit = async () => {
+    if (loading) return;
     setTentouSalvar(true);
     if (problemas.length) return;
     setLoading(true);
@@ -506,7 +516,8 @@ function QuestaoForm({
           </label>
         </div>
         <fieldset>
-          <legend>Alternativas <small>marque a correta</small></legend>
+          <legend>Alternativas A–D <small>preencha as quatro e marque uma correta</small></legend>
+          {dados.alternativas.length > QUESTION_LETTERS.length && <p role="alert">Esta questão antiga tem mais de quatro alternativas. Remova explicitamente as excedentes e confira o gabarito antes de salvar.</p>}
           {dados.alternativas.map((alt, index) => (
             <div className={`alternative-row${alt.correta ? " is-correct" : ""}`} key={index}>
               <label className="alt-radio" title="Marcar como correta">
@@ -522,31 +533,27 @@ function QuestaoForm({
               <textarea
                 rows={2}
                 placeholder={`Texto da alternativa ${letra(index)}`}
+                aria-label={`Texto da alternativa ${letra(index)}`}
                 value={alt.texto}
                 onChange={(e) => setAlternativas((atual) => atual.map((a, i) => (i === index ? { ...a, texto: e.target.value } : a)))}
               />
-              <button
+              {dados.alternativas.length > QUESTION_LETTERS.length && <button
                 type="button"
                 className="icon-button"
-                disabled={dados.alternativas.length <= 2}
                 aria-label={`Remover alternativa ${letra(index)}`}
                 onClick={() => setAlternativas((atual) => {
                   const restantes = atual.filter((_, i) => i !== index);
-                  return restantes.some((a) => a.correta) ? restantes : restantes.map((a, i) => ({ ...a, correta: i === 0 }));
+                  return restantes;
                 })}
-              >×</button>
+              >×</button>}
             </div>
           ))}
-          {dados.alternativas.length < 5 && (
-            <button type="button" className="text-button" onClick={() => setAlternativas((atual) => [...atual, { texto: "", correta: false }])}>
-              + Adicionar alternativa
-            </button>
-          )}
         </fieldset>
         <label className="checkbox-row">
           <input type="checkbox" checked={dados.publica} onChange={(e) => campo("publica", e.target.checked)} />
-          Disponível no banco público (usada nos simulados de todos os alunos)
+          Disponível no banco público
         </label>
+        <p className="muted">O uso no diagnóstico inicial e na prática individual depende também da revisão e liberação do acervo.</p>
         {tentouSalvar && problemas.length > 0 && (
           <ul className="form-problems">{problemas.map((p) => <li key={p}>{p}</li>)}</ul>
         )}

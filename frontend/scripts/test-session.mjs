@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 const origin = 'http://127.0.0.1:5181';
 const profile = await mkdtemp(path.join(tmpdir(), 'jurissim-session-'));
-const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5181', '--strictPort'], {
+const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--configLoader', 'runner', '--host', '127.0.0.1', '--port', '5181', '--strictPort'], {
   windowsHide: true, stdio: 'ignore', env: { ...process.env, VITE_API_URL: 'http://127.0.0.1:1', VITE_GOOGLE_CLIENT_ID: '', VITE_INITIAL_DIAGNOSTIC_UI_ENABLED: 'false', VITE_QUESTION_PRACTICE_UI_ENABLED: 'false' },
 });
 const browser = spawn(process.env.CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe', [
@@ -114,11 +114,13 @@ try {
         }
         window.persistFixture(); return reply(window.fixture.photo || { kind: 'default' });
       }
+      if (route.startsWith('/question-practice/catalog/')) return new Response(JSON.stringify({ topics: [] }), { status: 200 });
       if (route.startsWith('/goals')) {
         const reply = (value, status = 200) => new Response(JSON.stringify(value), { status });
         if (window.fixture.goalStatus) return reply({ message: 'Metas temporariamente indisponíveis.' }, window.fixture.goalStatus);
         const goals = window.fixture.goals ||= [], body = init.body ? JSON.parse(init.body) : {};
         const update = goal => { if (!goal.completed) goal.resolvedQuestions = window.fixture.goalCount || 0; goal.canComplete = !goal.completed && goal.resolvedQuestions >= goal.targetQuestions; goal.progressPercentage = Math.min(100, Number((goal.resolvedQuestions / goal.targetQuestions * 100).toFixed(2))); return goal; };
+        if (route === '/goals/dashboard') return reply({ streak: { current: 0, longest: 0, lastActivityDate: null }, totalAnsweredQuestions: window.fixture.goalCount || 0, todayAnsweredQuestions: window.fixture.goalCount || 0, todayGoal: goals.length ? update(goals[goals.length - 1]) : null, currentLevel: null });
         if (route === '/goals' && init.method === 'POST') {
           const goal = update({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ...body, completed: false, resolvedQuestions: 0 }); goals.push(goal); window.persistFixture(); return reply(goal, 201);
         }
@@ -216,7 +218,7 @@ try {
         const items = window.fixture.questions ||= [];
         const id = route.split('/')[2];
         if (init.method === 'POST') {
-          const item = { ...JSON.parse(init.body), id: 'created-fixture', autorId: window.fixture.session.user.id };
+          const item = { ...JSON.parse(init.body), id: 'created-fixture', autorId: window.fixture.session.user.id, canManage: true };
           items.push(item); return new Response(JSON.stringify(item), { status: 201 });
         }
         if (init.method === 'PUT') {
@@ -276,7 +278,7 @@ try {
 
   for (const role of ['PROFESSOR', 'ADMIN']) {
     await boot({ session: user(role) }, '/dashboard', 'ALUNO');
-    await until('!!document.querySelector(".professor-shell") && location.pathname === "/professor"');
+    await until(role === 'ADMIN' ? '!!document.querySelector(".admin-page") && location.pathname === "/administracao"' : '!!document.querySelector(".professor-shell") && location.pathname === "/professor"');
     pass(role + ' usa a área existente conforme perfil validado, independentemente do JWT');
   }
   await boot({ session: user('PROFESSOR') }, '/professor', 'ADMIN');
@@ -311,7 +313,7 @@ try {
     await evaluate('document.querySelector("button.primary").click()');
     await until('document.querySelector(".recovery-notice")?.textContent === "Reenvio simulado."');
     await evaluate('window.fixture.session.user.emailVerificado = true; window.dispatchEvent(new Event("focus"))');
-    await until(role === 'ALUNO' ? '!!document.querySelector(".dashboard-page")' : '!!document.querySelector(".professor-shell")');
+    await until(role === 'ALUNO' ? '!!document.querySelector(".dashboard-page")' : role === 'ADMIN' ? '!!document.querySelector(".admin-page")' : '!!document.querySelector(".professor-shell")');
     pass(role + ' pendente é bloqueado apesar do cache e reconhece confirmação após revalidar');
   }
 
@@ -360,9 +362,9 @@ try {
   pass('401 de recurso protegido encerra a sessão centralmente');
 
   await boot({ session: user('ADMIN') });
-  await until('!!document.querySelector(".professor-shell")');
+  await until('!!document.querySelector(".admin-page")');
   await evaluate(`window.client = await import('/src/api.ts'); window.fixture.session = ${JSON.stringify(user())}; window.fixture.resourceStatus = 403; await window.client.apiRequest('/questoes').catch(() => {});`);
-  await until('!!document.querySelector(".dashboard-page") && !document.querySelector(".professor-shell")');
+  await until('!document.querySelector(".admin-page") && !document.querySelector(".professor-shell") && document.body.textContent.includes("Acesso n\u00e3o autorizado")');
   pass('redução de perfil após 403 remove a área anterior sem novo login');
 
   await boot({ session: user() });
@@ -392,7 +394,7 @@ try {
   };
   const setName = async name => evaluate(`const input = document.querySelector('#profile-name'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(name)}); input.dispatchEvent(new Event('input', { bubbles: true }));`);
   for (const role of ['ALUNO', 'PROFESSOR', 'ADMIN']) {
-    const base = role === 'ALUNO' ? '' : '/professor';
+    const base = role === 'ALUNO' ? '' : role === 'ADMIN' ? '/administracao' : '/professor';
     await boot({ session: user(role) }, base + '/perfil');
     await until('!!document.querySelector("#profile-name")');
     assert.equal(await evaluate('document.querySelector("#profile-name").value'), 'Nome do servidor');
@@ -404,7 +406,7 @@ try {
     assert.equal(await evaluate('document.querySelector(".v0-sidebar-account strong").textContent'), 'Nome atualizado ' + role);
     assert.equal(await evaluate('window.apiCalls.filter(c => c.route === "/auth/nome" && c.method === "PUT").length'), 1);
     await until('document.querySelector(".v0-photo button")?.disabled === false');
-    await go(base + '/configuracoes');
+    await go(base + (role === 'ADMIN' ? '/preferencias' : '/configuracoes'));
     await until('!!document.querySelector(".v0-theme-options")');
     for (const [text, dark] of [['Tema escuro', true], ['Tema claro', false]]) {
       await clickText('.v0-theme-options button', text);
@@ -420,17 +422,21 @@ try {
     await go(base + '/perfil');
     await until('!!document.querySelector("#profile-name")');
     assert.equal(await evaluate('document.querySelector("#profile-name").value'), 'Nome atualizado ' + role);
-    await go(base + '/configuracoes');
+    await go(base + (role === 'ADMIN' ? '/preferencias' : '/configuracoes'));
     await evaluate('history.back()');
     await until('location.pathname.endsWith("/perfil") && !!document.querySelector("#profile-name")');
     await evaluate('history.forward()');
-    await until('location.pathname.endsWith("/configuracoes") && !!document.querySelector(".v0-theme-options")');
+    await until('(location.pathname.endsWith("/configuracoes") || location.pathname.endsWith("/preferencias")) && !!document.querySelector(".v0-theme-options")');
     await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
     await evaluate('document.querySelector(".v0-mobile-menu").click()');
     await until('document.querySelector(".v0-sidebar").classList.contains("v0-open")');
     assert.equal(await evaluate('getComputedStyle(document.querySelector(".v0-sidebar")).display'), 'flex');
     assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
-    await clickText('.v0-sidebar nav button', 'Meu perfil');
+    if (role === 'ADMIN') {
+      await clickText('.v0-sidebar nav button', 'Vis\u00e3o geral');
+      await until('!!document.querySelector(".admin-page") && !document.querySelector(".v0-sidebar").classList.contains("v0-open")');
+      await go('/administracao/perfil');
+    } else await clickText('.v0-sidebar nav button', 'Meu perfil');
     await until('!!document.querySelector("#profile-name") && !document.querySelector(".v0-sidebar").classList.contains("v0-open")');
     await evaluate('document.querySelector(".v0-mobile-menu").click()');
     await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
@@ -439,7 +445,7 @@ try {
     await evaluate('document.querySelector(".v0-user-trigger").click()');
     await until('!!document.querySelector(".v0-dropdown")');
     await clickText('.v0-dropdown button', 'Configurações');
-    await until('location.pathname.endsWith("/configuracoes") && !document.querySelector(".v0-dropdown")');
+    await until('(location.pathname.endsWith("/configuracoes") || location.pathname.endsWith("/preferencias")) && !document.querySelector(".v0-dropdown")');
     const shot = await cdp('Page.captureScreenshot', { format: 'png' });
     await writeFile(path.join(profile, `mobile-${role}.png`), Buffer.from(shot.data, 'base64'));
     await cdp('Emulation.setDeviceMetricsOverride', { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
@@ -486,8 +492,9 @@ try {
   await until('location.pathname.endsWith("/nova") && !!document.querySelector(".question-form")');
   pass('professor não edita questão alheia; CRUD mantém voltar/avançar e URL após recarregar');
   await boot({ session: user('ADMIN'), questions: [otherQuestion] }, '/professor/questoes/other-question/editar');
-  await until('!!document.querySelector(".question-form")');
-  pass('administrador mantém permissão existente de edição sem concedê-la ao professor');
+  await until('location.pathname === "/administracao" && !!document.querySelector(".admin-page")');
+  assert.equal(await evaluate('!!document.querySelector(".question-form")'), false);
+  pass('ADMIN global permanece fora do CRUD de questoes do professor');
 
   for (const [role, paths] of [['ALUNO', ['/metas']], ['PROFESSOR', ['/professor/relatorios', '/professor/desempenho']]]) {
     await boot({ session: user(role) }, paths[0]);
@@ -523,8 +530,8 @@ try {
     pass(role + ': login oficial com API isolada redireciona pelo perfil validado');
   }
   for (const role of ['ALUNO', 'PROFESSOR']) {
-    const base = role === 'ALUNO' ? '' : '/professor';
-    await boot({ session: user(role) }, base + '/configuracoes');
+    const base = role === 'ALUNO' ? '' : role === 'ADMIN' ? '/administracao' : '/professor';
+    await boot({ session: user(role) }, base + (role === 'ADMIN' ? '/preferencias' : '/configuracoes'));
     await until('!!document.querySelector(".v0-theme-options")');
     await clickText('.v0-theme-options button', 'Tema escuro');
     await go(role === 'ALUNO' ? '/dashboard' : '/professor/questoes/nova');
@@ -537,7 +544,7 @@ try {
       await writeFile(path.join(profile, `dark-original-${role}-${width}.png`), Buffer.from(shot.data, 'base64'));
     }
     await cdp('Emulation.setDeviceMetricsOverride', { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
-    await go(base + '/configuracoes');
+    await go(base + (role === 'ADMIN' ? '/preferencias' : '/configuracoes'));
     await until('!!document.querySelector(".v0-theme-options")');
     await clickText('.v0-theme-options button', 'Tema claro');
     pass(role + ': página original em tema escuro sem overflow em desktop/celular');
@@ -552,7 +559,7 @@ try {
     historyPages: { first: { items: [trailActivity], nextCursor: 'second' }, second: { items: [historyActivity], nextCursor: null } },
   };
   await boot(populated);
-  await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "70%"');
+  await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "18"');
   assert.equal(await evaluate('document.querySelector(".dashboard-heading h1").textContent'), 'Seu espaço de estudos');
   assert.equal(await evaluate('document.querySelectorAll(".study-recent li").length'), 2);
   assert.equal(await evaluate('document.querySelector(".study-evolution strong").textContent'), '70%');
@@ -569,15 +576,17 @@ try {
   const overviewCalls = await evaluate('window.apiCalls.filter(call => call.route === "/students/me/overview").length');
   await go('/perfil'); await until('!!document.querySelector("#profile-name")');
   await go('/dashboard'); await until('!!document.querySelector(".dashboard-page")');
-  assert.equal(await evaluate('window.apiCalls.filter(call => call.route === "/students/me/overview").length'), overviewCalls);
+  assert.equal(await evaluate('window.apiCalls.filter(call => call.route === "/students/me/overview").length'), overviewCalls + 1);
   await reloadDocument();
-  await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "70%"');
-  pass('dashboard original restaura último diagnóstico, evolução e atividade após recarga, sem refetch ao navegar pelo perfil');
-  await go('/trilha'); await until('!!document.querySelector(".study-trail-page")');
+  await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "18"');
+  pass('dashboard original restaura último diagnóstico, evolução e atividade após recarga, com revalidacao ao retornar do perfil');
+  await go('/trilha'); await until('!!document.querySelector(".adaptive-trail-page")');
+  assert.equal(await evaluate('document.querySelectorAll(".study-module-card").length'), 0);
+  await go('/estudar'); await until('!!document.querySelector(".study-trail-page")');
   await evaluate('window.studyContent = await import("/src/study-content.ts")');
   assert.equal(await evaluate('window.studyContent.studyModules.length'), 27);
   assert.deepEqual(await evaluate('Object.fromEntries(window.studyContent.studyDisciplines.map(d => [d, window.studyContent.studyModules.filter(m => m.discipline === d).length]))'), { 'Direito Constitucional': 5, 'Direito Civil': 6, 'Direito Penal': 5, 'Direito Administrativo': 5, 'Direito do Trabalho': 6 });
-  assert.equal(await evaluate('document.querySelector("#study-trail-title").textContent'), 'Minha Trilha de Estudos');
+  assert.equal(await evaluate('document.querySelector("#study-trail-title").textContent'), 'Estudar');
   assert.equal(await evaluate('document.querySelectorAll(".study-discipline-panel button").length'), 5);
   assert.equal(await evaluate('document.querySelectorAll(".study-module-card").length'), 5);
   assert.equal(await evaluate('document.querySelector(".study-adaptive-note").textContent.includes("Direito Civil")'), true);
@@ -588,11 +597,11 @@ try {
   await evaluate('[...document.querySelectorAll(".study-module-card")].find(button => button.textContent.includes("Contratos")).click()');
   await until('!!document.querySelector(".study-module-detail")');
   assert.equal(await evaluate('document.querySelector(".study-module-detail h2").textContent'), 'Contratos');
-  assert.equal(await evaluate('document.querySelectorAll(".study-module-detail section").length >= 5'), true);
+  assert.equal(await evaluate('document.querySelectorAll(".study-lesson details").length >= 5'), true);
   assert.equal(await evaluate('document.querySelectorAll(".study-sources a").length > 0'), true);
-  await clickText('.study-module-detail summary', 'Revisar: perguntas');
+  await clickText('.study-module-detail summary', 'Revis\u00e3o: perguntas');
   assert.equal(await evaluate('document.querySelector(".study-review").open'), true);
-  await clickText('.study-module-actions button', 'Marcar módulo como estudado');
+  await clickText('.study-module-actions button', 'Marcar leitura como conclu\u00edda');
   assert.equal(await evaluate('document.querySelector(".study-progress-card > strong").textContent.includes("1")'), true);
   assert.equal(await evaluate('JSON.parse(localStorage.getItem("jurissim-learning-progress:fixture-user")).completed.includes("civil-contratos")'), true);
   for (const width of [1366, 768, 390]) {
@@ -611,14 +620,14 @@ try {
   pass('trilha realista: cinco matérias, 27 módulos, recomendação do resultado existente, progresso local persistente e prática respeita feature flag');
 
   const noDiagnosticUser = user(); noDiagnosticUser.user.id = 'fixture-no-diagnostic-user';
-  await boot({ session: noDiagnosticUser }, '/trilha'); await until('!!document.querySelector(".study-trail-page")');
-  assert.equal(await evaluate('document.querySelector(".study-adaptive-note").textContent.includes("Trilha inicial organizada por matéria")'), true);
+  await boot({ session: noDiagnosticUser }, '/estudar'); await until('!!document.querySelector(".study-trail-page")');
+  assert.equal(await evaluate('document.querySelector(".study-adaptive-note").textContent.includes("Conteúdos organizados por matéria")'), true);
   assert.equal(await evaluate('document.querySelectorAll(".study-discipline-panel button").length'), 5);
   assert.equal(await evaluate('document.querySelector(".study-progress-card > strong").textContent.includes("0")'), true);
   assert.deepEqual(await evaluate('JSON.parse(localStorage.getItem("jurissim-learning-progress:fixture-no-diagnostic-user")).completed'), []);
   pass('aluno sem diagnóstico recebe trilha inicial sem métricas inventadas e progresso separado por conta');
 
-  await boot(populated, '/dashboard'); await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "70%"');
+  await boot(populated, '/dashboard'); await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "18"');
   await go('/desempenho'); await until('!!document.querySelector(".study-indicators")');
   assert.equal(await evaluate('[...document.querySelectorAll(".study-indicators dl div")].find(item => item.querySelector("dt").textContent === "Respostas erradas").querySelector("dd").textContent'), '3');
   assert.equal(await evaluate('[...document.querySelectorAll(".study-indicators dl div")].find(item => item.querySelector("dt").textContent === "Não respondidas").querySelector("dd").textContent'), '2');
@@ -643,11 +652,11 @@ try {
   await logout(); await until('!!document.querySelector(".auth-card")');
   await evaluate(`for (const [selector, value] of [['input[name=email]', 'fixture@example.invalid'], ['input[autocomplete=current-password]', 'isolated-fixture-password']]) { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }`);
   await evaluate('document.querySelector(".auth-submit").click()');
-  await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "70%"');
+  await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "18"');
   pass('logout e novo login oficial recuperam histórico e último resultado pela API');
   await boot({ session: user() }); await until('!!document.querySelector(".dashboard-page") && !document.querySelector(".study-notice")');
   assert.equal(await evaluate('document.querySelectorAll(".study-recent li").length'), 0);
-  assert.equal(await evaluate('document.querySelector(".dashboard-stats article:nth-child(2) strong").textContent'), '—');
+  assert.equal(await evaluate('document.querySelector(".dashboard-stats article:nth-child(2) strong").textContent'), '0');
   await go('/historico'); await until('document.querySelector(".study-history h2")?.textContent === "Nenhuma atividade registrada"');
   pass('outra conta vazia não herda dados da sessão anterior nem recebe pontuações artificiais');
   await boot({ session: user(), historyStatus: 503 });
@@ -781,7 +790,7 @@ try {
     { id: 'exam-one', title: 'Primeiro simulado da turma', publishedAt: '2026-10-15T12:00:00Z', started: 2, completed: 2, inProgress: 0, expired: 0, meanPercentage: 25, meanIncorrectPercentage: 25, meanUnansweredPercentage: 50, meanCorrectAnswers: 0.5, meanIncorrectAnswers: 0.5 },
     { id: 'exam-two', title: 'Segundo simulado da turma', publishedAt: '2026-10-16T12:00:00Z', started: 2, completed: 1, inProgress: 1, expired: 0, meanPercentage: 100, meanIncorrectPercentage: 0, meanUnansweredPercentage: 0, meanCorrectAnswers: 2, meanIncorrectAnswers: 0 },
   ];
-  const classReport = { turma: reportClass, summary: reportSummary, exams: { items: examReports, page: 1, hasMore: false }, students: { items: [{ id: reportStudentId, name: 'Aluno autorizado de teste', started: 2, completed: 2, meanPercentage: 75 }], page: 1, hasMore: false }, evolution: examReports };
+  const classReport = { levelDistribution: [], disciplineMetrics: [], turma: reportClass, summary: reportSummary, exams: { items: examReports, page: 1, hasMore: false }, students: { items: [{ id: reportStudentId, name: 'Aluno autorizado de teste', started: 2, completed: 2, meanPercentage: 75 }], page: 1, hasMore: false }, evolution: examReports };
   const individualReport = { turma: reportClass, student: { id: reportStudentId, nome: 'Aluno autorizado de teste' }, summary: { ...reportSummary, enrolledStudents: 1, participants: 1, startedAttempts: 2, completedAttempts: 2, inProgressAttempts: 0, meanPercentage: 75, meanIncorrectPercentage: 25, meanUnansweredPercentage: 0, meanCorrectAnswers: 1.5, meanIncorrectAnswers: 0.5, correctAnswers: 3, incorrectAnswers: 1, unansweredQuestions: 0 }, evolution: examReports.map((exam, i) => ({ ...exam, meanPercentage: i ? 100 : 50 })), attempts: { items: examReports.map((exam, i) => ({ id: exam.id, examId: exam.id, title: exam.title, startedAt: exam.publishedAt, finalizedAt: exam.publishedAt, status: 'COMPLETED', percentage: i ? 100 : 50, correctAnswers: i ? 2 : 1, incorrectAnswers: i ? 0 : 1, unansweredQuestions: 0 })), page: 1, hasMore: false } };
   const reportFixture = { session: user('PROFESSOR'), reportClasses: [reportClass], reports: { [reportClassId]: classReport }, reportIndividuals: { [reportClassId + ':' + reportStudentId]: individualReport } };
   await boot(reportFixture, '/professor/relatorios');
@@ -837,7 +846,7 @@ try {
   await boot({ session: user(), goalStatus: 503 }, '/metas');
   await until('document.querySelector(".goals-page [role=alert]")?.textContent.includes("temporariamente")');
   await evaluate('window.fixture.goalStatus = undefined');
-  await clickText('.goals-page [role=alert] button', 'Tentar novamente');
+  await evaluate('document.querySelectorAll(".goals-page [role=alert] button").forEach(button => button.click())');
   await until('[...document.querySelectorAll(".goals-page h2")].some(h2 => h2.textContent === "Nenhuma meta encontrada")');
   pass('falha de metas é explícita e nova tentativa recupera o estado sem expor dados de outra sessão');
   const openPhoto = async () => { await until('document.querySelector(".v0-photo button")?.disabled === false'); await clickText('.v0-photo button', 'Alterar foto'); await until('!!document.querySelector(".photo-editor")'); };
@@ -864,7 +873,7 @@ try {
     await reloadDocument(); await until('document.querySelector(".v0-photo img")?.getAttribute("src") === "/avatars/justice.svg"');
     await logout(); await until('!!document.querySelector(".auth-card")');
     await fill('input[name=email]', 'fixture@example.invalid'); await fill('input[autocomplete=current-password]', 'isolated-fixture-password');
-    await evaluate('document.querySelector(".auth-submit").click()'); await until(role === 'ALUNO' ? '!!document.querySelector(".dashboard-page")' : '!!document.querySelector(".professor-shell")');
+    await evaluate('document.querySelector(".auth-submit").click()'); await until(role === 'ALUNO' ? '!!document.querySelector(".dashboard-page")' : role === 'ADMIN' ? '!!document.querySelector(".admin-page")' : '!!document.querySelector(".professor-shell")');
     await go(path); await until('document.querySelector(".v0-photo img")?.getAttribute("src") === "/avatars/justice.svg"');
     pass(`avatar de ${role}: confirmação/cancelamento, identidade compartilhada, recarga e novo login oficial`);
     await openPhoto(); await choosePhotoFile(); await until('!!document.querySelector(".photo-preview>img")');

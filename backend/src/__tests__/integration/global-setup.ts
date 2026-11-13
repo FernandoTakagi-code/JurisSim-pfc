@@ -21,6 +21,9 @@ export default async function setup() {
       '20261030120000_diagnostic_review_snapshot',
       '20261104000100_institutions_administration',
       '20261105000100_teacher_invitation_onboarding',
+      '20261112130000_individual_exam_sessions',
+      '20261112160000_private_practice_sessions',
+      '20261113010000_question_review_sessions',
     ];
     const applied = await client.$queryRaw<{ migration_name: string }[]>`
       SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`;

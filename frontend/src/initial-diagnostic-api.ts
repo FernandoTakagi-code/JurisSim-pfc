@@ -14,6 +14,7 @@ export type InitialDiagnosticShortage = {
 };
 
 export type InitialDiagnosticStartResponse = {
+  provisional?: boolean;
   attemptId: string;
   status: InitialDiagnosticStatus;
   created: boolean;
@@ -32,7 +33,7 @@ export type InitialDiagnosticQuestionResponse = {
 
 export type InitialDiagnosticQuestionsResponse = { questions: InitialDiagnosticQuestionResponse[] };
 export type InitialDiagnosticAnswer = { questionId: string; selectedOptionId: string; respondedAt: string | null };
-export type InitialDiagnosticAnswersResponse = { attemptId: string; answered: number; total: 30; answers: InitialDiagnosticAnswer[] };
+export type InitialDiagnosticAnswersResponse = { attemptId: string; answered: number; total: 30; answers: InitialDiagnosticAnswer[]; provisional?: boolean };
 export type InitialDiagnosticSavedAnswerResponse = { questionId: string; selectedOptionId: string | null; respondedAt: string | null };
 
 export type InitialDiagnosticPerformance = {
@@ -47,6 +48,7 @@ export type InitialDiagnosticPerformance = {
 };
 
 export type InitialDiagnosticResult = {
+  provisional?: boolean;
   id: string;
   finalizedAt: string;
   correctAnswers: number;

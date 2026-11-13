@@ -113,7 +113,7 @@ beforeEach(() => {
   mocks.create.mockResolvedValue(attempt());
   mocks.attempt.mockResolvedValue(attempt());
   mocks.answer.mockResolvedValue(undefined);
-  mocks.finalize.mockResolvedValue(true);
+  mocks.finalize.mockImplementation(async () => ({ ...attempt(true), finalizadoEm: new Date() }));
   mocks.level.mockResolvedValue(undefined);
 });
 
@@ -125,6 +125,12 @@ const endpoints = [
 ];
 
 describe('rotas de trilhas montadas no servidor real', () => {
+  it.each(['/trilhas/not-a-uuid/gerar', '/trilhas/attempts/not-a-uuid/finalize'])('rejeita identificador inválido em %s antes de persistir', async path => {
+    const response = await fetch(base + path, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    expect(response.status).toBe(422);
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.finalize).not.toHaveBeenCalled();
+  });
   it.each(endpoints)('%s %s nega acesso a terceiros sem aceitar identidade enviada pelo cliente', async (method, path) => {
     for (const role of ['ALUNO', 'PROFESSOR', 'ADMIN']) {
       const response = await fetch(`${base}${path}?userId=${ids.user}&alunoId=${ids.user}`, {
@@ -176,13 +182,14 @@ describe('rotas de trilhas montadas no servidor real', () => {
       method: 'PUT', headers, body: JSON.stringify({ selectedOptionId: ids.alternative }),
     });
     expect(answered.status).toBe(200);
-    expect(mocks.answer).toHaveBeenCalledWith(ids.attempt, ids.question, 'attempt-question', ids.alternative, true);
+    expect(mocks.answer).toHaveBeenCalledWith(ids.attempt, ids.question, 'attempt-question', ids.alternative, true, ids.user);
 
     mocks.attempt.mockResolvedValue(attempt(true));
     const finalized = await fetch(`${base}/trilhas/attempts/${session.id}/finalize`, { method: 'POST', headers });
     expect(finalized.status).toBe(200);
     expect((await finalized.json()).overallPercentage).toBe(100);
-    expect(mocks.level).toHaveBeenCalledWith(ids.user, 'AVANCADO');
+    expect(mocks.finalize).toHaveBeenCalledWith(ids.attempt, ids.user, expect.any(Function));
+    expect(mocks.level).not.toHaveBeenCalled();
   });
 
   it('preserva 404 de negócio para trilha inexistente, distinguindo-o de rota ausente', async () => {

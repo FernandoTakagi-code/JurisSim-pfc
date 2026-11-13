@@ -110,7 +110,7 @@ export function IntegrationShell({
         { path: "/simulados", label: "Simulados", icon: "file" },
         { path: "/questoes", label: "Questões", icon: "file" },
         { path: "/desempenho", label: "Meu desempenho", icon: "chart" },
-        { path: "/trilha", label: "Minha Trilha de Estudos", icon: "target" },
+        { path: "/trilha", label: "Minha Trilha Adaptativa", icon: "target" },
       ];
   const secondary: Item[] = admin || institutional ? [] : teacher
     ? [

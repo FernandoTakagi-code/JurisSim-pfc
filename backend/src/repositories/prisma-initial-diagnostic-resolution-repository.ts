@@ -34,6 +34,8 @@ function toResolutionAttempt(identity: InitialIdentity, studentId: string): Init
 
   return {
     id: simulado.id,
+    ...(simulado.questoes.some(link => readDiagnosticQuestionSnapshot(link.conteudoSnapshot)?.provisional)
+      ? { provisional: true } : {}),
     state: simulado.finalizadoEm ? 'COMPLETED' : 'IN_PROGRESS',
     finalizedAt: simulado.finalizadoEm,
     questions: simulado.questoes.map(link => {

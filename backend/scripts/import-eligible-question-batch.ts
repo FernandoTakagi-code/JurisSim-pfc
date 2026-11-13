@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { PrismaClient, Role } from '@prisma/client';
 import { fingerprintQuestionContent } from '../src/services/question-fingerprint';
-import { INITIAL_DIAGNOSTIC_COMPOSITION } from '../src/services/initial-diagnostic-composition';
-import { validateQuestionBatch, type Manifest, type Question } from '../src/services/eligible-question-batch';
+import { getInitialDiagnosticComposition, parseInitialDiagnosticCompositionMode } from '../src/services/initial-diagnostic-composition';
+import { validateQuestionBatch, type Manifest, type Question, type QuestionBatchScope } from '../src/services/eligible-question-batch';
 
 async function apply(manifest: Manifest, questions: Question[], fileBytes: Buffer) {
   if (process.env.NODE_ENV === 'production' || !['development', 'homologation'].includes(process.env.JURISSIM_QUESTION_IMPORT_STAGE ?? '')) {
@@ -65,26 +65,49 @@ async function apply(manifest: Manifest, questions: Question[], fileBytes: Buffe
 
 async function main() {
   const args = process.argv.slice(2);
+  const known = new Set(['--input', '--mode', '--scope', '--apply']);
+  const values = new Map<string, string>();
+  for (let index = 0; index < args.length; index++) {
+    const flag = args[index];
+    if (!known.has(flag) || values.has(flag)) {
+      console.error('Argumento desconhecido ou duplicado; nenhum banco foi consultado.'); process.exitCode = 2; return;
+    }
+    if (flag === '--apply') { values.set(flag, 'true'); continue; }
+    const value = args[++index];
+    if (!value || value.startsWith('--')) {
+      console.error('Argumento sem valor; nenhum banco foi consultado.'); process.exitCode = 2; return;
+    }
+    values.set(flag, value);
+  }
   const applyRequested = args.includes('--apply');
-  const inputIndex = args.indexOf('--input');
-  const file = inputIndex >= 0 ? args[inputIndex + 1] : undefined;
+  const file = values.get('--input');
+  let compositionMode;
+  try { compositionMode = parseInitialDiagnosticCompositionMode(values.get('--mode')); }
+  catch { console.error('Modo inválido: use MISTA_15_15 ou AUTORAL_30.'); process.exitCode = 2; return; }
+  const scope = values.get('--scope') ?? 'DIAGNOSTIC_AND_PRACTICE';
+  if (scope !== 'DIAGNOSTIC_ONLY' && scope !== 'DIAGNOSTIC_AND_PRACTICE') {
+    console.error('Escopo inválido: use DIAGNOSTIC_ONLY ou DIAGNOSTIC_AND_PRACTICE.'); process.exitCode = 2; return;
+  }
   if (!file || !file.trim()) {
-    console.error('Uso: npx tsx scripts/import-eligible-question-batch.ts --input <lote.json> [--apply]');
+    console.error('Uso: npx tsx scripts/import-eligible-question-batch.ts --input <lote.json> [--mode MISTA_15_15|AUTORAL_30] [--scope DIAGNOSTIC_ONLY|DIAGNOSTIC_AND_PRACTICE] [--apply]');
     process.exitCode = 2; return;
   }
   let bytes: Buffer;
   let manifest: Manifest;
   try { bytes = readFileSync(file); manifest = JSON.parse(bytes.toString('utf8')) as Manifest; }
   catch { console.error('Lote JSON ausente ou inválido; nenhum banco foi consultado.'); process.exitCode = 2; return; }
-  const result = validateQuestionBatch(manifest);
-  const total = INITIAL_DIAGNOSTIC_COMPOSITION.reduce((sum, slot) => sum + slot.quantity, 0);
+  const result = validateQuestionBatch(manifest, { compositionMode, scope: scope as QuestionBatchScope });
+  const total = getInitialDiagnosticComposition(compositionMode).reduce((sum, slot) => sum + slot.quantity, 0);
+  console.log(`Modo: ${compositionMode}; escopo: ${scope}.`);
   console.log(`Lote: ${result.valid.length} itens elegíveis localmente; diagnóstico exige ${total}.`);
   if (result.errors.length) {
     console.log(`Validação recusada: ${result.errors.length} pendências.`);
     for (const error of result.errors) console.log(`  ${error}`);
     process.exitCode = 1; return;
   }
-  console.log(`Cobertura validada: ${manifest.practiceTopics.length} assuntos-alvo, mínimo 5 questões por assunto.`);
+  console.log(scope === 'DIAGNOSTIC_ONLY'
+    ? 'Somente diagnóstico: não certifica cobertura de prática.'
+    : `Cobertura validada: ${manifest.practiceTopics.length} assuntos-alvo, mínimo 5 questões por assunto.`);
   if (!applyRequested) { console.log('Prévia somente local; nenhuma conexão ou gravação realizada.'); return; }
   try {
     await apply(manifest, result.valid, bytes!);

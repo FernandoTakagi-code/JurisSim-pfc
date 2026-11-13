@@ -1,0 +1,32 @@
+.adaptive-trail-page { max-width: 1180px; margin: 0 auto; }
+.adaptive-trail-page .panel { background: var(--v0-panel, #fff); color: var(--v0-text, #17243a); border-color: var(--v0-border, #e5e8ed); }
+.adaptive-trail-page .study-notice { padding: 0; }
+.adaptive-trail-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; margin: 18px 0; }
+.adaptive-recommendation { display: grid; justify-items: start; gap: 12px; }
+.adaptive-recommendation h2, .adaptive-recommendation p { margin: 0; }
+.adaptive-attempts { list-style: none; margin: 0; padding: 0; }
+.adaptive-attempts li { display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--v0-border); }
+.adaptive-attempts li > div { min-width: 0; overflow-wrap: anywhere; }
+.adaptive-attempts h3 { margin: 0; font-size: 15px; }
+.adaptive-attempts p, .adaptive-storage-note { font-size: 13px; line-height: 1.6; }
+.adaptive-attempts progress { width: 100%; accent-color: #bd9652; }
+.adaptive-trail-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.trail-launch { max-width: 100%; }
+.trail-launch .error { overflow-wrap: anywhere; }
+.student-entry-cards { margin-bottom: 18px; }
+.student-entry-cards .panel { display: grid; align-content: start; gap: 12px; }
+.student-entry-cards .panel { min-width: 0; overflow-wrap: anywhere; }
+.student-entry-cards h2, .student-entry-cards p { margin: 0; }
+.student-entry-cards button { justify-self: start; }
+.dashboard-today { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; }
+.dashboard-today h2, .dashboard-today p { margin: 4px 0; }
+.v0-dark .adaptive-trail-page .text-button,
+.v0-dark .dashboard-page .text-button { color: var(--v0-gold, #bd9652); }
+@media (max-width: 1100px) {
+  .student-entry-cards, .adaptive-trail-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .adaptive-trail-grid { grid-template-columns: 1fr; }
+  .adaptive-attempts li { align-items: stretch; flex-direction: column; }
+  .adaptive-trail-page .dashboard-heading > button, .adaptive-trail-actions button, .adaptive-attempts button { width: 100%; }
+}

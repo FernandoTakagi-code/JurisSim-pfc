@@ -7,6 +7,8 @@ export type InitialDiagnosticDiscipline = typeof INITIAL_DIAGNOSTIC_DISCIPLINES[
 
 export interface InitialDiagnosticCandidate extends QuestionCandidate {
   discipline: string;
+  /** Only an explicitly selected provisional batch may carry this marker. */
+  draftPilotBatchId?: string;
 }
 
 export interface InitialDiagnosticSlot {
@@ -24,6 +26,28 @@ export const INITIAL_DIAGNOSTIC_COMPOSITION: readonly InitialDiagnosticSlot[] = 
     { discipline, level: 'AVANCADO' as const, origin: 'OAB_OFICIAL' as const, quantity: 2 },
   ]),
 );
+
+export type InitialDiagnosticCompositionMode = 'MISTA_15_15' | 'AUTORAL_30';
+
+export function parseInitialDiagnosticCompositionMode(value?: string): InitialDiagnosticCompositionMode {
+  const mode = value?.trim() || 'MISTA_15_15';
+  if (mode !== 'MISTA_15_15' && mode !== 'AUTORAL_30') {
+    throw new RangeError('Composição inválida: use MISTA_15_15 ou AUTORAL_30.');
+  }
+  return mode;
+}
+
+const authorialComposition: readonly InitialDiagnosticSlot[] = Object.freeze(
+  INITIAL_DIAGNOSTIC_DISCIPLINES.flatMap(discipline =>
+    (['BASICO', 'INTERMEDIARIO', 'AVANCADO'] as const).map(level =>
+      ({ discipline, level, origin: 'IA' as const, quantity: 2 }))),
+);
+
+export function getInitialDiagnosticComposition(mode: InitialDiagnosticCompositionMode): readonly InitialDiagnosticSlot[] {
+  // Validate at runtime too: scripts receive untrusted command-line strings.
+  return parseInitialDiagnosticCompositionMode(mode) === 'AUTORAL_30'
+    ? authorialComposition : INITIAL_DIAGNOSTIC_COMPOSITION;
+}
 
 export interface InitialDiagnosticShortage {
   discipline: InitialDiagnosticDiscipline;
@@ -60,8 +84,9 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
 }
 
 /**
- * Composes the approved initial 30-question diagnostic from an in-memory
- * inventory. The caller must persist the returned ordered IDs when creating an
+ * Composes a 30-question diagnostic using the explicitly selected policy.
+ * Eligibility and review requirements remain independent of that policy.
+ * The caller must persist the returned ordered IDs when creating an
  * attempt; refreshes must read that attempt instead of calling this selector.
  * No partial attempt is returned if any of the 30 slots lacks inventory.
  */
@@ -69,17 +94,23 @@ export function composeInitialDiagnostic(
   inventory: readonly InitialDiagnosticCandidate[],
   previouslyAnsweredIds: ReadonlySet<string> = new Set(),
   random: () => number = Math.random,
+  mode: InitialDiagnosticCompositionMode = 'MISTA_15_15',
+  pilotBatchId?: string,
 ): InitialDiagnosticCompositionResult {
+  if (pilotBatchId && mode !== 'AUTORAL_30') throw new Error('Piloto exige composição autoral.');
+  const slots = getInitialDiagnosticComposition(mode);
   const seenIds = new Set<string>();
   const eligible = inventory.filter((question) => {
-    if (seenIds.has(question.id) || !isEligiblePublicQuestion(question)) return false;
+    const pilotEligible = Boolean(pilotBatchId && question.draftPilotBatchId === pilotBatchId
+      && question.origin === 'IA' && question.public && question.complete && !question.annulled);
+    if (seenIds.has(question.id) || (!isEligiblePublicQuestion(question) && !pilotEligible)) return false;
     if (!INITIAL_DIAGNOSTIC_DISCIPLINES.includes(question.discipline as InitialDiagnosticDiscipline)) return false;
     seenIds.add(question.id);
     return true;
   });
 
   const shortages: InitialDiagnosticShortage[] = [];
-  for (const slot of INITIAL_DIAGNOSTIC_COMPOSITION) {
+  for (const slot of slots) {
     const available = eligible.filter((question) => question.discipline === slot.discipline
       && question.level === slot.level && question.origin === slot.origin).length;
     if (available < slot.quantity) {
@@ -96,7 +127,7 @@ export function composeInitialDiagnostic(
   const repeatedFromHistory: string[] = [];
   const selectedIds = new Set<string>();
 
-  for (const slot of INITIAL_DIAGNOSTIC_COMPOSITION) {
+  for (const slot of slots) {
     const candidates = eligible.filter((question) => question.discipline === slot.discipline
       && question.level === slot.level && question.origin === slot.origin && !selectedIds.has(question.id));
     const unseen = shuffle(candidates.filter((question) => !previouslyAnsweredIds.has(question.id)), random);

@@ -2,6 +2,7 @@ import {
   composeInitialDiagnostic,
   type InitialDiagnosticCandidate,
   type InitialDiagnosticCompositionResult,
+  type InitialDiagnosticCompositionMode,
 } from './initial-diagnostic-composition';
 
 export type InitialDiagnosticAttemptState = 'IN_PROGRESS' | 'COMPLETED';
@@ -18,6 +19,7 @@ export class InitialDiagnosticServiceUnavailableError extends Error {
 
 export interface InitialDiagnosticAttempt {
   id: string;
+  provisional?: boolean;
   state: InitialDiagnosticAttemptState;
   /** Persisted question IDs in their stable attempt order. */
   orderedQuestionIds: readonly string[];
@@ -25,6 +27,7 @@ export interface InitialDiagnosticAttempt {
 
 export interface CreateInitialDiagnosticInput {
   studentId: string;
+  provisional?: boolean;
   /** The order is significant and must be saved as the attempt's positions. */
   orderedQuestionIds: readonly string[];
 }
@@ -66,6 +69,8 @@ export class InitialDiagnosticService {
   constructor(
     private readonly repository: InitialDiagnosticRepository,
     private readonly random: () => number = Math.random,
+    private readonly compositionMode: InitialDiagnosticCompositionMode = 'MISTA_15_15',
+    private readonly pilotBatchId?: string,
   ) {}
 
   async getOrCreate(studentId: string): Promise<InitialDiagnosticServiceResult> {
@@ -76,7 +81,7 @@ export class InitialDiagnosticService {
       this.repository.listEligibleInventory(),
       this.repository.listAnsweredQuestionIds(studentId),
     ]);
-    const composition = composeInitialDiagnostic(inventory, answeredQuestionIds, this.random);
+    const composition = composeInitialDiagnostic(inventory, answeredQuestionIds, this.random, this.compositionMode, this.pilotBatchId);
 
     if (composition.status === 'INSUFFICIENT') {
       return { status: 'INSUFFICIENT', shortages: composition.shortages };
@@ -89,7 +94,9 @@ export class InitialDiagnosticService {
 
     // The persistence contract handles a concurrent winner and returns that
     // attempt, so the caller never receives an alternative or partial selection.
-    const persisted = await this.repository.createInitialOrGetExisting({ studentId, orderedQuestionIds });
+    const provisional = Boolean(this.pilotBatchId && composition.questions.some(q => q.draftPilotBatchId === this.pilotBatchId));
+    const persisted = await this.repository.createInitialOrGetExisting({ studentId, orderedQuestionIds,
+      ...(provisional ? { provisional: true } : {}) });
     return { status: persisted.attempt.state, attempt: persisted.attempt, created: persisted.created };
   }
 }

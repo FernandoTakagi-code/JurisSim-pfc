@@ -36,7 +36,7 @@ export class QuestaoController {
   static async criar(req: AuthenticatedRequest, res: Response) {
     const parsed = criarQuestaoSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ erro: parsed.error.format() });
+      return res.status(400).json({ message: parsed.error.issues[0]?.message, erro: parsed.error.format() });
     }
     await enforceQuestionInstitution(req, undefined, parsed.data.turmaId);
 
@@ -71,7 +71,7 @@ export class QuestaoController {
 
   static async atualizar(req: AuthenticatedRequest, res: Response) {
     const parsed = atualizarQuestaoSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ erro: parsed.error.format() });
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message, erro: parsed.error.format() });
     await enforceQuestionInstitution(req, req.params.id as string, parsed.data.turmaId);
     const questao = await QuestaoService.atualizar(req.params.id as string, parsed.data, req.auth!.userId, req.auth!.role);
     return res.status(200).json(questao);

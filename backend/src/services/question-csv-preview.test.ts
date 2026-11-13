@@ -3,12 +3,12 @@ import { QUESTION_CSV_HEADERS, QUESTION_CSV_LIMITS, previewQuestionCsv } from '.
 
 const validRow = [
   '"Uma pergunta original com vírgula, e detalhes."', 'Direito Civil', 'Contratos', 'BASICO',
-  'Explicação didática original.', 'Alternativa A', 'Alternativa B', '', '', '', 'A', 'true',
+  'Explicação didática original.', 'Alternativa A', 'Alternativa B', 'Alternativa C', 'Alternativa D', '', 'A', 'true',
   'JurisSim', 'Material autoral de demonstração', 'Autorização declarada para uso de demonstração',
 ].join(',');
 const validValues = [
   'Uma pergunta original com vírgula, e detalhes.', 'Direito Civil', 'Contratos', 'BASICO',
-  'Explicação didática original.', 'Alternativa A', 'Alternativa B', '', '', '', 'A', 'true',
+  'Explicação didática original.', 'Alternativa A', 'Alternativa B', 'Alternativa C', 'Alternativa D', '', 'A', 'true',
   'JurisSim', 'Material autoral de demonstração', 'Autorização declarada para uso de demonstração',
 ];
 const encodeRow = (values: string[]) => values.map(value => `"${value.replace(/"/g, '""')}"`).join(',');
@@ -40,7 +40,7 @@ describe('pré-validação CSV de questões', () => {
 
   it('detecta lacunas, alternativas insuficientes e cabeçalho duplicado, ausente ou desconhecido', () => {
     const gappedValues = [...validValues];
-    gappedValues[8] = 'Alternativa D';
+    gappedValues[7] = '';
     const gapped = encodeRow(gappedValues);
     expect(previewQuestionCsv(csv(gapped)).rows[0].errors.some(error => error.field === 'alternativa_d')).toBe(true);
     const tooFewValues = [...validValues];

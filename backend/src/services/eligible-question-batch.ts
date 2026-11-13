@@ -1,6 +1,7 @@
 import { fingerprintQuestionContent } from './question-fingerprint';
-import { INITIAL_DIAGNOSTIC_COMPOSITION, INITIAL_DIAGNOSTIC_DISCIPLINES } from './initial-diagnostic-composition';
+import { getInitialDiagnosticComposition, INITIAL_DIAGNOSTIC_DISCIPLINES, type InitialDiagnosticCompositionMode } from './initial-diagnostic-composition';
 import { isEligiblePublicQuestion } from './question-eligibility';
+import { questionAlternativesError } from '../question-alternatives';
 
 type Letter = 'A' | 'B' | 'C' | 'D';
 export type Level = 'BASICO' | 'INTERMEDIARIO' | 'AVANCADO';
@@ -27,7 +28,15 @@ function safeProtocol(value: string): string {
   try { return new URL(value).protocol; } catch { return ''; }
 }
 
-export function validateQuestionBatch(input: unknown) {
+export type QuestionBatchScope = 'DIAGNOSTIC_AND_PRACTICE' | 'DIAGNOSTIC_ONLY';
+
+export function validateQuestionBatch(input: unknown, options: {
+  compositionMode?: InitialDiagnosticCompositionMode;
+  scope?: QuestionBatchScope;
+} = {}) {
+  const slots = getInitialDiagnosticComposition(options.compositionMode ?? 'MISTA_15_15');
+  const scope = options.scope ?? 'DIAGNOSTIC_AND_PRACTICE';
+  if (!['DIAGNOSTIC_AND_PRACTICE', 'DIAGNOSTIC_ONLY'].includes(scope)) throw new RangeError('Escopo de lote inválido.');
   const errors: string[] = [];
   if (!input || typeof input !== 'object' || !Array.isArray((input as Partial<Manifest>).questions)
     || !Array.isArray((input as Partial<Manifest>).practiceTopics)) {
@@ -51,7 +60,7 @@ export function validateQuestionBatch(input: unknown) {
       || new Set(q.alternativas.map(a => a.letra)).size !== 4
       || q.alternativas.some(a => !letters.includes(a.letra) || !isText(a.texto) || typeof a.correta !== 'boolean')
       || !letters.every(letter => q.alternativas.some(a => a.letra === letter))
-      || q.alternativas.filter(a => a.correta).length !== 1) {
+      || questionAlternativesError(q.alternativas)) {
       errors.push(`${path}.alternativas_A-D_gabarito`); continue;
     }
     const reviews = [q.legalReview, q.pedagogicalReview];
@@ -82,7 +91,7 @@ export function validateQuestionBatch(input: unknown) {
     valid.push(q);
   }
 
-  for (const slot of INITIAL_DIAGNOSTIC_COMPOSITION) {
+  for (const slot of slots) {
     const available = valid.filter(q => q.disciplina === slot.discipline && q.nivel === slot.level && q.origem === slot.origin).length;
     if (available < slot.quantity) errors.push(`diagnostico:${slot.discipline}:${slot.level}:${slot.origin}:${available}/${slot.quantity}`);
   }
@@ -97,7 +106,7 @@ export function validateQuestionBatch(input: unknown) {
     const count = valid.filter(q => q.disciplina === topic.disciplina && q.assunto === topic.assunto).length;
     if (count < 5) errors.push(`pratica:${topic.disciplina}:${count}/5`);
   }
-  for (const discipline of INITIAL_DIAGNOSTIC_DISCIPLINES) {
+  for (const discipline of scope === 'DIAGNOSTIC_AND_PRACTICE' ? INITIAL_DIAGNOSTIC_DISCIPLINES : []) {
     if (![...coverageKeys].some(item => item.startsWith(`${discipline}\u0000`))) errors.push(`pratica:assunto_declarado_ausente:${discipline}`);
   }
   return { errors, valid };

@@ -5,6 +5,8 @@ import { PrismaInitialDiagnosticRepository } from '../repositories/prisma-initia
 import { PrismaInitialDiagnosticResolutionRepository } from '../repositories/prisma-initial-diagnostic-resolution-repository';
 import { InitialDiagnosticService } from '../services/initial-diagnostic-service';
 import { InitialDiagnosticResolutionService } from '../services/initial-diagnostic-resolution-service';
+import { parseInitialDiagnosticCompositionMode } from '../services/initial-diagnostic-composition';
+import { initialDiagnosticPilotBatchId } from '../config/initial-diagnostic-pilot';
 
 const FEATURE_FLAG = 'INITIAL_DIAGNOSTIC_API_ENABLED';
 
@@ -20,7 +22,9 @@ export interface InitialDiagnosticRoutesOptions {
 
 export function createInitialDiagnosticRoutes(options: InitialDiagnosticRoutesOptions = {}) {
   const router = Router();
-  const service = options.service ?? new InitialDiagnosticService(new PrismaInitialDiagnosticRepository());
+  const pilotBatchId = options.service ? undefined : initialDiagnosticPilotBatchId();
+  const service = options.service ?? new InitialDiagnosticService(new PrismaInitialDiagnosticRepository(undefined, pilotBatchId), Math.random,
+    parseInitialDiagnosticCompositionMode(process.env.INITIAL_DIAGNOSTIC_COMPOSITION_MODE), pilotBatchId);
   const resolutionService = options.resolutionService ?? new InitialDiagnosticResolutionService(new PrismaInitialDiagnosticResolutionRepository());
   const controller = new InitialDiagnosticController(service, resolutionService);
   const enabled = options.isEnabled ?? isInitialDiagnosticApiEnabled;

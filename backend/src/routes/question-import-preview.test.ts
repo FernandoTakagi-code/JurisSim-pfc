@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 
 describe('POST /questoes/importacao/preview', () => {
-  it('nega ADMIN, pois a importação pedagógica global foi descontinuada, e não consulta nem grava questões', async () => {
+  it('mantém o preview global descontinuado para ADMIN sem consultar nem gravar questões', async () => {
     const response = await fetch(base, { method: 'POST', headers: { Authorization: authorization('ADMIN'), 'Content-Type': 'text/csv' }, body: `${headers.join(',')}\n${row}` });
     expect(response.status).toBe(403);
     expect(db.questao.findMany).not.toHaveBeenCalled();
@@ -56,7 +56,7 @@ describe('POST /questoes/importacao/preview', () => {
     expect(db.questao.findMany).not.toHaveBeenCalled();
   });
 
-  it('exige autenticação e continua negando ADMIN com outro tipo de conteúdo', async () => {
+  it('exige autenticação e não reabre a rota descontinuada com outro tipo de conteúdo', async () => {
     const missing = await fetch(base, { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: `${headers.join(',')}\n${row}` });
     expect(missing.status).toBe(401);
     const contentType = await fetch(base, { method: 'POST', headers: { Authorization: authorization('ADMIN'), 'Content-Type': 'application/json' }, body: JSON.stringify({ csv: row }) });
