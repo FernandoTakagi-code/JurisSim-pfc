@@ -69,6 +69,10 @@ try {
   await cdp('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
   await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.fetch = async (url) => {
+      if (new URL(String(url)).pathname === '/profile/photo') return new Response(JSON.stringify({kind:'default'}), {status:200});
+      if (new URL(String(url)).pathname === '/institutions/availability') return new Response(JSON.stringify({enabled:false,registrationEnabled:false,administrationEnabled:false,capabilities:{}}), {status:200});
+      if (new URL(String(url)).pathname === '/students/me/performance') return new Response(JSON.stringify({kind:'all',totals:{activities:0,assigned:0,answered:0,correct:0,incorrect:0,unanswered:0,percentage:null},modalities:[],disciplines:[],topics:[],provisional:false,reviewEnabled:false}), {status:200});
+      if (new URL(String(url)).pathname === '/students/me/activities') return new Response(JSON.stringify({items:[],nextCursor:null}), {status:200});
       if (new URL(String(url)).pathname === '/students/me/overview') {
         const hasLegacyResult = sessionStorage.getItem('test_legacy_result_error') === 'true';
         return new Response(JSON.stringify({ totals: { completedActivities: 0 }, latestDiagnosticId: hasLegacyResult ? 'diagnostic-500' : null, evolution: [], recentActivities: [] }), { status: 200 });
@@ -146,11 +150,13 @@ try {
   await navigate('');
   await evaluate(`const setInput = (selector, value) => { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }; setInput('input[name="email"]', 'login@example.com'); setInput('input[autocomplete="current-password"]', 'login-password');`);
   await evaluate('document.querySelector(".auth-switch button").click()');
+  await until('!!document.querySelector(".registration-choice")');
+  await evaluate('[...document.querySelectorAll(".registration-choice button")].find(button=>button.textContent==="Sou aluno").click()');
   await until('!!document.querySelector("#legal-acceptance")');
   assert.equal(await evaluate('document.querySelector("input[name=email]").value'), '');
   assert.equal(await evaluate('document.querySelector("input[autocomplete=new-password]").value'), '');
   assert.equal(await evaluate('document.querySelector("input[name=name]").autocomplete'), 'name');
-  await evaluate(`window.requests = []; window.fetch = async (url, init) => { window.requests.push({ url, body: JSON.parse(init.body) }); return new Response(JSON.stringify({ message: 'ok' }), { status: 201 }); };`);
+  await evaluate(`window.requests = []; window.fetch = async (url, init) => { if(new URL(String(url)).pathname==='/auth/session')return new Response(JSON.stringify({user:{id:'fixture-user',nome:'Fixture',email:'fixture@example.invalid',role:'ALUNO',emailVerificado:false},nextStep:'DASHBOARD'}),{status:200});window.requests.push({ url, body: JSON.parse(init.body) }); return new Response(JSON.stringify({token:'isolated-legal-registration-token',emailVerification:{status:'accepted'}}), { status: 201 }); };`);
   assert.equal(await evaluate('document.querySelector(".auth-submit").disabled'), true);
   await evaluate('document.querySelector(".auth-submit").click()');
   assert.equal(await evaluate('window.requests.length'), 0);
@@ -192,7 +198,7 @@ try {
   await cdp('Page.reload');
   await until('!!document.querySelector(".app-legal-footer")');
   await until('!!document.querySelector(".v0-sidebar nav button")');
-  await evaluate(`[...document.querySelectorAll('.v0-sidebar nav button')].find(button => button.textContent.includes('Config')).click()`);
+  await evaluate(`[...document.querySelectorAll('.v0-sidebar nav button')].find(button => button.textContent.toLowerCase().includes('configura')).click()`);
   await until('!!document.querySelector(".v0-tabs")');
   await evaluate(`[...document.querySelectorAll('.v0-tabs button')].find(button => button.textContent.includes('Preferências')).click()`);
   await until("!!document.querySelector('#privacy-settings-title')");
@@ -231,25 +237,30 @@ try {
   assert.equal(await evaluate('document.querySelector(".dashboard-heading h1").textContent'), 'Seu espaço de estudos');
   assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
   await evaluate('document.querySelector(".dashboard-panel .text-button").click()');
-  await until('location.pathname === "/desempenho" && document.querySelector("h1")?.textContent.includes("Dados ainda indisponíveis")');
-  await evaluate('document.querySelector(".page .primary").click()');
+  await until('location.pathname === "/desempenho" && document.querySelector(".performance-state h2")?.textContent.includes("Nenhuma atividade concluída")');
+  await evaluate('[...document.querySelectorAll(".v0-sidebar nav button")].find(button=>button.textContent.includes("Início")).click()');
   await until('location.pathname === "/dashboard" && !!document.querySelector(".dashboard-page")');
   await evaluate('document.querySelector(".dashboard-heading .primary").click()');
   await until('location.pathname === "/estudar" && !!document.querySelector(".study-trail-page")');
   await evaluate('document.querySelector(".study-questions-cta button").click()');
-  await until('location.pathname === "/questoes" && !!document.querySelector(".practice-picker")');
-  await evaluate(`document.querySelector('#practice-discipline').value = 'Direito Penal'; document.querySelector('#practice-discipline').dispatchEvent(new Event('change', { bubbles: true })); document.querySelectorAll('.practice-quantity input')[1].click()`);
-  await until('document.querySelector("#practice-discipline").value === "Direito Penal" && document.querySelectorAll(".practice-quantity input")[1].checked');
-  assert.equal(await evaluate('document.querySelector(".practice-picker .primary").disabled'), true);
-  assert.match(await evaluate('document.querySelector(".practice-picker [role=status]").textContent'), /indisponível até a validação/i);
+  await until('location.pathname === "/questoes" && !!document.querySelector(".practice-study")');
+  assert.equal(await evaluate('document.querySelectorAll(".practice-disciplines button").length>0&&[...document.querySelectorAll(".practice-disciplines button")].every(button=>button.disabled)'), true);
+  assert.equal(await evaluate('document.querySelectorAll(".practice-sizes input").length>0&&[...document.querySelectorAll(".practice-sizes input")].every(input=>input.disabled)'), true);
+  assert.equal(await evaluate('document.querySelector(".practice-summary .individual-primary").disabled'), true);
+  assert.match(await evaluate('document.querySelector(".practice-study .individual-notice").textContent'), /em preparação/i);
   await evaluate('history.pushState({}, "", "/simulados"); window.dispatchEvent(new PopStateEvent("popstate"))');
   await until('!!document.querySelector("#individual-exams-title") && !!document.querySelector(".class-section-heading")');
   await evaluate('history.pushState({}, "", "/questoes"); window.dispatchEvent(new PopStateEvent("popstate"))');
-  await until('!!document.querySelector(".practice-picker")');
+  await until('!!document.querySelector(".practice-study")');
   await evaluate('history.pushState({}, "", "/diagnostico"); window.dispatchEvent(new PopStateEvent("popstate"))');
   await until('location.pathname === "/diagnostico" && !!document.querySelector(".start-card")');
   await evaluate(`window.fetch = async (url, init = {}) => {
     const path = new URL(String(url)).pathname;
+    if(path==='/diagnostics/diagnostic1/result'&&!window.legalDiagnosticDone)return new Response(JSON.stringify({message:'Tentativa em andamento.'}),{status:409});
+    if(path==='/diagnostics/diagnostic1/finalize')window.legalDiagnosticDone=true;
+    if(path==='/students/me/performance')return new Response(JSON.stringify({kind:'all',totals:{activities:0,assigned:0,answered:0,correct:0,incorrect:0,unanswered:0,percentage:null},modalities:[],disciplines:[],topics:[],provisional:false,reviewEnabled:false}),{status:200});
+    if(path==='/trilhas/attempts/trailAttempt1/result'&&!window.legalTrailDone)return new Response(JSON.stringify({message:'Tentativa em andamento.'}),{status:409});
+    if(path==='/trilhas/attempts/trailAttempt1/finalize')window.legalTrailDone=true;
     if (path === '/students/me/overview') return new Response(JSON.stringify({ totals: { completedActivities: 1, completedDiagnostics: 1, completedTrails: 0, totalQuestions: 1, answeredQuestions: 1, correctAnswers: 1, incorrectAnswers: 0, unansweredQuestions: 0 }, latestDiagnosticId: 'diagnostic1', evolution: [], recentActivities: [] }), { status: 200 });
     const question = { id: 'q1', position: 1, statement: 'Questao de teste', discipline: 'Civil', topic: 'Contratos', difficulty: 'BASICO', alternatives: [{ id: 'a1', text: 'Alternativa A' }, { id: 'a2', text: 'Alternativa B' }], selectedOptionId: null };
     const trail = { id: 'trail1', disciplinaPrioritaria: 'Civil', assuntoPrioritario: 'Contratos', nivelRecomendado: 'BASICO', quantidadeRecomendada: 1, justificativa: 'Teste' };
@@ -271,13 +282,16 @@ try {
   await until('document.querySelector(".result h1")?.textContent.includes("desempenho")');
   await evaluate('document.querySelector(".result-dashboard-link").click()');
   await until('!!document.querySelector(".dashboard-page")');
+  await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "1"');
   assert.equal(await evaluate('document.querySelector(".dashboard-stats article:nth-child(2) strong").textContent'), '1');
   await evaluate('document.querySelector(".dashboard-panel .text-button").click()');
+  await until('!!document.querySelector(".performance-state")');
+  await evaluate('(async()=>{const n=await import("/src/navigation.ts");n.navigate("/diagnostico?tentativa=diagnostic1");})()');
   await until('document.querySelector(".result h1")?.textContent.includes("desempenho")');
   await evaluate('document.querySelector(".trail .primary").click()');
   await until('!!document.querySelector(".question input[type=radio]")');
   await evaluate('history.pushState({}, "", "/desempenho"); window.dispatchEvent(new PopStateEvent("popstate"))');
-  await until('document.querySelector(".result h1")?.textContent.includes("desempenho")');
+  await until('!!document.querySelector(".performance-state")');
   await evaluate('history.back()');
   await until('!!document.querySelector(".question input[type=radio]")');
   await evaluate('document.querySelector(".question input[type=radio]").click()');
@@ -289,8 +303,8 @@ try {
   await evaluate('history.back()');
   await until('document.querySelector(".result h1")?.textContent.includes("atualizado")');
   await evaluate('document.querySelector(".result-actions .outline-button").click()');
-  await until('document.querySelector(".result h1")?.textContent.includes("desempenho")');
-  await evaluate('document.querySelector(".result-dashboard-link").click()');
+  await until('!!document.querySelector(".performance-state")');
+  await evaluate('[...document.querySelectorAll(".v0-sidebar nav button")].find(button=>button.textContent.includes("Início")).click()');
   await until('!!document.querySelector(".dashboard-page")');
   console.log('PASS: autofill separado; erro do resultado antigo não descarta o overview; rota e responsividade do Dashboard; navegação Dashboard -> desempenho -> Dashboard -> estudar.');
   // All auth calls are intercepted before app startup: no real delivery or DB writes.

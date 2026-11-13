@@ -13,6 +13,7 @@ import type { LocalEmailVerificationCapture } from '../services/local-email-capt
 import { passwordSchema } from '../services/password-policy';
 import { ApiError } from '../errors/api-error';
 import { AccountDeletionService } from '../services/account-deletion';
+import { accountDeletionEnabled, accountDeletionUnavailableMessage } from '../account-deletion-availability';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional(), confirmation: z.literal('EXCLUIR') }).strict();
 const deactivateAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024), confirmation: z.literal('DESATIVAR') }).strict();
@@ -43,7 +44,7 @@ const googleSchema = z.object({
   perfil: perfilSchema,
   nonce: z.string().regex(/^[a-f0-9]{64}$/),
 });
-const nomeSchema = z.object({ nome: z.string().min(2, 'Nome muito curto') });
+const nomeSchema = z.object({ nome: z.string().trim().min(2, 'Nome muito curto').max(120) }).strict();
 const recoveryRequestSchema = z.object({ email: emailSchema });
 const recoveryResetSchema = z.object({
   token: z.string().min(20).max(512),
@@ -186,12 +187,19 @@ export class AuthController {
       response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
       return;
     }
+    if (!accountDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
     response.json(await new AccountDeletionService().self(request.auth!.userId, parsed.data));
   };
 
   desativarConta = async (request: AuthenticatedRequest, response: Response) => {
     const data = deactivateAccountSchema.parse(request.body);
     response.json(await this.service.deactivateAccount(request.auth!.userId, data.senhaAtual));
+  };
+
+  exportarDados = async (request: AuthenticatedRequest, response: Response) => {
+    const page = z.coerce.number().int().min(1).max(100000).safeParse(request.query.page ?? 1);
+    if (!page.success) throw new ApiError(400, 'Página inválida.');
+    response.json(await this.service.exportData(request.auth!.userId, page.data));
   };
 
   solicitarConfirmacaoEmail = async (request: AuthenticatedRequest, response: Response) => {

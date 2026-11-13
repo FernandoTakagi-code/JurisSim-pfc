@@ -81,7 +81,7 @@ async function authenticate(institution?: string, originalUrl = "/turmas", admin
       key === "authorization" ? `Bearer ${token}` : key==='x-institution-id'?institution:key==='x-institution-context'&&administrative?'administration':undefined,
   } as AuthenticatedRequest;
   const next = vi.fn();
-  await requireAuth(req, {} as never, next);
+  await requireAuth(req, { set: vi.fn() } as never, next);
   return { req, next };
 }
 it("requires explicit context when a teacher has multiple institutions", async () => {
@@ -137,7 +137,7 @@ it('keeps email confirmation mandatory but permits the limited existing confirma
   mocks.user.mockResolvedValue({ id: userId, role: 'PROFESSOR', emailVerifiedAt: null, sessionVersion: 0 });
   const { req, next } = await authenticate(undefined, '/auth/session');
   expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 403 }));
-  const limited = vi.fn(); await requireLimitedAuth(req, {} as never, limited);
+  const limited = vi.fn(); await requireLimitedAuth(req, { set: vi.fn() } as never, limited);
   expect(limited).toHaveBeenCalledWith(); expect(req.auth?.role).toBe('PROFESSOR');
   expect(mocks.memberships).not.toHaveBeenCalled();
 });

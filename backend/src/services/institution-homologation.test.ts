@@ -114,12 +114,16 @@ it('request authentication resolves actual membership without changing global ro
   const token=jwt.sign({id:owner,sessionVersion:0,role:'ADMIN'},process.env.JWT_SECRET!,{expiresIn:'1h'});
   const req={originalUrl:'/turmas',header:(key:string)=>({'authorization':`Bearer ${token}`,'x-institution-id':institution,'x-institution-context':'administration'}[key])} as AuthenticatedRequest;
   const next=vi.fn(()=>{expect(institutionsEnabled()).toBe(true);expect(restrictedInstitutionId()).toBe(institution);});
-  await requireAuth(req,{} as Response,next);expect(next).toHaveBeenCalledWith();expect(req.auth).toMatchObject({role:'ALUNO',institutionAdmin:true,institutionId:institution});
+  const response={set:vi.fn()} as unknown as Response;
+  await requireAuth(req,response,next);expect(next).toHaveBeenCalledWith();expect(req.auth).toMatchObject({role:'ALUNO',institutionAdmin:true,institutionId:institution});
+  expect(response.set).toHaveBeenCalledWith('Cache-Control','no-store');
 });
 it('forged cross-institution context is denied',async()=>{
   const token=jwt.sign({id:owner,sessionVersion:0,role:'ALUNO'},process.env.JWT_SECRET!,{expiresIn:'1h'});
   const req={originalUrl:'/turmas',header:(key:string)=>({'authorization':`Bearer ${token}`,'x-institution-id':foreign,'x-institution-context':'administration'}[key])} as AuthenticatedRequest;
-  const next=vi.fn();await requireAuth(req,{} as Response,next);expect(next).toHaveBeenCalledWith(expect.objectContaining({statusCode:403}));
+  const next=vi.fn(),response={set:vi.fn()} as unknown as Response;
+  await requireAuth(req,response,next);expect(next).toHaveBeenCalledWith(expect.objectContaining({statusCode:403}));
+  expect(response.set).toHaveBeenCalledWith('Cache-Control','no-store');
 });
 it('professor keeps PROFESSOR and students do not receive administrative membership',async()=>{
   db.institutionalMembership.findMany.mockResolvedValue([{institutionId:institution,role:'TEACHER',institution:{name:'Fixture'}}]);

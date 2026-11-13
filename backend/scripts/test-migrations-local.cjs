@@ -54,6 +54,7 @@ const emailSystemSuite = process.argv[3] === '--email-system-suite-only';
 const authorialDiagnosticOnly = process.argv[3] === '--authorial-diagnostic-only';
 const individualExamOnly = process.argv[3] === '--individual-exam-only';
 const questionPracticeOnly = process.argv[3] === '--question-practice-only';
+const accountPrivacyOnly = process.argv[3] === '--account-privacy-only';
 
 const integrationSuiteOnly =
   process.argv[3] === '--integration-suite-only' ||
@@ -63,11 +64,11 @@ const integrationSuiteOnly =
   emailSystemSuite ||
   authorialDiagnosticOnly ||
   individualExamOnly ||
-  questionPracticeOnly;
+  questionPracticeOnly || accountPrivacyOnly;
 
 if (!pgBin || (process.argv.length !== 3
   && !(process.argv.length === 4 && (preflightOnly || startupDiagnosticOnly || integrationSuiteOnly)))) {
-  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite|--institution-suite-only|--institution-email-suite-only|--email-system-suite-only|--authorial-diagnostic-only|--individual-exam-only|--question-practice-only]');
+  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite|--institution-suite-only|--institution-email-suite-only|--email-system-suite-only|--authorial-diagnostic-only|--individual-exam-only|--question-practice-only|--account-privacy-only]');
   process.exit(1);
 }
 const resolvedPgBin = path.resolve(pgBin);
@@ -512,7 +513,7 @@ async function main() {
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-student-history-db.ts', data]));
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-class-exams-db.ts', data]));
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-goals-reports-db.ts', data]));
-  if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-profile-photo-db.ts', data]));
+  if (!integrationSuiteOnly || accountPrivacyOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-profile-photo-db.ts', data]));
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-auth-stage7-db.ts', data]));
 
   // Separate database for main's suite, within this same freshly created cluster.
@@ -538,7 +539,7 @@ async function main() {
       'scripts/test-authorial-diagnostic-db.ts',
       data,
     ]));
-  } else {
+  } else if (!accountPrivacyOnly) {
     const selectedTests = emailSystemSuite
       ? [
           'src/__tests__/integration/email-system.integration.test.ts',

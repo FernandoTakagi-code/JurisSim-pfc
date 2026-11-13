@@ -167,6 +167,10 @@ export class AuthService {
     return { message: 'Conta desativada e sessões revogadas. Os registros foram preservados; a reativação depende de atendimento.' };
   }
 
+  exportData(userId: string, page: number) {
+    return this.repository.exportData(userId, page);
+  }
+
   async session(userId: string, localDemoRequested = false):Promise<AuthSessionResult> {
     const user = await this.repository.findById(userId);
     if (!user || user.deletedAt) throw new ApiError(401, 'Sessão inválida.');

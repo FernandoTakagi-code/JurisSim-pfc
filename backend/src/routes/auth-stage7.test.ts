@@ -3,10 +3,11 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import type { Server } from 'node:http';
 import { beforeAll, beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ find: vi.fn(), auth: vi.fn(), create: vi.fn(), audit: vi.fn(), revoke: vi.fn(), google: vi.fn() }));
+const mocks = vi.hoisted(() => ({ find: vi.fn(), auth: vi.fn(), create: vi.fn(), audit: vi.fn(), revoke: vi.fn(), google: vi.fn(), deletion: vi.fn(), secretAccount: vi.fn(), exportData: vi.fn() }));
 vi.mock('../repositories/auth-repository', () => ({ GOOGLE_PASSWORD_SENTINEL: '!GOOGLE_OAUTH_ACCOUNT!', AuthRepository: class {
   findByEmail = mocks.find; findGoogleAccountsByEmail = async (email: string) => { const user = await mocks.find(email); return user ? [user] : []; };
   findByIdForAuth = mocks.auth; createUser = mocks.create; recordLogin = mocks.audit; revokeSessions = mocks.revoke;
+  findByIdWithSenha = mocks.secretAccount; anonymizeUser = mocks.deletion; exportData = mocks.exportData;
 } }));
 vi.mock('google-auth-library', () => ({ OAuth2Client: class { verifyIdToken = mocks.google; } }));
 import { AuthController } from '../controllers/auth-controller';
@@ -79,12 +80,26 @@ describe('stage 7 authentication contracts', () => {
     const response = await fetch(base + '/rate', { method: 'POST', headers: { 'X-Forwarded-For': 'different-client' } });
     expect(response.status).toBe(429); expect(response.headers.get('retry-after')).toBe('1'); clock += 1000; expect((await call('/rate')).status).toBe(200);
   });
-  it('enforces production login quota before further credential work', async () => {
+  it('limits repeated failures for one account without blocking a different student on the same network', async () => {
     for (let i = 0; i < 30; i++) expect((await call('/auth/login', { email: 'missing@example.invalid', senha: 'Fixture-password1!' })).status).toBe(401);
-    expect((await call('/auth/login', { email: 'other@example.invalid', senha: 'Fixture-password1!' })).status).toBe(429); expect(mocks.find).toHaveBeenCalledTimes(30);
+    expect((await call('/auth/login', { email: ' MISSING@example.invalid ', senha: 'Fixture-password1!' })).status).toBe(429);
+    expect((await call('/auth/login', { email: 'other@example.invalid', senha: 'Fixture-password1!' })).status).toBe(401); expect(mocks.find).toHaveBeenCalledTimes(31);
   });
   it('rejects malformed JSON without logging its body or returning it', async () => {
     const response = await fetch(base + '/auth/password-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"private":"unfinished' });
     expect(response.status).toBe(400); expect(await response.text()).not.toContain('private');
+  });
+  it('exports only the JWT owner, ignores submitted user IDs and requires authentication', async () => {
+    mocks.exportData.mockResolvedValue({ profile: { id: 'fixture' } });
+    const bearer = jwt.sign({ id: 'fixture', role: 'ALUNO', sessionVersion: 0 }, secret, { expiresIn: '1h' });
+    expect((await fetch(base + '/auth/dados')).status).toBe(401);
+    const response = await fetch(base + '/auth/dados?page=2&userId=victim', { headers: { Authorization: `Bearer ${bearer}` } });
+    expect(response.status).toBe(200); expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(mocks.exportData).toHaveBeenCalledExactlyOnceWith('fixture', 2);
+  });
+  it('keeps deletion unavailable without touching account data', async () => {
+    const bearer = jwt.sign({ id: 'fixture', role: 'ALUNO', sessionVersion: 0 }, secret, { expiresIn: '1h' });
+    const response = await fetch(base + '/auth/conta', { method: 'DELETE', headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmation: 'EXCLUIR', senhaAtual: body.senha }) });
+    expect(response.status).toBe(503); expect(mocks.deletion).not.toHaveBeenCalled(); expect(mocks.secretAccount).not.toHaveBeenCalled();
   });
 });

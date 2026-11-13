@@ -208,4 +208,39 @@ export class AuthRepository {
       });
     });
   }
+
+  async exportData(id: string, page: number) {
+    const skip = (page - 1) * 100;
+    // Explicit projections: never export password hashes, reset tokens, answer keys,
+    // another student's identity, or internal administrative security records.
+    const [profile, attempts, goals, reviews, audit] = await prisma.$transaction([
+      prisma.user.findUnique({ where: { id, deletedAt: null }, select: {
+        id: true, nome: true, email: true, role: true, createdAt: true,
+        nivelAtual: true, legalAcceptedAt: true, termsVersion: true,
+        privacyVersion: true, emailVerifiedAt: true,
+      } }),
+      prisma.simulado.findMany({ where: { alunoId: id }, skip, take: 101,
+        orderBy: [{ iniciadoEm: 'asc' }, { id: 'asc' }], select: {
+          id: true, tipo: true, iniciadoEm: true, finalizadoEm: true,
+          respostas: { select: { questaoId: true, alternativaEscolhidaId: true, correta: true, respondidoEm: true, tempoRespostaSegundos: true } },
+          desempenhosDiagnostico: { select: { tipo: true, disciplina: true, assunto: true, nivel: true, acertos: true, totalQuestoes: true, percentual: true } },
+          trilhaAdaptativa: { select: { disciplinaPrioritaria: true, assuntoPrioritario: true, nivelRecomendado: true, justificativa: true } },
+        } }),
+      prisma.metaDiaria.findMany({ where: { alunoId: id }, skip, take: 101,
+        orderBy: [{ data: 'asc' }, { id: 'asc' }], select: { data: true, metaQuestoes: true, questoesResolvidas: true, cumprida: true } }),
+      prisma.sessaoRevisaoQuestao.findMany({ where: { alunoId: id }, skip, take: 101,
+        orderBy: [{ criadaEm: 'asc' }, { id: 'asc' }], select: { id: true, disciplina: true, assunto: true, filtro: true, respostas: true, criadaEm: true, finalizadaEm: true } }),
+      prisma.auditLog.findMany({ where: { userId: id }, skip, take: 101,
+        orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }], select: { action: true, occurredAt: true, termsVersion: true, privacyVersion: true } }),
+    ]);
+    if (!profile) throw new ApiError(404, 'Conta indisponível.');
+    const collections = [attempts, goals, reviews, audit];
+    return { schemaVersion: 1, exportedAt: new Date().toISOString(), page,
+      nextPage: collections.some(items => items.length > 100) ? page + 1 : null,
+      scope: 'Perfil, respostas, resultados, trilhas, metas, revisões e eventos pessoais de auditoria. Solicite outros dados pelo canal de privacidade. Não é uma cópia integral do banco.',
+      profile, attempts: attempts.slice(0, 100).map(({ respostas, ...attempt }) => ({
+        ...attempt, respostas: respostas.map(({ correta, ...answer }) => attempt.finalizadoEm ? { ...answer, correta } : answer),
+      })), goals: goals.slice(0, 100), reviews: reviews.slice(0, 100), audit: audit.slice(0, 100),
+    };
+  }
 }

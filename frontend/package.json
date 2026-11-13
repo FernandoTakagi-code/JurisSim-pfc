@@ -8,7 +8,8 @@
     "test:legal": "node scripts/test-legal.mjs",
     "test:delivery-static": "node scripts/test-admin-routing.cjs && node scripts/test-teacher-access.cjs && node scripts/test-account-deletion.cjs && node scripts/test-institution-navigation.cjs && node scripts/test-institution-visual.cjs && node scripts/test-administration.cjs",
     "test:questions": "node scripts/test-question-form.mjs",
-    "test:pilot": "node scripts/test-authorial-pilot.mjs"
+    "test:pilot": "node scripts/test-authorial-pilot.mjs",
+    "test:privacy": "node scripts/test-privacy.mjs"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",

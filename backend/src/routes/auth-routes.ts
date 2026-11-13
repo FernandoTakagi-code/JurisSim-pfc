@@ -15,15 +15,16 @@ export function createAuthRoutes(controller = new AuthController()) {
     if (origin && !isAllowedCorsOrigin(origin)) return next(new ApiError(403, 'Origem não autorizada.'));
     next();
   });
-  authRoutes.post('/register', authRateLimit(15, 3600000), controller.register);
+  authRoutes.post('/register', authRateLimit(60, 3600000), controller.register);
   authRoutes.post('/institution-register', authRateLimit(10, 3600000), controller.registerInstitution);
-  authRoutes.post('/login', authRateLimit(30, 900000), controller.login);
+  authRoutes.post('/login', authRateLimit(300, 900000), authRateLimit(30, 900000, Date.now, { account: true, failuresOnly: true }), controller.login);
   authRoutes.post('/google', authRateLimit(60, 900000), controller.google);
   authRoutes.post('/password-recovery', authRateLimit(30, 3600000), controller.solicitarRecuperacaoSenha);
   authRoutes.post('/password-reset', authRateLimit(30, 900000), controller.redefinirSenha);
   authRoutes.post('/logout', requireLimitedAuth, controller.logout);
   authRoutes.get('/session', requireLimitedAuth, controller.session);
   authRoutes.put('/nome', requireAuth, controller.atualizarNome);
+  authRoutes.get('/dados', requireLimitedAuth, authRateLimit(60, 3600000), controller.exportarDados);
   authRoutes.delete('/conta', requireAuth, authRateLimit(5, 900000), controller.excluirConta);
   authRoutes.post('/conta/desativacao', requireAuth, authRateLimit(5, 900000), controller.desativarConta);
   authRoutes.post('/email-verification', requireLimitedAuth, authRateLimit(30, 3600000), controller.solicitarConfirmacaoEmail);
