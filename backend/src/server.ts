@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { configureHttpSecurity } from './config/http-security';
 import { env } from './config/env';
 import { CORS_HEADERS, CORS_METHODS, corsOriginsFromEnvironment, isAllowedCorsOrigin, isValidCorsPreflight } from './config/cors-policy';
 import { errorHandler } from './middlewares/error-handler';
@@ -30,6 +31,7 @@ import { assertInstitutionActivationReady, InstitutionActivationBlocked } from '
 setDefaultAutoSelectFamily(false);
 
 const app = express();
+configureHttpSecurity(app);
 
 const corsOrigins = corsOriginsFromEnvironment();
 app.use((request, response, next) => {

@@ -12,12 +12,14 @@ export interface AuthenticatedRequest extends Request {
   auth?: { userId: string; role: string; institutionId?: string; allowedClassIds?: string[]; institutionAdmin?:boolean };
 }
 
-export async function requireAuth(request: AuthenticatedRequest, _response: Response, next: NextFunction) {
+export async function requireAuth(request: AuthenticatedRequest, response: Response, next: NextFunction) {
+  response.set('Cache-Control', 'no-store');
   return authenticate(request, next, false);
 }
 
-// Explicit exception for session inspection and confirmation resend only.
-export async function requireLimitedAuth(request: AuthenticatedRequest, _response: Response, next: NextFunction) {
+// Explicit exception for session inspection, personal export, logout and confirmation resend.
+export async function requireLimitedAuth(request: AuthenticatedRequest, response: Response, next: NextFunction) {
+  response.set('Cache-Control', 'no-store');
   return authenticate(request, next, true);
 }
 

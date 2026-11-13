@@ -45,6 +45,8 @@ export function checkBackendEnvironment(
 ): Report {
   const errors: string[] = [],
     warnings: string[] = [];
+  if (values.TRUST_PROXY_HOPS !== undefined && !/^[0-5]$/.test(values.TRUST_PROXY_HOPS))
+    errors.push('TRUST_PROXY_HOPS: use um inteiro entre 0 e 5 conforme a cadeia de proxies.');
   if (
     values.NODE_ENV &&
     !["development", "test", "production"].includes(values.NODE_ENV)

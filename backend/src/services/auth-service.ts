@@ -9,6 +9,7 @@ import { assertValidPassword } from './password-policy';
 import { isInitialDiagnosticRequired } from '../config/initial-diagnostic-feature';
 import { localEmailVerificationCapture } from './local-email-capture';
 import { currentAccess } from './institution-service';
+import { accountDeletionEnabled, accountDeletionUnavailableMessage } from '../account-deletion-availability';
 
 
 export type PerfilAcesso = 'ALUNO' | 'PROFESSOR';
@@ -121,6 +122,7 @@ export class AuthService {
     return { message: 'Sessões encerradas. Entre novamente para acessar sua conta.' };
   }
   async deleteAccount(userId: string, senhaAtual?: string) {
+    if (!accountDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
     const user = await this.repository.findByIdWithSenha(userId);
     if (!user) throw new ApiError(404, 'Usuário não encontrado.');
     if (user.senhaHash && user.senhaHash !== GOOGLE_PASSWORD_SENTINEL) {
@@ -129,6 +131,10 @@ export class AuthService {
     }
     await this.repository.anonymizeUser(userId);
     return { message: 'Conta excluída com sucesso.' };
+  }
+
+  exportData(userId: string, page: number) {
+    return this.repository.exportData(userId, page);
   }
 
   async session(userId: string, localDemoRequested = false) {

@@ -171,7 +171,8 @@ async function main() {
   await expectStatus('/avaliacoes', alice, 'POST', input, 403);
   await expectStatus('/turmas/join', a, 'POST', { code: rotated.inviteCode }, 403);
   await expectStatus(`/avaliacoes/attempts/${attemptId}`, people.admin.token, 'GET', undefined, 403);
-  await expectStatus(`/turmas/${classB}`, people.admin.token, 'PATCH', { nome: 'Administrative rename' });
+  await expectStatus(`/turmas/${classB}`, people.admin.token, 'PATCH', { nome: 'Administrative rename' }, 403);
+  assert.equal((await prisma.turma.findUniqueOrThrow({ where: { id: classB } })).nome, 'Class B fixture');
   await prisma.user.update({ where: { id: people.teacherB.id }, data: { role: 'ALUNO' } });
   await expectStatus(`/turmas/${classB}`, b, 'PATCH', { nome: 'Stale permission' }, 403);
   const revoked = jwt.sign({ id: people.alice.id, role: 'ADMIN', sessionVersion: 9 }, process.env.JWT_SECRET!);

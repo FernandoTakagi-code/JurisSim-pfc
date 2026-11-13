@@ -108,22 +108,31 @@ async function main() {
   pass('revoked and expired tokens cannot read or replace photos; other user sessions stay valid');
 
   const deleteToken = await login(users.alice.email);
-  await call('/auth/conta', deleteToken, 'DELETE', JSON.stringify({ senhaAtual: password }));
-  assert.equal(await prisma.profilePhoto.count({ where: { userId: users.alice.id } }), 0);
-  await call('/profile/photo', deleteToken, 'GET', undefined, undefined, 401);
-  await call('/profile/photo/image', deleteToken, 'PUT', original, 'image/jpeg', 401);
-  const hardDelete = await prisma.user.create({ data: { nome: 'Cascade fixture', email: 'photo-cascade@example.invalid', role: 'ALUNO', profilePhotos: { create: { avatarId: 'books' } } } });
-  await prisma.user.delete({ where: { id: hardDelete.id } });
-  assert.equal(await prisma.profilePhoto.count({ where: { userId: hardDelete.id } }), 0);
-  pass('official account anonymization atomically removes photo; hard deletion cascades and cannot recreate images with old token');
-  const [uploadRace] = await Promise.all([
-    fetch(base + '/profile/photo/image', { method: 'PUT', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'image/jpeg' }, body: Uint8Array.from(original) }),
-    call('/auth/conta', t, 'DELETE', JSON.stringify({ senhaAtual: password })),
-  ]);
-  assert.ok([200, 401].includes(uploadRace.status)); await uploadRace.text();
-  assert.equal(await prisma.profilePhoto.count({ where: { userId: users.teacher.id } }), 0);
-  assert.ok((await prisma.user.findUniqueOrThrow({ where: { id: users.teacher.id } })).deletedAt);
-  pass('concurrent photo replacement and account deletion leave no image bytes associated with the deleted account');
+  const exportResult = await call('/auth/dados?userId=' + users.bob.id, deleteToken);
+  assert.equal(exportResult.profile.id, users.alice.id);
+  assert.equal(exportResult.profile.email, users.alice.email);
+  assert.ok(!JSON.stringify(exportResult).includes(hash));
+  assert.ok(!JSON.stringify(exportResult).includes(users.bob.email));
+  const privacyQuestion = await prisma.questao.create({ data: { enunciado: 'Privacy fixture question', disciplina: 'Fixture', assunto: 'Privacidade', nivel: 'BASICO', fundamentacaoJuridica: 'Fixture', autorId: users.teacher.id } });
+  const ongoing = await prisma.simulado.create({ data: { alunoId: users.alice.id, tipo: 'AVALIACAO', respostas: { create: { questaoId: privacyQuestion.id, correta: true } } } });
+  const ongoingExport = await call('/auth/dados', deleteToken);
+  assert.equal(ongoingExport.attempts.find((attempt: { id: string }) => attempt.id === ongoing.id).respostas[0].correta, undefined);
+  await prisma.simulado.update({ where: { id: ongoing.id }, data: { finalizadoEm: new Date() } });
+  const completedExport = await call('/auth/dados', deleteToken);
+  assert.equal(completedExport.attempts.find((attempt: { id: string }) => attempt.id === ongoing.id).respostas[0].correta, true);
+  await call('/auth/dados', undefined, 'GET', undefined, undefined, 401);
+  await call('/auth/dados?page=-1', deleteToken, 'GET', undefined, undefined, 400);
+  await prisma.metaDiaria.createMany({ data: Array.from({ length: 101 }, (_, index) => ({ alunoId: users.alice.id, data: new Date(1700000000000 + index * 86400000), metaQuestoes: 5 })) });
+  const first = await call('/auth/dados?page=1', deleteToken);
+  const second = await call('/auth/dados?page=2', deleteToken);
+  assert.equal(first.goals.length, 100); assert.equal(first.nextPage, 2);
+  assert.equal(second.goals.length, 1); assert.equal(second.nextPage, null);
+  assert.ok(!first.goals.some((goal: { data: string }) => goal.data === second.goals[0].data));
+  await call('/auth/conta', deleteToken, 'DELETE', JSON.stringify({ senhaAtual: password, confirmation: 'EXCLUIR' }), undefined, 503);
+  assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: users.alice.id } })).deletedAt, null);
+  await call('/auth/dados', deleteToken);
+  assert.ok(await prisma.profilePhoto.count({ where: { userId: users.alice.id } }));
+  pass('privacy export is private, paginated and does not reveal ongoing correctness; disabled deletion preserves account and photo');
   console.log(`PostgreSQL photo integration: ${checks} scenarios passed.`);
 }
 main().catch(error => { console.error('Local photo integration failed:', error.message); process.exitCode = 1; }).finally(async () => { if (server) await new Promise<void>(resolve => server!.close(() => resolve())); await prisma.$disconnect(); });

@@ -12,6 +12,7 @@ import { isLocalEmailCaptureRequested, localEmailVerificationCapture } from '../
 import type { LocalEmailVerificationCapture } from '../services/local-email-capture';
 import { passwordSchema } from '../services/password-policy';
 import { ApiError } from '../errors/api-error';
+import { accountDeletionEnabled, accountDeletionUnavailableMessage } from '../account-deletion-availability';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
 const emailSchema = z.string().trim().email('E-mail inválido').max(254);
@@ -38,7 +39,7 @@ const googleSchema = z.object({
   perfil: perfilSchema,
   nonce: z.string().regex(/^[a-f0-9]{64}$/),
 });
-const nomeSchema = z.object({ nome: z.string().min(2, 'Nome muito curto') });
+const nomeSchema = z.object({ nome: z.string().trim().min(2, 'Nome muito curto').max(120) }).strict();
 const recoveryRequestSchema = z.object({ email: emailSchema });
 const recoveryResetSchema = z.object({
   token: z.string().min(20).max(512),
@@ -165,12 +166,19 @@ export class AuthController {
   };
 
   excluirConta = async (request: AuthenticatedRequest, response: Response) => {
+    if (!accountDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
     const parsed = deleteAccountSchema.safeParse(request.body);
     if (!parsed.success) {
       response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
       return;
     }
     response.json(await this.service.deleteAccount(request.auth!.userId, parsed.data.senhaAtual));
+  };
+
+  exportarDados = async (request: AuthenticatedRequest, response: Response) => {
+    const page = z.coerce.number().int().min(1).max(100000).safeParse(request.query.page ?? 1);
+    if (!page.success) throw new ApiError(400, 'Página inválida.');
+    response.json(await this.service.exportData(request.auth!.userId, page.data));
   };
 
   solicitarConfirmacaoEmail = async (request: AuthenticatedRequest, response: Response) => {
