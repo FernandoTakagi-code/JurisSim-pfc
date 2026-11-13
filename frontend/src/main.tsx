@@ -11,9 +11,11 @@ import { EmailConfirmationGate } from './email-confirmation-gate';
 import { QuestionPracticePage } from './question-practice';
 import { LegalBoundary, LegalLinks } from './legal';
 import { Brand } from "./shell";
-import { ProfessorArea } from "./ProfessorArea";
+import { TeacherWorkspace } from './teacher-workspace';
+import { TeacherDashboard } from './teacher-dashboard';
+import { teacherAccess } from './teacher-access';
 import { IntegrationShell } from "./integration-shell";
-import { GeneralAdministration, InstitutionsPortal, InstitutionContext } from './administration';
+import { GeneralAdministration } from './administration';
 import './invitation-token';
 import { InitialDiagnosticPage } from "./initial-diagnostic";
 import { DiagnosticReview } from './diagnostic-review';
@@ -84,7 +86,7 @@ function App() {
     return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [authLink]);
   const activeSession = auth.session;
-  const redirectTarget = auth.status === 'ready' && activeSession ? sessionRedirectTarget(activeSession, path) : null;
+  const redirectTarget = auth.status === 'ready' && activeSession ? sessionRedirectTarget(activeSession, path, window.location.search) : null;
   useEffect(() => {
     if (redirectTarget) navigateTo(redirectTarget, true);
   }, [redirectTarget]);
@@ -95,12 +97,14 @@ function App() {
   const { user } = auth.session;
   const sair = async () => { if (!await logoutSession()) return; window.location.assign('/'); };
   if(auth.session.administration?.needsInstitutionLink && !user.emailVerificado) return <EmailConfirmationGate email={user.email} onSair={sair}/>;
-  if(auth.session.administration?.needsInstitutionLink && path!=='/instituicoes' && path!=='/professor/perfil' && path!=='/professor/configuracoes') return <IntegrationShell user={user} onSair={sair}><section className="page"><h1>Vínculo institucional pendente</h1><p>Sua conta e seu histórico foram preservados. Confirme seu e-mail pelo fluxo normal e solicite ao responsável um convite da instituição legítima. Nenhum vínculo será criado automaticamente.</p></section></IntegrationShell>;
+  const teacherHome = user.role === 'PROFESSOR' && (path === '/professor' || path === '/professor/');
+  const teacherProfile = path === '/professor/perfil' || path === '/professor/configuracoes';
   if (path === '/instituicoes') return <InstitutionArea session={auth.session} onSair={sair}/>;
   if (!user.emailVerificado) return <EmailConfirmationGate email={user.email} onSair={sair} />;
   if (path.startsWith('/administracao') || (user.role === 'ADMIN' && !path.startsWith('/professor'))) return <IntegrationShell user={user} onSair={sair}>{user.role === 'ADMIN' ? <GeneralAdministration /> : <section className="page"><h1>Acesso não autorizado</h1><p>Área exclusiva da administração geral.</p></section>}</IntegrationShell>;
-  if (user.role === 'PROFESSOR' && auth.session.administration && auth.session.administration.memberships.filter(m => m.role === 'TEACHER').length > 1 && !sessionStorage.getItem('jurissim_institution')) return <IntegrationShell user={user} onSair={sair}><InstitutionContext session={auth.session} /></IntegrationShell>;
-  if (user.role === 'PROFESSOR') return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair}><ProfessorArea userId={user.id} nome={user.nome} email={user.email} role={user.role} onSair={sair} /></IntegrationShell>;
+  if (teacherHome) return <IntegrationShell user={user} onSair={sair}><TeacherDashboard session={auth.session} /></IntegrationShell>;
+  if (user.role === 'PROFESSOR' && !teacherProfile && !teacherAccess(auth.session, sessionStorage.getItem('jurissim_institution')).canLoadAcademicData) return <IntegrationShell user={user} onSair={sair}><TeacherDashboard session={auth.session} /></IntegrationShell>;
+  if (user.role === 'PROFESSOR') return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair}><TeacherWorkspace session={auth.session} onSair={sair} /></IntegrationShell>;
   if (auth.session.nextStep === 'INITIAL_DIAGNOSTIC') return <main className="mandatory-diagnostic-screen">
     <header className="mandatory-diagnostic-header"><span className="mandatory-diagnostic-brand-mark" aria-hidden="true"><img src="/brand/jurissim-logo.png" alt="" /></span><button type="button" onClick={() => void sair()}>Sair</button></header>
     <div className="mandatory-diagnostic-content"><InitialDiagnosticPage mandatory studentId={user.id} localDemoAvailable={auth.session.localDiagnosticDemoAvailable} onEnterDemo={() => { setLocalDiagnosticDemoMode(true); void refreshSession(true).catch(() => setLocalDiagnosticDemoMode(false)); }} onBack={() => { void refreshSession().then(session => { if (session.nextStep === 'DASHBOARD') navigateTo('/trilha', true); }).catch(() => {}); }} /></div>

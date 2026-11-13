@@ -294,6 +294,7 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
                 >
                   Ver alunos
                 </button>
+                {!management&&<button className="outline-button" onClick={()=>navigate(`/professor/atividades?turma=${encodeURIComponent(turma.id)}`)}>Atividades da turma</button>}
                 {!turma.archivedAt && (
                   <>
                     <button
