@@ -26,7 +26,7 @@ export async function importAuthorialPilot(db: PrismaClient, input: unknown, ope
     // Serializes retries for the same draft set without overwriting existing items.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${hash}))`;
     const operator = await tx.user.findFirst({ where: { id:operatorId, deletedAt:null }, select:{ id:true,role:true } });
-    if (!operator || operator.role !== 'ADMIN') throw new Error('Responsável pela manutenção não autorizado.');
+    if (operator?.role !== 'ADMIN') throw new Error('Responsável pela manutenção não autorizado.');
     const existing = await tx.loteImportacao.findFirst({ where:{ arquivoHash:hash }, include:{questoes:{select:{id:true,fingerprint:true,revisaoJuridicaEm:true,revisaoPedagogicaEm:true,liberadaAcervoEm:true}}} });
     if (existing) {
       if(existing.questoes.length!==30||existing.questoes.some(q=>!q.fingerprint||!fingerprints.includes(q.fingerprint))) throw new Error('Lote existente inconsistente.');

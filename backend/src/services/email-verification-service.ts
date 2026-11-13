@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { ApiError } from '../errors/api-error';
 import { AuthRepository } from '../repositories/auth-repository';
 import { EmailVerificationSender, UnconfiguredEmailVerificationSender } from './email-verification-sender';

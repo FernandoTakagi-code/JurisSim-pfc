@@ -94,6 +94,8 @@ let isolatedSchemaDirectoryCreated = false;
 const allowedEnvironment = new Set([
   'PATH', 'PATHEXT', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'TEMP', 'TMP',
   'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA',
+  // Browser location only (Linux CI); the browser scripts already default to Windows Chrome.
+  'CHROME_PATH',
 ]);
 const env = Object.fromEntries(Object.entries(process.env)
   .filter(([key]) => allowedEnvironment.has(key.toUpperCase())));

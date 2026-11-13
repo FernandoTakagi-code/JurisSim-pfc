@@ -10,7 +10,10 @@ export function prepareAuthorialDraftBatch(input: unknown) {
   const ids = new Set<string>();
   const questions = document.questions.map((raw, index) => {
     if (!raw || typeof raw !== 'object') throw new Error(`Rascunho ${index + 1} inválido.`);
-    const draft = raw as Record<string, any>;
+    const draft = raw as Record<string, unknown> & {
+      source?: { name?: unknown; reference?: unknown[]; licenseOrAuthorization?: unknown };
+      legalReview?: Record<string, unknown>; pedagogicalReview?: Record<string, unknown>; release?: Record<string, unknown>;
+    };
     if (draft.origem !== 'IA' || draft.publica !== true || draft.turmaId != null
       || typeof draft._draftSlot !== 'string' || !draft._draftSlot.trim() || ids.has(draft._draftSlot)) {
       throw new Error(`Rascunho ${index + 1}: origem, visibilidade ou identificador inválido.`);
@@ -23,8 +26,9 @@ export function prepareAuthorialDraftBatch(input: unknown) {
       || !draft.source.reference.length || typeof draft.source.licenseOrAuthorization !== 'string') {
       throw new Error(`Rascunho ${index + 1}: letras ou fontes ausentes.`);
     }
-    const references = draft.source.reference.map((r: any) => {
-      if (!r || typeof r.name !== 'string' || typeof r.article !== 'string' || typeof r.url !== 'string'
+    const references = draft.source.reference.map((r: unknown) => {
+      if (!r || typeof r !== 'object' || !('name' in r) || !('article' in r) || !('url' in r)
+        || typeof r.name !== 'string' || typeof r.article !== 'string' || typeof r.url !== 'string'
         || !['https:', 'http:'].includes(new URL(r.url).protocol)) throw new Error('Referência inválida.');
       return `${r.name}; ${r.article}; ${r.url}`;
     });

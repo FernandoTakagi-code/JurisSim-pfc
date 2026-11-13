@@ -213,7 +213,7 @@ export function previewQuestionCsv(source: string) {
     if (errors.length) return { line: record.line, status: 'INVALID', errors };
 
     const letters = ['A', 'B', 'C', 'D', 'E'];
-    const alternatives = letters.map((letter, index) => ({ letra: letter, texto: cells[`alternativa_${letter.toLowerCase()}`] })).filter(item => item.texto);
+    const alternatives = letters.map((letter) => ({ letra: letter, texto: cells[`alternativa_${letter.toLowerCase()}`] })).filter(item => item.texto);
     const question: PreviewQuestion = {
       enunciado: cells.enunciado, disciplina: cells.disciplina, assunto: cells.assunto,
       nivel: cells.nivel.toUpperCase() as PreviewQuestion['nivel'], fundamentacao_juridica: cells.fundamentacao_juridica,

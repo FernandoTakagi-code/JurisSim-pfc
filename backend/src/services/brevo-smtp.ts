@@ -25,7 +25,8 @@ export class BrevoSmtpClient {
 
   getTransporter(): Transporter {
     if (!this.isConfigured) throw new Error('Brevo SMTP is not configured.');
-    return this.transporter ??= nodemailer.createTransport({
+    if (this.transporter) return this.transporter;
+    this.transporter = nodemailer.createTransport({
       host: 'smtp-relay.brevo.com',
       port: 587,
       secure: false,
@@ -45,6 +46,7 @@ export class BrevoSmtpClient {
       logger: false,
       debug: false,
     });
+    return this.transporter;
   }
 
   async verify(): Promise<void> {

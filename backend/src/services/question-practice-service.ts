@@ -1,5 +1,4 @@
 import { ApiError } from '../errors/api-error';
-import { analyzeDiagnostic } from './adaptive-engine';
 import type { Level } from '../types/diagnostic';
 import { questionPracticePilotBatchId } from '../config/question-practice-feature';
 
