@@ -38,6 +38,7 @@ import {
   currentAccess,
   hashInvitation,
 } from "./institution-service";
+import { institutionApplication } from "../__tests__/fixtures/institution-request";
 import { ClassExamService } from "./class-exam-service";
 
 const global = { userId: "global", role: "ADMIN" },
@@ -65,6 +66,7 @@ beforeEach(() => {
   db.teacherInvitationClass.findMany.mockResolvedValue([]);
   db.user.findFirst.mockResolvedValue({id:"authorized"});
   db.institution.findUnique.mockResolvedValue({
+    ...institutionApplication, registrationNumber: "12ABC34501DE35", description: "Declara\u00e7\u00e3o: institui\u00e7\u00e3o sem site oficial.",
     id: "institution",
     status: "PENDING",
     ownerId: "owner",

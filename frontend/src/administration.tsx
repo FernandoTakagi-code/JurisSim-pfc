@@ -1,3 +1,5 @@
+import { InstitutionRequest } from './institution-request';
+import { institutionPendingFields, noWebsiteDeclaration } from '../../backend/src/institution-registration';
 import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "./api";
 import { refreshSession, useSession, type Session } from "./auth-session";
@@ -17,11 +19,23 @@ import {
 
 type Page<T> = { items: T[]; page: number; hasMore: boolean };
 type Institution = {
+  ownerId?: string;
+  owner?: {emailVerifiedAt:string|null};
+  homologationApproval?: boolean;
+  approvalReview?: {pendingFields:string[];canApprove:boolean};
   id: string;
   name: string;
   status: string;
   email: string;
   responsibleName: string;
+  tradeName?: string;
+  address?: string;
+  representativePosition?: string;
+  contactEmail?: string;
+  institutionType?: string; postalCode?: string; street?: string; number?: string;
+  addressComplement?: string; district?: string; city?: string; state?: string; website?: string;
+  representativePhone?: string; representationDeclaration?: boolean;
+  representationDeclaredAt?: string; representationDeclarationVersion?: string; representationEvidence?: string;
   registrationNumber?: string;
   phone: string;
   description: string;
@@ -46,6 +60,7 @@ type AdminUser = {
   email: string;
   role: string;
   suspended: boolean;
+  createdAt?: string;
   emailVerifiedAt?: string | null;
   memberships: {
     role: string;
@@ -109,7 +124,7 @@ const sectionDescriptions: Record<AdminSectionId, string> = {
   notifications:
     "Consulte notificações institucionais destinadas à sua conta, quando o recurso estiver disponível.",
   settings:
-    "Acesse seu perfil e as preferências pessoais. Configurações globais não possuem API de edição.",
+    "Consulte os serviços e as funcionalidades disponíveis.",
 };
 const institutionalUnavailable: Partial<
   Record<AdminSectionId, { endpoint: string; message: string }>
@@ -142,7 +157,7 @@ const institutionalUnavailable: Partial<
   notifications: {
     endpoint: "/institutions/notifications",
     message:
-      "Esta API retorna notificações destinadas ao usuário autenticado, mas depende da habilitação administrativa. Não existe uma rota independente GET /notifications neste backend.",
+      "As notificações não estão disponíveis no momento.",
   },
 };
 const labels: Record<string, string> = {
@@ -165,6 +180,13 @@ const labels: Record<string, string> = {
 };
 const label = (value: string) => labels[value] ?? value;
 const date = (value: string) => new Date(value).toLocaleString("pt-BR");
+const auditResult = (value: string) => {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && 'reason' in parsed && typeof parsed.reason === 'string') return parsed.reason;
+  } catch { /* Older events contain only a result label. */ }
+  return value;
+};
 const json = (method: string, body?: unknown) => ({
   method,
   ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -928,6 +950,35 @@ function RecentAdministrativeEvents({ enabled }: { enabled: boolean }) {
     </>
   );
 }
+const institutionPendingCategories: [string, string[]][] = [
+  ['Identificação institucional', ['Razão social', 'Nome fantasia', 'CNPJ', 'CNPJ inválido', 'Tipo']],
+  ['Endereço', ['CEP', 'Logradouro', 'Número', 'Bairro', 'Cidade', 'UF']],
+  ['Contatos', ['E-mail institucional', 'Telefone institucional']],
+  ['Responsável e comprovação', ['Responsável', 'Cargo', 'Telefone profissional', 'Comprovação de representação', 'Declaração de responsabilidade']],
+  ['Informações complementares', ['Site ou declaração de inexistência']],
+];
+function InstitutionPendingDetails({ institution }: { institution: Institution }) {
+  const pending = institutionReviewPendingFields(institution);
+  if (!pending.length) return <p>Sem pendências cadastrais identificadas.</p>;
+  return <section aria-label="Pendências cadastrais">
+    <p>Dados e vínculos existentes preservados.</p>
+    {institutionPendingCategories.map(([category, fields]) => {
+      const items = pending.filter(field => fields.includes(field));
+      return <div key={category}><h4>{category}</h4>{items.length ? <ul>{items.map(field => <li key={field}>{field === 'Tipo' ? 'Tipo de instituição' : field}</li>)}</ul> : <p>Sem pendências identificadas nesta categoria.</p>}</div>;
+    })}
+  </section>;
+}
+function institutionReviewPendingFields(institution:Institution){
+  return institution.approvalReview?.pendingFields??institutionPendingFields(institution);
+}
+function DecisionEmailControl({institutionId}:{institutionId:string}) {
+  const [open,setOpen]=useState(false);
+  const resource=useResource<{id?:string;state:string;canRetry:boolean;attempts?:number;lastAttemptAt?:string;finishedAt?:string;lastError?:{code:string}}>(open?`/institutions/admin/institutions/${institutionId}/decision-email`:null);
+  const action=useMutation(resource.reload);
+  const states:Record<string,string>={PENDING:'Aguardando envio',SENDING:'Envio em andamento ou sem resultado final',SENT:'Aceito pelo provedor',FAILED:'Envio não aceito ou indisponível',UNKNOWN:'Recebimento indeterminado; confira o provedor antes de qualquer novo envio',CANCELLED:'Decisão substituída; envio cancelado',NOT_QUEUED:'Sem notificação registrada'};
+  const errors:Record<string,string>={TRANSPORT_UNAVAILABLE:'Serviço de e-mail indisponível.',INVALID_APP_URL:'Endereço de acesso indisponível para a mensagem.',DELIVERY_NOT_ACCEPTED:'O envio não foi aceito pelo provedor.',DELIVERY_INDETERMINATE:'Não foi possível confirmar o resultado; confira o provedor antes de repetir.'};
+  return <div><button type="button" onClick={()=>{setOpen(true);if(open)resource.reload();}}>Consultar notificação por e-mail</button>{open&&<><ResourceState resource={resource}/>{resource.data&&<><p role="status">{states[resource.data.state]??'Estado indisponível'}</p>{typeof resource.data.attempts==='number'&&<p>Tentativas de processamento: {resource.data.attempts}</p>}{resource.data.lastAttemptAt&&<p>Última tentativa: {date(resource.data.lastAttemptAt)}</p>}{resource.data.finishedAt&&<p>Resultado registrado: {date(resource.data.finishedAt)}</p>}{resource.data.lastError&&<p>{errors[resource.data.lastError.code]??'Falha no processamento da notificação.'}</p>}</>}{resource.data?.canRetry&&<button disabled={action.busy} onClick={()=>{void action.run(`/institutions/admin/institutions/${institutionId}/decision-email/${resource.data!.id}/retry`,'POST',{confirmation:true});}}>Tentar envio seguro</button>}{action.feedback}</>}</div>;
+}
 function InstitutionReview({
   initialStatus = "PENDING",
   canDecide = true,
@@ -946,7 +997,7 @@ function InstitutionReview({
   const [historyId, setHistoryId] = useState<string>();
   return (
     <>
-      <h2>Solicitações e instituições</h2>
+      <h2>{initialStatus === 'PENDING' ? 'Análise de solicitações' : 'Instituições cadastradas'}</h2>
       <label>
         Estado
         <select
@@ -980,15 +1031,36 @@ function InstitutionReview({
           <p>
             {i.responsibleName} · {i.email} · {i.phone}
           </p>
+          {institutionReviewPendingFields(i).length > 0 && <p>Cadastro incompleto · {institutionReviewPendingFields(i).length} pendências para análise.</p>}
+          <details><summary>Dados cadastrais e análise</summary>
+          {i.homologationApproval && <p>Instituição de teste autorizada, sem CNPJ. A aprovação depende da análise cadastral.</p>}
+          <InstitutionPendingDetails institution={i}/>
           <p>{i.description}</p>
+          <dl>
+            <dt>E-mail do responsável confirmado</dt><dd>{i.owner?(i.owner.emailVerifiedAt?'Sim':'Não confirmado'):'Não disponível nesta consulta'}</dd>
+            <dt>Nome fantasia</dt><dd>{i.tradeName ?? 'Não informado no cadastro anterior'}</dd>
+            <dt>Endereço</dt><dd>{i.address ?? 'Não informado no cadastro anterior'}</dd>
+            <dt>Cargo do representante</dt><dd>{i.representativePosition ?? 'Não informado no cadastro anterior'}</dd>
+            <dt>Contato institucional</dt><dd>{i.contactEmail ?? i.email}</dd>
+            <dt>Tipo de instituição</dt><dd>{i.institutionType ? ({ENSINO_SUPERIOR:'Ensino superior', CURSO_PREPARATORIO:'Curso preparatório', OUTRA_ORGANIZACAO:'Outra organização'}[i.institutionType] ?? i.institutionType) : 'Não informado no cadastro anterior'}</dd>
+            <dt>Endereço estruturado</dt><dd>{[i.postalCode,i.street,i.number,i.addressComplement,i.district,i.city,i.state].filter(Boolean).join(' · ') || 'Não informado no cadastro anterior'}</dd>
+            <dt>Site oficial</dt><dd>{i.website || (i.description.includes(noWebsiteDeclaration) ? 'Declarou não possuir site oficial' : 'Não informado')}</dd>
+            <dt>Telefone profissional do responsável</dt><dd>{i.representativePhone ?? 'Não informado no cadastro anterior'}</dd>
+            <dt>Declaração de vínculo e responsabilidade</dt><dd>{i.representationDeclaration ? `Aceita em ${i.representationDeclaredAt ? date(i.representationDeclaredAt) : 'data não informada'} · versão ${i.representationDeclarationVersion}` : 'Não consta neste cadastro anterior'}</dd>
+            <dt>Referência para comprovação</dt><dd>{i.representationEvidence ?? 'Não informada no cadastro anterior'}</dd>
+          </dl>
+          {!i.institutionType && <p>“Cadastro anterior” indica que o tipo não foi informado nos dados existentes; não é um tipo de instituição.</p>}
+          <p>A declaração de representação deve ser verificada antes da aprovação. Não envie documentos pessoais sensíveis neste formulário.</p>
           {canDecide && <AdministrativeInstitutionDetails institution={i} reload={resource.reload}/>}
+          {canDecide&&<DecisionEmailControl institutionId={i.id}/>}
           {i.decisionReason && <p>Última decisão: {i.decisionReason}</p>}
+          </details>
           <div className="admin-actions">
             {(i.status === "PENDING" ||
               i.status === "SUSPENDED" ||
               i.status === "REJECTED") && (
               <button
-                disabled={!canDecide || action.busy}
+                disabled={!canDecide || action.busy || (i.approvalReview ? !i.approvalReview.canApprove : i.homologationApproval===true || (i.status !== "SUSPENDED" && institutionReviewPendingFields(i).length > 0))}
                 onClick={() => setSelected({ id: i.id, status: "ACTIVE" })}
               >
                 Aprovar / reativar
@@ -1256,7 +1328,7 @@ export function InstitutionsPortal({ session }: { session: Session }) {
             {registrationAvailable(availability.data) && session.user.emailVerificado ? (
               <InstitutionRequest
                 onCreated={resource.reload}
-                contactEmail={session.user.email}
+                contactEmail={session.user.email} responsibleName={session.user.nome}
               />
             ) : (
               <p>
@@ -1294,103 +1366,6 @@ export function InstitutionsPortal({ session }: { session: Session }) {
         )
       )}
     </section>
-  );
-}
-function InstitutionRequest({
-  onCreated,
-  contactEmail,
-}: {
-  onCreated: () => void;
-  contactEmail: string;
-}) {
-  const action = useMutation(onCreated),
-    [open, setOpen] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  return (
-    <>
-      <button className="outline-button" onClick={() => setOpen(!open)}>
-        {open ? "Fechar solicitação" : "Solicitar cadastro de instituição"}
-      </button>
-      {action.feedback}
-      {submitted && (
-        <p role="status">
-          Solicitação enviada para análise. Acompanhe a situação abaixo; a
-          aprovação exige confirmação do e-mail e decisão do administrador
-          geral.
-        </p>
-      )}
-      {open && (
-        <form
-          className="panel admin-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const form = new FormData(e.currentTarget);
-            const body = Object.fromEntries(form.entries());
-            if (!body.registrationNumber) delete body.registrationNumber;
-            void action
-              .run("/institutions/requests", "POST", body)
-              .then((ok) => {
-                if (ok) {
-                  setSubmitted(true);
-                  setOpen(false);
-                }
-              });
-          }}
-        >
-          <h2>Solicitar cadastro</h2>
-          <p>
-            O e-mail da conta autenticada será o e-mail do responsável. A
-            solicitação depende de análise do administrador geral.
-          </p>
-          <label>
-            Tipo de instituição
-            <select name="institutionType" required defaultValue="">
-              <option value="" disabled>
-                Selecione
-              </option>
-              <option value="ENSINO_SUPERIOR">
-                Instituição de ensino superior
-              </option>
-              <option value="CURSO_PREPARATORIO">Curso preparatório</option>
-              <option value="OUTRA_ORGANIZACAO">
-                Outra organização educacional
-              </option>
-            </select>
-          </label>
-          <label>
-            E-mail de contato da conta
-            <input type="email" readOnly value={contactEmail} />
-          </label>
-          {[
-            ["name", "Nome da instituição", 180],
-            ["responsibleName", "Nome do responsável", 120],
-            ["registrationNumber", "CNPJ (quando aplicável)", 18],
-            ["phone", "Telefone", 25],
-          ].map(([name, title, max]) => (
-            <label key={name}>
-              {title}
-              <input
-                name={String(name)}
-                required={name !== "registrationNumber"}
-                minLength={name === "phone" ? 8 : 2}
-                maxLength={Number(max)}
-                type={name === "phone" ? "tel" : "text"}
-              />
-            </label>
-          ))}
-          <label>
-            Informações institucionais
-            <textarea
-              name="description"
-              required
-              minLength={10}
-              maxLength={1900}
-            />
-          </label>
-          <button disabled={action.busy}>Enviar solicitação</button>
-        </form>
-      )}
-    </>
   );
 }
 function AdministrativeInstitutionDetails({institution,reload}:{institution:Institution;reload:()=>void}){

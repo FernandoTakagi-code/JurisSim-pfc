@@ -1,0 +1,33 @@
+.institution-request-form{max-width:850px}
+.institution-registration-wrap{width:100%;max-width:850px!important;min-width:0}
+.institution-request-form.institution-wizard{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;box-sizing:border-box;width:100%;min-width:0;text-align:left}
+.v0-app .institution-wizard{--panel-bg:var(--v0-panel);--text-color:var(--v0-text);--border:var(--v0-border);background:var(--v0-panel);color:var(--v0-text)}
+.v0-app .institution-wizard :is(input,select,textarea){background:var(--v0-panel);color:var(--v0-text);border-color:var(--v0-border)}
+.institution-wizard>fieldset,.institution-wizard>.admin-actions{grid-column:1/-1;width:100%;box-sizing:border-box}
+.institution-wizard>.admin-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.institution-wizard>.admin-actions>button{flex:1;min-width:140px;min-height:42px;padding:10px 16px;border:1px solid #667891;border-radius:8px;background:var(--panel-bg,#f8fafc);color:var(--text-color,#172849);font-weight:700;cursor:pointer}
+.institution-wizard>.admin-actions>button[type=submit]{background:#123366;color:white;border-color:#123366}
+.institution-wizard h2{font-size:24px;margin:0}
+.institution-wizard h2:focus{outline:2px solid #d6a643;outline-offset:4px;border-radius:4px}
+.institution-registration-wrap>.text-button{display:block;margin:12px auto;min-height:36px;font-size:12px}
+.institution-steps{display:flex;gap:12px;flex-wrap:wrap;list-style:none;padding:0;margin:0}
+.institution-steps li{padding:8px 12px;border:1px solid var(--border,#536078);border-radius:8px}
+.institution-steps [aria-current=step]{color:var(--gold,#d9ac55);border-color:currentColor;font-weight:700}
+.institution-review{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.institution-review dd{margin:4px 0 0;overflow-wrap:anywhere}
+.institution-review dt{font-weight:700}
+.institution-wizard [hidden]{display:none!important}
+@media(max-width:600px){.institution-review{grid-template-columns:1fr}.institution-steps{font-size:12px}}
+.institution-request-form fieldset{min-width:0;margin:0;padding:18px;border:1px solid var(--border,#dfe4ec);border-radius:10px}
+.institution-request-form legend{padding:0 6px;font-weight:700}
+.institution-request-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.institution-request-form label{display:grid;gap:6px;min-width:0}
+.institution-request-form input,.institution-request-form select,.institution-request-form textarea{width:100%;min-width:0;box-sizing:border-box}
+.institution-request-form fieldset>label{margin-top:16px}
+.institution-request-form .institution-declaration{display:flex;flex-direction:row;align-items:flex-start;gap:10px;line-height:1.5}
+.institution-request-form .institution-declaration input{width:18px;height:18px;padding:0;flex:0 0 18px;margin-top:3px}
+.registration-choice p{margin:0;color:#59667b;font-size:12px;line-height:1.5}
+.registration-choice .outline-button{min-height:44px;width:100%;white-space:normal}
+.registration-choice .text-button{margin-top:4px}
+@media(max-width:600px){.institution-request-grid{grid-template-columns:1fr}.institution-request-form fieldset{padding:12px}}
+@media(max-width:960px){.auth-layout{grid-template-columns:1fr}.auth-pitch{min-height:430px;padding:112px 30px 35px}.auth-pitch .auth-brand-logo{position:absolute;top:18px;left:24px;width:88px;height:88px;margin:0}.auth-content{padding:32px 20px}}

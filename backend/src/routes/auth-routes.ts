@@ -16,6 +16,7 @@ export function createAuthRoutes(controller = new AuthController()) {
     next();
   });
   authRoutes.post('/register', authRateLimit(15, 3600000), controller.register);
+  authRoutes.post('/institution-register', authRateLimit(10, 3600000), controller.registerInstitution);
   authRoutes.post('/login', authRateLimit(30, 900000), controller.login);
   authRoutes.post('/google', authRateLimit(60, 900000), controller.google);
   authRoutes.post('/password-recovery', authRateLimit(30, 3600000), controller.solicitarRecuperacaoSenha);

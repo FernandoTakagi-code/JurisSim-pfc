@@ -3,11 +3,12 @@ import { ApiError, apiRequest, onAuthorizationFailure } from './api';
 export { sessionDestination } from './auth-routing';
 
 export type Session = {
+  registrationIntent?: 'INSTITUTION' | 'TEACHER_INVITATION';
   user: { id: string; nome: string; email: string; role: 'ALUNO' | 'PROFESSOR' | 'ADMIN'; emailVerificado: boolean };
-  nextStep: 'PROFESSOR' | 'DASHBOARD' | 'DIAGNOSTIC' | 'INITIAL_DIAGNOSTIC';
+  nextStep: 'PROFESSOR' | 'DASHBOARD' | 'DIAGNOSTIC' | 'INITIAL_DIAGNOSTIC' | 'INVITATION';
   localDiagnosticDemoAvailable?: boolean;
   localDiagnosticDemoActive?: boolean;
-  administration?: { needsInstitutionLink?:boolean; enabled: boolean; globalAdmin: boolean; effectiveRole: string; memberships: { institutionId: string; role: string; institution: { name: string } }[] };
+  administration?: { restricted?:boolean; needsInstitutionLink?:boolean; enabled: boolean; globalAdmin: boolean; effectiveRole: string; memberships: { institutionId: string; role: string; institution: { name: string } }[] };
 };
 type State = { status: 'anonymous' | 'loading' | 'ready' | 'error'; session: Session | null; message?: string };
 let state: State = { status: 'anonymous', session: null };
@@ -31,13 +32,25 @@ export async function logoutSession() {
   } finally { if (currentToken() === token) endSession(); }
   return !currentToken(); // A delayed logout must not replace a newer login.
 }
+// Explicit global action: unlike ordinary local sign-out, failure must not be
+// presented as server revocation or silently discard the current session.
+export async function signOutAllDevices() {
+  const token = currentToken();
+  if (!token) throw new Error('Entre na sua conta antes de encerrar as sessões.');
+  await apiRequest('/auth/logout', { method: 'POST' }, { token });
+  if (currentToken() !== token) return false;
+  sessionStorage.setItem('jurissim_logout_notice', 'Você saiu de todos os dispositivos. Entre novamente para continuar.');
+  endSession();
+  return true;
+}
 function validSession(value: Session): boolean {
   const user = value?.user;
   return Boolean(user && typeof user.id === 'string' && user.id && typeof user.nome === 'string' && typeof user.email === 'string' &&
+    (value.registrationIntent === undefined || ['INSTITUTION','TEACHER_INVITATION'].includes(value.registrationIntent)) &&
     ['ALUNO', 'PROFESSOR', 'ADMIN'].includes(user.role) && typeof user.emailVerificado === 'boolean' &&
     (value.localDiagnosticDemoAvailable === undefined || typeof value.localDiagnosticDemoAvailable === 'boolean') &&
     (value.localDiagnosticDemoActive === undefined || typeof value.localDiagnosticDemoActive === 'boolean') &&
-    ['PROFESSOR', 'DASHBOARD', 'DIAGNOSTIC', 'INITIAL_DIAGNOSTIC'].includes(value.nextStep));
+    ['PROFESSOR', 'DASHBOARD', 'DIAGNOSTIC', 'INITIAL_DIAGNOSTIC', 'INVITATION'].includes(value.nextStep));
 }
 
 export function refreshSession(force = false): Promise<Session> {

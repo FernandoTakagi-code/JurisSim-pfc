@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  registrationIntent               String?
   invitationOnboarding InvitationOnboarding?
   id                  String       @id @default(uuid())
   nome                String
@@ -347,6 +348,24 @@ model Institution {
   name String
   registrationNumber String? @unique
   responsibleName String
+  tradeName String?
+  address String?
+  representativePosition String?
+  contactEmail String?
+  institutionType String?
+  postalCode String?
+  street String?
+  number String?
+  addressComplement String?
+  district String?
+  city String?
+  state String?
+  website String?
+  representativePhone String?
+  representationDeclaration Boolean?
+  representationDeclaredAt DateTime?
+  representationDeclarationVersion String?
+  representationEvidence String?
   ownerId String
   email String @unique
   phone String
@@ -447,6 +466,22 @@ model AccountControl {
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 }
 
+// Persistent administrative decision about whether a deleted identity's
+// normalized e-mail may create a new, unrelated account. It deliberately has
+// no FK to User: the deleted identity can be anonymized while this retention
+// record remains auditable and enforceable.
+model EmailReuseBlock {
+  id              String    @id @default(uuid())
+  emailNormalized String    @unique
+  createdAt       DateTime  @default(now())
+  createdById     String?
+  reason          String?
+  revokedAt       DateTime?
+  revokedById     String?
+
+  @@index([revokedAt])
+}
+
 model AdministrativeEvent {
   id String @id @default(uuid())
   occurredAt DateTime @default(now())
@@ -540,4 +575,3 @@ enum AuditAction {
   CONTA_EXCLUIDA
   RECUPERACAO_SENHA_SOLICITADA
 }
-

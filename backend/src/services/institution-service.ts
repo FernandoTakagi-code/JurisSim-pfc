@@ -1,14 +1,22 @@
+import { InstitutionDecisionEmail, decisionEmailEvent } from './institution-decision-email';
 import { createHash, randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { ApiError } from "../errors/api-error";
-import { institutionsEnabled, administrationEnabled, institutionRegistrationEnabled } from "../config/institution-feature";
+import { institutionsEnabled, institutionsGloballyEnabled, administrationEnabled, institutionRegistrationEnabled } from "../config/institution-feature";
+import { homologationParticipant, assertRestrictedInstitution, assertRestrictedParticipant, restrictedInstitutionId } from '../config/institution-homologation';
 import {
   createBrevoEmailTransport,
   type TransactionalEmailTransport,
 } from "./brevo-email-transport";
 import { isValidAppUrl } from "./app-url";
+import { emailFrontendUrl } from './email-frontend';
+import { classifyEmailDeliveryFailure } from './email-delivery-failure';
+import { emailAccepted, emailFailed } from './transactional-email-log';
 import {escapeMail} from './email-html';
+import { representationDeclarationVersion, institutionRequestSchema, institutionFixtureSchema } from './institution-registration-validation';
+import { homologationManifest, fixtureApprovalAllowed, type HomologationManifest } from '../config/institution-homologation';
+import { institutionPendingFields, noWebsiteDeclaration } from '../institution-registration';
 
 export type InstitutionActor = {
   userId: string;
@@ -25,6 +33,26 @@ export const institutionMemberWhere = (userId: string) => ({
   active: true,
   institution: { status: "ACTIVE" },
 });
+async function fixtureEligibility(tx: Pick<Tx, 'administrativeEvent'>, actor: InstitutionActor, institution: {id:string;ownerId?:string;registrationNumber?:string|null}) {
+  if(!fixtureApprovalAllowed(actor,institution)) return false;
+  const manifest=homologationManifest()!;
+  return fixtureProvenance(tx,manifest);
+}
+// Shared by the ADMIN read model and the transactional decision. The public
+// registration schema never receives or accepts an exemption from the client.
+async function institutionRegistrationReview(tx: Pick<Tx,'administrativeEvent'>,actor:InstitutionActor,institution:Record<string,unknown>&{id:string;ownerId?:string;registrationNumber?:string|null}) {
+  const homologationApproval=await fixtureEligibility(tx,actor,institution);
+  const pendingFields=institutionPendingFields(institution).filter(field=>!homologationApproval||field!=='CNPJ');
+  const fields=Object.fromEntries(Object.keys(institutionRequestSchema.shape).map(key=>[key,institution[key]??undefined]));
+  fields.description=undefined;
+  fields.noWebsite=!institution.website&&String(institution.description??'').includes(noWebsiteDeclaration);
+  const valid=homologationApproval?institutionFixtureSchema.safeParse(Object.fromEntries(Object.entries(fields).filter(([key])=>key!=='registrationNumber'))).success:institutionRequestSchema.safeParse(fields).success;
+  return {homologationApproval,pendingFields,valid:pendingFields.length===0&&valid};
+}
+export async function fixtureProvenance(tx: Pick<Tx, 'administrativeEvent'>, manifest: HomologationManifest) {
+  const event=await tx.administrativeEvent.findFirst({where:{event:'HOMOLOGATION_FIXTURE_PROVISIONED',institutionId:manifest.institutionId,resourceId:manifest.institutionId,actorId:{in:manifest.adminIds}},orderBy:[{occurredAt:'desc'},{id:'desc'}],select:{result:true}});
+  try { return JSON.parse(event?.result ?? '{}').runId===manifest.runId; } catch { return false; }
+}
 export function requireGlobal(actor: InstitutionActor) {
   if (actor.role !== "ADMIN")
     throw new ApiError(403, "Acesso exclusivo do administrador geral.");
@@ -67,6 +95,9 @@ export async function institutionAdmin(
   actor: InstitutionActor,
   institutionId: string,
 ) {
+  assertRestrictedInstitution(institutionId);
+  const restricted=homologationManifest();
+  if(restrictedInstitutionId() && (!restricted || !await fixtureProvenance(tx,restricted))) throw new ApiError(403,'Fixture sem provisionamento autorizado.');
   if(actor.role==='ADMIN')throw new ApiError(403,'Administração global não substitui vínculo institucional autorizado.');
   const member = await tx.institutionalMembership.findFirst({
     where: {
@@ -80,7 +111,8 @@ export async function institutionAdmin(
     throw new ApiError(403, "Administração institucional não autorizada.");
 }
 export async function currentAccess(userId: string, originalRole: string) {
-  if (!administrationEnabled() && !institutionRegistrationEnabled()) return undefined;
+  const restricted = !institutionsGloballyEnabled() ? homologationParticipant(userId) : null;
+  if (!administrationEnabled() && !institutionRegistrationEnabled() && !restricted) return undefined;
   const restriction = await prisma.accountControl.findUnique({
     where: { userId },
   });
@@ -90,9 +122,10 @@ export async function currentAccess(userId: string, originalRole: string) {
       "Conta suspensa. Procure o responsável pela plataforma.",
     );
   // Global controls must not activate institutional membership requirements.
-  if (!institutionsEnabled()) return undefined;
+  if (!institutionsGloballyEnabled() && !restricted) return undefined;
+  if(restricted && !await fixtureProvenance(prisma,restricted)) return {enabled:false,restricted:true,globalAdmin:originalRole==='ADMIN',needsInstitutionLink:originalRole==='PROFESSOR',memberships:[],effectiveRole:originalRole};
   const memberships = await prisma.institutionalMembership.findMany({
-    where: institutionMemberWhere(userId),
+    where: {...institutionMemberWhere(userId), ...(restricted ? {institutionId: restricted.institutionId} : {})},
     select: {
       institutionId: true,
       role: true,
@@ -100,8 +133,11 @@ export async function currentAccess(userId: string, originalRole: string) {
     },
     orderBy: { institutionId: "asc" },
   });
+  const studentClass = restricted ? {archivedAt:null,institutionalClass:{institutionId:restricted.institutionId,institution:{status:'ACTIVE'}}} : undefined;
+  const studentLink = restricted && originalRole === 'ALUNO' && !memberships.length ? await prisma.user.findFirst({where:{id:userId,deletedAt:null,emailVerifiedAt:{not:null},OR:[{turmasComoAluno:{some:studentClass}},{classJoinRequests:{some:{status:'PENDING',turma:studentClass}}}]},select:{id:true}}) : null;
   return {
-    enabled: true,
+    enabled: !restricted || memberships.length > 0 || !!studentLink,
+    ...(restricted ? {restricted:true} : {}),
     globalAdmin: originalRole === "ADMIN",
     needsInstitutionLink: originalRole === 'PROFESSOR' && !memberships.some(m=>m.role==='TEACHER'),
     memberships,
@@ -119,7 +155,16 @@ const institutionSelect = {
   name: true,
   registrationNumber: true,
   responsibleName: true,
+  tradeName: true,
+  address: true,
+  representativePosition: true,
+  contactEmail: true,
+  institutionType: true, postalCode: true, street: true, number: true,
+  addressComplement: true, district: true, city: true, state: true, website: true,
+  representativePhone: true, representationDeclaration: true,
+  representationDeclaredAt: true, representationDeclarationVersion: true, representationEvidence: true,
   ownerId: true,
+  owner: {select:{emailVerifiedAt:true,deletedAt:true,accountControl:{select:{suspended:true}}}},
   email: true,
   phone: true,
   description: true,
@@ -139,9 +184,17 @@ export type InstitutionInput = {
   name: string;
   registrationNumber?: string;
   responsibleName: string;
+  tradeName?: string;
+  address?: string;
+  representativePosition?: string;
+  contactEmail?: string;
   phone: string;
-  description: string;
+  description?: string;
+  postalCode?: string; street?: string; number?: string; addressComplement?: string;
+  district?: string; city?: string; state?: string; website?: string;
+  representativePhone?: string; representationDeclaration?: boolean; representationEvidence?: string;
   institutionType?: 'ENSINO_SUPERIOR' | 'CURSO_PREPARATORIO' | 'OUTRA_ORGANIZACAO';
+  noWebsite?: boolean;
 };
 
 export class InstitutionService {
@@ -150,28 +203,91 @@ export class InstitutionService {
   ) {}
 
   async request(actor: InstitutionActor, data: InstitutionInput) {
-    return institutionalTransaction(async (tx) => {
+    if(actor.role==='ADMIN')throw new ApiError(403,'Utilize uma conta individual independente da administração geral.');
+    return this.createRequest(actor, data);
+  }
+
+  async resubmit(actor:InstitutionActor,id:string,input:unknown) {
+    assertRestrictedInstitution(id);
+    const data=institutionRequestSchema.parse(input);
+    return institutionalTransaction(async tx=>{
+      await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${id} FOR UPDATE`;
+      const institution=await tx.institution.findUnique({where:{id}});
+      if(!institution||institution.ownerId!==actor.userId)throw new ApiError(403,'Solicitação não autorizada.');
+      if(institution.status!=='REJECTED')throw new ApiError(409,'Somente solicitações recusadas podem ser corrigidas e reenviadas.');
+      if(await tx.institution.findFirst({where:{id:{not:id},registrationNumber:data.registrationNumber},select:{id:true}}))throw new ApiError(409,'CNPJ já cadastrado.');
+      const {noWebsite,...fields}=data;
+      const result=await tx.institution.update({where:{id},data:{...fields,address:[data.street,data.number,data.addressComplement,data.district,data.city,data.state,data.postalCode].filter(Boolean).join(', '),description:(noWebsite?noWebsiteDeclaration+'\n':'')+(data.description??'Solicitação institucional para análise administrativa.'),representationDeclaredAt:new Date(),representationDeclarationVersion,status:'PENDING',decisionReason:null},select:institutionSelect});
+      await administrativeEvent(tx,'INSTITUTION_RESUBMITTED',actor.userId,id,id,JSON.stringify({status:'SUCCESS',previousReason:institution.decisionReason}));
+      await tx.user.update({where:{id:actor.userId},data:{registrationIntent:'INSTITUTION'},select:{id:true}});
+      return result;
+    });
+  }
+
+  /** Offline administrative operation only. No HTTP endpoint or automatic call. */
+  async provisionHomologationFixture(actor: InstitutionActor, input: unknown, reason: string) {
+    requireGlobal(actor);
+    const manifest=homologationManifest();
+    if(!manifest || !manifest.adminIds.includes(actor.userId) || reason.trim().length<3 || reason.length>500) throw new ApiError(403,'Provisionamento não autorizado.');
+    const data=institutionFixtureSchema.parse(input);
+    return this.createRequest({userId:manifest.ownerId,role:'ALUNO'}, {...data,name:'JurisSim Academy — HOMOLOGAÇÃO',tradeName:'JurisSim Academy — TESTE',description:'Instituição fictícia para homologação acadêmica interna do JurisSim, sem representação de instituição real e sem finalidade operacional.'}, {manifest,actor,reason:reason.trim()});
+  }
+
+  private async createRequest(actor: InstitutionActor, data: InstitutionInput, fixture?: {manifest: HomologationManifest; actor: InstitutionActor; reason: string}) {
+    return institutionalTransaction(tx=>this.createRequestInTransaction(tx,actor,data,fixture));
+  }
+
+  async requestForNewAccountInTransaction(tx: Tx, userId: string, input: unknown) {
+    return this.createRequestInTransaction(tx,{userId,role:'ALUNO'},institutionRequestSchema.parse(input),undefined,true);
+  }
+
+  private async createRequestInTransaction(tx: Tx, actor: InstitutionActor, data: InstitutionInput, fixture?: {manifest: HomologationManifest; actor: InstitutionActor; reason: string}, newAccount=false) {
+
       // Serializes duplicate/quota checks across processes without storing PII in locks.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(710912)`;
+      if(fixture) {
+        const configured=homologationManifest();
+        if(!configured || JSON.stringify(configured)!==JSON.stringify(fixture.manifest)) throw new ApiError(403,'Configuração de homologação alterada.');
+        const admin=await tx.user.findUnique({where:{id:fixture.actor.userId},select:{role:true,deletedAt:true,emailVerifiedAt:true}});
+        const control=await tx.accountControl.findUnique({where:{userId:fixture.actor.userId}});
+        if(!admin || admin.role!=='ADMIN' || admin.deletedAt || !admin.emailVerifiedAt || control?.suspended) throw new ApiError(403,'Administrador indisponível.');
+        const owner=await tx.user.findUnique({where:{id:actor.userId},select:{role:true}});
+        if(owner?.role!=='ALUNO' || (await tx.accountControl.findUnique({where:{userId:actor.userId}}))?.suspended) throw new ApiError(403,'Responsável indisponível.');
+      }
       const owner = await tx.user.findUnique({
         where: { id: actor.userId },
         select: { email: true, emailVerifiedAt: true, deletedAt: true },
       });
       if (!owner || owner.deletedAt)
         throw new ApiError(401, "Conta indisponível.");
-      if(!owner.emailVerifiedAt) throw new ApiError(403,"Confirme seu e-mail antes de solicitar o cadastro institucional.");
+      if(!owner.emailVerifiedAt && !newAccount) throw new ApiError(403,"Confirme seu e-mail antes de solicitar o cadastro institucional.");
+      if(fixture){
+        const existing=await tx.institution.findUnique({where:{id:fixture.manifest.institutionId},select:institutionSelect});
+        if(existing){
+          const matches=existing.ownerId===actor.userId&&existing.email===owner.email.toLowerCase()&&existing.registrationNumber===null&&
+            Object.entries(data).filter(([key])=>!['noWebsite','description'].includes(key)).every(([key,value])=>((existing as unknown as Record<string,unknown>)[key]??undefined)===(value??undefined))&&
+            (!data.noWebsite||(!existing.website&&existing.description.includes(noWebsiteDeclaration)));
+          if(!matches||!await fixtureProvenance(tx,fixture.manifest))throw new ApiError(409,'UUID de fixture já utilizado ou dados/proveniência divergentes; não substitua registros existentes.');
+          return existing; // Replay of this exact run: never reset status, audit, intent or memberships.
+        }
+      }
       const duplicate = await tx.institution.findFirst({where: { OR: [
         {email:owner.email.toLowerCase()}, ...(data.registrationNumber ? [{registrationNumber:data.registrationNumber}] : []),
         {name:{equals:data.name.trim(),mode:'insensitive'},phone:data.phone.trim()},
       ]},select:{id:true}});
       if (duplicate) throw new ApiError(409,'Já existe uma solicitação ou instituição com esses dados. Consulte suas solicitações ou procure o suporte.');
-      const {institutionType, ...fields} = data;
+      const {institutionType, noWebsite, ...fields} = data;
       const types = {ENSINO_SUPERIOR:'Ensino superior',CURSO_PREPARATORIO:'Curso preparatório',OUTRA_ORGANIZACAO:'Outra organização'};
-      const description = institutionType ? `Tipo de instituição: ${types[institutionType]}.\n${fields.description}` : fields.description;
+      const details = (noWebsite ? noWebsiteDeclaration + '\n' : '') + (fields.description ?? 'Solicitação institucional para análise administrativa.');
+      const description = institutionType ? `Tipo de instituição: ${types[institutionType]}.\n${details}` : details;
       if (description.length > 2000) throw new ApiError(422,'Reduza as informações institucionais para até 1900 caracteres.');
       const institution = await tx.institution.create({
         data: {
           ...fields,
+          ...(fixture ? {id:fixture.manifest.institutionId,registrationNumber:null} : {}),
+          institutionType,
+          ...(fields.street ? { address: [fields.street, fields.number, fields.addressComplement, fields.district, fields.city, fields.state, fields.postalCode].filter(Boolean).join(', ') } : {}),
+          ...(fields.representationDeclaration ? { representationDeclaredAt: new Date(), representationDeclarationVersion } : {}),
           description,
           email: owner.email.toLowerCase(),
           ownerId: actor.userId,
@@ -182,17 +298,20 @@ export class InstitutionService {
       await administrativeEvent(
         tx,
         "INSTITUTION_REQUESTED",
-        actor.userId,
+        fixture?.actor.userId ?? actor.userId,
         institution.id,
         institution.id,
       );
+      if(fixture) await administrativeEvent(tx,'HOMOLOGATION_FIXTURE_PROVISIONED',fixture.actor.userId,institution.id,institution.id,JSON.stringify({status:'SUCCESS',runId:fixture.manifest.runId,reason:fixture.reason}));
+      if(!newAccount) await tx.user.update({where:{id:actor.userId},data:{registrationIntent:'INSTITUTION'},select:{id:true}});
       return institution;
-    });
+
   }
 
   async myInstitutions(actor: InstitutionActor) {
     return prisma.institution.findMany({
       where: {
+        ...(restrictedInstitutionId() ? {id:restrictedInstitutionId()} : {}),
         OR: [
           { ownerId: actor.userId },
           { memberships: { some: { userId: actor.userId, active: true } } },
@@ -206,12 +325,18 @@ export class InstitutionService {
   async institutions(actor: InstitutionActor, page: number, status?: string) {
     requireGlobal(actor);
     return pageResult(
-      await prisma.institution.findMany({
+      await Promise.all((await prisma.institution.findMany({
         where: { status },
         select: institutionSelect,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         ...pagination(page),
-      }),
+      })).map(async institution=>{
+        const review=await institutionRegistrationReview(prisma,actor,institution);
+        const owner= institution.owner;
+        const canApprove=['PENDING','REJECTED','SUSPENDED'].includes(institution.status)&&
+          (institution.status==='SUSPENDED'||review.valid)&&!!owner?.emailVerifiedAt&&!owner.deletedAt&&!owner.accountControl?.suspended;
+        return {...institution,homologationApproval:review.homologationApproval,approvalReview:{pendingFields:review.pendingFields,canApprove}};
+      })),
       page,
     );
   }
@@ -223,10 +348,17 @@ export class InstitutionService {
     reason: string,
   ) {
     requireGlobal(actor);
-    return institutionalTransaction(async (tx) => {
+    if(reason.trim().length<3 || reason.length>500) throw new ApiError(400,'Justificativa obrigatória (3 a 500 caracteres).');
+    const result=await institutionalTransaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${id} FOR UPDATE`;
       const institution = await tx.institution.findUnique({ where: { id } });
       if (!institution) throw new ApiError(404, "Instituição não encontrada.");
+      if (status === 'ACTIVE' && ['PENDING','EMAIL_PENDING','REJECTED'].includes(institution.status)) {
+        const review=await institutionRegistrationReview(tx,actor,institution);
+        if(review.pendingFields.length)throw new ApiError(409,'Cadastro incompleto: '+review.pendingFields.join(', '));
+        if(!review.valid)throw new ApiError(409,'Revise os dados cadastrais antes da aprovação.');
+        if(review.homologationApproval) await administrativeEvent(tx,'HOMOLOGATION_FIXTURE_APPROVED',actor.userId,id,id,JSON.stringify({status:'SUCCESS',runId:homologationManifest()!.runId,reason}));
+      }
       const owner = await tx.user.findUnique({
         where: { id: institution.ownerId },
         select: { emailVerifiedAt: true, deletedAt: true },
@@ -254,6 +386,9 @@ export class InstitutionService {
         );
       if (status === institution.status)
         throw new ApiError(409, "A instituição já está neste estado.");
+      if (status === "ACTIVE")
+        if ((await tx.accountControl.findUnique({ where: { userId: institution.ownerId } }))?.suspended)
+          throw new ApiError(409, 'O responsável está suspenso. Regularize a conta antes da aprovação.');
       if (status === "ACTIVE")
         await tx.institutionalMembership.upsert({
           where: {
@@ -288,8 +423,12 @@ export class InstitutionService {
         id,
         id,
       );
-      return updated;
+      const delivery=(status==='ACTIVE'||status==='REJECTED')?await tx.administrativeEvent.create({data:{event:decisionEmailEvent,actorId:actor.userId,institutionId:id,resourceId:id,result:JSON.stringify({state:'PENDING',status,reason,ownerId:institution.ownerId})},select:{id:true}}):undefined;
+      return {updated,deliveryId:delivery?.id};
     });
+    let decisionEmail='NOT_QUEUED';
+    try {if(result.deliveryId) decisionEmail=await new InstitutionDecisionEmail(this.mail).deliver(result.deliveryId);} catch {decisionEmail='UNKNOWN';}
+    return {...result.updated,decisionEmail,message:decisionEmail==='SENT'?'Decisão registrada e e-mail aceito pelo provedor.':'Decisão registrada. Consulte o estado do e-mail na ficha administrativa; o envio não foi confirmado.'};
   }
 
   async update(

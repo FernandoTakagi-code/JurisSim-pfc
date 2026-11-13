@@ -222,7 +222,7 @@ describe('confirmação obrigatória em todas as operações protegidas', () => 
     }
     for (const operation of resourceCalls()) expect(operation).not.toHaveBeenCalled();
     expect(mocks.diagnosticFind).not.toHaveBeenCalled();
-    expect(mocks.userFind).toHaveBeenCalledWith({ where: { id: userId }, select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } });
+    expect(mocks.userFind).toHaveBeenCalledWith({ where: { id: userId }, select: { id: true, role: true, registrationIntent:true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } });
   });
 
   it.each(['inexistente', 'excluída'])('recusa conta %s em recursos, sessão limitada e reenvio', async state => {

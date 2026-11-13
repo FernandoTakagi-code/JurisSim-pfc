@@ -1,11 +1,12 @@
 // Activate only after the additive migration has been approved and applied.
 // Disabled by default so existing shared databases continue to work unchanged.
-export const institutionsEnabled = () =>
-  process.env.INSTITUTIONS_ENABLED === "true";
+import { restrictedOperationsEnabled } from './institution-homologation';
+export const institutionsGloballyEnabled = () => process.env.INSTITUTIONS_ENABLED === 'true';
+export const institutionsEnabled = () => institutionsGloballyEnabled() || restrictedOperationsEnabled();
 
 // Explicit opt-ins; the original full module remains backward compatible.
-export const administrationEnabled = () => institutionsEnabled() || process.env.ADMINISTRATION_ENABLED === 'true';
-export const institutionRegistrationEnabled = () => institutionsEnabled() || process.env.INSTITUTION_REGISTRATION_ENABLED === 'true';
+export const administrationEnabled = () => institutionsGloballyEnabled() || process.env.ADMINISTRATION_ENABLED === 'true';
+export const institutionRegistrationEnabled = () => institutionsGloballyEnabled() || process.env.INSTITUTION_REGISTRATION_ENABLED === 'true';
 export function administrativeCapabilities() {
   const full = institutionsEnabled(), administration = administrationEnabled(), registration = institutionRegistrationEnabled();
   return { enabled: full, registrationEnabled: registration, administrationEnabled: administration,

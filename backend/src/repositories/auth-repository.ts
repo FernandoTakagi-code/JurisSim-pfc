@@ -31,15 +31,38 @@ export class AuthRepository {
       take: 2,
     });
   }
-  findById(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, nome: true, email: true, role: true, emailVerifiedAt: true, deletedAt: true } }); }
-  findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } }); }
+  async findById(id: string) {
+    const select = {
+      id: true,
+      nome: true,
+      email: true,
+      role: true,
+      emailVerifiedAt: true,
+      deletedAt: true,
+    } as const;
+
+    // The registration intent was introduced with the optional institutional
+    // schema. A regular session must keep working while that module remains
+    // disabled on a database that has not received its additive migration.
+    if (!institutionRegistrationEnabled() && !administrationEnabled()) {
+      const user = await prisma.user.findUnique({ where: { id }, select });
+      return user && { ...user, registrationIntent: null };
+    }
+
+    return prisma.user.findUnique({
+      where: { id },
+      select: { ...select, registrationIntent: true },
+    });
+  }
+  findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, registrationIntent:true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } }); }
   findByIdWithSenha(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, senhaHash: true } }); }
 
-  createUser(nome: string, email: string, senhaHash: string, acceptance: unknown) {
+  createUser(nome: string, email: string, senhaHash: string, acceptance: unknown, registrationIntent?: 'INSTITUTION') {
     const legal = acceptanceData(acceptance);
     return prisma.user.create({
       data: {
         nome, email, senhaHash, role: 'ALUNO', ...legal,
+        ...(registrationIntent === 'INSTITUTION' ? { registrationIntent } : {}),
         auditLogs: { create: [
           legal.auditLogs.create,
           { action: 'USUARIO_CADASTRADO' as AuditAction, occurredAt: legal.legalAcceptedAt },
@@ -49,11 +72,12 @@ export class AuthRepository {
     });
   }
 
-  createGoogleUser(nome: string, email: string, acceptance: unknown) {
+  createGoogleUser(nome: string, email: string, acceptance: unknown, registrationIntent?: 'INSTITUTION') {
     const legal = acceptanceData(acceptance);
     return prisma.user.create({
       data: {
         nome, email, role: 'ALUNO', senhaHash: GOOGLE_PASSWORD_SENTINEL, emailVerifiedAt: new Date(), ...legal,
+        ...(registrationIntent === 'INSTITUTION' ? { registrationIntent } : {}),
         auditLogs: { create: [
           legal.auditLogs.create,
           { action: 'USUARIO_CADASTRADO' as AuditAction, occurredAt: legal.legalAcceptedAt },

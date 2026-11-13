@@ -9,6 +9,8 @@ import { PASSWORD_MIN_LENGTH, passwordError, passwordRequirements, validPassword
 import { validateRegistration } from './registration-validation';
 import { INITIAL_DIAGNOSTIC_ATTEMPT_COUNT, INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT } from '../../backend/src/services/initial-diagnostic-config';
 import './password-policy.css';
+import './institution-request.css';
+import {InstitutionRegistrationWizard} from './institution-wizard-loader';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
 
@@ -101,6 +103,7 @@ export function AuthGate() {
       if (route !== '#/reset-password' && route !== '#/verificar-email') return;
       const token = route === '#/reset-password' ? resetTokenFromHash() : verifyTokenFromHash();
       setRecoveryNotice(''); setRecoveryRequested(false);
+      setChoosingRegistration(false);
       setNewPassword(''); setConfirmNewPassword('');
       setMode(route === '#/reset-password' ? 'reset' : 'verify');
       setResetToken(route === '#/reset-password' ? token : ''); setVerifyToken(route === '#/verificar-email' ? token : '');
@@ -151,6 +154,7 @@ export function AuthGate() {
       }
       const result = await post("/auth/google", {
         credential: credentialResponse.credential,
+        ...(window.location.pathname === '/instituicoes' ? { registrationIntent: 'INSTITUTION' } : {}),
         nonce: googleNonce,
       });
       if (result.requiresAcceptance) {
@@ -173,6 +177,7 @@ export function AuthGate() {
     try {
       const result = await post("/auth/google", {
         credential: pendingGoogleCredential,
+        ...(window.location.pathname === '/instituicoes' ? { registrationIntent: 'INSTITUTION' } : {}),
         nonce: googleNonce,
         acceptance: legalAcceptance,
       });
@@ -221,13 +226,14 @@ export function AuthGate() {
           senha: registerSenha,
           confirmacaoSenha,
           acceptance: legalAcceptance,
+          ...(window.location.pathname === '/instituicoes' ? { registrationIntent: 'INSTITUTION' } : {}),
         });
-        setMode("login");
-        setLoginEmail(registerEmail);
-        setRecoveryNotice(registration.emailVerification?.message ?? "Conta criada. Confirme seu e-mail para acessar o sistema.");
         setRegisterSenha("");
         setConfirmacaoSenha("");
         setAccepted(false);
+        // Registration grants only a limited session. The server-confirmed
+        // email status still gates every protected screen and operation.
+        await establishSession(registration.token);
       } else {
         const login = await post("/auth/login", { email: loginEmail, senha: loginSenha });
         await estabelecerSessao(login.token);
@@ -250,7 +256,7 @@ export function AuthGate() {
             </header>
             <div className="auth-card">
               {verifyStatus === "pending" && <p>Confirmando seu e-mail...</p>}
-              {verifyStatus === "success" && <p className="recovery-notice" role="status">{verifyMessage}</p>}
+              {verifyStatus === "success" && <><p className="recovery-notice" role="status">{verifyMessage}</p><p>Entre na sua conta para continuar. Responsáveis podem concluir a solicitação institucional no portal.</p></>}
               {verifyStatus === "error" && <small className="error" role="alert">{verifyMessage}</small>}
               <button className="auth-submit" type="button" onClick={() => { setMode("login"); window.history.replaceState({}, "", window.location.pathname); }}>
                 Ir para o Login
@@ -302,7 +308,8 @@ export function AuthGate() {
     confirmation: confirmacaoSenha, accepted,
   });
   const institutionalEntry = window.location.pathname === '/instituicoes';
-  const title = mode === "register" ? institutionalEntry ? "Crie seu acesso de responsável" : "Crie sua conta de estudante" : mode === "forgot" ? "Esqueci minha senha" : mode === "reset" ? "Defina uma nova senha" : "Login";
+  if(mode==='register'&&institutionalEntry&&!choosingRegistration) return <main className="auth-layout"><VisualPanel/><section className="auth-content"><div className="auth-form-wrap institution-registration-wrap"><InstitutionRegistrationWizard/><button type="button" className="text-button" onClick={()=>setMode('login')}>Já tenho conta — entrar para completar a solicitação</button><button type="button" className="text-button" onClick={()=>{navigate('/');setChoosingRegistration(true);}}>Voltar às opções de cadastro</button></div></section></main>;
+  const title = choosingRegistration ? 'Como deseja começar?' : mode === "register" ? institutionalEntry ? "1. Crie sua conta de responsável" : "Crie sua conta de estudante" : mode === "forgot" ? "Esqueci minha senha" : mode === "reset" ? "Defina uma nova senha" : "Login";
   return (
     <main className="auth-layout">
       <VisualPanel />
@@ -311,13 +318,12 @@ export function AuthGate() {
           <header>
             <h2>{title}</h2>
             <p>
-              {isRecovery ? "Recupere o acesso à sua conta JurisSim." : isLogin
+              {choosingRegistration ? 'Escolha o cadastro que deseja iniciar.' : isRecovery ? "Recupere o acesso à sua conta JurisSim." : isLogin
                 ? "Entre com sua conta. O acesso é definido pelo seu perfil cadastrado."
-                : institutionalEntry ? "Crie seu acesso individual de responsável, sem vínculo prévio ou privilégios automáticos." : "Crie sua conta de estudante e comece sua preparação para a OAB."}
+                : institutionalEntry ? "Primeiro, crie sua conta e confirme seu e-mail. Depois, informe os dados da instituição para análise administrativa." : "Crie sua conta de estudante e comece sua preparação para a OAB."}
             </p>
           </header>
-          {institutionalEntry ? <p>Não é necessário possuir instituição ou vínculo. Entre com sua conta ou use “Cadastre-se” para criar seu acesso individual de responsável. Depois, preencha a solicitação e acompanhe a análise. O acesso institucional depende de confirmação de e-mail e aprovação.</p> : null}
-          {choosingRegistration ? <section className="auth-card"><h3>Como deseja começar?</h3><button type="button" className="outline-button" onClick={()=>{setChoosingRegistration(false);setMode('register');}}>Sou aluno</button><p>Cadastro individual com confirmação de e-mail e acesso ao estudo.</p><button type="button" className="outline-button" onClick={()=>{setChoosingRegistration(false);navigate('/instituicoes');setMode('register');}}>Represento uma instituição</button><p>Crie seu acesso individual e solicite a análise da instituição.</p><p>É professor? Seu acesso é criado por convite da instituição responsável.</p><button type="button" className="text-button" onClick={()=>setChoosingRegistration(false)}>Voltar ao login</button></section> : <form className="auth-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
+          {choosingRegistration ? <section className="auth-card registration-choice" aria-label="Tipo de cadastro"><button type="button" className="outline-button" onClick={()=>{setChoosingRegistration(false);navigate('/');setMode('register');}}>Sou aluno</button><p>Conta individual para estudar e acompanhar seu progresso.</p><button type="button" className="outline-button" onClick={()=>{setChoosingRegistration(false);navigate('/instituicoes');setMode('register');}}>Represento uma instituição</button><p>Conta do responsável, confirmação de e-mail e solicitação para análise.</p><p>Professores ingressam por convite da instituição.</p><button type="button" className="text-button" onClick={()=>{setChoosingRegistration(false);setMode('login');setError('');}}>Voltar ao login</button></section> : <form className="auth-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
             {isRegister && (
               <>
                 <label>
@@ -452,17 +458,16 @@ export function AuthGate() {
               onError={() => setError("Não foi possível entrar com o Google.")}
             />}
           </form>}
-          {!isRecovery && <p className="auth-switch">
+          {!isRecovery && !choosingRegistration && <p className="auth-switch">
             {isLogin ? "Ainda não tem uma conta?" : "Já possui uma conta?"}{" "}
             <button
               type="button"
               disabled={loading}
-              onClick={() => {if(isLogin&&!institutionalEntry)setChoosingRegistration(true);else{setChoosingRegistration(false);setMode(isLogin?'register':'login');}}}
+              onClick={() => {setError('');if(isLogin)setChoosingRegistration(true);else{setChoosingRegistration(false);setMode('login');}}}
             >
               {isLogin ? "Cadastre-se" : "Entrar"}
             </button>
           </p>}
-          {!isRecovery && !institutionalEntry && <aside className="auth-card"><h3>Sua instituição no JurisSim</h3><p>Cadastre seu acesso de responsável, confirme seu e-mail e solicite a análise da instituição. Nenhum privilégio é concedido pelo cadastro.</p><button type="button" className="outline-button" onClick={()=>navigate('/instituicoes')}>Represento uma instituição</button></aside>}
           {isRegister && <p className="muted">É professor? Seu acesso é criado por convite da instituição responsável.</p>}
           <LegalLinks />
         </div>
