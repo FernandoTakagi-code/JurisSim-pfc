@@ -10,6 +10,7 @@ import { useSession, refreshSession, endSession, logoutSession, sessionDestinati
 import { EmailConfirmationGate } from './email-confirmation-gate';
 import { QuestionPracticePage } from './question-practice';
 import { IndividualExamPage } from './individual-exam';
+import { StudentPerformancePage } from './student-performance';
 import { LegalBoundary, LegalLinks } from './legal';
 import { Brand } from "./shell";
 import { ProfessorArea } from "./ProfessorArea";
@@ -22,7 +23,7 @@ import { navigate as navigateTo, usePath } from "./navigation";
 import { sessionRedirectTarget } from './auth-routing';
 import { ClassesPage, ExamsPage, ClassExamAttempt } from "./class-exams";
 import { GoalsPage } from "./goals-reports";
-import { useStudentProgress, ProgressStatus, Evolution, RecentActivities, PerformanceIndicators, StudentHistory, PersistedResult } from "./student-progress";
+import { useStudentProgress, ProgressStatus, Evolution, RecentActivities, StudentHistory, PersistedResult } from "./student-progress";
 import { AdaptiveTrail } from "./adaptive-trail";
 import { TrailLaunchButton } from "./trail-launch";
 import { StudyTrail } from "./study-trail";
@@ -272,27 +273,12 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     );
   }
 
-  if (route === "/desempenho" && !result) {
-    return (
-      <div className="shell">        <main className="content">
-          <section className="page">
-            <p className="gold">SEU DESEMPENHO</p>
-            <h1>{progress.data?.totals.completedActivities ? "Seu desempenho" : "Dados ainda indisponíveis"}</h1>
-            <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refreshAcademic()} />
-            {progress.resultError ? <p className="error" role="alert">O resultado do diagnóstico antigo está indisponível: {progress.resultError}</p> : <p className="muted">Nenhum diagnóstico concluído foi encontrado na sua conta.</p>}
-            <PerformanceIndicators data={progress.data} />
-            <button className="primary" onClick={() => navigate("/dashboard")}>Ir para o Dashboard <b>→</b></button>
-          </section>
-        </main>
-
-      </div>
-    );
-  }
+  if (route === "/desempenho") return <StudentPerformancePage />;
 
   if (view === "questoes" || practiceRoute) {
     return (
       <div className="shell">        <main className="content">
-          <QuestionPracticePage key={reviewRoute?.[1] ?? practiceRoute?.[1] ?? (route.startsWith('/questoes/revisao') ? 'review-chooser' : 'chooser')} review={route.startsWith('/questoes/revisao')} attemptId={reviewRoute?.[1] ?? practiceRoute?.[1]} initialDiscipline={new URLSearchParams(window.location.search).get('disciplina') ?? undefined} />
+          <QuestionPracticePage key={reviewRoute?.[1] ?? practiceRoute?.[1] ?? (route.startsWith('/questoes/revisao') ? 'review-chooser' : 'chooser')} review={route.startsWith('/questoes/revisao')} attemptId={reviewRoute?.[1] ?? practiceRoute?.[1]} initialDiscipline={new URLSearchParams(window.location.search).get('disciplina') ?? undefined} initialTopic={new URLSearchParams(window.location.search).get('assunto') ?? undefined} />
         </main>
 
       </div>
@@ -616,7 +602,6 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     <div className="shell">      <main className="content">
         <section className="page result">
           <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refreshAcademic()} />
-          {route === "/desempenho" && <PerformanceIndicators data={progress.data} />}
           <p className="gold">DIAGNÓSTICO CONCLUÍDO</p>
           <h1>Seu desempenho</h1>
           <p className="muted">Veja seu ponto de partida para a preparação.</p>

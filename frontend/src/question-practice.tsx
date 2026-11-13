@@ -80,10 +80,12 @@ const message = (cause: unknown) =>
 export function QuestionPracticePage({
   attemptId,
   initialDiscipline,
+  initialTopic,
   review = false,
 }: {
   attemptId?: string;
   initialDiscipline?: string;
+  initialTopic?: string;
   review?: boolean;
 }) {
   const enabled = review
@@ -98,7 +100,7 @@ export function QuestionPracticePage({
       ? initialDiscipline!
       : disciplines[0],
   );
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(initialTopic ?? "");
   const [quantity, setQuantity] = useState(5);
   const [availability, setAvailability] = useState<Availability>();
   const quantities =
@@ -125,9 +127,9 @@ export function QuestionPracticePage({
       disciplines.includes(initialDiscipline)
     ) {
       setDiscipline(initialDiscipline);
-      setTopic("");
+      setTopic(initialTopic ?? "");
     }
-  }, [attemptId, initialDiscipline]);
+  }, [attemptId, initialDiscipline, initialTopic]);
   useEffect(() => {
     if (!enabled || attemptId) return;
     let active = true;
