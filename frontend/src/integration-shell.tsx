@@ -1,8 +1,3 @@
-import { GlobalSignOut } from './global-sign-out';
-import { AccountDeletion } from './account-deletion';
-import {accountIdentity,profilePath as canonicalProfilePath,profileRoute,profileTabs,type ProfileTab} from './profile-navigation';
-const subscribeProfile=(listener:()=>void)=>{window.addEventListener('popstate',listener);return()=>window.removeEventListener('popstate',listener);};
-const useProfileLocation=()=>useSyncExternalStore(subscribeProfile,()=>window.location.pathname+window.location.search);
 import {Icon} from './ui-icon';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { apiRequest } from "./api";
@@ -15,6 +10,11 @@ import { setLocalDiagnosticDemoMode } from "./auth-session";
 import { useSession } from './auth-session';
 import { InstitutionContext } from './administration';
 import { adminSections } from './admin-navigation';
+import { GlobalSignOut } from './global-sign-out';
+import { AccountDeletion } from './account-deletion';
+import {accountIdentity,profilePath as canonicalProfilePath,profileRoute,profileTabs,type ProfileTab} from './profile-navigation';
+const subscribeProfile=(listener:()=>void)=>{window.addEventListener('popstate',listener);return()=>window.removeEventListener('popstate',listener);};
+const useProfileLocation=()=>useSyncExternalStore(subscribeProfile,()=>window.location.pathname+window.location.search);
 
 // Adapted from NavItem, UserProfileDropdown and ProfileSettings in the aluno
 // v0 export. Routing, account data and mutations belong to the existing app.
@@ -78,7 +78,9 @@ export function IntegrationShell({
   const sessionState = useSession();
   const teacher = user.role === "PROFESSOR";
   const admin = user.role === "ADMIN";
-  const institutional = !admin && path==='/instituicoes' && !!sessionState.session?.administration?.memberships.some(m=>m.role==='INSTITUTION_ADMIN');
+  const identity=accountIdentity(sessionState.session??{user},path==='/instituicoes');
+  const institutional=identity.institutional;
+  const institutionalRoleLabel=identity.label;
   const base = admin ? "/administracao" : teacher ? "/professor" : "";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(
@@ -95,18 +97,15 @@ export function IntegrationShell({
   const sidebarRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const wasMobileOpen = useRef(false);
-  const primary: Item[] = admin ? [...adminSections] : institutional ? [{path:'/instituicoes',label:'Minha administração institucional',icon:'users'}] : teacher
+  let primary: Item[] = admin ? [...adminSections] : institutional ? [{path:'/instituicoes',label:'Acompanhamento institucional',icon:'users'}] : teacher
     ? [
         { path: base, label: "Início", icon: "home" },
-        { path: base + "/questoes", label: "Banco de questões", icon: "book" },
-        {
-          path: base + "/questoes/nova",
-          label: "Cadastrar questão",
-          icon: "plus",
-        },
         { path: base + "/turmas", label: "Turmas", icon: "users" },
         { path: base + "/alunos", label: "Alunos", icon: "users" },
+        { path: base + "/atividades", label: "Atividades", icon: "book" },
         { path: base + "/simulados", label: "Simulados", icon: "file" },
+        { path: base + "/questoes", label: "Banco de questões", icon: "book" },
+        { path: base + "/questoes/nova", label: "Cadastrar questão", icon: "plus" },
       ]
     : [
         { path: "/dashboard", label: "Início", icon: "home" },
@@ -117,6 +116,7 @@ export function IntegrationShell({
         { path: "/desempenho", label: "Meu desempenho", icon: "chart" },
         { path: "/trilha", label: "Minha Trilha Adaptativa", icon: "target" },
       ];
+  if(sessionState.session?.administration?.restricted) primary=primary.filter(item=>!/(?:^|\/)questoes(?:\/|$)/.test(item.path));
   const secondary: Item[] = admin || institutional ? [] : teacher
     ? [
         { path: base + "/desempenho", label: "Desempenho", icon: "chart" },
@@ -127,16 +127,18 @@ export function IntegrationShell({
         { path: "/metas", label: "Metas de estudo", icon: "target" },
       ];
   if (!admin&&!institutional) primary.push({ path: '/instituicoes', label: 'Instituições e solicitações', icon: 'users' });
-  const profilePath = base + "/perfil";
-  const settingsPath = base + (admin ? "/preferencias" : "/configuracoes");
-  const utility = path === profilePath || path === settingsPath;
+  const profileLocation=useProfileLocation();
+  const profilePath=canonicalProfilePath(user.role);
+  const profile=profileRoute(user.role,path,profileLocation.slice(path.length));
+  const utility=!!profile;
+  useEffect(()=>{if(profile&&profileLocation!==profile.target)navigate(profile.target,true);},[profileLocation,profile?.target]);
   const currentNav = [...primary, ...secondary].filter(item => path === item.path || (item.path !== base && item.path !== "/" && path.startsWith(item.path + "/"))).sort((a, b) => b.path.length - a.path.length)[0];
   const title = utility ? "Perfil e configura\u00e7\u00f5es" : path.endsWith("/editar") ? "Editar quest\u00e3o" : currentNav?.label ?? "JurisSim";
 
   useEffect(() => {
     setMobileOpen(false);
     setDropdown(false);
-  }, [path]);
+  }, [profileLocation]);
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 761px)");
     const update = () => {
@@ -210,7 +212,10 @@ export function IntegrationShell({
       title={item.label}
       aria-current={path === item.path || currentNav?.path === item.path ? "page" : undefined}
       className={path === item.path || currentNav?.path === item.path ? "active" : ""}
-      onClick={() => navigate(item.path)}
+      onClick={() => {
+        navigate(item.path);
+        setMobileOpen(false);
+      }}
     >
       <Icon name={item.icon} />
       <span>{item.label}</span>
@@ -265,23 +270,18 @@ export function IntegrationShell({
             {admin ? "Administração geral" : institutional ? 'Administração institucional' : teacher ? "Área do professor" : "Área do aluno"}
           </p>
           <nav aria-label={admin ? "Administração" : "Estudos"}>{primary.map(navItem)}</nav>
-          {!admin && <><p className="v0-nav-label">Mais opções</p>
+          <><p className="v0-nav-label">Minha conta</p>
           <nav aria-label="Conta e preferências">
             {secondary.map(navItem)}
-            {navItem({ path: profilePath, label: "Meu perfil", icon: "user" })}
-            {navItem({
-              path: settingsPath,
-              label: "Configurações",
-              icon: "settings",
-            })}
-          </nav></>}
+            {navItem({ path: profilePath, label: "Perfil e configurações", icon: "user" })}
+          </nav></>
         </div>
         <div className="v0-sidebar-bottom">
           <div className="v0-sidebar-account">
             <ProfileAvatar name={user.nome} />
             <span>
               <strong>{user.nome}</strong>
-              <small>{roleLabel(user.role)}</small>
+              <small>{institutional ? institutionalRoleLabel : roleLabel(user.role)}</small>
             </span>
           </div>
           <button title="Sair" onClick={onSair}>
@@ -332,20 +332,16 @@ export function IntegrationShell({
               <ProfileAvatar name={user.nome} />
               <span>
                 <strong>{user.nome}</strong>
-                <small>{roleLabel(user.role)}</small>
+                <small>{institutional ? institutionalRoleLabel : roleLabel(user.role)}</small>
               </span>
               <Icon name="chevron" />
             </button>
             {dropdown && (
               <div className="v0-dropdown">
                 <p>{user.email}</p>
-                <button onClick={() => navigate(profilePath)}>
+                <button onClick={() => { setDropdown(false); navigate(profilePath); }}>
                   <Icon name="user" />
-                  Meu perfil
-                </button>
-                <button onClick={() => navigate(settingsPath)}>
-                  <Icon name="settings" />
-                  Configurações
+                  Perfil e configurações
                 </button>
                 <button onClick={onSair}>
                   <Icon name="logout" />
@@ -366,9 +362,9 @@ export function IntegrationShell({
         </div>}
         {utility && (
           <ProfileSettings
-            key={user.id + path}
+            key={user.id}
             user={user}
-            settings={path === settingsPath}
+            settings={profile?.tab==='appearance'}
             theme={theme}
             setTheme={setTheme}
             collapsed={collapsed}

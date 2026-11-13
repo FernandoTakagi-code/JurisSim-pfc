@@ -253,7 +253,9 @@
   padding: 2px 6px;
 }
 .institution-workspace .sidebar-footer {
-  margin-top: auto;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,.1);
 }
 .institution-workspace .help-card {
   border: 1px solid rgba(255, 255, 255, 0.11);
@@ -480,6 +482,18 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
   margin-bottom: 18px;
+}
+.institution-workspace .institution-overview {
+  display: grid;
+  gap: 20px;
+}
+.institution-workspace .institution-key-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+.institution-workspace .institution-overview .header-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 .institution-workspace .metric-card,
 .institution-workspace .panel {
@@ -1007,6 +1021,78 @@
 }
 .institution-workspace .status.neutral {
   color: var(--muted);
+}
+
+/* H4.22: shared institutional visual language. */
+.institution-workspace {
+  --focus-ring: #9b742d;
+  --success: #28734b;
+  --success-surface: #e8f5ed;
+}
+.institution-workspace.dark-mode {
+  --success: #8cdaae;
+  --success-surface: #193e2c;
+}
+.institution-workspace .eyebrow {
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  margin: 0 0 .5rem;
+}
+.institution-workspace .overview-hero,
+.institution-workspace .institution-page-hero {
+  padding: clamp(1.25rem, 2.5vw, 2rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(120deg, var(--surface), color-mix(in srgb, var(--gold-soft) 45%, var(--surface)));
+}
+.institution-workspace .institution-page-hero {
+  display:flex; justify-content:space-between; gap:1.25rem; align-items:flex-start; margin-bottom:1.25rem;
+}
+.institution-workspace .institution-page-hero h1 { margin:.1rem 0 .5rem; font: 600 clamp(1.65rem, 3vw, 2.15rem)/1.15 Georgia, serif; }
+.institution-workspace .institution-page-hero p,
+.institution-workspace .institution-actions > div > p { color:var(--muted); line-height:1.55; margin:0; }
+.institution-workspace .institution-statuses { display:flex; flex-wrap:wrap; gap:.5rem; justify-content:flex-end; }
+.institution-workspace .status.success { color:var(--success); background:var(--success-surface); border:1px solid color-mix(in srgb, var(--success) 30%, var(--line)); border-radius:999px; padding:.45rem .7rem; font-size:.78rem; font-weight:700; }
+.institution-workspace .status.success i { background:currentColor; }
+.institution-workspace .institution-actions { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:1.25rem 0; }
+.institution-workspace .institution-actions h2 { margin:.1rem 0 .4rem; }
+.institution-workspace .institution-actions .header-actions { flex-wrap:wrap; }
+.institution-workspace .profile-card,
+.institution-workspace .contact-card { border-top:3px solid color-mix(in srgb, var(--gold) 70%, transparent); }
+.institution-workspace .profile-hero { padding-bottom:1.25rem; }
+.institution-workspace .institution-id { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size:.75rem; word-break:break-all; }
+.institution-workspace .analysis-note { display:grid; gap:.35rem; margin-top:1.25rem; padding:1rem; border-radius:10px; background:var(--gold-soft); color:var(--ink); line-height:1.5; font-size:.82rem; }
+.institution-workspace .analysis-note span { color:var(--muted); }
+.institution-workspace .notification-panel > p { color:var(--muted); line-height:1.55; }
+.institution-workspace .institution-notification { display:grid; gap:.3rem; padding:1rem 0; }
+.institution-workspace .institution-notification h2 { color:var(--ink); font-size:.95rem; line-height:1.4; margin:0; }
+.institution-workspace input::placeholder,
+.institution-workspace textarea::placeholder { color:color-mix(in srgb, var(--muted) 82%, transparent); opacity:1; }
+.institution-workspace input,
+.institution-workspace textarea,
+.institution-workspace select { line-height:1.4; }
+.institution-workspace input:focus-visible,
+.institution-workspace textarea:focus-visible,
+.institution-workspace select:focus-visible,
+.institution-workspace button:focus-visible { outline:3px solid color-mix(in srgb, var(--focus-ring) 65%, transparent); outline-offset:2px; }
+.institution-workspace .primary-button:not(:disabled) { box-shadow:0 5px 14px color-mix(in srgb, var(--navy) 18%, transparent); }
+.institution-workspace .primary-button:not(:disabled):hover { filter:brightness(1.08); transform:translateY(-1px); }
+.institution-workspace button:disabled { opacity:.55; filter:saturate(.55); }
+.institution-workspace .class-form input,
+.institution-workspace .class-form select,
+.institution-workspace .class-form textarea,
+.institution-workspace .class-invite input,
+.institution-workspace .v0-page input,
+.institution-workspace .v0-page select,
+.institution-workspace .v0-page textarea { background:var(--surface)!important; color:var(--ink)!important; border-color:var(--line)!important; caret-color:var(--ink); }
+.institution-workspace .class-invite input[readonly] { background:var(--gold-soft)!important; color:var(--ink)!important; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-weight:700; letter-spacing:.04em; }
+@media (max-width:700px) {
+  .institution-workspace .institution-page-hero,
+  .institution-workspace .institution-actions { flex-direction:column; align-items:stretch; }
+  .institution-workspace .institution-statuses { justify-content:flex-start; }
+  .institution-workspace .institution-actions .header-actions > button { flex:1 1 100%; justify-content:center; }
 }
 .institution-workspace .institution-layout {
   display: grid;
@@ -1770,4 +1856,34 @@
   .institution-workspace .metric-arrow {
     display: none;
   }
+}
+.institution-workspace.institution-workspace.institution-dialog-layer {
+  position: fixed; inset: 0; z-index: 5000; min-height: 0;
+  display: block; background: transparent; pointer-events: none;
+}
+.institution-workspace.institution-dialog-layer .modal-backdrop {
+  z-index: 1; pointer-events: auto; padding: 16px; isolation: isolate;
+}
+.institution-workspace.institution-dialog-layer .modal {
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(560px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+  min-height: 0; padding: 0; overflow: hidden; box-sizing: border-box;
+}
+.institution-workspace.institution-dialog-layer .modal .modal-head { margin: 0; padding: 16px 24px; border-bottom: 1px solid var(--line); }
+.institution-workspace.institution-dialog-layer .institution-dialog-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px; }
+.institution-workspace.institution-dialog-layer .modal .modal-footer { position: static; margin: 0; padding: 16px 24px; border-top: 1px solid var(--line); background: var(--surface); }
+.institution-workspace.institution-dialog-layer .modal button { min-height: 42px; white-space: normal; }
+.institution-workspace.institution-dialog-layer .modal :is(input, select) { min-height: 42px; box-sizing: border-box; width: 100%; }
+.institution-workspace.institution-dialog-layer .modal button:focus-visible { outline: 3px solid var(--gold, #b18a38); outline-offset: 3px; }
+.institution-workspace.institution-dialog-layer .modal button:disabled { opacity: 1; cursor: not-allowed; color: var(--ink); background: var(--canvas); }
+.institution-workspace.institution-dialog-layer .modal :is(input, select):disabled { opacity: 1; color: var(--ink); background: var(--canvas); }
+.institution-workspace.institution-dialog-layer .institution-invitation-form { display: grid; gap: 16px; min-width: 0; }
+.institution-workspace.institution-dialog-layer .institution-invitation-form p { margin: 0; overflow-wrap: anywhere; }
+.institution-workspace.institution-dialog-layer .institution-invitation-form label { display: grid; gap: 6px; min-width: 0; }
+.institution-workspace.institution-dialog-layer .institution-class-pagination { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding-block: 10px; border-block: 1px solid var(--line); }
+.institution-workspace.institution-dialog-layer .institution-invitation-scope { padding: 12px; background: var(--canvas); border: 1px solid var(--line); border-radius: 8px; }
+@media (max-width: 600px) {
+  .institution-workspace.institution-dialog-layer .modal-backdrop { padding: 10px; }
+  .institution-workspace.institution-dialog-layer .modal { max-height: calc(100dvh - 20px); width: 100%; }
+  .institution-workspace.institution-dialog-layer .modal .modal-head, .institution-workspace.institution-dialog-layer .institution-dialog-body, .institution-workspace.institution-dialog-layer .modal .modal-footer { padding: 14px 16px; }
 }

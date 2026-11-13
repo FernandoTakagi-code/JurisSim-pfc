@@ -1,5 +1,5 @@
-import { AdminAccountDeletion, EmailReuseRevocation } from './account-deletion';
 import { InstitutionRequest } from './institution-request';
+import { AdminAccountDeletion, EmailReuseRevocation } from './account-deletion';
 import { institutionPendingFields, noWebsiteDeclaration } from '../../backend/src/institution-registration';
 import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "./api";
@@ -833,6 +833,22 @@ export function GeneralAdministration() {
     </section>
   );
 }
+function AdministrationSettings({ availability }: { availability?: AdministrationAvailability }) {
+  const health = useResource<{status: string}>("/health");
+  return <div className="admin-settings">
+    <section className="panel"><h2>Estado do sistema</h2><ResourceState resource={health}/><dl>
+      <dt>Serviço</dt><dd>{health.loading ? 'Verificando…' : health.error ? 'Não foi possível verificar' : health.data?.status === 'ok' ? 'Disponível' : 'Indisponível'}</dd>
+      <dt>Serviço de e-mails</dt><dd>Não monitorado</dd>
+    </dl><button onClick={health.reload} disabled={health.loading}>Atualizar verificação</button></section>
+    <section className="panel"><h2>Funcionalidades</h2><dl>{[
+      ['Cadastro institucional', availability?.registrationEnabled],
+      ['Administração geral', availability?.administrationEnabled],
+      ['Operações institucionais completas', availability?.enabled],
+      ['Convites e vínculos institucionais', availability?.enabled],
+    ].map(([name, value]) => <div key={String(name)}><dt>{name}</dt><dd>{value === undefined ? 'Não foi possível verificar' : value ? 'Habilitada' : 'Desabilitada'}</dd></div>)}</dl></section>
+    <section className="panel"><h2>Controles administrativos</h2><h3>Controle de novos cadastros</h3><p>A opção de pausar temporariamente novas solicitações institucionais estará disponível em uma atualização futura.</p></section>
+  </div>;
+}
 function GlobalIndicators({ enabled }: { enabled: boolean }) {
   const resource = useResource<Record<string, number>>(
     enabled ? "/institutions/admin/summary" : null,
@@ -1107,6 +1123,11 @@ function InstitutionReview({
     </>
   );
 }
+function UserHistory({userId}: {userId: string}) {
+  const [page, setPage] = useState(1);
+  const resource = useResource<Page<Event>>(`/institutions/admin/users/${userId}/history?page=${page}`);
+  return <section className="panel"><h3>Histórico administrativo da conta</h3><ResourceState resource={resource}/>{resource.data?.items.length === 0 && <p>Nenhuma ocorrência registrada.</p>}{resource.data?.items.map(event => <p key={event.id}>{date(event.occurredAt)} · {event.event} · {auditResult(event.result)}</p>)}{resource.data && <Pages page={page} hasMore={resource.data.hasMore} change={setPage}/>}</section>;
+}
 function UserAdministration({ initialRole = "",permissionsOnly=false }: { initialRole?: string;permissionsOnly?:boolean }) {
   const currentUserId = useSession().session?.user.id;
   const [page, setPage] = useState(1),
@@ -1297,29 +1318,31 @@ export function InstitutionsPortal({ session }: { session: Session }) {
     session.administration?.memberships
       .filter((m) => m.role === "INSTITUTION_ADMIN")
       .map((m) => m.institutionId) ?? [];
+  const institutions = resource.data ?? [];
+  const activeInstitution = institutions.find((institution) => institution.status === "ACTIVE");
+  const hasPendingInstitution = institutions.some((institution) => institution.status === "PENDING");
+  const heading = activeInstitution
+    ? "Minha instituição"
+    : hasPendingInstitution
+      ? "Acompanhamento institucional"
+      : "Cadastro institucional";
+  const refreshInstitution = () => {
+    void refreshSession(true).then(resource.reload).catch(() => {});
+  };
   return (
-    <section className="page admin-page">
-      <p className="gold">INSTITUIÇÕES</p>
-      <h1>Cadastro e acompanhamento institucional</h1>
-      <p>
-        Solicite o cadastro sem vínculo anterior. Sua solicitação será analisada
-        pelo administrador geral; o envio não concede privilégios.
-      </p>
-      <button
-        className="outline-button"
-        onClick={() => {
-          void refreshSession(true)
-            .then(resource.reload)
-            .catch(() => {});
-        }}
-      >
-        Atualizar situação e permissões
-      </button>
+    <section className="page admin-page institution-portal">
+      <header className="institution-portal-header">
+        <div>
+          <p className="gold">INSTITUIÇÕES</p>
+          <h1>{heading}</h1>
+          <p>Acompanhe a situação cadastral e os recursos disponíveis para sua instituição.</p>
+        </div>
+      </header>
       <ResourceState resource={availability} />
       {availability.data &&
       !registrationAvailable(availability.data) &&
       !availability.data.administrationEnabled ? (
-        <p>
+        <p className="institution-empty-state">
           O recebimento de solicitações ainda não foi habilitado. Não é
           necessário vínculo prévio; quando autorizado, use sua conta individual
           para enviar e acompanhar a solicitação.
@@ -1329,42 +1352,44 @@ export function InstitutionsPortal({ session }: { session: Session }) {
           availability.data?.administrationEnabled) && (
           <>
             <ResourceState resource={resource} />
-            {registrationAvailable(availability.data) && session.user.emailVerificado ? (
+            {!resource.loading&&registrationAvailable(availability.data) && session.user.emailVerificado && !resource.data?.some(i=>i.ownerId===session.user.id) ? (
               <InstitutionRequest
                 onCreated={resource.reload}
-                contactEmail={session.user.email} responsibleName={session.user.nome}
+                contactEmail={session.user.email}
+                responsibleName={session.user.nome}
               />
             ) : (
-              <p>
-                Confirme seu e-mail antes de enviar uma nova solicitação. Se o recebimento estiver desabilitado, o acompanhamento das existentes permanece disponível.
-              </p>
+              !session.user.emailVerificado&&<p>Confirme seu e-mail antes de enviar uma solicitação.</p>
             )}
-            <h2>Meus vínculos e solicitações</h2>
-            {resource.data?.length === 0 && (
-              <p>Nenhuma solicitação ou vínculo institucional.</p>
+            <h2 className="institution-portal-section-title">Meus vínculos e solicitações</h2>
+            {institutions.length === 0 && (
+              <p className="institution-empty-state">Nenhuma solicitação ou vínculo institucional.</p>
             )}
-            {resource.data?.map((i) => (
-              <article className="panel" key={i.id}>
-                <h3>{i.name}</h3>
-                <p>{label(i.status)}</p>
-                {i.decisionReason && <p>{i.decisionReason}</p>}
+            <div className="institution-request-list">
+            {institutions.map((i) => (
+              <article className="panel institution-request-card" key={i.id}>
+                <div className="institution-request-heading">
+                  <div><h3>{i.name}</h3><p>Informações do seu cadastro institucional.</p></div>
+                  <button className="outline-button" onClick={refreshInstitution}>Atualizar situação e permissões</button>
+                </div>
+                <dl className="institution-request-status"><div><dt>Situação cadastral</dt><dd><span className={`institution-status ${i.status==='ACTIVE'?'is-approved':i.status==='REJECTED'?'is-rejected':'is-pending'}`}>{i.status==='ACTIVE'?'Cadastro aprovado':label(i.status)}</span></dd></div><div><dt>Situação operacional</dt><dd><span className={`institution-status ${i.status==='ACTIVE'&&availability.data?.enabled&&session.administration?.enabled&&adminIds.includes(i.id)?'is-ready':'is-waiting'}`}>{i.status==='ACTIVE'&&availability.data?.enabled&&session.administration?.enabled&&adminIds.includes(i.id)?'Disponível para sua gestão':i.status==='ACTIVE'?'Aguardando liberação':'Disponível após aprovação e liberação'}</span></dd></div></dl>
+                {i.decisionReason?.trim() && <aside className="institution-review-note" aria-label="Observação registrada na análise"><span>{i.status === 'REJECTED' ? 'Orientação para revisão do cadastro' : 'Observação registrada na análise'}</span><p>{i.decisionReason}</p></aside>}
+                {i.status==='REJECTED'&&i.ownerId===session.user.id&&registrationAvailable(availability.data)&&session.user.emailVerificado&&<InstitutionRequest onCreated={resource.reload} contactEmail={session.user.email} responsibleName={session.user.nome} initial={i}/>}
                 {!availability.data?.enabled && i.status === "ACTIVE" && (
-                  <p>
-                    Cadastro aprovado; operações institucionais aguardam
-                    ativação separada.
-                  </p>
+                  <p className="institution-guidance">O cadastro foi aprovado. As operações institucionais serão disponibilizadas após a liberação correspondente.</p>
                 )}
-                {availability.data?.enabled && adminIds.includes(i.id) && (
-                  <button onClick={() => {sessionStorage.setItem('jurissim_administration_institution',i.id);window.history.replaceState({},'',`/instituicoes?instituicao=${encodeURIComponent(i.id)}`);window.dispatchEvent(new Event('jurissim-institution-context'));}}>
+                {availability.data?.enabled && session.administration?.enabled && session.user.emailVerificado && i.status==='ACTIVE' && adminIds.includes(i.id) && (
+                  <button type="button" className="primary-button institution-manage-button" onClick={() => {sessionStorage.setItem('jurissim_administration_institution',i.id);window.history.replaceState({},'',`/instituicoes?instituicao=${encodeURIComponent(i.id)}`);window.dispatchEvent(new Event('jurissim-institution-context'));}}>
                     Administrar instituição
                   </button>
                 )}
               </article>
             ))}
+            </div>
 
             {session.user.emailVerificado &&
               administrativeCapability(availability.data, "notifications") && (
-                <Notifications />
+                <Notifications recent/>
               )}
           </>
         )
@@ -1421,7 +1446,7 @@ export function ClassMembershipManager({
         {teacher ? "Solicitações de entrada" : "Minhas solicitações de entrada"}
       </h3>
       {action.feedback}
-      {teacher&&classId&&<form className="admin-form" onSubmit={e=>{e.preventDefault();void action.run(`/turmas/${classId}/students`,'POST',{email:studentEmail}).then(ok=>{if(ok)setStudentEmail('');});}}><label>E-mail do aluno já cadastrado<input type="email" required maxLength={254} value={studentEmail} onChange={e=>setStudentEmail(e.target.value)}/></label><button disabled={action.busy}>Vincular aluno</button></form>}
+      {teacher&&classId&&<form className="admin-form" onSubmit={e=>{e.preventDefault();void action.run(`/turmas/${classId}/students`,'POST',{email:studentEmail}).then(ok=>{if(ok)setStudentEmail('');});}}><label>E-mail do aluno já cadastrado<input type="email" required maxLength={254} value={studentEmail} onChange={e=>setStudentEmail(e.target.value)}/></label><button className="primary-button" disabled={action.busy}>Vincular aluno</button></form>}
       <ResourceState resource={resource} />
       {resource.data?.items.length === 0 && <p>Nenhuma solicitação.</p>}
       {resource.data?.items.map((r) => (
@@ -1519,27 +1544,4 @@ function RemoveStudent({
       Remover da turma
     </button>
   );
-}
-
-function UserHistory({userId}: {userId: string}) {
-  const [page, setPage] = useState(1);
-  const resource = useResource<Page<Event>>(`/institutions/admin/users/${userId}/history?page=${page}`);
-  return <section className="panel"><h3>Histórico administrativo da conta</h3><ResourceState resource={resource}/>{resource.data?.items.length === 0 && <p>Nenhuma ocorrência registrada.</p>}{resource.data?.items.map(event => <p key={event.id}>{date(event.occurredAt)} · {event.event} · {auditResult(event.result)}</p>)}{resource.data && <Pages page={page} hasMore={resource.data.hasMore} change={setPage}/>}</section>;
-}
-
-function AdministrationSettings({ availability }: { availability?: AdministrationAvailability }) {
-  const health = useResource<{status: string}>("/health");
-  return <div className="admin-settings">
-    <section className="panel"><h2>Estado do sistema</h2><ResourceState resource={health}/><dl>
-      <dt>Serviço</dt><dd>{health.loading ? 'Verificando…' : health.error ? 'Não foi possível verificar' : health.data?.status === 'ok' ? 'Disponível' : 'Indisponível'}</dd>
-      <dt>Serviço de e-mails</dt><dd>Não monitorado</dd>
-    </dl><button onClick={health.reload} disabled={health.loading}>Atualizar verificação</button></section>
-    <section className="panel"><h2>Funcionalidades</h2><dl>{[
-      ['Cadastro institucional', availability?.registrationEnabled],
-      ['Administração geral', availability?.administrationEnabled],
-      ['Operações institucionais completas', availability?.enabled],
-      ['Convites e vínculos institucionais', availability?.enabled],
-    ].map(([name, value]) => <div key={String(name)}><dt>{name}</dt><dd>{value === undefined ? 'Não foi possível verificar' : value ? 'Habilitada' : 'Desabilitada'}</dd></div>)}</dl></section>
-    <section className="panel"><h2>Controles administrativos</h2><h3>Controle de novos cadastros</h3><p>A opção de pausar temporariamente novas solicitações institucionais estará disponível em uma atualização futura.</p></section>
-  </div>;
 }
