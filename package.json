@@ -1,0 +1,12 @@
+{
+  "name": "jurissim-workspace",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "setup": "node scripts/setup-environment.cjs",
+    "config:check": "npm --prefix backend run config:check",
+    "test:environment": "node --test scripts/setup-environment.test.cjs"
+  }
+}

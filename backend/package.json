@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "config:check": "tsx scripts/check-environment.ts",
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
