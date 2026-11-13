@@ -34,10 +34,13 @@ const startupDiagnosticOnly = process.argv[3] === '--startup-diagnostic-only';
 // Same disposable cluster and migration checks, but only the Vitest integration suite
 // (skips the standalone scripts/test-*-db.ts scenario runners).
 const functionalSuite = process.argv[3] === '--functional-suite';
-const integrationSuiteOnly = process.argv[3] === '--integration-suite-only' || functionalSuite;
+const institutionSuite = process.argv[3] === '--institution-suite-only';
+const institutionEmailSuite = process.argv[3] === '--institution-email-suite-only';
+const emailSystemSuite = process.argv[3] === '--email-system-suite-only';
+const integrationSuiteOnly = process.argv[3] === '--integration-suite-only' || functionalSuite || institutionSuite || institutionEmailSuite || emailSystemSuite;
 if (!pgBin || (process.argv.length !== 3
   && !(process.argv.length === 4 && (preflightOnly || startupDiagnosticOnly || integrationSuiteOnly)))) {
-  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite]');
+  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite|--institution-suite-only|--institution-email-suite-only|--email-system-suite-only]');
   process.exit(1);
 }
 const resolvedPgBin = path.resolve(pgBin);
@@ -499,7 +502,7 @@ async function main() {
     JURISSIM_TEST_CAPABILITY: capability, JURISSIM_TEST_INTEGRATION_DATABASE: integrationDatabase });
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-question-import-db.ts', data]));
   if (!integrationSuiteOnly || functionalSuite) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-initial-diagnostic-db.ts', data]));
-  console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts']));
+  console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', ...(emailSystemSuite ? ['src/__tests__/integration/email-system.integration.test.ts','src/__tests__/integration/institution-decision-email.integration.test.ts','src/__tests__/integration/institutions.integration.test.ts'] : institutionEmailSuite ? ['src/__tests__/integration/institution-decision-email.integration.test.ts'] : institutionSuite ? ['src/__tests__/integration/institutions.integration.test.ts'] : [])]));
   assertNoDrift(integrationDatabase);
 }
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {

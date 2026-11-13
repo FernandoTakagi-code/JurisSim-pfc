@@ -165,26 +165,6 @@ export class AuthRepository {
     });
   }
 
-  anonymizeUser(id: string) {
-    return prisma.$transaction(async tx => {
-      // Same lock order as photo replacement, so concurrent uploads cannot
-      // restore personal image bytes after the account has been anonymized.
-      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${id} FOR UPDATE`;
-      return tx.user.update({
-        where: { id },
-        data: {
-          nome: 'Usuário removido',
-          email: `deleted-${id}@jurissim.invalid`,
-          senhaHash: null,
-          deletedAt: new Date(),
-          profilePhotos: { deleteMany: {} },
-          auditLogs: { create: { action: 'CONTA_EXCLUIDA' as AuditAction } },
-        },
-      });
-    });
-  }
-
-
   deactivateUser(id: string, expectedPasswordHash: string) {
     return prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${id} FOR UPDATE`;
@@ -209,6 +189,25 @@ export class AuthRepository {
       if ((error as { code?: string }).code === 'P2021')
         throw new ApiError(503, 'Desativação indisponível até validar a estrutura de vínculos. Nenhuma alteração foi aplicada.');
       throw error;
+    });
+  }
+
+  anonymizeUser(id: string) {
+    return prisma.$transaction(async tx => {
+      // Same lock order as photo replacement, so concurrent uploads cannot
+      // restore personal image bytes after the account has been anonymized.
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${id} FOR UPDATE`;
+      return tx.user.update({
+        where: { id },
+        data: {
+          nome: 'Usuário removido',
+          email: `deleted-${id}@jurissim.invalid`,
+          senhaHash: null,
+          deletedAt: new Date(),
+          profilePhotos: { deleteMany: {} },
+          auditLogs: { create: { action: 'CONTA_EXCLUIDA' as AuditAction } },
+        },
+      });
     });
   }
 }
