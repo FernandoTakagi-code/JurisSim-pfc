@@ -2,11 +2,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import type { Server } from 'node:http';
-const mocks = vi.hoisted(() => ({ user: vi.fn(), list: vi.fn(), create: vi.fn(), update: vi.fn(), invite: vi.fn(), join: vi.fn(), students: vi.fn(), exams: vi.fn(), save: vi.fn(), publish: vi.fn(), start: vi.fn(), attempt: vi.fn(), answer: vi.fn(), finalize: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: vi.fn(), list: vi.fn(), create: vi.fn(), update: vi.fn(), invite: vi.fn(), join: vi.fn(), students: vi.fn(), exams: vi.fn(), eligible:vi.fn(),save: vi.fn(), publish: vi.fn(), start: vi.fn(), attempt: vi.fn(), answer: vi.fn(), finalize: vi.fn() }));
 vi.mock('../repositories/auth-repository', () => ({ AuthRepository: class { findByIdForAuth = mocks.user; } }));
+// This suite tests legacy HTTP role guards, not database-backed memberships.
+// Keep configured local flags from causing accidental Prisma calls in unit tests.
+vi.mock('../services/institution-service', () => ({ currentAccess: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('../services/class-exam-service', () => ({ ClassExamService: class {
   listClasses = mocks.list; createClass = mocks.create; updateClass = mocks.update; rotateInvite = mocks.invite;
   join = mocks.join; students = mocks.students; listExams = mocks.exams; saveExam = mocks.save; publish = mocks.publish;
+  eligibleQuestions=mocks.eligible;
   start = mocks.start; attempt = mocks.attempt; answer = mocks.answer; finalize = mocks.finalize;
 } }));
 import { classRoutes, examRoutes } from './class-exam-routes';
@@ -31,6 +35,17 @@ beforeEach(() => {
 });
 
 describe('class and teacher-exam HTTP guards', () => {
+  it('exposes only the assessment read contract with validated class ids',async()=>{
+    expect((await request('GET',`/avaliacoes/eligible-questions?turmaIds=${id}`)).status).toBe(200);
+    expect(mocks.eligible).toHaveBeenCalledWith({userId:id,role:'PROFESSOR'},[id],1);
+  });
+  it.each([`turmaIds=${id}&institutionId=forged`,'turmaIds=invalid','page=1'] )('rejects forged or incomplete catalog query %s',async query=>{
+    expect((await request('GET','/avaliacoes/eligible-questions?'+query)).status).toBe(422);expect(mocks.eligible).not.toHaveBeenCalled();
+  });
+  it.each(['ALUNO','ADMIN'])('catalog denies %s without invoking the read service',async role=>{
+    mocks.user.mockResolvedValue({id,role,emailVerifiedAt:new Date(),sessionVersion:0});
+    expect((await request('GET',`/avaliacoes/eligible-questions?turmaIds=${id}`)).status).toBe(403);expect(mocks.eligible).not.toHaveBeenCalled();
+  });
   it.each([
     ['GET', '/turmas'], ['POST', '/turmas'], ['PATCH', `/turmas/${id}`], ['POST', '/turmas/join'],
     ['POST', `/turmas/${id}/invite`], ['GET', '/turmas/students'], ['GET', `/turmas/${id}/students`],

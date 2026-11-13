@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState,type ReactNode } from "react";
-import { apiRequest } from "./api";
+import { useCallback, useEffect, useRef, useState,type ReactNode } from "react";
+import { apiRequest, ApiError } from "./api";
 import { navigate } from "./navigation";
 import "./class-exams.css";
 import { ClassMembershipManager } from './administration';
@@ -81,7 +81,7 @@ function Feedback({
       {error && (
         <div className="error" role="alert">
           <p>{error}</p>
-          <button className="outline-button" onClick={retry}>
+          <button type="button" className="outline-button" onClick={retry}>
             Tentar novamente
           </button>
         </div>
@@ -101,6 +101,7 @@ function Pagination({
   return (
     <div className="study-pagination">
       <button
+        type="button"
         className="outline-button"
         disabled={page === 1}
         onClick={() => change(page - 1)}
@@ -109,6 +110,7 @@ function Pagination({
       </button>
       <span>Página {page}</span>
       <button
+        type="button"
         className="outline-button"
         disabled={!hasMore}
         onClick={() => change(page + 1)}
@@ -584,6 +586,9 @@ function ExamForm({
     [loading, setLoading] = useState(true),
     [loadError, setLoadError] = useState("");
   const [revision, setRevision] = useState(0);
+  const [questionPage,setQuestionPage]=useState(1),[hasMoreQuestions,setHasMoreQuestions]=useState(false),[loadedKey,setLoadedKey]=useState('');
+  const [questionFailure,setQuestionFailure]=useState<number|'network'>();
+  const [catalog,setCatalog]=useState<{key:string;pages:Record<number,Question[]>;last?:number}>({key:'',pages:{}});
   const [title, setTitle] = useState(exam?.titulo ?? ""),
     [description, setDescription] = useState(exam?.descricao ?? "");
   const [minutes, setMinutes] = useState(
@@ -598,16 +603,22 @@ function ExamForm({
   const [quantity, setQuantity] = useState(exam?.questoes?.length ?? 1),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const pendingSave=useRef(false);
+  const classKey=[...selectedClasses].sort().join(','),catalogKey=classKey+'|'+revision,requestKey=catalogKey+'|'+questionPage;
+  const previousClasses=useRef(classKey);
+  useEffect(()=>{if(previousClasses.current!==classKey){previousClasses.current=classKey;setQuestionPage(1);setSelectedQuestions([]);}},[classKey]);
   useEffect(() => {
     let active = true;
     setLoading(true);
     setLoadError("");
-    void apiRequest<Question[]>("/questoes")
-      .then((items) => {
-        if (active) setQuestions(items);
+    setQuestionFailure(undefined);setQuestions([]);
+    if(!classKey){setLoading(false);setLoadedKey(requestKey);return;}
+    void apiRequest<Page<Question>>(`/avaliacoes/eligible-questions?turmaIds=${encodeURIComponent(classKey)}&page=${questionPage}`)
+      .then((result) => {
+        if (active){setQuestions(result.items);setHasMoreQuestions(result.hasMore);setLoadedKey(requestKey);setCatalog(previous=>({key:catalogKey,pages:{...(previous.key===catalogKey?previous.pages:{}),[questionPage]:result.items},last:!result.hasMore?questionPage:previous.key===catalogKey?previous.last:undefined}));}
       })
       .catch((cause) => {
-        if (active) setLoadError(message(cause));
+        if (active){setQuestionFailure(cause instanceof ApiError?cause.status:'network');setLoadError(cause instanceof ApiError&&cause.status===403?'Você não tem acesso às questões dessas turmas. Verifique seu vínculo e a instituição selecionada.':cause instanceof ApiError&&cause.status>=500?'Não foi possível consultar o acervo agora. Tente novamente.':message(cause));setLoadedKey(requestKey);}
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -615,11 +626,18 @@ function ExamForm({
     return () => {
       active = false;
     };
-  }, [revision]);
+  }, [revision,classKey,questionPage]);
+  const questionsLoading=!!classKey&&(loading||loadedKey!==requestKey);
+  const visibleQuestions=loadedKey===requestKey?questions:[];
+  const allPagesKnown=catalog.key===catalogKey&&catalog.last!==undefined&&Array.from({length:catalog.last},(_,i)=>i+1).every(page=>catalog.pages[page]!==undefined);
+  const knownQuestions=allPagesKnown?Object.values(catalog.pages).flat():undefined;
+  const insufficient=knownQuestions!==undefined&&knownQuestions.length<quantity;
+  const invalidSelection=knownQuestions!==undefined&&selectedQuestions.some(id=>!knownQuestions.some(q=>q.id===id));
   const toggle = (items: string[], id: string) =>
     items.includes(id) ? items.filter((value) => value !== id) : [...items, id];
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
+    if(pendingSave.current)return;
     setError("");
     if (selectedQuestions.length !== quantity) {
       setError("Selecione exatamente a quantidade de questões configurada.");
@@ -629,6 +647,8 @@ function ExamForm({
       setError("Selecione ao menos uma turma ativa.");
       return;
     }
+    if(questionsLoading||loadError||invalidSelection||insufficient||!Number.isInteger(quantity)||quantity<1||quantity>80)return;
+    pendingSave.current=true;
     setBusy(true);
     try {
       await apiRequest(
@@ -645,6 +665,7 @@ function ExamForm({
     } catch (cause) {
       setError(message(cause));
     } finally {
+      pendingSave.current=false;
       setBusy(false);
     }
   };
@@ -736,16 +757,20 @@ function ExamForm({
           Questões do banco autorizado ({selectedQuestions.length}/{quantity})
         </legend>
         <Feedback
-          loading={loading}
+          loading={false}
           error={loadError}
           retry={() => setRevision((value) => value + 1)}
         />
+        {questionsLoading&&<p role="status">Carregando questões elegíveis…</p>}
+        {classKey&&<button type="button" className="outline-button" disabled={busy||questionsLoading} onClick={()=>{setQuestionPage(1);setRevision(value=>value+1);}}>Atualizar questões</button>}
+        {questionFailure&&<p className="muted">{questionFailure===403?'Acesso negado':questionFailure==='network'?'Falha de comunicação':questionFailure>=500?'Falha interna do serviço':'Consulta recusada'}. Nenhuma conclusão sobre a quantidade do acervo foi feita.</p>}
+        {!classKey&&<p role="status">Selecione ao menos uma turma ativa para consultar questões elegíveis.</p>}
         <p className="muted">
           Questões privadas vinculadas a uma turma só podem ser publicadas para
           essa mesma turma.
         </p>
         <div className="exam-choices">
-          {questions.map((q) => (
+          {visibleQuestions.map((q) => (
             <label key={q.id}>
               <input
                 type="checkbox"
@@ -761,11 +786,16 @@ function ExamForm({
             </label>
           ))}
         </div>
-        {!loading && !questions.length && (
+        {!questionsLoading&&!loadError&&visibleQuestions.length>0&&<p role="status">{visibleQuestions.length} questões elegíveis nesta página. Selecione exatamente {quantity} para o rascunho.</p>}
+        {classKey&&!questionsLoading&&!loadError&&knownQuestions?.length===0 && (
           <p className="muted">
-            Nenhuma questão disponível. Cadastre questões no banco existente.
+            Nenhuma questão elegível para as turmas selecionadas. Consulte o responsável pelo acervo autorizado.
           </p>
         )}
+        {classKey&&!questionsLoading&&!loadError&&visibleQuestions.length===0&&!allPagesKnown&&<p>Nenhuma questão elegível nesta página. Consulte as outras páginas disponíveis.</p>}
+        {!loadError&&insufficient&&knownQuestions!.length>0&&<p role="status">Questões insuficientes: {knownQuestions!.length} elegíveis para a quantidade {quantity}. Ajuste a quantidade ou a seleção de turmas.</p>}
+        {invalidSelection&&<p role="alert">Há questões selecionadas que não estão mais elegíveis. Revise a seleção antes de salvar.</p>}
+        {classKey&&loadedKey===requestKey&&!loadError&&(questionPage>1||hasMoreQuestions)&&<Pagination page={questionPage} hasMore={hasMoreQuestions} change={setQuestionPage}/>}
       </fieldset>
       {error && (
         <p className="error" role="alert">
@@ -776,7 +806,7 @@ function ExamForm({
         <button
           className="primary"
           disabled={
-            busy || loading || !!loadError || classes.loading || !!classes.error
+            busy || questionsLoading || !!loadError || classes.loading || !!classes.error || !selectedClasses.length || selectedQuestions.length!==quantity || invalidSelection || insufficient || !Number.isInteger(quantity) || quantity<1 || quantity>80
           }
         >
           {busy ? "Salvando..." : "Salvar rascunho"}

@@ -256,6 +256,7 @@ export function Pages({
   return (
     <div className="admin-actions">
       <button
+        type="button"
         className="outline-button"
         disabled={page <= 1}
         onClick={() => change(page - 1)}
@@ -264,6 +265,7 @@ export function Pages({
       </button>
       <span>Página {page}</span>
       <button
+        type="button"
         className="outline-button"
         disabled={!hasMore}
         onClick={() => change(page + 1)}

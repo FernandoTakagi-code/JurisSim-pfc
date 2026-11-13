@@ -321,6 +321,26 @@ it('restricted recipient without a teaching link can inspect only after authenti
     expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();expect(mail.send).not.toHaveBeenCalled();
   }finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });
+it('restricted teacher reads exam-eligible metadata while question management remains forbidden',async()=>{
+  const classId=uid(80);
+  db.user.findUnique.mockResolvedValue({id:teacher,role:'PROFESSOR',email:'teacher@example.invalid',emailVerifiedAt:new Date(),deletedAt:null,sessionVersion:0});
+  db.institutionalMembership.findMany.mockResolvedValue([{institutionId:institution,role:'TEACHER',institution:{name:'Fixture'}}]);
+  db.institutionalClass.findMany.mockResolvedValue([{classId}]);
+  db.turma.count.mockImplementation(({where})=>where.id.in.every((id:string)=>id===classId)?1:0);
+  db.questao.findMany.mockResolvedValue([{id:uid(81),enunciado:'Questão elegível',disciplina:'Civil',assunto:'Tema',nivel:'BASICO',publica:true,turmaId:null,autorId:teacher,alternativas:[{correta:true},{correta:false}]}]);
+  const app=express();const management=vi.fn((_req:unknown,res:Response)=>res.json({unexpected:true}));
+  app.use('/questoes',requireAuth,management);app.use('/avaliacoes',examRoutes);app.use(errorHandler);
+  const server=app.listen(0,'127.0.0.1');await new Promise<void>(resolve=>server.once('listening',resolve));
+  const base=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
+  const headers={Authorization:`Bearer ${jwt.sign({id:teacher,role:'PROFESSOR',sessionVersion:0},process.env.JWT_SECRET!,{expiresIn:'1h'})}`};
+  try{
+    expect((await fetch(base+'/questoes',{headers})).status).toBe(403);expect(management).not.toHaveBeenCalled();
+    const response=await fetch(base+'/avaliacoes/eligible-questions?turmaIds='+classId,{headers});
+    expect(response.status).toBe(200);const body=await response.json();expect(body.items).toHaveLength(1);expect(body.items[0]).not.toHaveProperty('alternativas');
+    expect((await fetch(base+'/avaliacoes/eligible-questions?turmaIds='+foreign,{headers})).status).toBe(403);
+    expect(db.user.update).not.toHaveBeenCalled();expect(db.avaliacao.create).not.toHaveBeenCalled();expect(mail.send).not.toHaveBeenCalled();
+  }finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});
 it('a repeated provision cannot overwrite the pending fixture or create a duplicate',async()=>{
   let created: Record<string,unknown>|null=null;
   db.user.findUnique.mockImplementation(({where})=>where.id===admin?{role:'ADMIN',emailVerifiedAt:new Date()}:{role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date()});
