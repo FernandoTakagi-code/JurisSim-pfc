@@ -3,7 +3,8 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import type { Server } from 'node:http';
 
-const mocks = vi.hoisted(() => ({ user: vi.fn(), overview: vi.fn(), learning: vi.fn(), history: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: vi.fn(), overview: vi.fn(), learning: vi.fn(), history: vi.fn(), performance: vi.fn() }));
+vi.mock('../repositories/student-performance-repository', () => ({ PERFORMANCE_KINDS:['diagnostic','practice','individual','class','trail'], StudentPerformanceRepository: class { summary = mocks.performance; } }));
 vi.mock('../repositories/auth-repository', () => ({ AuthRepository: class { findByIdForAuth = mocks.user; } }));
 vi.mock('../repositories/student-history-repository', () => ({ StudentHistoryRepository: class { overview = mocks.overview; learningSummary = mocks.learning; history = mocks.history; } }));
 import { studentHistoryRoutes } from './student-history-routes';
@@ -27,6 +28,7 @@ beforeEach(() => {
   mocks.overview.mockResolvedValue({ latestDiagnosticId: null, evolution: [], recentActivities: [], totals: { completedActivities: 0 } });
   mocks.learning.mockResolvedValue({ disciplines: [], priorityTopic: null, trailProgress: [] });
   mocks.history.mockResolvedValue([]);
+  mocks.performance.mockResolvedValue({ totals:{activities:0},topics:[] });
 });
 
 describe('student history HTTP authorization and pagination', () => {
@@ -35,7 +37,7 @@ describe('student history HTTP authorization and pagination', () => {
     expect(response.status).toBe(200); expect(response.headers.get('cache-control')).toBe('no-store');
     expect((await response.json()).latestDiagnosticId).toBeNull(); expect(mocks.overview).toHaveBeenCalledWith(id);
   });
-  it.each(['/overview', '/activities', '/diagnostics'])('requires authentication on %s', async endpoint => {
+  it.each(['/overview', '/activities', '/diagnostics', '/performance'])('requires authentication on %s', async endpoint => {
     expect((await get('/students/me' + endpoint, null)).status).toBe(401);
     expect(mocks.overview).not.toHaveBeenCalled(); expect(mocks.history).not.toHaveBeenCalled();
   });
@@ -69,5 +71,15 @@ describe('student history HTTP authorization and pagination', () => {
   it('reports errors instead of manufacturing empty success', async () => {
     mocks.overview.mockRejectedValue(new Error('fixture failure'));
     expect((await get('/students/me/overview')).status).toBe(500);
+  });
+  it('filters performance by allowed modality and refuses identity overrides', async () => {
+    const response=await get('/students/me/performance?kind=practice');
+    expect(response.status).toBe(200); expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(mocks.performance).toHaveBeenCalledWith(id,'practice');
+    mocks.performance.mockClear();
+    for (const query of ['?kind=unknown','?studentId=other','?kind=practice&alunoId=other']) expect((await get('/students/me/performance'+query)).status).toBe(422);
+    expect(mocks.performance).not.toHaveBeenCalled();
+    mocks.user.mockResolvedValue({id,role:'ADMIN',emailVerifiedAt:new Date(),sessionVersion:0});
+    expect((await get('/students/me/performance')).status).toBe(403);
   });
 });

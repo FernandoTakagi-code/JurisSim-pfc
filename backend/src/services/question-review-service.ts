@@ -58,10 +58,10 @@ export class QuestionReviewService {
 
   private async pool(
     studentId: string,
-    discipline: string,
+    discipline: string | null,
     filter: ReviewFilter,
   ): Promise<Item[]> {
-    checkDiscipline(discipline);
+    if (discipline) checkDiscipline(discipline);
     // Completed originals only: never disclose keys from an unfinished mixed exam.
     // Reviews live in a different table and cannot redefine this original history.
     const rows = await this.db.resposta.findMany({
@@ -97,7 +97,7 @@ export class QuestionReviewService {
         }
       }
       if (
-        snapshot.discipline !== discipline ||
+        (discipline !== null && snapshot.discipline !== discipline) ||
         (filter === "incorrect" && row.correta)
       )
         continue;
@@ -120,6 +120,30 @@ export class QuestionReviewService {
       );
     }
     return result;
+  }
+
+  async reviewTopics(studentId: string) {
+    const topics = new Map<
+      string,
+      { discipline: string; topic: string; count: number }
+    >();
+    for (const q of await this.pool(studentId, null, "incorrect")) {
+      if (
+        !PRACTICE_DISCIPLINES.includes(
+          q.discipline as (typeof PRACTICE_DISCIPLINES)[number],
+        )
+      )
+        continue;
+      const key = JSON.stringify([q.discipline, q.topic]);
+      const item = topics.get(key) ?? {
+        discipline: q.discipline,
+        topic: q.topic,
+        count: 0,
+      };
+      item.count++;
+      topics.set(key, item);
+    }
+    return [...topics.values()];
   }
 
   private activeWhere(
