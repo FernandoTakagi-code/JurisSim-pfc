@@ -309,6 +309,14 @@ describe("institutional flows with real isolated PostgreSQL", () => {
       invitationToken(),
     );
     await new Promise<void>((resolve, reject) => {
+      let output = '';
+      const capture = (chunk: Buffer) => {
+        output = (output + chunk.toString()
+          .split(password).join('[REDACTED]')
+          .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, '[DATABASE_URL]')
+          .replace(/[a-f0-9]{64}/gi, '[REDACTED]')
+          .replace(/[\w.+-]+@[\w.-]+/g, '[EMAIL]')).slice(-24000);
+      };
       const child = spawn(
         process.execPath,
         [path.resolve("../frontend/scripts/test-institution-db.mjs")],
@@ -328,13 +336,13 @@ describe("institutional flows with real isolated PostgreSQL", () => {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
-      child.stdout.on("data", (chunk) => process.stdout.write(chunk));
-      child.stderr.on("data", (chunk) => process.stderr.write(chunk));
+      child.stdout.on("data", (chunk) => { capture(chunk); process.stdout.write(chunk); });
+      child.stderr.on("data", (chunk) => { capture(chunk); process.stderr.write(chunk); });
       child.once("error", reject);
-      child.once("exit", (code) =>
+      child.once("close", (code, signal) =>
         code === 0
           ? resolve()
-          : reject(new Error("Isolated real-database browser flow failed")),
+          : reject(new Error(`Isolated real-database browser flow failed (exit=${code}; signal=${signal}):\n${output}`)),
       );
     });
   }, 90000);

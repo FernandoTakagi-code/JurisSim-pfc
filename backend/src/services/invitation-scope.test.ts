@@ -22,6 +22,12 @@ const mail = { isConfigured: true, send: vi.fn() };
 beforeEach(() => {
   vi.resetAllMocks(); fixture.restricted = false; fixture.authorized = true;
   vi.stubEnv('APP_PUBLIC_URL', 'https://jurissim.example'); vi.stubEnv('INSTITUTIONS_ENABLED', 'true');
+  // These fixtures own their deployment mode; never inherit a private overlay.
+  vi.stubEnv('INSTITUTION_HOMOLOGATION_ENABLED', 'false');
+  vi.stubEnv('TEACHER_INVITATIONS_MODE', '');
+  vi.stubEnv('JURISSIM_RUNTIME_DATA_SOURCE', '');
+  vi.stubEnv('LOCAL_EMAIL_CAPTURE_ENABLED', 'false');
+  vi.stubEnv('LOCAL_DIAGNOSTIC_DEMO_MODE', 'false');
   db.$transaction.mockImplementation(work => work(db));
   db.administrativeEvent.findFirst.mockResolvedValue({ result: JSON.stringify({ runId: 'fixture-run' }) });
   db.institutionalMembership.findFirst.mockResolvedValue({ id: 'manager' });

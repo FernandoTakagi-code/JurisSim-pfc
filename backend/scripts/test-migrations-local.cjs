@@ -370,7 +370,10 @@ async function main() {
   startAttempted = true;
   const pgCtlStdout = path.join(artifacts, 'pg_ctl-start.stdout.log');
   const pgCtlStderr = path.join(artifacts, 'pg_ctl-start.stderr.log');
-  const startArgs = ['-D', data, '-l', log, '-o', `-h 127.0.0.1 -p ${port}`, '-w', '-t', '30', 'start'];
+  // All clients use guarded loopback TCP. Do not require write permissions on
+  // the host's shared /var/run/postgresql or expose a shared Unix socket.
+  const socketOptions = process.platform === 'win32' ? '' : ' -c unix_socket_directories=';
+  const startArgs = ['-D', data, '-l', log, '-o', `-h 127.0.0.1 -p ${port}${socketOptions}`, '-w', '-t', '30', 'start'];
   const startResult = runCaptured(executable('pg_ctl'), startArgs, pgCtlStdout, pgCtlStderr, env);
   fs.writeFileSync(path.join(artifacts, 'pg_ctl-start-diagnostic.json'), JSON.stringify({
     executable: executable('pg_ctl'), args: startArgs, dataDirectory: data, logFile: log,

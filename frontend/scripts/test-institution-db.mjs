@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from 'node:url';
 const unified = process.argv.includes('--unified');
 // Fail before requests or browser startup when the explicit test harness is absent.
 if (!unified && (process.env.NODE_ENV !== 'test' || !process.env.JURISSIM_DB_UI_API || !process.env.DATABASE_URL || !process.env.JURISSIM_TEST_CAPABILITY)) {
@@ -46,10 +47,26 @@ assert.ok(password && id);
 if (!unified) assert.equal(process.env.GOOGLE_CLIENT_ID, "");
 const origin = unified ? 'http://localhost:5173' : "http://127.0.0.1:5187",
   profile = await mkdtemp(path.join(tmpdir(), "jurissim-real-db-browser-"));
+// Keep bounded diagnostics, not credentials, pages, request bodies or tokens.
+const sanitize = (value) => String(value)
+  .replaceAll(password, '[REDACTED]')
+  .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, '[DATABASE_URL]')
+  .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [REDACTED]')
+  .replace(/([?&#](?:token|confirmacao|proof|key)=)[^\s&#"']+/gi, '$1[REDACTED]')
+  .replace(/[a-f0-9]{64}/gi, '[REDACTED]')
+  .replace(/[\w.+-]+@[\w.-]+/g, '[EMAIL]');
+const diagnostics = { vite: '', chrome: '', runtime: '', network: '', lifecycle: '' };
+const pendingRequests = new Map();
+const startedAt = Date.now();
+const remember = (source, value) => { diagnostics[source] = sanitize(diagnostics[source] + String(value)).slice(-12000); };
+// A fresh checkout on CI has neither the developer's .env nor a warm Vite cache.
+const viteConfig = path.join(profile, 'vite.config.mjs');
+if (!unified) await writeFile(viteConfig, `import config from ${JSON.stringify(pathToFileURL(path.resolve('vite.config.ts')).href)};\nexport default {...config, root:${JSON.stringify(process.cwd())}, envDir:false, cacheDir:${JSON.stringify(path.join(profile, 'vite-cache'))}};\n`);
 const vite = unified ? undefined : spawn(
   process.execPath,
   [
     "node_modules/vite/bin/vite.js",
+    "--config", viteConfig,
     "--configLoader", "runner",
     "--host",
     "127.0.0.1",
@@ -59,7 +76,7 @@ const vite = unified ? undefined : spawn(
   ],
   {
     windowsHide: true,
-    stdio: "ignore",
+    stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
       VITE_API_URL: api.origin,
@@ -68,6 +85,21 @@ const vite = unified ? undefined : spawn(
     },
   },
 );
+vite?.stdout.on('data', value => remember('vite', value));
+vite?.stderr.on('data', value => remember('vite', value));
+vite?.on('error', error => remember('vite', error.message));
+vite?.on('exit', (code, signal) => remember('vite', `\nexit=${code}; signal=${signal}\n`));
+// The disposable harness deliberately drops the user's environment. Google's
+// Linux launcher still needs writable HOME/XDG directories (even with
+// --user-data-dir); keep all of them private to this browser run.
+const browserEnvironment = { ...process.env, HOME: profile,
+  XDG_CONFIG_HOME: path.join(profile, 'config'),
+  XDG_CACHE_HOME: path.join(profile, 'cache'),
+  XDG_DATA_HOME: path.join(profile, 'data'),
+};
+for (const directory of [browserEnvironment.XDG_CONFIG_HOME, browserEnvironment.XDG_CACHE_HOME, browserEnvironment.XDG_DATA_HOME]) {
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+}
 const browser = spawn(
   process.env.CHROME_PATH ??
     "C:/Program Files/Google/Chrome/Application/chrome.exe",
@@ -83,8 +115,11 @@ const browser = spawn(
     "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost",
     "about:blank",
   ],
-  { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] },
+  { windowsHide: true, env: browserEnvironment, stdio: ["ignore", "ignore", "pipe"] },
 );
+browser.stderr.on('data', value => remember('chrome', value));
+browser.on('error', error => remember('chrome', error.message));
+browser.on('exit', (code, signal) => remember('chrome', `\nexit=${code}; signal=${signal}\n`));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let socket;
 try {
@@ -94,7 +129,11 @@ try {
       () => reject(Error("Chrome startup timeout")),
       20000,
     );
-    browser.once("error", reject);
+    browser.once("error", error => { clearTimeout(timer); reject(error); });
+    browser.once("exit", (code, signal) => {
+      clearTimeout(timer);
+      reject(Error(`Chrome exited before DevTools startup: code=${code}; signal=${signal}`));
+    });
     browser.stderr.on("data", (chunk) => {
       text += chunk;
       const m = text.match(/DevTools listening on (ws:\/\/[^\s]+)/);
@@ -132,6 +171,22 @@ try {
     });
   socket.addEventListener("message", (event) => {
     const m = JSON.parse(event.data);
+    if (m.method === 'Page.domContentEventFired') remember('lifecycle', `DOMContentLoaded at ${Date.now() - startedAt}ms\n`);
+    if (m.method === 'Network.requestWillBeSent') {
+      const url = new URL(m.params.request.url);
+      pendingRequests.set(m.params.requestId, `${url.origin}${url.pathname}`);
+    }
+    if (m.method === 'Network.loadingFinished' || m.method === 'Network.loadingFailed') pendingRequests.delete(m.params.requestId);
+    if (m.method === 'Runtime.exceptionThrown') {
+      const detail = m.params.exceptionDetails;
+      remember('runtime', (detail.exception?.description ?? detail.text) + '\n');
+    }
+    if (m.method === 'Network.loadingFailed') remember('network', m.params.errorText + '\n');
+    if (m.method === 'Network.responseReceived' && m.params.response.status >= 400) {
+      const response = m.params.response;
+      const url = new URL(response.url);
+      remember('network', `${response.status} ${url.origin}${url.pathname}\n`);
+    }
     if (m.id && pending.has(m.id)) {
       const p = pending.get(m.id);
       pending.delete(m.id);
@@ -182,6 +237,8 @@ try {
     throw Error("UI did not reach expected state: " + expression);
   };
   await cdp("Page.enable");
+  await cdp('Runtime.enable');
+  await cdp('Network.enable');
   await cdp("Fetch.enable", {
     patterns: [{ urlPattern: "*", requestStage: "Request" }],
   });
@@ -348,6 +405,14 @@ try {
   console.log(
     "PASS REAL DB UI: login verdadeiro, sessão do backend e onze módulos com PostgreSQL descartável; nenhum fetch/sessão substituído.",
   );
+} catch (error) {
+  const diagnosticPath = path.join(process.cwd(), '.artifacts/institution-real-db/diagnostics.json');
+  const failure = { error: sanitize(error.stack ?? error.message), ...diagnostics,
+    pendingRequests: [...pendingRequests.values()].slice(-30).map(sanitize) };
+  await mkdir(path.dirname(diagnosticPath), { recursive: true });
+  await writeFile(diagnosticPath, JSON.stringify(failure, null, 2));
+  console.error('REAL DB UI FAILURE:', JSON.stringify(failure));
+  throw error;
 } finally {
   socket?.close();
   browser.kill();
