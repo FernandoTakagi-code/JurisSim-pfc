@@ -285,3 +285,89 @@
     padding: 12px 10px;
   }
 }
+.practice-mode-switch {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 22px 0;
+}
+.practice-mode-switch button {
+  padding: 12px 18px;
+  border: 1px solid var(--exam-line);
+  border-radius: 9px;
+  background: var(--exam-surface);
+  color: var(--exam-ink);
+  font: inherit;
+  font-size: 13px;
+}
+.practice-mode-switch button[aria-pressed="true"] {
+  background: var(--exam-navy, #183450);
+  color: #fff;
+  border-color: var(--exam-navy, #183450);
+}
+.practice-review-filter {
+  margin: 0 0 22px;
+  padding: 18px;
+  border: 1px solid var(--exam-line);
+  border-radius: 10px;
+  background: var(--exam-surface);
+  color: var(--exam-ink);
+}
+.practice-review-filter legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.practice-review-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 20px 8px 0;
+  font-size: 13px;
+}
+.practice-review-filter p {
+  color: var(--exam-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 8px 0 0;
+}
+.practice-review-history {
+  margin-top: 28px;
+}
+.practice-review-history h2 {
+  font-size: 18px;
+}
+.practice-review-history button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 10px 0;
+  padding: 18px;
+  text-align: left;
+  border: 1px solid var(--exam-line);
+  border-radius: 10px;
+  background: var(--exam-surface);
+  color: var(--exam-ink);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.practice-review-history small {
+  display: block;
+  color: var(--exam-muted);
+  margin-top: 5px;
+}
+.practice-review-history b {
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .practice-review-history button {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .practice-mode-switch button {
+    flex: 1;
+    padding: 12px 8px;
+  }
+}

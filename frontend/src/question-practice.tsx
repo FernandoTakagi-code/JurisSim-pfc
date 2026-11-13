@@ -30,6 +30,15 @@ type Attempt = {
   questions: Question[];
 };
 type Availability = {
+  history?: {
+    id: string;
+    filter: string;
+    topic: string | null;
+    createdAt: string;
+    completed: boolean;
+    quantity: number;
+    answered: number;
+  }[];
   provisional: boolean;
   availableCount: number;
   availableQuantities: number[];
@@ -60,8 +69,8 @@ const disciplines = [
   "Direito Administrativo",
   "Direito do Trabalho",
 ];
-const quantities = [5, 10, 20];
-const enabled = import.meta.env.VITE_QUESTION_PRACTICE_UI_ENABLED === "true";
+const practiceEnabled =
+  import.meta.env.VITE_QUESTION_PRACTICE_UI_ENABLED === "true";
 const shortName = (value: string) => value.replace(/^Direito (do )?/, "");
 const message = (cause: unknown) =>
   cause instanceof Error
@@ -71,10 +80,19 @@ const message = (cause: unknown) =>
 export function QuestionPracticePage({
   attemptId,
   initialDiscipline,
+  review = false,
 }: {
   attemptId?: string;
   initialDiscipline?: string;
+  review?: boolean;
 }) {
+  const enabled = review
+    ? import.meta.env.VITE_QUESTION_REVIEW_UI_ENABLED === "true"
+    : practiceEnabled;
+  const api = review ? "/question-review" : "/question-practice";
+  const catalogPath = review ? "/questoes/revisao" : "/questoes";
+  const attemptPath = review ? "/questoes/revisao/" : "/questoes/pratica/";
+  const [filter, setFilter] = useState<"all" | "incorrect">("incorrect");
   const [discipline, setDiscipline] = useState(
     disciplines.includes(initialDiscipline ?? "")
       ? initialDiscipline!
@@ -83,6 +101,13 @@ export function QuestionPracticePage({
   const [topic, setTopic] = useState("");
   const [quantity, setQuantity] = useState(5);
   const [availability, setAvailability] = useState<Availability>();
+  const quantities =
+    review &&
+    availability &&
+    availability.availableCount > 0 &&
+    availability.availableCount < 5
+      ? [availability.availableCount, 10, 20]
+      : [5, 10, 20];
   const [loadingCatalog, setLoadingCatalog] = useState(enabled && !attemptId);
   const [attempt, setAttempt] = useState<Attempt>();
   const [result, setResult] = useState<Result>();
@@ -109,9 +134,12 @@ export function QuestionPracticePage({
     setLoadingCatalog(true);
     setAvailability(undefined);
     setError("");
-    const query = topic ? `?topic=${encodeURIComponent(topic)}` : "";
+    const params = new URLSearchParams();
+    if (topic) params.set("topic", topic);
+    if (review) params.set("filter", filter);
+    const query = params.size ? `?${params}` : "";
     void apiRequest<Availability>(
-      `/question-practice/catalog/${encodeURIComponent(discipline)}/availability${query}`,
+      `${api}/catalog/${encodeURIComponent(discipline)}/availability${query}`,
     )
       .then((data) => {
         if (active) {
@@ -132,7 +160,7 @@ export function QuestionPracticePage({
     return () => {
       active = false;
     };
-  }, [attemptId, discipline, topic, refresh]);
+  }, [attemptId, discipline, topic, refresh, review, filter, api, enabled]);
   useEffect(() => {
     if (!enabled || !attemptId) return;
     let active = true;
@@ -140,7 +168,7 @@ export function QuestionPracticePage({
     setAttempt(undefined);
     setResult(undefined);
     setError("");
-    void apiRequest<{ attempt: Attempt }>(`/question-practice/${attemptId}`)
+    void apiRequest<{ attempt: Attempt }>(`${api}/${attemptId}`)
       .then(async ({ attempt: value }) => {
         if (!active) return;
         setAttempt(value);
@@ -151,7 +179,7 @@ export function QuestionPracticePage({
         setSelection(value.questions[position]?.selectedOptionId ?? "");
         if (value.state === "COMPLETED") {
           const response = await apiRequest<{ result: Result }>(
-            `/question-practice/${attemptId}/result`,
+            `${api}/${attemptId}/result`,
           );
           if (active) setResult(response.result);
         }
@@ -165,7 +193,7 @@ export function QuestionPracticePage({
     return () => {
       active = false;
     };
-  }, [attemptId, refresh]);
+  }, [attemptId, refresh, api, enabled]);
   useEffect(() => {
     questionTitle.current?.focus({ preventScroll: true });
     questionTitle.current?.scrollIntoView({ block: "nearest" });
@@ -178,21 +206,23 @@ export function QuestionPracticePage({
   const start = async () => {
     if (!enabled || busy || loadingCatalog || !availability) return;
     if (availability.activeAttempt) {
-      navigate(`/questoes/pratica/${availability.activeAttempt.id}`);
+      navigate(`${attemptPath}${availability.activeAttempt.id}`);
       return;
     }
     if (!availability.availableQuantities.includes(quantity)) return;
     setBusy(true);
     setError("");
     try {
-      const response = await apiRequest<{ attempt: Attempt }>(
-        "/question-practice",
-        {
-          method: "POST",
-          body: JSON.stringify({ discipline, topic: topic || null, quantity }),
-        },
-      );
-      navigate(`/questoes/pratica/${response.attempt.id}`);
+      const response = await apiRequest<{ attempt: Attempt }>(api, {
+        method: "POST",
+        body: JSON.stringify({
+          discipline,
+          topic: topic || null,
+          quantity,
+          ...(review ? { filter } : {}),
+        }),
+      });
+      navigate(`${attemptPath}${response.attempt.id}`);
     } catch (cause) {
       setError(message(cause));
     } finally {
@@ -205,7 +235,7 @@ export function QuestionPracticePage({
     setError("");
     try {
       const response = await apiRequest<Feedback>(
-        `/question-practice/${attempt.id}/answers/${current.id}`,
+        `${api}/${attempt.id}/answers/${current.id}`,
         { method: "PUT", body: JSON.stringify({ alternativeId: selection }) },
       );
       setAttempt((old) =>
@@ -232,7 +262,7 @@ export function QuestionPracticePage({
     setError("");
     try {
       const response = await apiRequest<{ result: Result }>(
-        `/question-practice/${attempt.id}/finalize`,
+        `${api}/${attempt.id}/finalize`,
         { method: "POST" },
       );
       setResult(response.result);
@@ -253,15 +283,72 @@ export function QuestionPracticePage({
   if (!attemptId)
     return (
       <section className="individual-exam practice-study">
-        <p className="individual-eyebrow">TREINO POR QUESTÕES</p>
-        <h1>O que você quer estudar hoje?</h1>
-        <p className="individual-subtitle">
-          Escolha seu foco e aprenda com a correção de cada resposta.
+        <p className="individual-eyebrow">
+          {review ? "REVISÃO DE QUESTÕES" : "TREINO POR QUESTÕES"}
         </p>
+        <h1>
+          {review
+            ? "Volte aos pontos que precisam de atenção"
+            : "O que você quer estudar hoje?"}
+        </h1>
+        <p className="individual-subtitle">
+          {review
+            ? "Refaça questões de atividades concluídas. A revisão fica separada e não altera seu diagnóstico ou nível."
+            : "Escolha seu foco e aprenda com a correção de cada resposta."}
+        </p>
+        <nav className="practice-mode-switch" aria-label="Modo de estudo">
+          <button aria-pressed={!review} onClick={() => navigate("/questoes")}>
+            Questões inéditas
+          </button>
+          <button
+            aria-pressed={review}
+            onClick={() => navigate("/questoes/revisao")}
+          >
+            Revisar respondidas
+          </button>
+        </nav>
+        {review && (
+          <fieldset className="practice-review-filter">
+            <legend>O que revisar?</legend>
+            <label>
+              <input
+                type="radio"
+                name="review-filter"
+                checked={filter === "incorrect"}
+                onChange={() => {
+                  setFilter("incorrect");
+                  setTopic("");
+                  setAvailability(undefined);
+                }}
+              />{" "}
+              Somente erradas
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="review-filter"
+                checked={filter === "all"}
+                onChange={() => {
+                  setFilter("all");
+                  setTopic("");
+                  setAvailability(undefined);
+                }}
+              />{" "}
+              Todas as respondidas
+            </label>
+            <p>
+              Consideramos sua última resposta de cada questão em atividades
+              concluídas. Questões de simulados ainda em andamento ficam de
+              fora.
+            </p>
+          </fieldset>
+        )}
         {availability?.provisional && <ProvisionalNotice />}
         {!enabled && (
           <p className="individual-notice">
-            O treino individual está em preparação.
+            {review
+              ? "A revisão de questões está em preparação."
+              : "O treino individual está em preparação."}
           </p>
         )}
         <div className="practice-setup-grid">
@@ -269,7 +356,9 @@ export function QuestionPracticePage({
             <h2>1. Escolha uma disciplina</h2>
             <div
               className="practice-disciplines"
-              aria-label="Disciplina do treino"
+              aria-label={
+                review ? "Disciplina da revisão" : "Disciplina do treino"
+              }
             >
               {disciplines.map((d) => (
                 <button
@@ -301,12 +390,13 @@ export function QuestionPracticePage({
                 <option value="">Todos os assuntos</option>
                 {availability?.topics.map((t) => (
                   <option key={t.name} value={t.name}>
-                    {t.name} · {t.availableCount} inéditas
+                    {t.name} · {t.availableCount}{" "}
+                    {review ? "para revisar" : "inéditas"}
                   </option>
                 ))}
               </select>
             </label>
-            <h2>2. Defina o tamanho do treino</h2>
+            <h2>2. Defina o tamanho {review ? "da revisão" : "do treino"}</h2>
             <fieldset
               className="practice-sizes"
               disabled={
@@ -337,13 +427,15 @@ export function QuestionPracticePage({
                     onChange={() => setQuantity(n)}
                   />
                   <strong>{n}</strong>
-                  <span>questões</span>
+                  <span>{n === 1 ? "questão" : "questões"}</span>
                   <small>
                     {loadingCatalog
                       ? "Consultando…"
                       : availability &&
                           !availability.availableQuantities.includes(n)
-                        ? "Acervo insuficiente"
+                        ? review
+                          ? "Histórico insuficiente"
+                          : "Acervo insuficiente"
                         : "Correção por questão"}
                   </small>
                 </label>
@@ -351,9 +443,13 @@ export function QuestionPracticePage({
             </fieldset>
             <p className="practice-inventory-status" role="status">
               {loadingCatalog
-                ? "Consultando seu estoque de questões inéditas…"
+                ? review
+                  ? "Consultando seu histórico…"
+                  : "Consultando seu estoque de questões inéditas…"
                 : availability
-                  ? `${availability.availableCount} questões inéditas neste filtro. As já respondidas em treinos e simulados ficam fora desta seleção.`
+                  ? review
+                    ? `${availability.availableCount} ${availability.availableCount === 1 ? "questão" : "questões"} para revisar neste filtro. Cada questão aparece uma vez.`
+                    : `${availability.availableCount} questões inéditas neste filtro. As já respondidas em treinos e simulados ficam fora desta seleção.`
                   : "Selecione uma disciplina para consultar a disponibilidade."}
             </p>
             {error && (
@@ -373,7 +469,9 @@ export function QuestionPracticePage({
             className="practice-summary"
             aria-labelledby="practice-summary-title"
           >
-            <p className="individual-eyebrow">SEU TREINO</p>
+            <p className="individual-eyebrow">
+              {review ? "SUA REVISÃO" : "SEU TREINO"}
+            </p>
             <h2 id="practice-summary-title">{shortName(discipline)}</h2>
             <p>
               {availability?.activeAttempt?.topic ??
@@ -383,7 +481,11 @@ export function QuestionPracticePage({
               <strong>
                 {availability?.activeAttempt?.quantity ?? quantity}
               </strong>
-              <span>questões</span>
+              <span>
+                {(availability?.activeAttempt?.quantity ?? quantity) === 1
+                  ? "questão"
+                  : "questões"}
+              </span>
             </div>
             <ul>
               <li>Correção comentada a cada resposta</li>
@@ -392,15 +494,18 @@ export function QuestionPracticePage({
             </ul>
             {availability?.activeAttempt && (
               <p className="practice-resume-note">
-                Você tem um treino em andamento neste foco.
+                {review
+                  ? "Você tem uma revisão em andamento neste foco."
+                  : "Você tem um treino em andamento neste foco."}
               </p>
             )}
             {availability &&
               !availability.activeAttempt &&
               availability.availableQuantities.length === 0 && (
                 <p className="practice-resume-note" role="status">
-                  Não há questões inéditas suficientes para um treino de 5.
-                  Escolha outro assunto ou disciplina.
+                  {review
+                    ? "Nenhuma questão disponível para este filtro. Escolha outra disciplina, veja todas as respondidas ou conclua uma atividade."
+                    : "Não há questões inéditas suficientes para um treino de 5. Escolha outro assunto ou disciplina."}
                 </p>
               )}
             <button
@@ -418,15 +523,45 @@ export function QuestionPracticePage({
               {busy
                 ? "Preparando…"
                 : availability?.activeAttempt
-                  ? "Continuar treino →"
-                  : "Começar treino →"}
+                  ? review
+                    ? "Continuar revisão →"
+                    : "Continuar treino →"
+                  : review
+                    ? "Começar revisão →"
+                    : "Começar treino →"}
             </button>
             <p className="individual-footnote">
-              Depois de ver a correção, a resposta fica bloqueada. Simulados têm
-              correção somente na entrega.
+              {review
+                ? "Você responderá novamente antes de ver a correção. O conteúdo é copiado da atividade original e suas respostas anteriores ficam preservadas."
+                : "Depois de ver a correção, a resposta fica bloqueada. Simulados têm correção somente na entrega."}
             </p>
           </section>
         </div>
+        {review && Boolean(availability?.history?.length) && (
+          <section className="practice-review-history">
+            <h2>Suas revisões nesta disciplina</h2>
+            {availability!.history!.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => navigate(`${attemptPath}${item.id}`)}
+              >
+                <span>
+                  <strong>
+                    {item.filter === "incorrect"
+                      ? "Somente erradas"
+                      : "Todas as respondidas"}
+                  </strong>{" "}
+                  · {item.topic || "Todos os assuntos"}
+                  <small>
+                    {new Date(item.createdAt).toLocaleDateString("pt-BR")} ·{" "}
+                    {item.answered}/{item.quantity} respostas
+                  </small>
+                </span>
+                <b>{item.completed ? "Ver resultado →" : "Continuar →"}</b>
+              </button>
+            ))}
+          </section>
+        )}
       </section>
     );
   if (!enabled)
@@ -435,7 +570,7 @@ export function QuestionPracticePage({
         <h1>Treino em preparação</h1>
         <button
           className="individual-secondary"
-          onClick={() => navigate("/questoes")}
+          onClick={() => navigate(catalogPath)}
         >
           Voltar às questões
         </button>
@@ -444,13 +579,15 @@ export function QuestionPracticePage({
   if (busy && !attempt)
     return (
       <section className="individual-exam">
-        <p role="status">Carregando seu treino…</p>
+        <p role="status">
+          {review ? "Carregando sua revisão…" : "Carregando seu treino…"}
+        </p>
       </section>
     );
   if (result)
     return (
       <ExamResult
-        kind="practice"
+        kind={review ? "review" : "practice"}
         result={{
           ...result,
           disciplines: [
@@ -483,7 +620,7 @@ export function QuestionPracticePage({
         </button>
         <button
           className="individual-link"
-          onClick={() => navigate("/questoes")}
+          onClick={() => navigate(catalogPath)}
         >
           Voltar às questões
         </button>
@@ -492,22 +629,33 @@ export function QuestionPracticePage({
   return (
     <section className="individual-exam practice-study">
       <div className="individual-topline">
-        <span className="individual-eyebrow">TREINO POR QUESTÕES</span>
+        <span className="individual-eyebrow">
+          {review ? "REVISÃO DE QUESTÕES" : "TREINO POR QUESTÕES"}
+        </span>
         <button
           className="individual-link"
           disabled={busy}
-          onClick={() => navigate("/questoes")}
+          onClick={() => navigate(catalogPath)}
         >
           ← Sair e continuar depois
         </button>
       </div>
       <h1>{shortName(attempt.discipline)}</h1>
+      {review && (
+        <p className="individual-notice">
+          Revisão: uma nova resposta, sem alterar o resultado da atividade
+          original ou seu nível.
+        </p>
+      )}
       <p className="individual-subtitle">
         {answered} de {attempt.questions.length} respostas confirmadas ·
         Correção a cada questão
       </p>
       {attempt.provisional && <ProvisionalNotice />}
-      <nav className="practice-question-map" aria-label="Questões do treino">
+      <nav
+        className="practice-question-map"
+        aria-label={review ? "Questões da revisão" : "Questões do treino"}
+      >
         {attempt.questions.map((q, i) => (
           <button
             key={q.id}
@@ -637,7 +785,11 @@ export function QuestionPracticePage({
             disabled={busy}
             onClick={() => void finalize()}
           >
-            {busy ? "Concluindo…" : "Ver resultado do treino →"}
+            {busy
+              ? "Concluindo…"
+              : review
+                ? "Ver resultado da revisão →"
+                : "Ver resultado do treino →"}
           </button>
         ) : (
           <button

@@ -74,7 +74,7 @@ export function ExamResult({
   kind = "exam",
 }: {
   result: Result;
-  kind?: "exam" | "practice";
+  kind?: "exam" | "practice" | "review";
 }) {
   const [incorrectOnly, setIncorrectOnly] = useState(false);
   const [selectedId, setSelectedId] = useState(result.answers[0]?.id);
@@ -92,20 +92,38 @@ export function ExamResult({
     <section className="individual-exam individual-results">
       <div className="individual-topline">
         <span className="individual-eyebrow">
-          {kind === "practice" ? "TREINO POR QUESTÕES" : "SIMULADO INDIVIDUAL"}
+          {kind === "review"
+            ? "REVISÃO DE QUESTÕES"
+            : kind === "practice"
+              ? "TREINO POR QUESTÕES"
+              : "SIMULADO INDIVIDUAL"}
         </span>
         <button
           className="individual-link"
           onClick={() =>
-            navigate(kind === "practice" ? "/questoes" : "/simulados")
+            navigate(
+              kind === "review"
+                ? "/questoes/revisao"
+                : kind === "practice"
+                  ? "/questoes"
+                  : "/simulados",
+            )
           }
         >
-          {kind === "practice"
-            ? "← Voltar às questões"
-            : "← Voltar aos simulados"}
+          {kind === "review"
+            ? "← Voltar às revisões"
+            : kind === "practice"
+              ? "← Voltar às questões"
+              : "← Voltar aos simulados"}
         </button>
       </div>
       <h1>Seu resultado</h1>
+      {kind === "review" && (
+        <p className="individual-notice">
+          Resultado desta revisão. Suas respostas anteriores, diagnóstico e
+          nível foram preservados.
+        </p>
+      )}
       <p className="individual-subtitle">
         Confira seu desempenho e entenda cada resposta.
       </p>

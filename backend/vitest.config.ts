@@ -14,6 +14,7 @@ export default defineConfig({
       INDIVIDUAL_EXAM_PILOT_ENABLED: 'false', INDIVIDUAL_EXAM_PILOT_BATCH_ID: '',
       QUESTION_PRACTICE_PILOT_ENABLED: 'false', QUESTION_PRACTICE_PILOT_BATCH_ID: '',
       QUESTION_PRACTICE_PILOT_BATCH_IDS: '', INDIVIDUAL_EXAM_PILOT_BATCH_IDS: '',
+      QUESTION_REVIEW_SCHEMA_ENABLED: 'false', QUESTION_REVIEW_API_ENABLED: 'false',
     },
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
     exclude: ['node_modules/**', 'dist/**', 'src/**/*.integration.test.ts'],

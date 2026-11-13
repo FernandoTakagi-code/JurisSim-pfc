@@ -17,9 +17,13 @@ async function main() {
     const value = args[++i]; if (!value || value.startsWith('--')) throw new Error('Argumento sem valor.'); flags.set(flag, value);
   }
   const migration = flags.get('--migration') ?? defaultMigration;
-  if (![defaultMigration, '20261112160000_private_practice_sessions'].includes(migration)) throw new Error('Migration não suportada por esta manutenção.');
-  const table = migration === defaultMigration ? 'SessaoSimuladoIndividual' : 'SessaoPratica';
-  const foreignKey = migration === defaultMigration ? 'SessaoIndividual_simuladoId_alunoId_fkey' : 'SessaoPratica_simuladoId_alunoId_fkey';
+  const targets: Record<string, [string,string]> = {
+    [defaultMigration]: ['SessaoSimuladoIndividual','SessaoIndividual_simuladoId_alunoId_fkey'],
+    '20261112160000_private_practice_sessions': ['SessaoPratica','SessaoPratica_simuladoId_alunoId_fkey'],
+    '20261113010000_question_review_sessions': ['SessaoRevisaoQuestao','SessaoRevisaoQuestao_alunoId_fkey'],
+  };
+  if (!targets[migration]) throw new Error('Migration não suportada por esta manutenção.');
+  const [table, foreignKey] = targets[migration];
   const url = resolveInventoryCheckDatabaseUrl(); if (!url) throw new Error('Destino não configurado.');
   const target = new URL(url), targetId = sha([target.hostname, target.port, target.pathname, target.username].join('|'));
   const local = parse(fs.readFileSync(path.resolve('.env'), 'utf8'));

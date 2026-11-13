@@ -153,6 +153,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
 
   if (route === "/diagnostico-inicial") return <InitialDiagnosticPage studentId={userId} onBack={() => navigate("/")} />;
   const practiceRoute = /^\/questoes\/pratica\/([^/]+)$/.exec(route);
+  const reviewRoute = /^\/questoes\/revisao\/([^/]+)$/.exec(route);
 
 
   const classAttemptRoute = /^\/simulados\/tentativas\/([^/]+)$/.exec(route);
@@ -247,7 +248,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   if (view === "questoes" || practiceRoute) {
     return (
       <div className="shell">        <main className="content">
-          <QuestionPracticePage key={practiceRoute?.[1] ?? 'chooser'} attemptId={practiceRoute?.[1]} initialDiscipline={new URLSearchParams(window.location.search).get('disciplina') ?? undefined} />
+          <QuestionPracticePage key={reviewRoute?.[1] ?? practiceRoute?.[1] ?? (route.startsWith('/questoes/revisao') ? 'review-chooser' : 'chooser')} review={route.startsWith('/questoes/revisao')} attemptId={reviewRoute?.[1] ?? practiceRoute?.[1]} initialDiscipline={new URLSearchParams(window.location.search).get('disciplina') ?? undefined} />
         </main>
 
       </div>

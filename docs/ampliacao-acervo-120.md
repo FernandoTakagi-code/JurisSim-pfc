@@ -1,5 +1,7 @@
 # Ampliação do piloto para 120 questões de treino
 
+> Atualização: a revisão de questões respondidas foi implementada separadamente. Consulte [revisao-questoes-respondidas.md](revisao-questoes-respondidas.md). A limitação registrada abaixo descreve o estado anterior a essa entrega.
+
 13/11/2026 — branch `fernando/questoes-diagnostico-autoral`.
 
 ## Entrega e cobertura

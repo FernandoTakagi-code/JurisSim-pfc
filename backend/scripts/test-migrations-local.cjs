@@ -27,7 +27,7 @@ const questionPracticeTopicMigration = '20261028120000_question_practice_topic';
 const diagnosticReviewSnapshotMigration = '20261030120000_diagnostic_review_snapshot';
 const requiredQuestionMigrations = [questionImportMigration, initialDiagnosticMigration, questionEligibilityMigration, questionPracticeMigration, questionPracticeTopicMigration, diagnosticReviewSnapshotMigration];
 const requiredInstitutionMigrations = ['20261104000100_institutions_administration', '20261105000100_teacher_invitation_onboarding'];
-const requiredTail = [...requiredQuestionMigrations, ...requiredInstitutionMigrations, '20261112130000_individual_exam_sessions', '20261112160000_private_practice_sessions'];
+const requiredTail = [...requiredQuestionMigrations, ...requiredInstitutionMigrations, '20261112130000_individual_exam_sessions', '20261112160000_private_practice_sessions', '20261113010000_question_review_sessions'];
 const pgBin = process.argv[2];
 const preflightOnly = process.argv[3] === '--preflight-only';
 const startupDiagnosticOnly = process.argv[3] === '--startup-diagnostic-only';
@@ -505,7 +505,7 @@ async function main() {
   if (authorialDiagnosticOnly) {
     console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-authorial-diagnostic-db.ts', data]));
   } else {
-    console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', ...(individualExamOnly ? ['src/__tests__/integration/individual-exam.integration.test.ts'] : questionPracticeOnly ? ['src/__tests__/integration/question-practice.integration.test.ts', 'src/__tests__/integration/individual-exam.integration.test.ts'] : [])]));
+    console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', ...(individualExamOnly ? ['src/__tests__/integration/individual-exam.integration.test.ts'] : questionPracticeOnly ? ['src/__tests__/integration/question-practice.integration.test.ts', 'src/__tests__/integration/individual-exam.integration.test.ts', 'src/__tests__/integration/question-review.integration.test.ts'] : [])]));
   }
   assertNoDrift(integrationDatabase);
 }

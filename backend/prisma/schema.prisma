@@ -29,6 +29,7 @@ model User {
   metasDiarias        MetaDiaria[]
   questoesCriadas     Questao[]
   simulados           Simulado[]
+  revisoesQuestoes    SessaoRevisaoQuestao[]
   turmasComoAluno     Turma[]      @relation("AlunoTurmas")
   turmasComoProfessor Turma[]      @relation("ProfessorTurmas")
   avaliacoesCriadas   Avaliacao[]
@@ -234,6 +235,21 @@ model SessaoSimuladoIndividual {
   @@unique([simuladoId, alunoId], map: "SessaoIndividual_simuladoId_alunoId_key")
   @@index([alunoId, criadaEm], map: "SessaoIndividual_alunoId_criadaEm_idx")
 }
+model SessaoRevisaoQuestao {
+  id            String   @id @default(uuid())
+  alunoId       String
+  disciplina    String
+  assunto       String?
+  filtro        String
+  conteudo      Json
+  respostas     Json     @default("{}")
+  criadaEm      DateTime @default(now())
+  finalizadaEm  DateTime?
+  aluno         User     @relation(fields: [alunoId], references: [id], onDelete: Restrict, map: "SessaoRevisaoQuestao_alunoId_fkey")
+
+  @@index([alunoId, criadaEm])
+}
+
 model Avaliacao {
   id String @id @default(uuid())
   titulo String
