@@ -1,9 +1,9 @@
-import { assertTeacherInvitationsAvailable, teacherInvitationMode } from '../config/teacher-invitations';
 import { InstitutionDecisionEmail, decisionEmailEvent } from './institution-decision-email';
 import { createHash, randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { ApiError } from "../errors/api-error";
+import { assertTeacherInvitationsAvailable, teacherInvitationMode } from '../config/teacher-invitations';
 import { institutionsEnabled, institutionsGloballyEnabled, administrationEnabled, institutionRegistrationEnabled } from "../config/institution-feature";
 import { homologationParticipant, assertRestrictedInstitution, assertRestrictedParticipant, restrictedInstitutionId } from '../config/institution-homologation';
 import {
@@ -29,6 +29,14 @@ export type InstitutionActor = {
 export type Tx = Prisma.TransactionClient;
 export const hashInvitation = (token: string) =>
   createHash("sha256").update(token).digest("hex");
+function assertInvitedParticipant(userId: string) {
+  try { assertRestrictedParticipant(userId); }
+  catch (error) {
+    if (error instanceof ApiError && error.statusCode === 403 && restrictedInstitutionId())
+      throw new ApiError(403, 'O destinatário não está disponível para convite neste ambiente. Procure o responsável pela plataforma.');
+    throw error;
+  }
+}
 export const institutionMemberWhere = (userId: string) => ({
   userId,
   active: true,
@@ -526,6 +534,15 @@ export class InstitutionService {
       })),
       page,
     );
+  }
+
+  async userHistory(actor: InstitutionActor, userId: string, page: number) {
+    requireGlobal(actor);
+    return pageResult(await prisma.administrativeEvent.findMany({
+      where: { resourceId: userId, event: { in: ['ACCOUNT_SUSPENDED', 'ACCOUNT_REACTIVATED', 'PERMISSION_CHANGED'] } },
+      select: { id: true, occurredAt: true, event: true, result: true, severity: true },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }], ...pagination(page),
+    }), page);
   }
 
   async controlUser(
@@ -1117,25 +1134,5 @@ export class InstitutionService {
       }),
       page,
     );
-  }
-
-
-  async userHistory(actor: InstitutionActor, userId: string, page: number) {
-    requireGlobal(actor);
-    return pageResult(await prisma.administrativeEvent.findMany({
-      where: { resourceId: userId, event: { in: ['ACCOUNT_SUSPENDED', 'ACCOUNT_REACTIVATED', 'PERMISSION_CHANGED'] } },
-      select: { id: true, occurredAt: true, event: true, result: true, severity: true },
-      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }], ...pagination(page),
-    }), page);
-  }
-}
-
-
-function assertInvitedParticipant(userId: string) {
-  try { assertRestrictedParticipant(userId); }
-  catch (error) {
-    if (error instanceof ApiError && error.statusCode === 403 && restrictedInstitutionId())
-      throw new ApiError(403, 'O destinatário não está disponível para convite neste ambiente. Procure o responsável pela plataforma.');
-    throw error;
   }
 }

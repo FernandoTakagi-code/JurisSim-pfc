@@ -17,7 +17,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}, option
   delete headers.authorization;
   if (!(init.body instanceof FormData) && !headers['content-type']) headers['Content-Type'] = 'application/json';
   if (authenticated) headers.Authorization = `Bearer ${token}`;
-  const academic=/^\/(turmas|avaliacoes|reports|questoes)(\/|$)/.test(path);
+  const academic=/^\/(turmas|avaliacoes|reports|questoes)(\/|\?|$)/.test(path);
   const institutionalView=window.location.pathname==='/instituicoes';
   const institution = institutionalView?(new URLSearchParams(window.location.search).get('instituicao')??sessionStorage.getItem('jurissim_administration_institution')):sessionStorage.getItem('jurissim_institution');
   const personalRole=sessionStorage.getItem('jurissim_personal_role');

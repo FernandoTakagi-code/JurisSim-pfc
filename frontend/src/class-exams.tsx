@@ -127,6 +127,7 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
   const [invite, setInvite] = useState<{
     inviteCode: string;
     expiresAt: string;
+    className: string;
   }>();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -157,9 +158,7 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
               json("PATCH", { nome: name }),
             );
           else
-            setInvite(
-              await apiRequest("/turmas", json("POST", { nome: name })),
-            );
+            setInvite({ ...await apiRequest<{inviteCode:string;expiresAt:string}>("/turmas", json("POST", { nome: name })), className:name });
           setName("");
           setEditing(undefined);
         } else {
@@ -235,6 +234,7 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
       {invite && teacher && (
         <article className="panel class-invite">
           <h2>Convite gerado</h2>
+          <p><strong>Turma: {invite.className}</strong></p>
           <p>
             Compartilhe somente com os alunos desta turma. O código é exibido
             apenas agora; um novo convite invalida o anterior.
@@ -312,12 +312,10 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
                       onClick={() =>
                         void action(
                           async () =>
-                            setInvite(
-                              await apiRequest(
+                            setInvite({ ...await apiRequest<{inviteCode:string;expiresAt:string}>(
                                 `/turmas/${turma.id}/invite`,
                                 json("POST"),
-                              ),
-                            ),
+                              ), className:turma.nome }),
                           "Novo convite gerado.",
                         )
                       }
@@ -380,7 +378,7 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
   );
 }
 
-export function ClassStudents({ classId,onBack }: { classId?: string;onBack?:()=>void }) {
+export function ClassStudents({ classId,onBack,institutional=false }: { classId?: string;onBack?:()=>void;institutional?:boolean }) {
   const list = usePage<{ id: string; nome: string; email: string }>(
     classId
       ? `/turmas/${encodeURIComponent(classId)}/students`
@@ -391,14 +389,16 @@ export function ClassStudents({ classId,onBack }: { classId?: string;onBack?:()=
       <p className="gold">MATRÍCULAS</p>
       <h1>Alunos matriculados</h1>
       <p className="muted">
-        Somente alunos das turmas que você está autorizado a gerenciar.
+        {institutional ? 'Esta consulta mostra matrículas nas turmas autorizadas da instituição. Ter uma conta cadastrada no JurisSim não significa estar matriculado aqui.' : 'Somente alunos das turmas que você está autorizado a gerenciar.'}
       </p>
+      {institutional && <p className="muted">A pesquisa global de contas pertence ao ADMIN geral. Para vincular um aluno já cadastrado e confirmado, abra Turmas e use “Vincular aluno” na turma correspondente, informando o e-mail exato. A autorização será verificada pelo servidor.</p>}
       <Feedback loading={list.loading} error={list.error} retry={list.reload} />
       {list.data && (
         <article className="panel">
           <h2>
             {list.data.items.length ? "Alunos" : "Nenhum aluno matriculado"}
           </h2>
+          {institutional && list.data.items.length === 0 && <p>Nenhuma matrícula acessível neste contexto. Isso não informa se a pessoa possui cadastro global. Vá para turmas para consultar as matrículas ou solicitar uma vinculação autorizada.</p>}
           <ul className="class-students">
             {list.data.items.map((student) => (
               <li key={student.id}>
@@ -418,7 +418,7 @@ export function ClassStudents({ classId,onBack }: { classId?: string;onBack?:()=
         className="outline-button"
         onClick={() => onBack?onBack():navigate("/professor/turmas")}
       >
-        Voltar às turmas
+        {institutional ? 'Ir para turmas' : 'Voltar às turmas'}
       </button>
     </section>
   );

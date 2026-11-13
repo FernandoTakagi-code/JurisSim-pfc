@@ -14,6 +14,10 @@ export const goalRoutes = Router(), reportRoutes = Router();
 for (const router of [goalRoutes, reportRoutes]) router.use(requireAuth, (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); });
 goalRoutes.use(requireRoles('ALUNO'));
 reportRoutes.use(requireAcademicStaff);
+reportRoutes.get('/overview', async (request: AuthenticatedRequest, response) => {
+  z.object({}).strict().parse(request.query);
+  response.json(await reportService.overview(request.auth!));
+});
 goalRoutes.get('/', async (request: AuthenticatedRequest, response) => {
   const query = z.object({ page, status: z.enum(['pending', 'completed']).optional() }).strict().parse(request.query);
   response.json(await goalService.list(request.auth!.userId, query.page, query.status));

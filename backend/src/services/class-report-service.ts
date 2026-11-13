@@ -1,9 +1,13 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
+import { homologationClassBoundary } from '../config/institution-homologation';
 
 type Actor = { userId: string; role: string; allowedClassIds?: string[]; institutionAdmin?:boolean;institutionId?:string };
-const managed=(actor:Actor):Prisma.TurmaWhereInput => actor.institutionAdmin&&actor.institutionId ? {institutionalClass:{institutionId:actor.institutionId}} : {professores:{some:{id:actor.userId}}};
+const managed=(actor:Actor):Prisma.TurmaWhereInput => {
+  const base: Prisma.TurmaWhereInput=actor.institutionAdmin&&actor.institutionId ? {institutionalClass:{institutionId:actor.institutionId}} : {professores:{some:{id:actor.userId}}};
+  const boundary=homologationClassBoundary(); return boundary?{AND:[base,boundary]}:base;
+};
 type Tx = Prisma.TransactionClient;
 // Every report uses current enrollment AND the exam's target class. Membership
 // in another class never grants access to personal diagnostics or other exams.
@@ -79,6 +83,19 @@ const disciplineMetrics = Prisma.sql`coalesce((SELECT jsonb_agg(jsonb_build_obje
     GROUP BY q.disciplina) metric), '[]'::jsonb)`;
 
 export class ClassReportService {
+  async overview(actor: Actor) {
+    if (actor.role === 'ADMIN' || !(actor.role === 'PROFESSOR' || (actor.institutionAdmin && actor.institutionId)))
+      throw new ApiError(403, 'Indicadores exclusivos da gestão acadêmica autorizada.');
+    const where: Prisma.TurmaWhereInput = { ...managed(actor), ...(actor.allowedClassIds ? { id: { in: actor.allowedClassIds } } : {}) };
+    return prisma.$transaction(async tx => {
+      const classes = await tx.turma.count({ where });
+      const activeClasses = await tx.turma.count({ where: { ...where, archivedAt: null } });
+      // Count identities/exams once, even when shared by multiple managed classes.
+      const students = await tx.user.count({ where: { role: 'ALUNO', deletedAt: null, turmasComoAluno: { some: where } } });
+      const publishedExams = await tx.avaliacao.count({ where: { publishedAt: { not: null }, turmas: { some: where } } });
+      return { classes, activeClasses, students, publishedExams };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
   async classes(actor: Actor, page: number) {
     if (actor.role==='ADMIN'||!(actor.role==='PROFESSOR'||(actor.institutionAdmin&&actor.institutionId))) throw new ApiError(403, 'Relatórios exclusivos de professores.');
     const items = await prisma.turma.findMany({ where: { ...managed(actor), ...(actor.allowedClassIds ? { id: { in: actor.allowedClassIds } } : {}) },

@@ -140,6 +140,12 @@ describe('H4.29 acceptance retries and transactional failures (in-memory persist
 });
 
 describe('institution-owned class delegation',()=>{
+  it('does not approve a request owned by a suspended account', async () => {
+    db.accountControl.findUnique.mockResolvedValue({ suspended: true });
+    await expect(service.decide(global, 'institution', 'ACTIVE', 'Verified request')).rejects.toMatchObject({ statusCode: 409 });
+    expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();
+    expect(db.institution.update).not.toHaveBeenCalled();
+  });
   it('returns current institutional counts instead of inferring totals from a paginated list',async()=>{
     db.institutionalMembership.findMany.mockResolvedValue([]);db.institutionalClass.findMany.mockResolvedValue([{classId:'class'}]);
     db.turma.findMany.mockResolvedValue([]);db.user.findMany.mockResolvedValue([]);db.user.count.mockResolvedValue(8);db.simulado.count.mockResolvedValue(3);
@@ -184,7 +190,6 @@ describe('institution-owned class delegation',()=>{
     await expect(service.users(global,1)).resolves.toMatchObject({items:[]});
     expect(db.user.findMany).not.toHaveBeenCalled();
   });
-
   it('searches all account profiles with bounded server pagination',async()=>{
     db.user.findMany.mockResolvedValue([]);db.accountControl.findMany.mockResolvedValue([]);
     await service.users(global,2,'aluno','ALUNO');
@@ -604,15 +609,13 @@ describe("class admissions and tenant boundaries", () => {
         true,
       ),
     ).rejects.toMatchObject({ statusCode: 404 });
-    expect(db.turma.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: "other-class",
-          AND: [{ id: { in: ["class"] } }],
-          professores: { some: { id: "teacher" } },
-        }),
-      }),
-    );
+    const where=db.turma.findFirst.mock.calls[0][0].where;
+    expect(where.id).toBe('other-class');
+    // The retained private registry adds another tenant boundary. Both query
+    // shapes must retain the teacher and assigned-class restrictions.
+    const clauses=[where,...(where.AND??[])];
+    expect(clauses).toContainEqual(expect.objectContaining({professores:{some:{id:'teacher'}}}));
+    expect(clauses.flatMap(clause=>clause.AND??[clause])).toContainEqual({id:{in:['class']}});
     expect(db.classJoinRequest.update).not.toHaveBeenCalled();
   });
   it("removes enrollment without deleting any student attempts or history", async () => {
