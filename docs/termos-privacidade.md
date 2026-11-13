@@ -8,7 +8,7 @@ O cadastro exige aceite afirmativo das versões vigentes dos dois documentos. O 
 
 ## Levantamento do serviço
 
-Os documentos refletem os fluxos de conta por e-mail e senha, perfis, sessão em `sessionStorage`, questões e autoria, simulados, respostas, resultados, recomendações adaptativas e eventos de auditoria existentes no projeto. A interface solicita a fonte Manrope ao Google Fonts. A autenticação Google, confirmação de e-mail e recuperação de senha são descritas apenas em caráter condicional, sem afirmar que estejam operacionais nem atribuir fornecedores de e-mail.
+Os documentos refletem os fluxos de conta por e-mail e senha, Google, sessão em `sessionStorage`, questões e autoria, simulados, respostas, resultados, recomendações adaptativas e eventos de auditoria. A revisão de 13/11/2026 identifica a equipe responsável e o e-mail autorizado por Fernando, nomeia os fornecedores e acrescenta os controles de exportação e exclusão. Consulte [o registro de segurança e privacidade](seguranca-e-privacidade.md) para o comportamento implementado e as decisões operacionais ainda necessárias.
 
 O Aviso usa o título “Aviso de Privacidade”, expressão adequada para a comunicação externa de práticas de tratamento; o termo “Política de Privacidade” permanece reconhecível nos links e no fluxo de aceite.
 
