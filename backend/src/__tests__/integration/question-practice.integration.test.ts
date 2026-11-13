@@ -204,6 +204,9 @@ describe('question practice with disposable PostgreSQL', () => {
     expect((await request('POST', '/question-practice', token, { discipline: 'Direito Civil', topic, quantity: 10 })).status).toBe(409);
     const started = await request('POST', '/question-practice', token, { discipline: 'Direito Civil', topic, quantity: 5 });
     expect(started.body.attempt.provisional).toBe(true);
+    expect(started.body.attempt.topic).toBe(topic);
+    expect((await request('GET', '/question-practice/catalog/Direito%20Civil/availability', token)).body.activeAttempt)
+      .toMatchObject({ id: started.body.attempt.id, topic, quantity: 5 });
     const attempt = started.body.attempt, first = attempt.questions[0];
     await prisma.questao.update({ where: { id: first.id }, data: { fundamentacaoJuridica: 'Texto alterado apenas no banco isolado.' } });
     for (const q of attempt.questions) {

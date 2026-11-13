@@ -199,7 +199,7 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
 
   private async findSession(studentId: string, attemptId: string): Promise<SessionRow | null> {
     const rows = await this.db.$queryRaw<SessionRow[]>`
-      SELECT p."id", p."simuladoId", p."alunoId", p."disciplina", s."finalizadoEm"
+      SELECT p."id", p."simuladoId", p."alunoId", p."disciplina", p."assunto", s."finalizadoEm"
       FROM "SessaoPratica" p JOIN "Simulado" s ON s."id" = p."simuladoId" AND s."alunoId" = p."alunoId"
       WHERE p."alunoId" = ${studentId} AND p."simuladoId" = ${attemptId} LIMIT 1`;
     return rows[0] ?? null;

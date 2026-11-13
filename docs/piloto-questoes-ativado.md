@@ -23,6 +23,19 @@ Backend: `QUESTION_PRACTICE_SCHEMA_ENABLED=true`, `QUESTION_PRACTICE_API_ENABLED
 
 ## Validação
 
-Backend e frontend compilaram após recuperação do trabalho. Os 32 testes focados de serviços, repositório, seleção e rotas passaram. Seis testes de integração de treino e simulado passaram novamente após a retomada em PostgreSQL 17 descartável, incluindo cópia do conteúdo, estoque por assunto, retomada, respostas imutáveis, histórico compartilhado, manutenção do nível e RLS. As 23 migrations foram aplicadas no banco descartável, sem divergência de schema e sem alterações nos checksums históricos. A validação visual do fluxo completo na conta do aluno aguarda login; não considerar apenas a conferência anterior do catálogo como teste de conclusão. Nenhuma tentativa técnica de treino foi criada na conta durante esta retomada.
+Backend e frontend compilaram após recuperação do trabalho. Os 32 testes focados de serviços, repositório, seleção e rotas passaram. Seis testes de integração de treino e simulado passaram novamente após a retomada em PostgreSQL 17 descartável, incluindo cópia do conteúdo, estoque por assunto, retomada, respostas imutáveis, histórico compartilhado, manutenção do nível e RLS. As 23 migrations foram aplicadas no banco descartável, sem divergência de schema e sem alterações nos checksums históricos.
+
+### Navegador autenticado
+
+Fluxo completo conferido na sessão ALUNO em 12/11/2026, com término registrado em 13/11/2026 às 02:58 UTC:
+
+- Filtro com quatro inéditas bloqueou o treino mínimo de cinco. Assunto com cinco inéditas permitiu iniciar; dez e vinte ficaram indisponíveis.
+- Seleção de alternativa permaneceu sem envio e pôde ser alterada antes da confirmação. Confirmar exibiu comentário, alternativa correta e resposta escolhida; as opções ficaram bloqueadas.
+- Sair e continuar recuperou a mesma tentativa na primeira questão pendente. Revisitar a primeira questão manteve resposta e comentário.
+- A quinta correção permaneceu visível antes da finalização explícita. Resultado e aviso provisório foram preservados ao recarregar; filtro de incorretas exibiu somente os quatro erros da tentativa técnica.
+- Catálogo conferido também com viewport de 390 px, sem transbordamento horizontal (`scrollWidth` igual à largura). Viewport restaurado depois.
+- A tentativa técnica de cinco respostas foi removida com backup privado. Conferência posterior confirmou preservação das tentativas anteriores, do diagnóstico e do nível; 60 questões continuaram privadas e pendentes. Seu resultado técnico não representa desempenho real do aluno.
+
+O teste visual identificou perda do assunto no resumo da retomada. A consulta da sessão foi corrigida para recuperar `assunto`; o cenário de integração verifica o assunto tanto na tentativa criada quanto na disponibilidade de retomada.
 
 O aviso de tamanho do bundle do frontend permanece. A aprovação do orientador e as revisões humanas do conteúdo continuam pendentes.
