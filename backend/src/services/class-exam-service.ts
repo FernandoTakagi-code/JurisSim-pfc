@@ -4,7 +4,8 @@ import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
 import { analyzeDiagnostic } from './adaptive-engine';
 import { institutionsEnabled } from '../config/institution-feature';
-import { administrativeEvent, institutionalTransaction, type InstitutionActor } from './institution-service';
+import { administrativeEvent, institutionalTransaction, fixtureProvenance, type InstitutionActor } from './institution-service';
+import { homologationClassBoundary, assertRestrictedInstitution, assertRestrictedParticipant, restrictedInstitutionId, restrictedOperationsEnabled, homologationManifest } from '../config/institution-homologation';
 
 type Actor = InstitutionActor;
 export type ExamInput = { titulo: string; descricao: string; duracaoSegundos: number | null; turmaIds: string[]; questaoIds: string[] };
@@ -21,6 +22,12 @@ const attemptInclude = { avaliacao: { select: { id: true, titulo: true, turmas: 
 type Attempt = Prisma.SimuladoGetPayload<{ include: typeof attemptInclude }>;
 const inviteHash = (code: string) => 'sha256:' + createHash('sha256').update(code).digest('hex');
 const pageOf = <T>(items: T[], page: number) => ({ items: items.slice(0, 50), page, hasMore: items.length > 50 });
+// Assessment selection uses the existing bank, never grants bank-management rights.
+const eligibleForExam = (q:{publica:boolean;autorId?:string|null;turmaId?:string|null;alternativas:{correta:boolean}[]},actor:Actor,ids:string[]) => {
+  const readable=q.publica||(!q.turmaId&&q.autorId===actor.userId)||!!(q.turmaId&&ids.includes(q.turmaId));
+  const shareable=q.publica||!q.turmaId||ids.every(id=>id===q.turmaId);
+  return readable&&shareable&&q.alternativas.length>=2&&q.alternativas.filter(a=>a.correta).length===1;
+};
 
 async function transaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   for (let retry = 0; ; retry++) {
@@ -38,14 +45,23 @@ async function lock(tx: Prisma.TransactionClient, table: 'Turma' | 'Avaliacao' |
   await tx.$queryRaw(Prisma.sql`SELECT id FROM ${Prisma.raw('"' + table + '"')} WHERE id = ${id} FOR UPDATE`);
 }
 function staff(actor: Actor) {
+  homologationClassBoundary(); // Refuse stale scope before any legacy fallback.
+  if(restrictedInstitutionId()) {
+    if(!restrictedOperationsEnabled()) throw new ApiError(403,'Vínculo institucional ativo obrigatório.');
+    assertRestrictedInstitution(actor.institutionId ?? '');
+  }
   if (actor.role === 'ADMIN' || !(actor.role === 'PROFESSOR' || (actor.institutionAdmin && actor.institutionId))) throw new ApiError(403, 'Acesso exclusivo de professores.');
 }
-const managedClass = (actor: Actor): Prisma.TurmaWhereInput => actor.institutionAdmin && actor.institutionId ? {institutionalClass:{institutionId:actor.institutionId}} : { professores: { some: { id: actor.userId } }, ...(actor.allowedClassIds ? { AND: [{ id: { in: actor.allowedClassIds } }] } : {}) };
+const managedClass = (actor: Actor): Prisma.TurmaWhereInput => {
+  const base: Prisma.TurmaWhereInput = actor.institutionAdmin && actor.institutionId ? {institutionalClass:{institutionId:actor.institutionId}} : { professores: { some: { id: actor.userId } }, ...(actor.allowedClassIds ? { AND: [{ id: { in: actor.allowedClassIds } }] } : {}) };
+  const boundary=homologationClassBoundary();
+  return boundary ? {AND:[base,boundary]} : base;
+};
 const managedExam = (actor: Actor): Prisma.AvaliacaoWhereInput => ({
   ...(actor.institutionAdmin?{}:{autorId:actor.userId}),
   turmas:{every:managedClass(actor),some:managedClass(actor)},
 });
-const activeInstitutionClass = (): Prisma.TurmaWhereInput => institutionsEnabled() ? { OR: [{ institutionalClass: null }, { institutionalClass: { institution: { status: 'ACTIVE' } } }] } : {};
+const activeInstitutionClass = (): Prisma.TurmaWhereInput => homologationClassBoundary() ?? (institutionsEnabled() ? { OR: [{ institutionalClass: null }, { institutionalClass: { institution: { status: 'ACTIVE' } } }] } : {});
 async function classAdministrativeEvent(tx: Prisma.TransactionClient, event: string, actor: Actor, classId: string) {
   if (!institutionsEnabled()) return;
   const link = await tx.institutionalClass.findUnique({ where: { classId }, select: { institutionId: true } });
@@ -53,7 +69,24 @@ async function classAdministrativeEvent(tx: Prisma.TransactionClient, event: str
 }
 
 export class ClassExamService {
+  async eligibleQuestions(actor:Actor,classIds:string[],page=1){
+    staff(actor);
+    const ids=[...new Set(classIds)];
+    if(!ids.length||ids.length>30||!Number.isInteger(page)||page<1||page>10000)throw new ApiError(422,'Selecione ao menos uma turma ativa para consultar as questões elegíveis.');
+    return prisma.$transaction(async tx=>{
+    const authorized=await tx.turma.count({where:{id:{in:ids},archivedAt:null,...managedClass(actor),...(actor.institutionId?{institutionalClass:{institutionId:actor.institutionId,institution:{status:'ACTIVE'}}}:{})}});
+    if(authorized!==ids.length)throw new ApiError(403,'Você não tem autorização para consultar questões das turmas selecionadas.');
+    const rows=await tx.questao.findMany({
+      where:{OR:[{publica:true},{turmaId:null,autorId:actor.userId},...(ids.length===1?[{turmaId:ids[0]}]:[])]},
+      select:{id:true,enunciado:true,disciplina:true,assunto:true,nivel:true,publica:true,turmaId:true,autorId:true,alternativas:{select:{correta:true}}},
+      orderBy:[{createdAt:'desc'},{id:'desc'}],take:51,skip:(page-1)*50,
+    });
+    return {items:rows.slice(0,50).filter(q=>eligibleForExam(q,actor,ids)).map(q=>({id:q.id,enunciado:q.enunciado,disciplina:q.disciplina,assunto:q.assunto,nivel:q.nivel,publica:q.publica})),page,hasMore:rows.length>50};
+    },{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
+  }
   async assignTeacher(actor:Actor,classId:string,userId:string,assigned:boolean){
+    assertRestrictedInstitution(actor.institutionId ?? '');
+    assertRestrictedParticipant(userId);
     if(actor.role==='ADMIN'||!actor.institutionAdmin||!actor.institutionId)throw new ApiError(403,'Designação exclusiva da administração institucional.');
     return institutionalTransaction(async tx=>{
       await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${actor.institutionId} FOR UPDATE`;
@@ -74,6 +107,7 @@ export class ClassExamService {
       if(!turma)throw new ApiError(404,'Turma ativa indisponível.');
       const student=await tx.user.findFirst({where:{email:{equals:email,mode:'insensitive'},role:'ALUNO',deletedAt:null,emailVerifiedAt:{not:null}},select:{id:true}});
       if(!student)throw new ApiError(404,'Aluno confirmado indisponível. Solicite seu cadastro e confirmação pelo fluxo normal.');
+      assertRestrictedParticipant(student.id);
       const control=await tx.accountControl.findUnique({where:{userId:student.id}});
       if(control?.suspended)throw new ApiError(409,'Conta indisponível para matrícula.');
       await tx.turma.update({where:{id:classId},data:{alunos:{connect:{id:student.id}}},select:{id:true}});
@@ -132,15 +166,22 @@ export class ClassExamService {
   }
 
   async join(actor: Actor, code: string) {
+    homologationClassBoundary(); // Revalidate any request scope before legacy fallback.
     if (actor.role !== 'ALUNO'||actor.institutionAdmin) throw new ApiError(403, 'Somente alunos no contexto pessoal podem solicitar matrícula. Professores são designados pela instituição.');
     return transaction(async tx => {
+      if(restrictedInstitutionId() && !await fixtureProvenance(tx,homologationManifest()!)) throw new ApiError(403,'Fixture sem provisionamento autorizado.');
       const [found] = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM "Turma" WHERE "codigoConvite" = ${inviteHash(code)} FOR UPDATE`);
       if (!found) throw new ApiError(404, 'Convite inválido, expirado ou turma indisponível.');
+      if(homologationManifest()) {
+        const link=await tx.institutionalClass.findUnique({where:{classId:found.id},select:{institutionId:true}});
+        if(link?.institutionId===homologationManifest()!.institutionId && !restrictedInstitutionId()) throw new ApiError(403,'Turma fora do escopo autorizado.');
+        if(restrictedInstitutionId() && (!link || link.institutionId!==restrictedInstitutionId())) throw new ApiError(403,'Turma fora do escopo autorizado.');
+      }
       const turma = await tx.turma.findFirst({ where: { id: found.id, archivedAt: null, conviteExpiraEm: { gt: new Date() } },
         select: { id: true, alunos: { where: { id: actor.userId }, select: { id: true } } } });
       if (!turma) throw new ApiError(404, 'Convite inválido, expirado ou turma indisponível.');
       if (turma.alunos.length) return { joined: false, message: 'Você já está matriculado nesta turma.' };
-      if (institutionsEnabled()) {
+      if (institutionsEnabled() || restrictedInstitutionId()) {
         const link = await tx.institutionalClass.findUnique({ where: { classId: turma.id }, include: { institution: { select: { status: true } } } });
         if (link && link.institution.status !== 'ACTIVE') throw new ApiError(404, 'Turma indisponível.');
         const existing = await tx.classJoinRequest.findUnique({ where: { classId_studentId: { classId: turma.id, studentId: actor.userId } } });
@@ -163,7 +204,7 @@ export class ClassExamService {
       staff(actor);
       if (!classId || !await prisma.turma.findFirst({ where: { id: classId, ...managedClass(actor) }, select: { id: true } })) throw new ApiError(404, 'Turma indisponível.');
     }
-    const items = await prisma.classJoinRequest.findMany({ where: actor.role === 'ALUNO' && !actor.institutionAdmin ? { studentId: actor.userId } : { classId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 51, skip: (page - 1) * 50 });
+    const items = await prisma.classJoinRequest.findMany({ where: {...(actor.role === 'ALUNO' && !actor.institutionAdmin ? { studentId: actor.userId } : { classId }), ...(homologationClassBoundary()?{turma:homologationClassBoundary()}: {})}, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 51, skip: (page - 1) * 50 });
     const students = actor.role === 'ALUNO' && !actor.institutionAdmin ? [] : await prisma.user.findMany({ where: { id: { in: items.map(i => i.studentId) }, deletedAt: null }, select: { id: true, nome: true } });
     const classes = await prisma.turma.findMany({ where: { id: { in: items.map(i => i.classId) } }, select: { id: true, nome: true } });
     return pageOf(items.map(i => ({ ...i, studentName: students.find(s => s.id === i.studentId)?.nome, className: classes.find(c => c.id === i.classId)?.nome })), page);
@@ -177,6 +218,7 @@ export class ClassExamService {
       const request = await tx.classJoinRequest.findFirst({ where: { id: requestId, classId, status: 'PENDING' } });
       if (!request) throw new ApiError(409, 'Solicitação já decidida ou indisponível.');
       const student = await tx.user.findFirst({ where: { id: request.studentId, role: 'ALUNO', deletedAt: null, emailVerifiedAt: { not: null } }, select: { id: true } });
+      assertRestrictedParticipant(request.studentId);
       if (approve && !student) throw new ApiError(409, 'Conta do aluno indisponível ou e-mail não confirmado.');
       await tx.classJoinRequest.update({ where: { id: requestId }, data: { status: approve ? 'APPROVED' : 'REJECTED', decidedAt: new Date() } });
       if (approve) await tx.turma.update({ where: { id: classId }, data: { alunos: { connect: { id: request.studentId } } }, select: { id: true } });
@@ -187,6 +229,7 @@ export class ClassExamService {
   }
 
   async removeStudent(actor: Actor, classId: string, studentId: string) {
+    assertRestrictedParticipant(studentId);
     staff(actor);
     return institutionalTransaction(async tx => {
       await lock(tx, 'Turma', classId);
@@ -271,11 +314,7 @@ export class ClassExamService {
     // Lock question rows as well so edits and publication cannot race.
     await tx.$queryRaw(Prisma.sql`SELECT id FROM "Questao" WHERE id IN (${Prisma.join([...data.questaoIds].sort())}) ORDER BY id FOR UPDATE`);
     const questions = await tx.questao.findMany({ where: { id: { in: data.questaoIds } }, include: { alternativas: true } });
-    if (questions.length !== data.questaoIds.length || questions.some(q => {
-      const readable = q.publica || (!q.turmaId && q.autorId === actor.userId) || (q.turmaId && ids.includes(q.turmaId));
-      const shareable = q.publica || !q.turmaId || ids.every(id => id === q.turmaId);
-      return !readable || !shareable || q.alternativas.length < 2 || q.alternativas.filter(a => a.correta).length !== 1;
-    })) throw new ApiError(403, 'Há questões indisponíveis ou privadas incompatíveis com as turmas selecionadas.');
+    if (questions.length !== data.questaoIds.length || questions.some(q => !eligibleForExam(q,actor,ids))) throw new ApiError(403, 'Há questões indisponíveis ou privadas incompatíveis com as turmas selecionadas.');
   }
 
   async start(actor: Actor, examId: string) {

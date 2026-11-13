@@ -41,9 +41,9 @@ export const institutionSections = [
   },
   {
     id: "settings",
-    label: "Configurações",
+    label: "Auditoria institucional",
     group: "Sistema",
-    icon: "settings",
+    icon: "chart",
   },
 ] as const;
 export type InstitutionSection = (typeof institutionSections)[number]["id"];

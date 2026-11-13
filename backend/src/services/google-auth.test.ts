@@ -5,14 +5,20 @@ import jwt from 'jsonwebtoken';
 import versions from '../legal-versions.json';
 
 const mocks = vi.hoisted(() => ({
-  findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), auditCreate: vi.fn(),
+  findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), auditCreate: vi.fn(), administrativeEventCreate: vi.fn(), accountControlFindUnique: vi.fn(),
   verifyIdToken: vi.fn(), payload: { email: 'ana@example.com', email_verified: true, name: 'Ana Google', nonce: 'a'.repeat(64) },
 }));
 const users = new Map<string, Record<string, unknown>>();
 vi.mock('../lib/prisma', () => ({
   prisma: {
     user: { findUnique: mocks.findUnique, findMany: mocks.findMany, create: mocks.create, update: mocks.update },
+    accountControl: { findUnique: mocks.accountControlFindUnique },
     auditLog: { create: mocks.auditCreate },
+    administrativeEvent: { create: mocks.administrativeEventCreate },
+    $transaction: async (callback: (transaction: unknown) => unknown) => callback({
+      auditLog: { create: mocks.auditCreate },
+      administrativeEvent: { create: mocks.administrativeEventCreate },
+    }),
     simulado: { findFirst: vi.fn().mockResolvedValue(null) },
   },
 }));
@@ -55,6 +61,8 @@ beforeEach(() => {
     return updated;
   });
   mocks.auditCreate.mockReset().mockResolvedValue({});
+  mocks.administrativeEventCreate.mockReset().mockResolvedValue({});
+  mocks.accountControlFindUnique.mockReset().mockResolvedValue(null);
   mocks.payload = { email: 'ana@example.com', email_verified: true, name: 'Ana Google', nonce: 'a'.repeat(64) };
   mocks.verifyIdToken.mockReset().mockResolvedValue({ getPayload: () => mocks.payload });
 });

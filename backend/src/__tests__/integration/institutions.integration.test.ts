@@ -1,3 +1,4 @@
+import { institutionApplication } from '../fixtures/institution-request';
 // Real PostgreSQL + real Express/services. Only external delivery is captured.
 import {
   afterAll,
@@ -13,7 +14,7 @@ import cors from "cors";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import bcrypt from "bcrypt";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import type { Server } from "node:http";
 import { prisma, limparBanco, questaoValida } from "./helpers";
 import { assertDisposableDatabase } from "./disposable-database";
@@ -25,7 +26,7 @@ import { InstitutionService } from "../../services/institution-service";
 import { InvitationOnboardingService } from "../../services/invitation-onboarding";
 import type { TransactionalEmail } from "../../services/brevo-email-transport";
 import { createAuthRoutes } from "../../routes/auth-routes";
-import { institutionRoutes } from "../../routes/institution-routes";
+import { createInstitutionRoutes } from "../../routes/institution-routes";
 import { classRoutes, examRoutes } from "../../routes/class-exam-routes";
 import { goalRoutes, reportRoutes } from "../../routes/goals-reports-routes";
 import { studentHistoryRoutes } from "../../routes/student-history-routes";
@@ -40,6 +41,8 @@ const password = "Isolated-flow-original1!",
   changedPassword = "Isolated-flow-replacement1!";
 const acceptance = { accepted: true, ...versions };
 let base: string, server: Server;
+let resetAuthRoutes: () => void;
+let resetInstitutionRoutes: () => void;
 const delivered: TransactionalEmail[] = [],
   verification: string[] = [],
   recovery: string[] = [];
@@ -99,12 +102,17 @@ async function account(role: "ALUNO" | "PROFESSOR" | "ADMIN" = "ALUNO") {
     ).body.token as string,
   };
 }
-async function approved() {
+async function approved(registrationNumber = institutionApplication.registrationNumber as string) {
   const owner = await account(),
     admin = await account("ADMIN");
   const created = await request("POST", "/institutions/requests", owner.token, {
+    ...institutionApplication,
+    registrationNumber,
     name: "Isolated legal course " + randomUUID(),
     responsibleName: "Isolated owner",
+    tradeName: "Isolated course",
+    representativePosition: "Director",
+    contactEmail: "institution@example.invalid",
     phone: "11999999999",
     description: "Isolated institutional integration test",
   });
@@ -176,8 +184,12 @@ beforeAll(async () => {
   const app = express();
   app.use(cors({ origin: "http://127.0.0.1:5187" }));
   app.use(express.json());
-  app.use("/auth", createAuthRoutes(controller));
-  app.use("/institutions", institutionRoutes);
+  let authRouter = createAuthRoutes(controller);
+  resetAuthRoutes = () => { authRouter = createAuthRoutes(controller); };
+  app.use("/auth", (req, res, next) => authRouter(req, res, next));
+  let institutionRouter = createInstitutionRoutes(institutionService, onboarding);
+  resetInstitutionRoutes = () => { institutionRouter = createInstitutionRoutes(institutionService, onboarding); };
+  app.use("/institutions", (req,res,next) => institutionRouter(req,res,next));
   app.use("/students/me", studentHistoryRoutes);
   app.use("/profile/photo", profilePhotoRoutes);
   app.use(
@@ -197,6 +209,8 @@ beforeAll(async () => {
   base = "http://127.0.0.1:" + (server.address() as { port: number }).port;
 });
 beforeEach(async () => {
+  resetAuthRoutes(); // Each test owns a fresh rate-limit window; production limits remain intact.
+  resetInstitutionRoutes();
   vi.stubEnv("INSTITUTIONS_ENABLED", "true");
   vi.stubEnv("ADMINISTRATION_ENABLED", "false");
   vi.stubEnv("INSTITUTION_REGISTRATION_ENABLED", "false");
@@ -214,6 +228,77 @@ afterAll(async () => {
 });
 
 describe("institutional flows with real isolated PostgreSQL", () => {
+  it('rejects an application by ADMIN without granting institutional privileges', async () => {
+    const owner = await account(), admin = await account('ADMIN');
+    const application = await request('POST','/institutions/requests',owner.token,institutionApplication);
+    expect(application.status).toBe(201);
+    expect((await request('PATCH','/institutions/admin/institutions/'+application.body.id,admin.token,{status:'REJECTED',reason:'Representação não comprovada no teste isolado'})).status).toBe(200);
+    expect((await request('GET','/auth/session',owner.token)).body.administration.memberships).toEqual([]);
+    expect((await request('POST','/institutions/'+application.body.id+'/invitations',owner.token,{email:'teacher@example.invalid'})).status).toBe(403);
+  });
+  it('keeps approved owners isolated from another institution', async () => {
+    const first = await approved(), second = await approved('11222333000181');
+    expect((await request('GET','/institutions/'+second.id+'/summary?page=1',first.owner.token)).status).toBe(403);
+    expect((await request('POST','/institutions/'+second.id+'/invitations',first.owner.token,{email:'teacher@example.invalid'})).status).toBe(403);
+    expect((await request('GET','/institutions/'+first.id+'/summary?page=1',second.owner.token)).status).toBe(403);
+  });
+  it('persists institutional signup intent across confirmation and a new login without granting membership', async () => {
+    const email = randomUUID().toUpperCase() + '@Example.invalid';
+    const registration = await request('POST', '/auth/register', undefined, {
+      nome: 'Institution applicant', email, senha: password, confirmacaoSenha: password,
+      acceptance, registrationIntent: 'INSTITUTION',
+    });
+    expect(registration.status).toBe(201);
+    expect(registration.body.usuario.email).toBe(email.toLowerCase());
+    expect((await request('POST', '/auth/register', undefined, {
+      nome: 'Duplicate applicant', email: email.toLowerCase(), senha: password, confirmacaoSenha: password, acceptance,
+    })).status).toBe(409);
+    const pending = await request('GET', '/auth/session', registration.body.token);
+    expect(pending.body).toMatchObject({ registrationIntent: 'INSTITUTION', user: { role: 'ALUNO', emailVerificado: false } });
+    expect((await request('POST', '/institutions/requests', registration.body.token, {})).status).toBe(403);
+    expect((await request('POST', '/auth/email-verification/confirm', undefined, { token: tokenFrom(verification[0]) })).status).toBe(200);
+    const login = await request('POST', '/auth/login', undefined, { email, senha: password });
+    expect(login.status).toBe(200);
+    const session = await request('GET', '/auth/session', login.body.token);
+    expect(session.body).toMatchObject({ registrationIntent: 'INSTITUTION', user: { role: 'ALUNO', emailVerificado: true } });
+    expect(session.body.administration.memberships).toEqual([]);
+    expect(await prisma.institution.count()).toBe(0);
+  });
+  it('deactivates without deleting history, revokes sessions and consumes outstanding tokens', async () => {
+    const user = await account();
+    await prisma.metaDiaria.create({ data: { alunoId: user.id, data: new Date('2026-11-11'), metaQuestoes: 5 } });
+    await prisma.authToken.create({ data: { userId: user.id, type: 'EMAIL_VERIFICATION', tokenHash: randomUUID(), expiresAt: new Date(Date.now() + 60000) } });
+    await request('POST', '/auth/password-recovery', undefined, { email: user.email });
+    expect((await request('POST', '/auth/conta/desativacao', user.token, { senhaAtual: password })).status).toBe(422);
+    expect((await request('POST', '/auth/conta/desativacao', user.token, { senhaAtual: 'wrong', confirmation: 'DESATIVAR' })).status).toBe(400);
+    expect((await request('DELETE', '/auth/conta', user.token, { senhaAtual: password })).status).toBe(400);
+    expect((await request('POST', '/auth/conta/desativacao', user.token, { senhaAtual: password, confirmation: 'DESATIVAR' })).status).toBe(200);
+    expect((await request('GET', '/auth/session', user.token)).status).toBe(401);
+    expect((await request('POST', '/auth/login', undefined, { email: user.email, senha: password })).status).toBe(401);
+    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(stored.deletedAt).not.toBeNull();
+    expect(stored.email).toBe(user.email);
+    expect(stored.sessionVersion).toBe(1);
+    expect(await prisma.metaDiaria.count({ where: { alunoId: user.id } })).toBe(1);
+    expect(await prisma.authToken.count({ where: { userId: user.id, usedAt: null } })).toBe(0);
+    expect(await prisma.passwordRecoveryToken.count({ where: { userId: user.id, consumedAt: null } })).toBe(0);
+  });
+  it('blocks institutional owners even while feature flags are off', async () => {
+    const { owner, id } = await approved();
+    vi.stubEnv('INSTITUTIONS_ENABLED', 'false');
+    expect((await request('POST', '/auth/conta/desativacao', owner.token, { senhaAtual: password, confirmation: 'DESATIVAR' })).status).toBe(409);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: owner.id } })).deletedAt).toBeNull();
+    expect((await prisma.institution.findUniqueOrThrow({ where: { id } })).status).toBe('ACTIVE');
+  });
+  it('retains application details for ADMIN review without promoting the requester', async () => {
+    const { owner, id, admin } = await approved();
+    const listing = await request('GET', '/institutions/admin/institutions?page=1', admin.token);
+    expect(listing.status).toBe(200);
+    expect(listing.body.items.find((item: {id: string}) => item.id === id)).toMatchObject({
+      tradeName: 'Isolated course', representativePosition: 'Director', contactEmail: 'institution@example.invalid', street: 'Rua de teste', representationDeclaration: true,
+    });
+    expect((await request('GET', '/auth/session', owner.token)).body.user.role).toBe('ALUNO');
+  });
   it("renders the eleven institutional modules through real frontend/API/database without mocked sessions", async () => {
     const { id, owner, admin, actor } = await approved();
     const teacher = await account(),
@@ -224,6 +309,14 @@ describe("institutional flows with real isolated PostgreSQL", () => {
       invitationToken(),
     );
     await new Promise<void>((resolve, reject) => {
+      let output = '';
+      const capture = (chunk: Buffer) => {
+        output = (output + chunk.toString()
+          .split(password).join('[REDACTED]')
+          .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, '[DATABASE_URL]')
+          .replace(/[a-f0-9]{64}/gi, '[REDACTED]')
+          .replace(/[\w.+-]+@[\w.-]+/g, '[EMAIL]')).slice(-24000);
+      };
       const child = spawn(
         process.execPath,
         [path.resolve("../frontend/scripts/test-institution-db.mjs")],
@@ -243,13 +336,13 @@ describe("institutional flows with real isolated PostgreSQL", () => {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
-      child.stdout.on("data", (chunk) => process.stdout.write(chunk));
-      child.stderr.on("data", (chunk) => process.stderr.write(chunk));
+      child.stdout.on("data", (chunk) => { capture(chunk); process.stdout.write(chunk); });
+      child.stderr.on("data", (chunk) => { capture(chunk); process.stderr.write(chunk); });
       child.once("error", reject);
-      child.once("exit", (code) =>
+      child.once("close", (code, signal) =>
         code === 0
           ? resolve()
-          : reject(new Error("Isolated real-database browser flow failed")),
+          : reject(new Error(`Isolated real-database browser flow failed (exit=${code}; signal=${signal}):\n${output}`)),
       );
     });
   }, 90000);
@@ -398,6 +491,12 @@ describe("institutional flows with real isolated PostgreSQL", () => {
     expect(pending.emailVerifiedAt).toBeNull();
     expect(pending.role).toBe("ALUNO");
     await onboarding.complete(token, proof, password, password);
+    const prepared = await prisma.user.findUniqueOrThrow({ where: { email } });
+    expect(prepared.role).toBe("ALUNO");
+    expect(prepared.registrationIntent).toBe("TEACHER_INVITATION");
+    expect(await prisma.institutionalMembership.count({ where: { userId: prepared.id } })).toBe(0);
+    expect((await prisma.teacherInvitation.findUniqueOrThrow({ where: { tokenHash: createHash('sha256').update(token).digest('hex') } })).status).toBe("PENDING");
+    await institutionService.accept({ userId: prepared.id, role: "ALUNO" }, token);
     const user = await prisma.user.findUniqueOrThrow({ where: { email } });
     expect(user.id).toBe(pending.id);
     expect(user.emailVerifiedAt).not.toBeNull();

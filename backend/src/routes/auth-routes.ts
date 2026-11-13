@@ -4,9 +4,11 @@ import { requireAuth, requireLimitedAuth } from '../middlewares/auth-middleware'
 import { authRateLimit } from '../middlewares/auth-rate-limit';
 import { ApiError } from '../errors/api-error';
 import { isAllowedCorsOrigin } from '../config/cors-policy';
+import { emailFrontendContext } from '../services/email-frontend';
 
 export function createAuthRoutes(controller = new AuthController()) {
   const authRoutes = Router();
+  authRoutes.use(emailFrontendContext);
   authRoutes.use((_req, res, next) => { res.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' }); next(); });
   authRoutes.use((req, _res, next) => {
     const origin = req.get('origin');
@@ -14,6 +16,7 @@ export function createAuthRoutes(controller = new AuthController()) {
     next();
   });
   authRoutes.post('/register', authRateLimit(60, 3600000), controller.register);
+  authRoutes.post('/institution-register', authRateLimit(10, 3600000), controller.registerInstitution);
   authRoutes.post('/login', authRateLimit(300, 900000), authRateLimit(30, 900000, Date.now, { account: true, failuresOnly: true }), controller.login);
   authRoutes.post('/google', authRateLimit(60, 900000), controller.google);
   authRoutes.post('/password-recovery', authRateLimit(30, 3600000), controller.solicitarRecuperacaoSenha);
@@ -22,7 +25,8 @@ export function createAuthRoutes(controller = new AuthController()) {
   authRoutes.get('/session', requireLimitedAuth, controller.session);
   authRoutes.put('/nome', requireAuth, controller.atualizarNome);
   authRoutes.get('/dados', requireLimitedAuth, authRateLimit(60, 3600000), controller.exportarDados);
-  authRoutes.delete('/conta', requireAuth, authRateLimit(10, 900000), controller.excluirConta);
+  authRoutes.delete('/conta', requireAuth, authRateLimit(5, 900000), controller.excluirConta);
+  authRoutes.post('/conta/desativacao', requireAuth, authRateLimit(5, 900000), controller.desativarConta);
   authRoutes.post('/email-verification', requireLimitedAuth, authRateLimit(30, 3600000), controller.solicitarConfirmacaoEmail);
   authRoutes.post('/email-verification/confirm', authRateLimit(60, 900000), controller.confirmarEmail);
   return authRoutes;

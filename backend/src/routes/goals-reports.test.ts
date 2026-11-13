@@ -2,10 +2,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import type { Server } from 'node:http';
-const mocks = vi.hoisted(() => ({ user: vi.fn(), goals: vi.fn(), create: vi.fn(), update: vi.fn(), complete: vi.fn(), classes: vi.fn(), report: vi.fn(), individual: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: vi.fn(), goals: vi.fn(), create: vi.fn(), update: vi.fn(), complete: vi.fn(), classes: vi.fn(), report: vi.fn(), individual: vi.fn(), overview: vi.fn() }));
 vi.mock('../repositories/auth-repository', () => ({ AuthRepository: class { findByIdForAuth = mocks.user; } }));
+// Legacy HTTP guards have no database-backed institutional context in this suite.
+vi.mock('../services/institution-service', () => ({ currentAccess: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('../services/study-goal-service', () => ({ StudyGoalService: class { list = mocks.goals; create = mocks.create; update = mocks.update; complete = mocks.complete; } }));
-vi.mock('../services/class-report-service', () => ({ ClassReportService: class { classes = mocks.classes; report = mocks.report; individual = mocks.individual; } }));
+vi.mock('../services/class-report-service', () => ({ ClassReportService: class { classes = mocks.classes; report = mocks.report; individual = mocks.individual; overview = mocks.overview; } }));
 import { goalRoutes, reportRoutes } from './goals-reports-routes';
 import { errorHandler } from '../middlewares/error-handler';
 const id = '00000000-0000-4000-8000-000000000081', otherId = '00000000-0000-4000-8000-000000000082';
@@ -13,6 +15,19 @@ const secret = 'goal-report-http-only-test-key-over-32-characters';
 let server: Server, base: string, token: string;
 const request = (method: string, path: string, body?: unknown, bearer: string | null = token) => fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 const dbUser = (role = 'ALUNO') => ({ id, role, sessionVersion: 0, emailVerifiedAt: new Date(), deletedAt: null });
+it('overview requires current academic role, rejects query scope and forwards only the authenticated actor', async () => {
+  mocks.user.mockResolvedValue(dbUser('ALUNO'));
+  expect((await request('GET', '/reports/overview')).status).toBe(403);
+  mocks.user.mockResolvedValue(dbUser('ADMIN'));
+  expect((await request('GET', '/reports/overview')).status).toBe(403);
+  mocks.user.mockResolvedValue(dbUser('PROFESSOR'));
+  mocks.overview.mockResolvedValue({ classes: 2, activeClasses: 1, students: 3, publishedExams: 4 });
+  expect((await request('GET', '/reports/overview?institutionId=forged')).status).toBe(422);
+  const response = await request('GET', '/reports/overview');
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ classes: 2, activeClasses: 1, students: 3, publishedExams: 4 });
+  expect(mocks.overview).toHaveBeenCalledWith({ userId: id, role: 'PROFESSOR' });
+});
 beforeAll(async () => {
   process.env.JWT_SECRET = secret; token = jwt.sign({ id, role: 'ADMIN', sessionVersion: 0 }, secret, { expiresIn: '1h' });
   const app = express(); app.use(express.json()); app.use('/goals', goalRoutes); app.use('/reports', reportRoutes); app.use(errorHandler);

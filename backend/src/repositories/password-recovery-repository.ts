@@ -3,11 +3,13 @@ import { prisma } from '../lib/prisma';
 import { GOOGLE_PASSWORD_SENTINEL } from './auth-repository';
 
 export class PasswordRecoveryRepository {
-  findAccount(email: string) {
-    return prisma.user.findUnique({
-      where: { email },
-      select: { id: true, senhaHash: true, deletedAt: true },
+  async findAccount(email: string) {
+    const accounts=await prisma.user.findMany({
+      where: { email: {equals:email.trim().toLowerCase(),mode:'insensitive'} },
+      select: { id: true, email:true, senhaHash: true, deletedAt: true }, take:2,
     });
+    // Preserve neutral recovery feedback for ambiguous legacy case variants.
+    return accounts.length===1?accounts[0]!:null;
   }
 
   createToken(userId: string, tokenHash: string, now: Date, expiresAt: Date) {

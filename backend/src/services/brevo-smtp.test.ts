@@ -16,6 +16,15 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllEnvs());
 
+it('H4.6 escapes email URLs in both HTML templates without changing the plain-text link',async()=>{
+  const url='https://app.example.invalid/#/verificar-email?token=fixture&extra="<unsafe>"';
+  const sender=new BrevoEmailVerificationSender('fixture@smtp-brevo.com','fixture-key');
+  await sender.sendEmailVerification({to:'recipient@example.com',verifyUrl:url,expiresInMinutes:30});
+  const reset=new BrevoRecoveryEmailSender('fixture@smtp-brevo.com','fixture-key');
+  await reset.sendPasswordRecovery({to:'recipient@example.com',resetUrl:url,expiresInMinutes:15});
+  for(const [message] of mocks.sendMail.mock.calls){expect(message.html).toContain('&amp;');expect(message.html).toContain('&lt;unsafe&gt;');expect(message.html).not.toContain('<unsafe>');expect(message.text).toContain(url);}
+});
+
 describe('Brevo SMTP compartilhado (transporte simulado)', () => {
   it('exige STARTTLS e valida a conexão sem enviar mensagens', async () => {
     const smtp = new BrevoSmtpClient(' fixture@smtp-brevo.com ', 'opaque fixture key');

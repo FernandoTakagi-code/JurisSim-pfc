@@ -1,18 +1,28 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { acceptanceSchema } from './legal-acceptance';
+import { acceptanceSchema, acceptanceData } from './legal-acceptance';
 import { ApiError } from '../errors/api-error';
 import { AuthRepository, GOOGLE_PASSWORD_SENTINEL } from '../repositories/auth-repository';
 import versions from '../legal-versions.json';
 import { assertValidPassword } from './password-policy';
 import { isInitialDiagnosticRequired } from '../config/initial-diagnostic-feature';
 import { localEmailVerificationCapture } from './local-email-capture';
-import { currentAccess } from './institution-service';
-import { accountDeletionEnabled, accountDeletionUnavailableMessage } from '../account-deletion-availability';
+import { currentAccess, institutionalTransaction, InstitutionService } from './institution-service';
+import { institutionAccountRegistrationSchema } from './institution-account-registration';
+import { institutionRegistrationEnabled } from '../config/institution-feature';
+import { assertEmailReusable, AccountDeletionService } from './account-deletion';
 
 
 export type PerfilAcesso = 'ALUNO' | 'PROFESSOR';
+export type AuthSessionResult = {
+  user:{id:string;nome:string;email:string;role:'ALUNO'|'PROFESSOR'|'ADMIN';emailVerificado:boolean};
+  registrationIntent?:'INSTITUTION'|'TEACHER_INVITATION';
+  nextStep:'PROFESSOR'|'DASHBOARD'|'DIAGNOSTIC'|'INITIAL_DIAGNOSTIC'|'INVITATION';
+  administration?:Awaited<ReturnType<typeof currentAccess>>;
+  localDiagnosticDemoAvailable?:boolean;
+  localDiagnosticDemoActive?:boolean;
+};
 
 // Garante que o usuário entrou pela opção correta da tela de login.
 // ADMIN pode entrar pela área do professor.
@@ -38,13 +48,30 @@ const jwtPayloadSchema = z.object({
 export class AuthService {
   constructor(private readonly repository = new AuthRepository()) {}
 
-  async register(nome: string, email: string, senha: string, acceptance?: unknown) {
+  async registerInstitutionalApplication(input: unknown) {
+    if(!institutionRegistrationEnabled()) throw new ApiError(503,'Cadastro institucional indisponível.');
+    const data=institutionAccountRegistrationSchema.parse(input);
+    await assertEmailReusable(data.email);
+    this.jwtSecret();
+    const senhaHash=await bcrypt.hash(data.senha,10);
+    const result=await institutionalTransaction(async tx=>{
+      if(await tx.user.findUnique({where:{email:data.email},select:{id:true}})) throw new ApiError(409,'E-mail já cadastrado. Entre com sua conta para completar a solicitação institucional.');
+      const user=await tx.user.create({data:{nome:data.institution.responsibleName,email:data.email,senhaHash,role:'ALUNO',registrationIntent:'INSTITUTION',...acceptanceData(data.acceptance)},select:{id:true,nome:true,email:true,role:true,sessionVersion:true}});
+      const institution=await new InstitutionService().requestForNewAccountInTransaction(tx,user.id,data.institution);
+      await tx.auditLog.create({data:{action:'USUARIO_CADASTRADO',userId:user.id}});
+      return {user,institution};
+    });
+    return {...this.loginResponse(result.user),institution:{id:result.institution.id,status:result.institution.status}};
+  }
+
+  async register(nome: string, email: string, senha: string, acceptance?: unknown, registrationIntent?: 'INSTITUTION') {
+    await assertEmailReusable(email);
     assertValidPassword(senha);
     acceptanceSchema.parse(acceptance);
     if (await this.repository.findByEmail(email)) throw new ApiError(409, 'E-mail já cadastrado.');
     const senhaHash = await bcrypt.hash(senha, 10);
     try {
-      const user = await this.repository.createUser(nome, email, senhaHash, acceptance);
+      const user = await this.repository.createUser(nome, email, senhaHash, acceptance, registrationIntent);
       return this.loginResponse(user);
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') throw new ApiError(409, 'E-mail já cadastrado.');
@@ -74,10 +101,11 @@ export class AuthService {
 
   recordLoginFailure() { return this.repository.recordLogin('LOGIN_FALHA'); }
 
-  async loginWithGoogle(email: string, nomeSugerido: string, acceptance?: unknown, perfil?: PerfilAcesso) {
+  async loginWithGoogle(email: string, nomeSugerido: string, acceptance?: unknown, perfil?: PerfilAcesso, registrationIntent?: 'INSTITUTION', existingAccountOnly = false) {
     const matches = await this.repository.findGoogleAccountsByEmail(email);
     if (matches.length > 1) throw new ApiError(409, 'Há mais de uma conta com este e-mail. Procure o suporte para evitar vinculação incorreta.');
     const existing = matches[0] ?? null;
+    if(existingAccountOnly&&!existing)throw new ApiError(409,'Esta conta Google ainda não está cadastrada. Volte ao convite e escolha Primeiro acesso para criar sua conta.');
     if (existing?.deletedAt) throw new ApiError(401, 'Conta indisponível.');
     if (existing) await currentAccess(existing.id, existing.role);
     if (existing) verificarPerfil(existing.role, perfil);
@@ -101,7 +129,10 @@ export class AuthService {
 
     let user: { id: string; nome: string; email: string; role: string; sessionVersion: number };
     if (!existing) {
-      user = await this.repository.createGoogleUser(nomeSugerido, email, parsedAcceptance!.data);
+      await assertEmailReusable(email);
+      user = registrationIntent
+        ? await this.repository.createGoogleUser(nomeSugerido, email, parsedAcceptance!.data, registrationIntent)
+        : await this.repository.createGoogleUser(nomeSugerido, email, parsedAcceptance!.data);
     } else {
       // A signed Google ID token with email_verified=true was validated by the
       // controller. Match that verified address to one existing account without
@@ -118,32 +149,40 @@ export class AuthService {
     return this.repository.updateNome(userId, nome);
   }
   async logout(userId: string) {
-    await this.repository.revokeSessions(userId);
+    const result = await this.repository.revokeSessions(userId);
+    if (result.count !== 1) throw new ApiError(401, 'Conta indisponível para encerrar sessões. Entre novamente.');
     return { message: 'Sessões encerradas. Entre novamente para acessar sua conta.' };
   }
   async deleteAccount(userId: string, senhaAtual?: string) {
-    if (!accountDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
+    return new AccountDeletionService().self(userId, { senhaAtual });
+  }
+
+  async deactivateAccount(userId: string, senhaAtual: string) {
     const user = await this.repository.findByIdWithSenha(userId);
     if (!user) throw new ApiError(404, 'Usuário não encontrado.');
-    if (user.senhaHash && user.senhaHash !== GOOGLE_PASSWORD_SENTINEL) {
-      if (!senhaAtual) throw new ApiError(400, 'Informe sua senha atual para confirmar a exclusão.');
-      if (!await bcrypt.compare(senhaAtual, user.senhaHash)) throw new ApiError(401, 'Senha incorreta.');
-    }
-    await this.repository.anonymizeUser(userId);
-    return { message: 'Conta excluída com sucesso.' };
+    if (!user.senhaHash || user.senhaHash === GOOGLE_PASSWORD_SENTINEL)
+      throw new ApiError(409, 'Contas Google exigem um fluxo de reautenticação específico para desativação. Procure o suporte.');
+    if (!await bcrypt.compare(senhaAtual, user.senhaHash)) throw new ApiError(400, 'Senha atual incorreta.');
+    await this.repository.deactivateUser(userId, user.senhaHash);
+    return { message: 'Conta desativada e sessões revogadas. Os registros foram preservados; a reativação depende de atendimento.' };
   }
 
   exportData(userId: string, page: number) {
     return this.repository.exportData(userId, page);
   }
 
-  async session(userId: string, localDemoRequested = false) {
+  async session(userId: string, localDemoRequested = false):Promise<AuthSessionResult> {
     const user = await this.repository.findById(userId);
     if (!user || user.deletedAt) throw new ApiError(401, 'Sessão inválida.');
     const administration = await currentAccess(userId, user.role);
     if (administration) user.role = administration.effectiveRole as typeof user.role;
     const emailVerificado = Boolean(user.emailVerifiedAt);
-    const diagnosticRequired = isInitialDiagnosticRequired();
+    if (user.role === 'ALUNO' && user.registrationIntent === 'TEACHER_INVITATION') return {
+      user: {id:user.id,nome:user.nome,email:user.email,role:user.role,emailVerificado},
+      registrationIntent:'TEACHER_INVITATION' as const,nextStep:'INVITATION' as const,
+      ...(administration?{administration}:{}),
+    };
+    const diagnosticRequired = isInitialDiagnosticRequired() && user.registrationIntent!=='INSTITUTION';
     const localDemoRuntimeEnabled = localEmailVerificationCapture.isLocalDiagnosticDemoEnabled;
     const initialDiagnosticCompleted = user.role === 'ALUNO' && diagnosticRequired
       ? await this.repository.hasCompletedInitialDiagnostic(userId)
@@ -158,6 +197,7 @@ export class AuthService {
         : await this.repository.hasCompletedDiagnostic(userId) ? 'DASHBOARD' : 'DIAGNOSTIC';
     return {
       user: { id: user.id, nome: user.nome, email: user.email, role: user.role, emailVerificado },
+      ...(user.registrationIntent === 'INSTITUTION' ? { registrationIntent: 'INSTITUTION' as const } : {}),
       nextStep,
       ...(administration ? { administration } : {}),
       ...(localDemoRuntimeEnabled ? {

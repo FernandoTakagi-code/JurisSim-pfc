@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from 'react-dom';
 import { apiRequest } from "./api";
 import type { Session } from "./auth-session";
 import { navigate } from "./navigation";
@@ -12,7 +13,7 @@ import {
 } from "./administration";
 import { ClassesPage, ClassStudents, ExamsPage } from "./class-exams";
 import { TeacherReports, StudentClassReport } from "./goals-reports";
-import { AuthorizedContext, ProfileSettings } from "./integration-shell";
+import { AuthorizedContext } from "./integration-shell";
 import { PhotoProvider, ProfileAvatar } from "./profile-photo";
 import { Icon } from "./ui-icon";
 import {
@@ -23,6 +24,7 @@ import {
   type InstitutionSection,
 } from "./institution-navigation";
 import "./institution-dashboard.css";
+const ModalTheme = createContext(false);
 
 type Page<T> = { items: T[]; page: number; hasMore: boolean };
 type Institution = {
@@ -70,6 +72,7 @@ type Invitation = {
   createdAt: string;
   expiresAt: string;
   sentAt?: string;
+  deliveryState?: 'ACCEPTED_BY_PROVIDER' | 'UNCONFIRMED' | 'NOT_PENDING';
 };
 type Event = { id: string; event: string; occurredAt: string; result: string };
 const statusNames: Record<string, string> = {
@@ -77,7 +80,7 @@ const statusNames: Record<string, string> = {
   PENDING: "Pendente",
   ACCEPTED: "Aceito",
   DECLINED: "Recusado",
-  CANCELLED: "Cancelado",
+  CANCELLED: "Revogado",
   EXPIRED: "Expirado",
   SUSPENDED: "Suspensa",
   SUCCESS: "Sucesso",
@@ -160,6 +163,7 @@ function InstitutionWorkspace({
   const section = current?.id ?? "overview";
   const [page, setPage] = useState(1);
   const [classRevision, setClassRevision] = useState(0);
+  const [dialogBusy, setDialogBusy] = useState(false);
   const summary = useResource<Summary>(
     `/institutions/${id}/summary?page=${page}`,
   );
@@ -205,7 +209,7 @@ function InstitutionWorkspace({
     navigate(session.user.role === "PROFESSOR" ? "/professor" : "/dashboard");
   const institution = summary.data?.institution;
   return (
-    <div
+    <ModalTheme.Provider value={dark}><div
       className={`institution-workspace ${dark ? "dark-mode" : ""}`}
       data-testid="institution-dashboard"
     >
@@ -293,14 +297,6 @@ function InstitutionWorkspace({
           ))}
         </nav>
         <div className="sidebar-footer">
-          <button className="nav-item" onClick={personal}>
-            <Icon name="user" />
-            <span>
-              {session.user.role === "PROFESSOR"
-                ? "Minha área de professor"
-                : "Meu espaço de estudos"}
-            </span>
-          </button>
           <button
             className="nav-item"
             onClick={() => navigate("/instituicoes")}
@@ -368,7 +364,7 @@ function InstitutionWorkspace({
             </button>
             {profile && (
               <div className="institution-profile-menu">
-                <button onClick={() => go("settings")}>
+                <button onClick={() => navigate("/perfil")}>
                   Perfil e configurações
                 </button>
                 <button onClick={personal}>Voltar ao contexto pessoal</button>
@@ -386,7 +382,7 @@ function InstitutionWorkspace({
           ) : (
             summary.data && (
               <>
-                {section !== "overview" && (
+                {section !== "overview" && section !== "settings" && (
                   <div className="welcome-row section-title">
                     <div>
                       <div className="section-icon">
@@ -400,7 +396,7 @@ function InstitutionWorkspace({
                         section === "invitations") && (
                         <button
                           className="primary-button"
-                          onClick={() => setDialog("invite")}
+                          onClick={event => { event.currentTarget.focus(); setDialog("invite"); }}
                         >
                           <Icon name="plus" />
                           Convidar professor
@@ -453,7 +449,7 @@ function InstitutionWorkspace({
                   />
                 )}
                 {section === "students" && (
-                  <ClassStudents key={params.get("turma") ?? "all"} classId={params.get("turma") ?? undefined} onBack={() => go("classes")} />
+                  <ClassStudents institutional key={params.get("turma") ?? "all"} classId={params.get("turma") ?? undefined} onBack={() => go("classes")} />
                 )}
                 {(section === "performance" || section === "reports") &&
                   (params.get("turma") && params.get("aluno") ? (
@@ -480,18 +476,7 @@ function InstitutionWorkspace({
                 {section === "exams" && <ExamsPage teacher institutional />}
                 {section === "notifications" && <Notifications />}
                 {section === "settings" && (
-                  <>
-                    <ProfileSettings
-                      user={session.user}
-                      settings
-                      theme={theme}
-                      setTheme={setTheme}
-                      collapsed={collapsed}
-                      setCollapsed={setCollapsed}
-                      onSair={onSair}
-                    />
-                    <AuditPanel institutionId={id} />
-                  </>
+                  <AuditPanel institutionId={id} />
                 )}
               </>
             )
@@ -500,6 +485,7 @@ function InstitutionWorkspace({
       </main>
       {dialog && (
         <Dialog
+          busy={dialogBusy}
           title={
             dialog === "invite" ? "Convidar professor" : "Criar nova turma"
           }
@@ -508,6 +494,8 @@ function InstitutionWorkspace({
           {dialog === "invite" ? (
             <InvitationForm
               id={id}
+              restricted={session.administration?.restricted === true}
+              onBusyChange={setDialogBusy}
               done={() => {
                 summary.reload();
                 setDialog(undefined);
@@ -525,7 +513,7 @@ function InstitutionWorkspace({
           )}
         </Dialog>
       )}
-    </div>
+    </div></ModalTheme.Provider>
   );
 }
 const descriptions: Record<InstitutionSection, string> = {
@@ -539,232 +527,18 @@ const descriptions: Record<InstitutionSection, string> = {
   exams: "Crie e acompanhe avaliações das turmas da instituição.",
   reports: "Acesse os relatórios das turmas e de seus alunos autorizados.",
   notifications: "Consulte mensagens reais destinadas à sua conta.",
-  settings:
-    "Gerencie suas preferências pessoais e consulte a auditoria institucional.",
+  settings: "Consulte a auditoria institucional.",
 };
 
-function Overview({
-  id,
-  summary,
-  go,
-  open,
-}: {
-  id: string;
-  summary: Summary;
-  go: (section: InstitutionSection, extra?: Record<string, string>) => void;
-  open: (dialog: "invite" | "class") => void;
-}) {
-  const events = useResource<Page<Event>>(`/institutions/${id}/logs?page=1`);
-  const [classId, setClassId] = useState("");
-  const report = useResource<{
-    disciplineMetrics: { discipline: string; percentage: number | null }[];
-  }>(classId ? `/reports/classes/${classId}?page=1&examPage=1` : null);
-  const metrics = [
-    ["users", "Alunos vinculados", summary.indicators.students, "navy"],
-    ["user", "Professores ativos", summary.indicators.activeTeachers, "gold"],
-    ["book", "Turmas em andamento", summary.indicators.activeClasses, "blue"],
-    [
-      "file",
-      "Convites pendentes",
-      summary.indicators.pendingInvitations,
-      "purple",
-    ],
-  ] as const;
-  return (
-    <>
-      <div className="welcome-row">
-        <div>
-          <div className="eyebrow">
-            <span className="eyebrow-dot" />
-            {new Date().toLocaleDateString("pt-BR", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </div>
-          <h1>Bem-vindo ao Painel Institucional</h1>
-          <p>
-            Acompanhe sua instituição, organize sua equipe e monitore a evolução
-            dos seus alunos.
-          </p>
-        </div>
-        <div className="period-filter">
-          <select disabled aria-label="Período indisponível">
-            <option>Indicadores atuais</option>
-          </select>
-        </div>
-      </div>
-      <div className="metric-grid">
-        {metrics.map(([icon, label, value, tone]) => (
-          <div className="metric-card" key={label}>
-            <div className={`metric-icon ${tone}`}>
-              <Icon name={icon} />
-            </div>
-            <div className="metric-copy">
-              <span>{label}</span>
-              <strong>
-                {typeof value === "number"
-                  ? value.toLocaleString("pt-BR")
-                  : "—"}
-              </strong>
-              <small>
-                {typeof value === "number"
-                  ? "Situação atual registrada"
-                  : "Indicador não fornecido pela API"}
-              </small>
-            </div>
-            <span className="metric-arrow">↗</span>
-          </div>
-        ))}
-      </div>
-      <div className="content-grid">
-        <div className="panel performance-panel">
-          <div className="panel-head">
-            <div>
-              <h2>Evolução acadêmica</h2>
-              <span>Resultados das turmas e avaliações autorizadas</span>
-            </div>
-            <button
-              className="outline-button"
-              onClick={() => go("performance")}
-            >
-              Consultar desempenho
-            </button>
-          </div>
-          <div className="empty-state">
-            <Icon name="chart" />
-            <strong>Série temporal institucional indisponível</strong>
-            <span>
-              A API não fornece evolução global por período nem meta
-              institucional. Consulte os resultados reais por turma.
-            </span>
-          </div>
-        </div>
-        <div className="panel discipline-panel">
-          <div className="panel-head">
-            <div>
-              <h2>Desempenho por disciplina</h2>
-              <span>Resultados da turma selecionada</span>
-            </div>
-          </div>
-          <label>
-            Turma
-            <select
-              value={classId}
-              onChange={(e) => setClassId(e.target.value)}
-            >
-              <option value="">Selecione uma turma</option>
-              {summary.classes.items.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-          <ResourceState resource={report} />
-          <div className="discipline-list">
-            {report.data?.disciplineMetrics.map((metric) => (
-              <div className="discipline" key={metric.discipline}>
-                <div>
-                  <span>{metric.discipline}</span>
-                  <strong>
-                    {metric.percentage === null
-                      ? "Sem resultados"
-                      : `${metric.percentage}%`}
-                  </strong>
-                </div>
-                {metric.percentage !== null && (
-                  <div className="bar">
-                    <i
-                      style={{
-                        width: `${Math.max(0, Math.min(100, metric.percentage))}%`,
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          {report.data?.disciplineMetrics.length === 0 && (
-            <p>Sem resultados registrados nesta turma.</p>
-          )}
-          <button
-            className="text-button"
-            onClick={() => go("performance", classId ? { turma: classId } : {})}
-          >
-            Ver análise detalhada ↗
-          </button>
-        </div>
-      </div>
-      <div className="bottom-grid">
-        <div className="panel activity-panel">
-          <div className="panel-head">
-            <div>
-              <h2>Atividade recente</h2>
-              <span>Movimentações registradas da instituição</span>
-            </div>
-            <button className="text-button" onClick={() => go("settings")}>
-              Ver auditoria ↗
-            </button>
-          </div>
-          <ResourceState resource={events} />
-          {events.data?.items.length === 0 && (
-            <p>Nenhuma atividade registrada.</p>
-          )}
-          <div className="activity-list">
-            {events.data?.items.slice(0, 4).map((event) => (
-              <div className="activity" key={event.id}>
-                <div className="activity-icon gold">
-                  <Icon name="file" />
-                </div>
-                <div>
-                  <strong>{event.event.replace(/_/g, " ")}</strong>
-                  <span>{statusNames[event.result] ?? event.result}</span>
-                </div>
-                <time>{date(event.occurredAt)}</time>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="panel quick-panel">
-          <div className="panel-head">
-            <div>
-              <h2>Ações rápidas</h2>
-              <span>Atalhos para sua gestão</span>
-            </div>
-            <Icon name="plus" />
-          </div>
-          <div className="quick-actions">
-            <button onClick={() => open("invite")}>
-              <Icon name="user" />
-              <span>
-                <strong>Convidar professor</strong>
-                <small>Adicione profissionais por convite seguro</small>
-              </span>
-              <Icon name="chevron" />
-            </button>
-            <button onClick={() => open("class")}>
-              <Icon name="plus" />
-              <span>
-                <strong>Criar nova turma</strong>
-                <small>Propriedade da instituição</small>
-              </span>
-              <Icon name="chevron" />
-            </button>
-            <button onClick={() => go("reports")}>
-              <Icon name="chart" />
-              <span>
-                <strong>Consultar relatórios</strong>
-                <small>Dados de desempenho autorizados</small>
-              </span>
-              <Icon name="chevron" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+function Overview({id,summary,go,open}:{id:string;summary:Summary;go:(section:InstitutionSection,extra?:Record<string,string>)=>void;open:(dialog:"invite"|"class")=>void}) {
+  return <div className="institution-overview" data-institution-id={id}>
+    <div className="welcome-row overview-hero"><div><p className="eyebrow">PAINEL INSTITUCIONAL</p><h1>{summary.institution.name}</h1><p>Equipe, turmas e acompanhamento da sua instituição.</p></div><span className="status success"><i />Operações disponíveis</span></div>
+    <div className="metric-grid institution-key-metrics">{[
+      ['Professores ativos',summary.indicators.activeTeachers,'graduation'],['Turmas em andamento',summary.indicators.activeClasses,'book'],['Alunos vinculados',summary.indicators.students,'users']
+    ].map(([label,value,icon])=><div className="metric-card" key={String(label)}><div className="metric-icon gold"><Icon name={String(icon)} /></div><div className="metric-copy"><span>{label}</span><strong>{typeof value==='number'?value.toLocaleString('pt-BR'):'—'}</strong></div></div>)}</div>
+    <section className="panel institution-actions"><div><p className="eyebrow">AÇÕES ESSENCIAIS</p><h2>Gerenciar instituição</h2><p>Use somente recursos autorizados para esta instituição.</p></div><div className="header-actions"><button className="primary-button" onClick={()=>open('invite')}>Convidar professor</button><button className="outline-button" onClick={()=>open('class')}>Criar nova turma</button><button className="text-button" onClick={()=>go('reports')}>Consultar relatórios</button></div></section>
+    <Notifications recent/>
+  </div>;
 }
 
 function InstitutionCard({
@@ -777,23 +551,24 @@ function InstitutionCard({
   const [editing, setEditing] = useState(false);
   const action = useMutation(reload);
   return (
-    <div className="institution-layout">
-      <div className="panel profile-card">
+    <div className="institution-profile-page">
+      <header className="institution-page-hero">
+        <div><p className="eyebrow">IDENTIDADE INSTITUCIONAL</p><h1>Minha instituição</h1><p>Dados cadastrais, situação atual e informações autorizadas para gestão.</p></div>
+        <div className="institution-statuses" aria-label="Situação institucional"><span className="status success"><i />Cadastro {statusNames[institution.status] ?? institution.status}</span><span className="status success"><i />Operacional neste painel</span></div>
+      </header>
+      <div className="institution-layout">
+      <section className="panel profile-card">
         <div className="profile-hero">
           <div className="large-institution">{initials(institution.name)}</div>
           <div>
             <h2>{institution.name}</h2>
             <span>Instituição cadastrada</span>
-            <div className="approved">
-              <Icon name="user" />
-              {statusNames[institution.status] ?? institution.status}
-            </div>
           </div>
         </div>
         <div className="info-grid">
           <div>
             <span>Identificador institucional</span>
-            <strong>{institution.id}</strong>
+            <strong className="institution-id">{institution.id}</strong>
           </div>
           <div>
             <span>E-mail do responsável</span>
@@ -816,8 +591,8 @@ function InstitutionCard({
             <strong>{institution.registrationNumber ?? "Não informado"}</strong>
           </div>
         </div>
-        <button className="primary-button" onClick={() => setEditing(!editing)}>
-          {editing ? "Cancelar edição" : "Editar dados autorizados"}
+        <button className="primary-button" aria-label="Editar dados autorizados" onClick={() => setEditing(!editing)}>
+          {editing ? "Cancelar edição" : "Administrar instituição"}
         </button>
         {action.feedback}
         {editing && (
@@ -872,8 +647,9 @@ function InstitutionCard({
             </button>
           </form>
         )}
-      </div>
-      <div className="panel contact-card">
+      </section>
+      <aside className="panel contact-card">
+        <p className="eyebrow">RESPONSÁVEL</p>
         <h2>Responsável institucional</h2>
         <div className="person-cell">
           <div className="avatar">{initials(institution.responsibleName)}</div>
@@ -890,6 +666,8 @@ function InstitutionCard({
           <Icon name="user" />
           Vínculo administrativo validado
         </div>
+        <div className="analysis-note"><strong>Análise cadastral</strong><span>As informações apresentadas refletem o cadastro aprovado. A operação depende das autorizações válidas deste contexto.</span></div>
+      </aside>
       </div>
     </div>
   );
@@ -966,7 +744,7 @@ function Teachers({
                   </span>
                 </td>
                 <td>Designação pela instituição</td>
-                <td>Não fornecida pela API</td>
+                <td>Não informada</td>
                 <td>
                   {member.active && (
                     <button
@@ -1093,13 +871,14 @@ function InvitationsTable({ id, revision }: { id: string; revision: string }) {
                     <i />
                     {statusNames[invite.status] ?? invite.status}
                   </span>
+                  {invite.status === 'PENDING' && invite.deliveryState === 'UNCONFIRMED' && <p role="status">Envio não confirmado. Verifique a entrega antes de reenviar.</p>}
                 </td>
                 <td>
-                  {["PENDING", "EXPIRED"].includes(invite.status) && (
+                  {["PENDING", "EXPIRED", "CANCELLED"].includes(invite.status) && (
                     <>
                       <button
                         className="outline-button"
-                        disabled={action.busy}
+                        disabled={action.busy || (invite.status === 'PENDING' && invite.deliveryState === 'UNCONFIRMED')}
                         onClick={() =>
                           void action.run(
                             `/institutions/${id}/invitations/${invite.id}/resend`,
@@ -1109,13 +888,13 @@ function InvitationsTable({ id, revision }: { id: string; revision: string }) {
                       >
                         Reenviar
                       </button>
-                      <button
+                      {invite.status !== 'CANCELLED' && <button
                         className="outline-button"
                         disabled={action.busy}
                         onClick={() => setCancel(invite)}
                       >
                         Cancelar
-                      </button>
+                      </button>}
                     </>
                   )}
                 </td>
@@ -1148,38 +927,46 @@ function InvitationsTable({ id, revision }: { id: string; revision: string }) {
   );
 }
 
-function InvitationForm({ id, done }: { id: string; done: () => void }) {
+function InvitationForm({ id, done, restricted, onBusyChange }: { id: string; done: () => void; restricted: boolean; onBusyChange: (busy: boolean) => void }) {
   const [page, setPage] = useState(1);
+  const [selectedClass, setSelectedClass] = useState<{ id: string; nome: string }>();
+  const pending = useRef(false);
   const classes = useResource<Page<Class>>(`/turmas?page=${page}`);
   const action = useMutation(done);
   return (
     <form
-      className="admin-form"
+      className="admin-form institution-invitation-form"
+      aria-busy={action.busy}
       onSubmit={(e) => {
         e.preventDefault();
+        if (pending.current) return;
         const data = new FormData(e.currentTarget);
+        pending.current = true; onBusyChange(true);
         void action.run(`/institutions/${id}/invitations`, "POST", {
           name: data.get("name"),
           email: data.get("email"),
-          classIds: data.get("classId") ? [data.get("classId")] : [],
-        });
+          classIds: selectedClass ? [selectedClass.id] : [],
+        }).finally(() => { pending.current = false; onBusyChange(false); });
       }}
     >
       <p>
-        O convite não cria uma senha nem permite cadastro público de professor.
+        Uma conta já cadastrada como Aluno pode receber convite. O envio não altera a conta; ao aceitar, ela passa a Professor e preserva seu histórico. Para manter o perfil Aluno separado, use outra conta.
       </p>
+      {restricted && <p className="institution-invitation-scope" role="note">Neste ambiente de testes, os convites dependem de autorização prévia. Se não puder convidar uma pessoa, procure o responsável pela homologação.</p>}
+      {!restricted && <p>Para quem ainda não tem conta, o link oferece primeiro acesso protegido por token e aceite dos termos. O cadastro público não atribui o papel Professor.</p>}
       <label>
         Nome completo
-        <input name="name" required minLength={2} maxLength={120} />
+        <input name="name" data-dialog-autofocus disabled={action.busy} required minLength={2} maxLength={120} />
       </label>
       <label>
         E-mail profissional
-        <input type="email" name="email" required maxLength={254} />
+        <input type="email" name="email" disabled={action.busy} required maxLength={254} />
       </label>
       <label>
         Turma inicial (opcional)
-        <select name="classId">
+        <select name="classId" value={selectedClass?.id ?? ''} disabled={action.busy || classes.loading || !!classes.error} onChange={event => setSelectedClass(classes.data?.items.find(turma => turma.id === event.target.value))}>
           <option value="">Sem designação inicial</option>
+          {selectedClass && !classes.data?.items.some(turma => turma.id === selectedClass.id) && <option value={selectedClass.id}>{selectedClass.nome} (selecionada)</option>}
           {classes.data?.items
             .filter((c) => !c.archivedAt)
             .map((c) => (
@@ -1190,10 +977,10 @@ function InvitationForm({ id, done }: { id: string; done: () => void }) {
         </select>
       </label>
       <ResourceState resource={classes} />
-      <Pages page={page} hasMore={classes.data?.hasMore} change={setPage} />
+      {(page > 1 || classes.data?.hasMore) && <nav className="institution-class-pagination" aria-label="Páginas das turmas disponíveis"><button type="button" className="outline-button" disabled={action.busy || classes.loading || page <= 1} onClick={() => setPage(value => value - 1)}>Turmas anteriores</button><span>Página {page}</span><button type="button" className="outline-button" disabled={action.busy || classes.loading || !classes.data?.hasMore} onClick={() => setPage(value => value + 1)}>Mais turmas</button></nav>}
       {action.feedback}
       <button className="primary-button" disabled={action.busy}>
-        Enviar convite
+        {action.busy ? 'Enviando convite...' : 'Enviar convite'}
       </button>
     </form>
   );
@@ -1323,17 +1110,17 @@ function TeacherAssignment({
     </section>
   );
 }
-function Notifications() {
+function Notifications({recent=false}:{recent?:boolean}={}) {
   const [page, setPage] = useState(1);
   const resource = useResource<
     Page<{ id: string; message: string; createdAt: string }>
   >(`/institutions/notifications?page=${page}`);
+  if(recent&&resource.data?.items.length===0)return null;
   return (
     <section className="panel">
+      {recent&&<h2>Notificações recentes</h2>}
       <p>
-        Mensagens destinadas à sua conta. O contrato atual não identifica a
-        instituição de cada mensagem; esta lista não é apresentada como
-        exclusiva da instituição selecionada.
+        Mensagens destinadas à sua conta, incluindo suas instituições.
       </p>
       <ResourceState resource={resource} />
       {resource.data?.items.length === 0 && <p>Nenhuma notificação.</p>}
@@ -1351,30 +1138,42 @@ function Dialog({
   title,
   close,
   children,
+  busy = false,
 }: {
   title: string;
   close: () => void;
   children: ReactNode;
+  busy?: boolean;
 }) {
+  const dark = useContext(ModalTheme);
   const dialog = useRef<HTMLDivElement>(null),
     closeRef = useRef(close);
+  const busyRef = useRef(busy);
   closeRef.current = close;
+  busyRef.current = busy;
   useEffect(() => {
     const prior = document.activeElement as HTMLElement | null;
+    const workspace = document.querySelector<HTMLElement>('.institution-workspace:not(.institution-dialog-layer)');
+    const priorInert = workspace?.inert;
+    const priorOverflow = document.body.style.overflow;
+    if (workspace) workspace.inert = true;
+    document.body.style.overflow = 'hidden';
     const focusable = () =>
       Array.from(
         dialog.current?.querySelectorAll<HTMLElement>(
           "button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]",
         ) ?? [],
-      );
-    focusable()[0]?.focus();
+      ).filter(element => element.getClientRects().length > 0);
+    (dialog.current?.querySelector<HTMLElement>('[data-dialog-autofocus], input:not(:disabled)') ?? focusable()[0] ?? dialog.current)?.focus();
     const keyboard = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeRef.current();
+      if (e.key === "Escape") { e.preventDefault(); if (!busyRef.current) closeRef.current(); }
       if (e.key === "Tab") {
         const nodes = focusable(),
           first = nodes[0],
           last = nodes[nodes.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
+        if (!nodes.length) { e.preventDefault(); dialog.current?.focus(); }
+        else if (!dialog.current?.contains(document.activeElement)) { e.preventDefault(); first?.focus(); }
+        else if (e.shiftKey && document.activeElement === first) {
           e.preventDefault();
           last?.focus();
         } else if (!e.shiftKey && document.activeElement === last) {
@@ -1386,33 +1185,38 @@ function Dialog({
     window.addEventListener("keydown", keyboard);
     return () => {
       window.removeEventListener("keydown", keyboard);
-      prior?.focus();
+      if (workspace) workspace.inert = priorInert ?? false;
+      document.body.style.overflow = priorOverflow;
+      if (prior?.isConnected) prior.focus();
     };
   }, []);
-  return (
-    <div className="modal-backdrop" role="presentation">
+  return createPortal(
+    <div className={`institution-workspace institution-dialog-layer${dark ? ' dark-mode' : ''}`}><div className="modal-backdrop" role="presentation">
       <div
         ref={dialog}
         className="modal"
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        aria-busy={busy}
+        tabIndex={-1}
       >
         <div className="modal-head">
           <div>
             <h2>{title}</h2>
           </div>
-          <button className="icon-button" aria-label="Fechar" onClick={close}>
+          <button type="button" className="icon-button" aria-label="Fechar" disabled={busy} onClick={close}>
             <Icon name="close" />
           </button>
         </div>
-        {children}
+        <div className="institution-dialog-body">{children}</div>
         <div className="modal-footer">
-          <button className="outline-button" onClick={close}>
+          {busy && <p role="status">Aguarde a confirmação do envio.</p>}
+          <button type="button" className="outline-button" disabled={busy} onClick={close}>
             Fechar
           </button>
         </div>
       </div>
-    </div>
+    </div></div>, document.body
   );
 }

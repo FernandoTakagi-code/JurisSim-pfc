@@ -15,7 +15,7 @@ const examSchema = z.object({ titulo: z.string().trim().min(2).max(150), descric
 }).strict().refine(value => new Set(value.turmaIds).size === value.turmaIds.length && new Set(value.questaoIds).size === value.questaoIds.length, 'Não repita turmas ou questões.');
 
 export const classRoutes = Router(), examRoutes = Router();
-for (const router of [classRoutes, examRoutes]) router.use(requireAuth, denyGlobalAcademicAccess, (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); });
+for (const router of [classRoutes, examRoutes]) router.use((_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); }, requireAuth, denyGlobalAcademicAccess);
 const staff = requireAcademicStaff, student = requireRoles('ALUNO');
 classRoutes.use((request, _response, next) => {
   if (!institutionsEnabled() && (/\/requests(?:\/|$)/.test(request.path) || (request.method === 'DELETE' && /\/students\//.test(request.path)))) return next(new ApiError(503, 'Gestão institucional aguarda ativação autorizada.'));
@@ -55,6 +55,10 @@ classRoutes.patch('/:id', staff, async (request: AuthenticatedRequest, response)
   response.json(await service.updateClass(request.auth!, id(request), data));
 });
 classRoutes.post('/:id/invite', staff, async (request: AuthenticatedRequest, response) => { response.json(await service.rotateInvite(request.auth!, id(request))); });
+examRoutes.get('/eligible-questions',staff,async(request:AuthenticatedRequest,response)=>{
+  const query=z.object({turmaIds:z.string().transform(value=>value.split(',')).pipe(z.array(z.string().uuid()).min(1).max(30)),page:z.coerce.number().int().min(1).max(10000).default(1)}).strict().parse(request.query);
+  response.json(await service.eligibleQuestions(request.auth!,query.turmaIds,query.page));
+});
 examRoutes.get('/', async (request: AuthenticatedRequest, response) => { response.json(await service.listExams(request.auth!, page(request))); });
 examRoutes.post('/', staff, async (request: AuthenticatedRequest, response) => { response.status(201).json(await service.saveExam(request.auth!, examSchema.parse(request.body))); });
 examRoutes.put('/:id', staff, async (request: AuthenticatedRequest, response) => { response.json(await service.saveExam(request.auth!, examSchema.parse(request.body), id(request))); });

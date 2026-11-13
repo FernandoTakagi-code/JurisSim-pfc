@@ -8,7 +8,7 @@ import { errorHandler } from '../middlewares/error-handler';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-const db = vi.hoisted(() => ({ create: vi.fn(), findUnique: vi.fn(), auditCreate: vi.fn() }));
+const db = vi.hoisted(() => ({ create: vi.fn(), findUnique: vi.fn(), findMany: vi.fn().mockResolvedValue([]), auditCreate: vi.fn() }));
 vi.mock('../lib/prisma', () => ({ prisma: { user: db, auditLog: { create: db.auditCreate }, simulado: { findFirst: vi.fn().mockResolvedValue(null) } } }));
 
 const acceptance = { accepted: true, termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion };
@@ -78,9 +78,10 @@ describe('cadastro HTTP no roteador oficial', () => {
   });
 
   it('bloqueia requisições sem aceite e registra aceite válido em /auth', async () => {
+    db.findMany.mockResolvedValue([]);
     db.findUnique.mockReset().mockResolvedValue(null);
     db.create.mockReset().mockImplementation(async ({ data }) => ({ ...data, id: 'user-http', sessionVersion: 0 }));
-    // Preserve the minimum password length and case-sensitive email of the active API.
+    // The active API normalizes registration e-mail addresses.
     const body = { nome: 'Ana', email: 'Ana@example.com', senha: 'Fixture-password1!', confirmacaoSenha: 'Fixture-password1!' };
     for (const input of [undefined, { ...acceptance, accepted: false }, { ...acceptance, privacyVersion: 'antiga' }]) {
       const response = await fetch(`${base}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, acceptance: input }) });
@@ -96,7 +97,7 @@ describe('cadastro HTTP no roteador oficial', () => {
       message: 'Conta criada, mas não foi possível enviar a confirmação de e-mail. Entre e solicite o reenvio.',
     });
     expect(JSON.stringify(result)).not.toMatch(/senhaHash|123456/);
-    expect(result.usuario).toEqual({ id: 'user-http', nome: body.nome, email: body.email, role: 'ALUNO' });
+    expect(result.usuario).toEqual({ id: 'user-http', nome: body.nome, email: body.email.toLowerCase(), role: 'ALUNO' });
     const payload = jwt.verify(result.token, process.env.JWT_SECRET!, { algorithms: ['HS256'] }) as jwt.JwtPayload;
     expect(payload.id === 'user-http' && payload.role === 'ALUNO' && payload.sessionVersion === 0 && payload.sub === undefined).toBe(true);
     expect(db.create).toHaveBeenCalledTimes(1);
@@ -106,11 +107,12 @@ describe('cadastro HTTP no roteador oficial', () => {
     expect(await bcrypt.compare(body.senha, saved.senhaHash)).toBe(true);
     expect(bcrypt.getRounds(saved.senhaHash)).toBe(10);
     db.findUnique.mockResolvedValue({ ...saved, id: 'user-http', emailVerifiedAt: null, deletedAt: null, sessionVersion: 0 });
+    db.findMany.mockResolvedValue([{ ...saved, id: 'user-http', emailVerifiedAt: null, deletedAt: null, sessionVersion: 0 }]);
     const login = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: body.email, senha: body.senha }) });
     expect(login.status).toBe(200);
     const session = await fetch(`${base}/auth/session`, { headers: { Authorization: `Bearer ${(await login.json()).token}` } });
     expect(session.status).toBe(200);
-    expect(await session.json()).toEqual({ user: { id: 'user-http', nome: body.nome, email: body.email, role: 'ALUNO', emailVerificado: false }, nextStep: 'DIAGNOSTIC' });
+    expect(await session.json()).toEqual({ user: { id: 'user-http', nome: body.nome, email: body.email.toLowerCase(), role: 'ALUNO', emailVerificado: false }, nextStep: 'DIAGNOSTIC' });
   });
 
   it.each(['PROFESSOR', 'ADMIN'])('rejeita role %s enviada diretamente no cadastro público', async role => {

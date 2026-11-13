@@ -24,6 +24,7 @@ const account = (role = 'ALUNO') => ({ id: 'fixture', nome: 'Fixture', email: bo
 const call = (path: string, data?: unknown, token?: string) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data ?? {}) });
 beforeAll(async () => { hash = await bcrypt.hash(body.senha, 4); });
 beforeEach(async () => {
+  for(const key of ['INSTITUTIONS_ENABLED','ADMINISTRATION_ENABLED','INSTITUTION_REGISTRATION_ENABLED','INSTITUTION_HOMOLOGATION_ENABLED'])vi.stubEnv(key,'false');
   vi.clearAllMocks(); process.env.JWT_SECRET = secret; process.env.GOOGLE_CLIENT_ID = 'isolated-client'; clock = 100;
   process.env.APP_PUBLIC_URL = 'http://localhost:5173';
   mocks.find.mockResolvedValue(null); mocks.auth.mockResolvedValue(account()); mocks.create.mockResolvedValue(account()); mocks.audit.mockResolvedValue({}); mocks.revoke.mockResolvedValue({ count: 1 });
@@ -32,7 +33,7 @@ beforeEach(async () => {
   const app = express(); app.use(express.json()); app.use('/auth', createAuthRoutes(controller)); app.post('/rate', authRateLimit(2, 1000, () => clock), (_req, res) => res.json({ ok: true })); app.use(errorHandler);
   server = app.listen(0, '127.0.0.1'); await new Promise<void>(resolve => server.once('listening', resolve)); base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 });
-afterEach(async () => { await new Promise<void>(resolve => server.close(() => resolve())); });
+afterEach(async () => { await new Promise<void>(resolve => server.close(() => resolve())); vi.unstubAllEnvs(); });
 describe('stage 7 authentication contracts', () => {
   it.each([{ nome: ' ' }, { email: 'invalid' }, { role: 'ADMIN' }, { senha: 'short' }, { senha: 'é'.repeat(37) }, { confirmacaoSenha: 'different' }, { acceptance: undefined }, { acceptance: { ...acceptance, accepted: false } }])('rejects invalid registration without persistence', async override => {
     expect((await call('/auth/register', { ...body, ...override })).status).toBe(400); expect(mocks.create).not.toHaveBeenCalled();

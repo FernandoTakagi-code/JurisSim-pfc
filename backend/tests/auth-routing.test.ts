@@ -6,6 +6,12 @@ const student = (nextStep: 'DASHBOARD' | 'DIAGNOSTIC' | 'INITIAL_DIAGNOSTIC', em
 });
 
 describe('frontend session routing decisions', () => {
+  it('routes a pending invited identity only to its invitation, never to a student or teacher dashboard',()=>{
+    const session={user:{role:'ALUNO' as const,emailVerificado:true},registrationIntent:'TEACHER_INVITATION' as const,nextStep:'INVITATION' as const};
+    expect(sessionDestination(session)).toBe('/convite-professor');
+    for(const path of ['/dashboard','/professor','/perfil','/instituicoes'])expect(sessionRedirectTarget(session,path)).toBe('/convite-professor');
+    expect(sessionRedirectTarget(session,'/convite-professor')).toBeNull();
+  });
   it('directs global and institutional administrators to exclusive management pages', () => {
     expect(sessionDestination({ user: { role: 'ADMIN', emailVerificado: true }, nextStep: 'PROFESSOR' })).toBe('/administracao');
     expect(sessionDestination({ ...student('INITIAL_DIAGNOSTIC'), administration: { enabled: true, memberships: [{ role: 'INSTITUTION_ADMIN' }] } })).toBe('/instituicoes');
@@ -33,7 +39,7 @@ describe('frontend session routing decisions', () => {
 
   it('preserva aluno pendente e professor, mas mantém ADMIN no contexto administrativo', () => {
     expect(sessionRedirectTarget(student('INITIAL_DIAGNOSTIC', false), '/dashboard')).toBeNull();
-    expect(sessionRedirectTarget({ user: { role: 'PROFESSOR', emailVerificado: true }, nextStep: 'PROFESSOR' }, '/dashboard')).toBeNull();
+    expect(sessionRedirectTarget({ user: { role: 'PROFESSOR', emailVerificado: true }, nextStep: 'PROFESSOR' }, '/dashboard')).toBe('/professor');
     expect(sessionRedirectTarget({ user: { role: 'ADMIN', emailVerificado: true }, nextStep: 'PROFESSOR' }, '/dashboard')).toBe('/administracao');
   });
 

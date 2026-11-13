@@ -7,11 +7,13 @@ const db=vi.hoisted(()=>{
 });
 vi.mock('../lib/prisma',()=>({prisma:db}));
 import {InvitationOnboardingService,escapeMail} from './invitation-onboarding';
+import {EmailDeliveryFailure} from './email-delivery-failure';
 const mail={isConfigured:true,send:vi.fn()},token='a'.repeat(64),proof='b'.repeat(64);
 const digest=(v:string)=>createHash('sha256').update(v).digest('hex');
 const service=new InvitationOnboardingService(mail);
 beforeEach(()=>{
   vi.resetAllMocks();vi.stubEnv('APP_PUBLIC_URL','https://jurissim.example.invalid');
+  vi.stubEnv('INSTITUTIONS_ENABLED','true');
   db.$transaction.mockImplementation(work=>work(db));
   db.teacherInvitation.findUnique.mockResolvedValue({id:'invite',institutionId:'inst',email:'invited@example.invalid',status:'PENDING',expiresAt:new Date(Date.now()+3600000)});
   db.institution.findUnique.mockResolvedValue({id:'inst',name:'Instituição de teste',status:'ACTIVE'});
@@ -21,15 +23,40 @@ beforeEach(()=>{
   db.teacherInvitationClass.findMany.mockResolvedValue([]);
 });
 afterEach(()=>vi.unstubAllEnvs());
-it('inspects only minimal metadata without exposing email, token hash or account existence',async()=>{
+it('inspects the invited identity for the bearer without consuming the invitation',async()=>{
   const details=await service.inspect(token);
-  expect(details.maskedEmail).toBe('i***@example.invalid');expect(details).not.toHaveProperty('email');expect(details).not.toHaveProperty('tokenHash');expect(db.user.findFirst).not.toHaveBeenCalled();
+  expect(details.maskedEmail).toBe('i***@example.invalid');expect(details.email).toBe('invited@example.invalid');expect(details.accountExists).toBe(false);expect(details).not.toHaveProperty('tokenHash');expect(db.user.create).not.toHaveBeenCalled();expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();
+});
+it('new recipient proves the invited email and creates only a pending identity, never accepts on registration',async()=>{
+  db.user.findMany.mockResolvedValue([]);
+  db.user.findUnique.mockResolvedValue({id:'new-user',email:'invited@example.invalid',role:'ALUNO',emailVerifiedAt:new Date(),deletedAt:null});
+  await expect(service.register(token,'New Teacher','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).resolves.toMatchObject({nextStep:'LOGIN'});
+  expect(db.user.create.mock.calls[0][0].data).toMatchObject({email:'invited@example.invalid',role:'ALUNO',registrationIntent:'TEACHER_INVITATION',emailVerifiedAt:expect.any(Date)});
+  expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();
+  expect(mail.send).not.toHaveBeenCalled();
+});
+it('registration cannot overwrite an existing account or its credentials',async()=>{
+  db.user.findMany.mockResolvedValue([{id:'existing',role:'ALUNO',emailVerifiedAt:new Date()}]);
+  await expect(service.register(token,'Name','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).rejects.toMatchObject({statusCode:409});
+  expect(db.user.create).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();
+});
+it('new registration refuses an expired invitation before creating any account',async()=>{
+  db.teacherInvitation.findUnique.mockResolvedValue({id:'invite',institutionId:'inst',email:'invited@example.invalid',status:'PENDING',expiresAt:new Date(0)});
+  await expect(service.register(token,'Name','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).rejects.toMatchObject({statusCode:409});
+  expect(db.user.create).not.toHaveBeenCalled();
 });
 it.each(['SUSPENDED','REJECTED','PENDING'])('rejects invitation from %s institution',async status=>{
   db.institution.findUnique.mockResolvedValue({id:'inst',status});await expect(service.inspect(token)).rejects.toMatchObject({statusCode:409});
 });
 it.each(['CANCELLED','ACCEPTED','DECLINED'])('rejects %s invitations',async status=>{
   db.teacherInvitation.findUnique.mockResolvedValue({id:'invite',institutionId:'inst',status,expiresAt:new Date(Date.now()+3600000)});await expect(service.inspect(token)).rejects.toMatchObject({statusCode:409});
+});
+it.each([
+  ['CANCELLED','INVITATION_REVOKED'],['ACCEPTED','INVITATION_ACCEPTED'],['DECLINED','INVITATION_DECLINED'],['PENDING','INVITATION_EXPIRED'],
+])('returns safe distinguishable state %s without changing invitation or account',async(status,code)=>{
+  db.teacherInvitation.findUnique.mockResolvedValue({id:'invite',institutionId:'inst',status,expiresAt:status==='PENDING'?new Date(0):new Date(Date.now()+3600000)});
+  await expect(service.inspect(token)).rejects.toMatchObject({statusCode:409,code});
+  expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();
 });
 it('does not overwrite or enumerate an existing identity',async()=>{
   db.user.findFirst.mockResolvedValue({id:'existing',role:'PROFESSOR',senhaHash:'existing-hash'});
@@ -46,6 +73,30 @@ it('stores only proof hash and mails a second email-control proof without passwo
 });
 it('requires explicit legal acceptance before creating an identity',async()=>{
   await expect(service.start(token,'Professor',{accepted:false,...versions})).rejects.toBeDefined();expect(db.user.create).not.toHaveBeenCalled();
+});
+it('H4.12 direct registration never bypasses the disabled institutional runtime',async()=>{
+  vi.stubEnv('INSTITUTIONS_ENABLED','false');
+  await expect(service.register(token,'Professor','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).rejects.toMatchObject({statusCode:403});
+  expect(db.user.create).not.toHaveBeenCalled();expect(mail.send).not.toHaveBeenCalled();
+});
+it('H4.12 an untouched legacy provisional identity can decline without a second proof or changing credentials',async()=>{
+  vi.stubEnv('INSTITUTIONS_ENABLED','true');
+  db.user.findFirst.mockResolvedValue({id:'pending',role:'ALUNO',emailVerifiedAt:null,senhaHash:'initial'});
+  db.invitationOnboarding.findUnique.mockResolvedValue({id:'legacy',invitationId:'invite',initialPasswordHash:'initial',completedAt:null});
+  await expect(service.declineNew(token)).resolves.toHaveProperty('message');
+  expect(db.invitationOnboarding.update).toHaveBeenCalledWith({where:{id:'legacy'},data:{completedAt:expect.any(Date)}});
+  expect(db.user.update).not.toHaveBeenCalled();expect(db.user.create).not.toHaveBeenCalled();expect(mail.send).not.toHaveBeenCalled();
+});
+it('H4.6 preserves a possibly delivered onboarding proof after an indeterminate SMTP result',async()=>{
+  mail.send.mockRejectedValue(new EmailDeliveryFailure('indeterminate','request_deadline'));
+  await expect(service.start(token,'Professor',{accepted:true,...versions})).resolves.toHaveProperty('message');
+  expect(db.invitationOnboarding.updateMany).not.toHaveBeenCalled();
+});
+it('H4.6 invalidates only the failed proof when SMTP demonstrably did not accept it',async()=>{
+  mail.send.mockRejectedValue(new EmailDeliveryFailure('not_accepted','connect'));
+  await service.start(token,'Professor',{accepted:true,...versions});
+  const proofHash=db.invitationOnboarding.create.mock.calls[0][0].data.proofHash;
+  expect(db.invitationOnboarding.updateMany).toHaveBeenCalledWith({where:{id:'setup',completedAt:null,proofHash},data:{expiresAt:new Date(0)}});
 });
 it('rotates the proof after the resend cooldown without changing the pending account password',async()=>{
   db.user.findFirst.mockResolvedValue({id:'new-user',role:'ALUNO',senhaHash:'original'});
@@ -71,13 +122,14 @@ it('does not replace an account password altered after onboarding started',async
   db.invitationOnboarding.findUnique.mockResolvedValue(entry);db.user.findUnique.mockResolvedValue({id:'new-user',email:'invited@example.invalid',role:'ALUNO',senhaHash:'changed'});
   await expect(service.complete(token,proof,'SenhaForte123!','SenhaForte123!')).rejects.toMatchObject({statusCode:409});expect(db.user.update).not.toHaveBeenCalled();
 });
-it('completes only a new proven identity, revoking previous sessions and granting only the invited membership',async()=>{
+it('legacy proof completes only the identity and credentials, preserving the original invitation for separate acceptance',async()=>{
   const entry={id:'setup',invitationId:'invite',userId:'new-user',proofHash:digest(proof),initialPasswordHash:'original',expiresAt:new Date(Date.now()+60000),completedAt:null};
   db.invitationOnboarding.findUnique.mockResolvedValue(entry);
   db.user.findUnique.mockResolvedValue({id:'new-user',email:'invited@example.invalid',role:'ALUNO',senhaHash:'original',emailVerifiedAt:new Date()});
   await service.complete(token,proof,'SenhaForte123!','SenhaForte123!');
   expect(db.user.update.mock.calls[0][0].data).toMatchObject({sessionVersion:{increment:1},emailVerifiedAt:expect.any(Date)});
-  expect(db.institutionalMembership.upsert.mock.calls[0][0].create).toEqual({institutionId:'inst',userId:'new-user',role:'TEACHER'});
+  expect(db.user.update.mock.calls[0][0].data.registrationIntent).toBe('TEACHER_INVITATION');
+  expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();expect(db.user.update).toHaveBeenCalledOnce();
   expect(db.invitationOnboarding.update).toHaveBeenCalledWith(expect.objectContaining({data:{completedAt:expect.any(Date)}}));
 });
 it('declines with email proof without granting a membership or replacing credentials',async()=>{

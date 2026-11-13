@@ -9,37 +9,20 @@ import { administrativeCapabilities } from "../config/institution-feature";
 import { authRateLimit } from '../middlewares/auth-rate-limit';
 import { InstitutionService } from "../services/institution-service";
 import { ApiError } from "../errors/api-error";
+import { institutionRequestSchema } from '../services/institution-registration-validation';
 import { InvitationOnboardingService } from '../services/invitation-onboarding';
+import { homologationManifest, homologationParticipant, restrictedInstitutionId } from '../config/institution-homologation';
+import { institutionsGloballyEnabled } from '../config/institution-feature';
+import { InstitutionDecisionEmail } from '../services/institution-decision-email';
+import { requireGlobal } from '../services/institution-service';
+import { emailFrontendContext } from '../services/email-frontend';
+import { AccountDeletionService } from '../services/account-deletion';
 
-export const institutionRoutes = Router();
-const service = new InstitutionService();
-const onboarding = new InvitationOnboardingService();
 const invitationToken = z.string().regex(/^[a-f0-9]{64}$/);
 const page = z.coerce.number().int().min(1).max(10000).default(1);
 const id = (req: AuthenticatedRequest, key = "id") =>
   z.string().uuid().parse(req.params[key]);
-export const institutionInput = z
-  .object({
-    name: z.string().trim().min(2).max(180),
-    responsibleName: z.string().trim().min(2).max(120),
-    registrationNumber: z
-      .string()
-      .trim()
-      .transform((v) => v.replace(/[./\-\s]/g, "").toUpperCase())
-      .refine(
-        (v) => /^[A-Z0-9]{12}[0-9]{2}$/.test(v),
-        "CNPJ deve ter 14 posições, com dois dígitos finais.",
-      )
-      .optional(),
-    phone: z
-      .string()
-      .trim()
-      .min(8)
-      .max(25)
-      .regex(/^\+?[\d ()-]+$/),
-    description: z.string().trim().min(10).max(2000),
-  })
-  .strict();
+export const institutionInput = institutionRequestSchema;
 export const logFilters = z
   .object({
     page,
@@ -58,6 +41,15 @@ export const logFilters = z
     (v) => !v.from || !v.to || Date.parse(v.from) <= Date.parse(v.to),
     "Período inválido.",
   );
+export function createInstitutionRoutes(service = new InstitutionService(), onboarding = new InvitationOnboardingService(), decisionEmails = new InstitutionDecisionEmail()) {
+const institutionRoutes = Router();
+institutionRoutes.use(emailFrontendContext);
+// Optional authenticated availability, and authenticated UUID scope before the
+// feature gate. Anonymous clients receive only the global availability.
+institutionRoutes.use((req, res, next) => {
+  if (homologationManifest() && req.get('authorization')) return requireAuth(req, res, next);
+  next();
+});
 institutionRoutes.get("/availability", (_req, res) => {
   res.set('Cache-Control','no-store');
   res.json(administrativeCapabilities());
@@ -66,7 +58,12 @@ institutionRoutes.use((_req, res, next) => {
   res.set("Cache-Control", "no-store");
   const availability = administrativeCapabilities(), caps = availability.capabilities;
   const path = _req.path;
-  const allowed = path === '/requests' ? availability.registrationEnabled
+  const invitationEntry = ['/invitations/inspect','/invitations/accept','/invitations/decline'].includes(path);
+  if (!institutionsGloballyEnabled() && homologationManifest() && invitationEntry && (_req as AuthenticatedRequest).auth && homologationParticipant((_req as AuthenticatedRequest).auth!.userId)) return next();
+  // First-time account creation via invitation cannot authorize an unknown UUID.
+  // Restricted participants register/confirm normally before invitation acceptance.
+  if (restrictedInstitutionId() && ['/invitations/register','/invitations/onboarding','/invitations/complete','/invitations/decline-proof'].includes(path)) return next(new ApiError(403,'Use uma conta individual previamente cadastrada e confirmada.'));
+  const allowed = /^\/requests(?:\/|$)/.test(path) ? availability.registrationEnabled
     : path === '/mine' ? availability.registrationEnabled || availability.administrationEnabled
     : path === '/notifications' ? caps.notifications
     : /^\/admin\/institutions(?:\/|$)/.test(path) ? caps.institutions
@@ -89,9 +86,12 @@ institutionRoutes.post(
   async (req: AuthenticatedRequest, res) => {
     res
       .status(201)
-      .json(await service.request(req.auth!, institutionInput.extend({institutionType: z.enum(['ENSINO_SUPERIOR','CURSO_PREPARATORIO','OUTRA_ORGANIZACAO']).optional()}).parse(req.body)));
+      .json(await service.request(req.auth!, institutionInput.parse(req.body)));
   },
 );
+institutionRoutes.put('/requests/:id',requireAuth,authRateLimit(15,3600000),async(req:AuthenticatedRequest,res)=>{
+  res.json(await service.resubmit(req.auth!,id(req),institutionInput.parse(req.body)));
+});
 institutionRoutes.get(
   "/mine",
   requireLimitedAuth,
@@ -103,9 +103,16 @@ institutionRoutes.post('/invitations/inspect', authRateLimit(30, 60_000), async 
   const {token} = z.object({token:invitationToken}).strict().parse(req.body);
   res.json(await onboarding.inspect(token));
 });
-institutionRoutes.post('/invitations/onboarding', authRateLimit(5, 3600_000), async (req, res) => {
-  const input = z.object({token:invitationToken,nome:z.string().trim().min(2).max(120),acceptance:z.unknown()}).strict().parse(req.body);
-  res.json(await onboarding.start(input.token,input.nome,input.acceptance));
+institutionRoutes.post('/invitations/onboarding', authRateLimit(5, 3600_000), async (_req, _res) => {
+  throw new ApiError(410,'O primeiro acesso agora é concluído pelo convite original, sem outro e-mail. Abra novamente seu convite.');
+});
+institutionRoutes.post('/invitations/register',authRateLimit(10,3600_000),async(req,res)=>{
+  const input=z.object({token:invitationToken,nome:z.string().trim().min(2).max(120),password:z.string().max(128),confirmation:z.string().max(128),acceptance:z.unknown()}).strict().parse(req.body);
+  res.status(201).json(await onboarding.register(input.token,input.nome,input.password,input.confirmation,input.acceptance));
+});
+institutionRoutes.post('/invitations/decline-new',authRateLimit(10,3600_000),async(req,res)=>{
+  const {token}=z.object({token:invitationToken}).strict().parse(req.body);
+  res.json(await onboarding.declineNew(token));
 });
 institutionRoutes.post('/invitations/complete', authRateLimit(10, 3600_000), async (req,res) => {
   const input=z.object({token:invitationToken,proof:invitationToken,password:z.string().max(128),confirmation:z.string().max(128)}).strict().parse(req.body);
@@ -116,6 +123,25 @@ institutionRoutes.post('/invitations/decline-proof',authRateLimit(10,3600_000),a
   res.json(await onboarding.declineWithProof(token,proof));
 });
 institutionRoutes.use(requireAuth);
+institutionRoutes.delete('/admin/users/:userId', authRateLimit(10, 900000), async (req: AuthenticatedRequest, res) => {
+  requireGlobal(req.auth!);
+  const data = z.object({ confirmation: z.literal('EXCLUIR'), blockEmail: z.boolean(), reason: z.string().trim().min(3).max(500), senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional() }).strict().refine(value => !!value.senhaAtual || !!value.googleCredential, 'Confirme a identidade do ADMIN.').parse(req.body);
+  res.json(await new AccountDeletionService().admin(req.auth!, id(req, 'userId'), data.blockEmail, data.reason, data));
+});
+institutionRoutes.post('/admin/email-reuse/revoke', authRateLimit(10, 900000), async (req: AuthenticatedRequest, res) => {
+  requireGlobal(req.auth!);
+  const data = z.object({ email: z.string().trim().email().max(254), confirmation: z.literal('REVOGAR'), reason: z.string().trim().min(3).max(500) }).strict().parse(req.body);
+  res.json(await new AccountDeletionService().revoke(req.auth!, data.email, data.reason));
+});
+institutionRoutes.get('/admin/institutions/:id/decision-email',async(req:AuthenticatedRequest,res)=>{
+  requireGlobal(req.auth!);res.json(await decisionEmails.status(id(req)));
+});
+institutionRoutes.post('/admin/institutions/:id/decision-email/:eventId/retry',authRateLimit(10,3600000),async(req:AuthenticatedRequest,res)=>{
+  requireGlobal(req.auth!);
+  z.object({confirmation:z.literal(true)}).strict().parse(req.body);
+  const state=await decisionEmails.retry(id(req),id(req,'eventId'),req.auth!.userId);
+  res.json({state,message:state==='SENT'?'E-mail aceito pelo provedor.':'Envio não confirmado. Consulte o estado antes de repetir.'});
+});
 institutionRoutes.post('/invitations/decline', authRateLimit(10,3600_000), async (req:AuthenticatedRequest,res)=>{
   const {token}=z.object({token:invitationToken}).strict().parse(req.body);
   res.json(await onboarding.decline(token,req.auth!));
@@ -195,28 +221,34 @@ institutionRoutes.get(
       page: p,
       search,
       role,
+      status,
     } = z
       .object({
         page,
         search: z.string().trim().max(120).optional(),
+        status: z.enum(['ACTIVE', 'SUSPENDED']).optional(),
         role: z.enum(["ALUNO", "PROFESSOR", "ADMIN"]).optional(),
       })
       .strict()
       .parse(req.query);
-    res.json(await service.users(req.auth!, p, search, role));
+    res.json(await service.users(req.auth!, p, search, role, status));
   },
 );
+institutionRoutes.get('/admin/users/:id/history', async (req: AuthenticatedRequest, res) => {
+  res.json(await service.userHistory(req.auth!, id(req), z.object({page}).strict().parse(req.query).page));
+});
 institutionRoutes.patch(
   "/admin/users/:id",
   async (req: AuthenticatedRequest, res) => {
     const input = z
       .object({
+        reason: z.string().trim().min(3).max(500),
         suspended: z.boolean().optional(),
         globalAdmin: z.boolean().optional(),
       })
       .strict()
       .refine(
-        (v) => Object.values(v).length === 1,
+        (v) => Number(v.suspended !== undefined) + Number(v.globalAdmin !== undefined) === 1,
         "Altere uma permissão por vez.",
       )
       .parse(req.body);
@@ -321,3 +353,7 @@ institutionRoutes.get("/:id/logs", async (req: AuthenticatedRequest, res) => {
     ),
   );
 });
+
+return institutionRoutes;
+}
+export const institutionRoutes = createInstitutionRoutes();

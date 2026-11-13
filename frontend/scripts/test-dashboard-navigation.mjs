@@ -92,7 +92,7 @@ try {
     window.apiCalls = [];
     window.fetch = async (url, init = {}) => {
       const route = new URL(String(url)).pathname;
-      window.apiCalls.push({ route, method: init.method || 'GET', auth: init.headers?.Authorization });
+      window.apiCalls.push({ route, method: init.method || 'GET', auth: init.headers?.Authorization, institution: init.headers?.['X-Institution-Id'] });
       if (route === '/auth/session') {
         if (window.fixture.networkFailure) throw new Error('Simulated network failure');
         if (window.fixture.delaySession) return new Promise(resolve => { window.releaseSession = resolve; });
@@ -152,6 +152,7 @@ try {
       if (route.startsWith('/reports/')) {
         const reply = (value, status = 200) => new Response(JSON.stringify(value), { status });
         if (window.fixture.reportStatus) return reply({ message: 'Relatório indisponível para esta conta.' }, window.fixture.reportStatus);
+        if (route === '/reports/overview') return reply(window.fixture.overview || { classes: 0, activeClasses: 0, students: 0, publishedExams: 0 });
         if (route === '/reports/classes') return reply({ items: window.fixture.reportClasses || [], page: 1, hasMore: false });
         const parts = route.split('/');
         const report = parts[4] === 'students' ? window.fixture.reportIndividuals?.[parts[3] + ':' + parts[5]] : window.fixture.reports?.[parts[3]];
@@ -164,6 +165,7 @@ try {
         const classes = window.fixture.classData ||= [];
         const exams = window.fixture.exams ||= [];
         if (window.fixture.classStatus) return reply({ message: 'Recurso indisponível para esta conta.' }, window.fixture.classStatus);
+        if(route==='/avaliacoes/eligible-questions')return reply({items:window.fixture.questions||[],page:1,hasMore:false});
         if (route === '/turmas/join') {
           if (body.code !== 'A'.repeat(32)) return reply({ message: 'Convite inválido.' }, 404);
           window.fixture.enrolled = true; window.persistFixture(); return reply({ joined: true, message: 'Matrícula realizada.' });
@@ -292,8 +294,49 @@ try {
   pass('legacy nextStep DIAGNOSTIC preserves the old flow and does not call the new diagnostic API');
 
   await boot({ session: user('PROFESSOR') }, '/dashboard', 'ALUNO');
-  await until('!!document.querySelector(".professor-shell") && location.pathname === "/professor"');
-  pass('PROFESSOR uses professor route');
+  await until('!!document.querySelector("[data-testid=teacher-dashboard]") && location.pathname === "/professor"');
+  assert.equal(await evaluate('window.apiCalls.some(call => call.route.startsWith("/questoes"))'), false);
+  pass('PROFESSOR opens independent dashboard without loading the question module');
+  await boot({ session: { ...user('PROFESSOR'), administration: { enabled: true, globalAdmin: false, needsInstitutionLink: true, memberships: [] } } }, '/professor');
+  await until('!!document.querySelector("[data-testid=teacher-dashboard]") && document.body.textContent.includes("Vínculo institucional pendente")');
+  assert.equal(await evaluate('window.apiCalls.some(call => ["/turmas", "/avaliacoes", "/questoes", "/reports"].some(prefix => call.route.startsWith(prefix)))'), false);
+  pass('teacher with pending link sees dashboard and no academic API is requested');
+  const multiTeacher = { ...user('PROFESSOR'), administration: { enabled: true, globalAdmin: false, memberships: ['institution-one', 'institution-two'].map(institutionId => ({ institutionId, role: 'TEACHER', institution: { name: institutionId } })) } };
+  await boot({ session: multiTeacher }, '/professor/perfil');
+  await until('!!document.querySelector("#profile-name")');
+  assert.equal(await evaluate('window.apiCalls.some(call => ["/turmas", "/avaliacoes", "/questoes", "/reports"].some(prefix => call.route.startsWith(prefix)))'), false);
+  pass('teacher profile opens before choosing among multiple institutions without academic requests');
+  await boot({ session: multiTeacher }, '/professor');
+  await until('document.body.textContent.includes("Selecione sua instituição de trabalho")');
+  assert.equal(await evaluate('document.querySelectorAll(".institution-context select").length'), 1);
+  assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/turmas")'), false);
+  await evaluate('const picker=document.querySelector(".institution-context select");picker.value="institution-two";picker.dispatchEvent(new Event("change",{bubbles:true}));');
+  await until('window.apiCalls.some(call => call.route === "/turmas" && call.institution === "institution-two")');
+  assert.equal(await evaluate('window.apiCalls.some(call => call.route.startsWith("/questoes"))'), false);
+  pass('single institution picker loads classes only after selection and sends the validated institution context');
+  for (const width of [360, 768, 1366]) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width === 360 });
+    assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
+    const shot = await cdp('Page.captureScreenshot', { format: 'png' });
+    await writeFile(path.join(profile, `h437-teacher-${width}.png`), Buffer.from(shot.data, 'base64'));
+  }
+  await cdp('Emulation.clearDeviceMetricsOverride');
+  pass('teacher dashboard fits mobile, tablet and desktop');
+  for (const academicPath of ['/professor/turmas', '/professor/alunos', '/professor/atividades', '/professor/relatorios', '/professor/desempenho', '/professor/simulados']) {
+    await evaluate('window.apiCalls=[]');
+    await evaluate(`import('/src/navigation.ts').then(n => n.navigate(${JSON.stringify(academicPath)}))`);
+    await until('window.apiCalls.some(call => ["/turmas", "/avaliacoes", "/reports/classes"].some(prefix => call.route.startsWith(prefix)))');
+    assert.equal(await evaluate('window.apiCalls.some(call => call.route.startsWith("/questoes"))'), false, academicPath);
+  }
+  pass('all academic teacher pages load their own APIs without mounting the question module');
+  await evaluate(`window.fixture.classData=[{id:'class-safe',nome:'Turma autorizada',archivedAt:null,_count:{alunos:0}}];window.apiCalls=[];import('/src/navigation.ts').then(n=>n.navigate('/professor/atividades?turma=class-safe'))`);
+  await until('!!document.querySelector(".teacher-activities select option[value=class-safe]")');
+  assert.equal(await evaluate('document.body.textContent.includes("Criação de atividades ainda indisponível")'),true);
+  assert.equal(await evaluate('document.querySelector(".teacher-activities select").value'),'class-safe');
+  await evaluate(`(await import('/src/navigation.ts')).navigate('/professor/atividades?turma=foreign')`);
+  await until('document.querySelector(".teacher-activities").textContent.includes("A turma solicitada não está nesta página autorizada")');
+  assert.equal(await evaluate('window.apiCalls.some(call=>call.route.includes("foreign")||call.route.startsWith("/atividades")||call.method!=="GET")'),false);
+  pass('Atividades mantém contexto e isolamento de turma com API existente, sem criar/publicar funcionalidades indisponíveis');
   await boot({ session: user('ADMIN') }, '/dashboard', 'ALUNO');
   await until('!!document.querySelector(".admin-page") && location.pathname === "/administracao"');
   assert.equal(await evaluate('!!document.querySelector(".professor-shell")'), false);

@@ -12,10 +12,12 @@ import { isLocalEmailCaptureRequested, localEmailVerificationCapture } from '../
 import type { LocalEmailVerificationCapture } from '../services/local-email-capture';
 import { passwordSchema } from '../services/password-policy';
 import { ApiError } from '../errors/api-error';
+import { AccountDeletionService } from '../services/account-deletion';
 import { accountDeletionEnabled, accountDeletionUnavailableMessage } from '../account-deletion-availability';
 
-const deleteAccountSchema = z.object({ senhaAtual: z.string().optional() });
-const emailSchema = z.string().trim().email('E-mail inválido').max(254);
+const deleteAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional(), confirmation: z.literal('EXCLUIR') }).strict();
+const deactivateAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024), confirmation: z.literal('DESATIVAR') }).strict();
+const emailSchema = z.string().trim().email('E-mail inválido').max(254).transform(value => value.toLowerCase());
 const perfilSchema = z.enum(['ALUNO', 'PROFESSOR']).optional();
 
 const registerSchema = z.object({
@@ -26,6 +28,7 @@ const registerSchema = z.object({
   // The public registration endpoint may only request a student account.
   // The repository assigns ALUNO itself and does not trust this field.
   role: z.literal('ALUNO').optional(),
+  registrationIntent: z.literal('INSTITUTION').optional(),
   acceptance: acceptanceSchema,
 }).refine(data => data.confirmacaoSenha === undefined || data.senha === data.confirmacaoSenha, { message: 'As senhas não coincidem.', path: ['confirmacaoSenha'] });
 const loginSchema = z.object({
@@ -34,6 +37,8 @@ const loginSchema = z.object({
   perfil: perfilSchema,
 });
 const googleSchema = z.object({
+  existingAccountOnly: z.boolean().optional(),
+  registrationIntent: z.literal('INSTITUTION').optional(),
   credential: z.string().min(1, 'Credencial do Google não fornecida.'),
   acceptance: acceptanceSchema.optional(),
   perfil: perfilSchema,
@@ -59,6 +64,15 @@ export class AuthController {
       isLocalEmailCaptureRequested() ? localEmailVerificationCapture : new BrevoEmailVerificationSender()),
     private readonly localEmailCapture: LocalEmailVerificationCapture = localEmailVerificationCapture,
   ) {}
+
+  registerInstitution = async (request: Request,response: Response) => {
+    const result=await this.service.registerInstitutionalApplication(request.body);
+    let message='Conta e solicitação recebidas. Confirme seu e-mail para acompanhar a análise.';
+    let status='accepted';
+    try { await this.emailVerification.requestVerification(result.usuario.id); }
+    catch {status='unavailable';message='Conta e solicitação recebidas, mas o envio da confirmação não foi confirmado. Entre na área institucional e confira sua caixa de entrada antes de solicitar reenvio.';}
+    response.status(201).json({...result,emailVerification:{status,message}});
+  };
 
   solicitarRecuperacaoSenha = async (request: Request, response: Response) => {
     const parsed = recoveryRequestSchema.safeParse(request.body);
@@ -86,7 +100,7 @@ export class AuthController {
       return;
     }
     const { nome, email, senha, acceptance } = parsed.data;
-    const resultado = await this.service.register(nome, email, senha, acceptance);
+    const resultado = await this.service.register(nome, email, senha, acceptance, parsed.data.registrationIntent);
     let emailVerification: { status: 'captured' | 'accepted' | 'unavailable'; message: string };
     try {
       const verification = await this.emailVerification.requestVerification(resultado.usuario.id);
@@ -144,7 +158,9 @@ export class AuthController {
     }
     const emailVerificado = payload.email.trim().toLowerCase();
     const nomeSugerido = payload.name ?? payload.given_name ?? emailVerificado.split('@')[0];
-    response.json(await this.service.loginWithGoogle(emailVerificado, nomeSugerido, parsed.data.acceptance, parsed.data.perfil));
+    response.json(await (parsed.data.existingAccountOnly
+      ? this.service.loginWithGoogle(emailVerificado,nomeSugerido,parsed.data.acceptance,parsed.data.perfil,parsed.data.registrationIntent,true)
+      : this.service.loginWithGoogle(emailVerificado, nomeSugerido, parsed.data.acceptance, parsed.data.perfil, parsed.data.registrationIntent)));
   };
 
   logout = async (request: AuthenticatedRequest, response: Response) => {
@@ -166,13 +182,18 @@ export class AuthController {
   };
 
   excluirConta = async (request: AuthenticatedRequest, response: Response) => {
-    if (!accountDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
     const parsed = deleteAccountSchema.safeParse(request.body);
     if (!parsed.success) {
       response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
       return;
     }
-    response.json(await this.service.deleteAccount(request.auth!.userId, parsed.data.senhaAtual));
+    if (!accountDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
+    response.json(await new AccountDeletionService().self(request.auth!.userId, parsed.data));
+  };
+
+  desativarConta = async (request: AuthenticatedRequest, response: Response) => {
+    const data = deactivateAccountSchema.parse(request.body);
+    response.json(await this.service.deactivateAccount(request.auth!.userId, data.senhaAtual));
   };
 
   exportarDados = async (request: AuthenticatedRequest, response: Response) => {

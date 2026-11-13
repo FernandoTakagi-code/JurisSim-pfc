@@ -2,12 +2,20 @@
 node_modules/
 
 frontend/tsconfig.tsbuildinfo
+# Incremental TypeScript output in any workspace; never source code.
+*.tsbuildinfo
 
 
 .env
 .env.local
+# Private environment variants. Keep public, credential-free templates visible.
 .env.*
 !.env.example
+!.env.*.example
+
+# Separate homologation secrets; examples remain versionable.
+/backend/.env.homologacao
+/frontend/.env.homologacao
 
 # Migration backup paths, destination fingerprints and integrity plans stay local.
 /backend/.local/

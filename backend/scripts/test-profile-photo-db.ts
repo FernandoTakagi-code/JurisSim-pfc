@@ -108,6 +108,27 @@ async function main() {
   pass('revoked and expired tokens cannot read or replace photos; other user sessions stay valid');
 
   const deleteToken = await login(users.alice.email);
+  const beforeDeletion = await prisma.user.findUniqueOrThrow({ where: { id: users.alice.id } });
+  const beforePhoto = await call('/profile/photo', deleteToken);
+  await call('/auth/conta', deleteToken, 'DELETE', JSON.stringify({ senhaAtual: password }), undefined, 400);
+  await call('/auth/conta', deleteToken, 'DELETE', JSON.stringify({ senhaAtual: password, confirmation: 'EXCLUIR' }), undefined, 503);
+  assert.deepEqual(await prisma.user.findUniqueOrThrow({ where: { id: users.alice.id } }), beforeDeletion);
+  assert.deepEqual(await call('/profile/photo', deleteToken), beforePhoto);
+  assert.equal(await prisma.profilePhoto.count({ where: { userId: users.alice.id } }), 1);
+  const hardDelete = await prisma.user.create({ data: { nome: 'Cascade fixture', email: 'photo-cascade@example.invalid', role: 'ALUNO', profilePhotos: { create: { avatarId: 'books' } } } });
+  await prisma.user.delete({ where: { id: hardDelete.id } });
+  assert.equal(await prisma.profilePhoto.count({ where: { userId: hardDelete.id } }), 0);
+  pass('missing confirmation is rejected; disabled H4.24 preserves identity, session and photo; fixture hard deletion cascades');
+  const beforeTeacher = await prisma.user.findUniqueOrThrow({ where: { id: users.teacher.id } });
+  const [uploadRace] = await Promise.all([
+    fetch(base + '/profile/photo/image', { method: 'PUT', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'image/jpeg' }, body: Uint8Array.from(original) }),
+    call('/auth/conta', t, 'DELETE', JSON.stringify({ senhaAtual: password, confirmation: 'EXCLUIR' }), undefined, 503),
+  ]);
+  assert.equal(uploadRace.status, 200); await uploadRace.text();
+  assert.equal(await prisma.profilePhoto.count({ where: { userId: users.teacher.id } }), 1);
+  assert.deepEqual(await prisma.user.findUniqueOrThrow({ where: { id: users.teacher.id } }), beforeTeacher);
+  assert.equal((await call('/profile/photo', t)).kind, 'image');
+  pass('concurrent upload succeeds while disabled deletion preserves the teacher identity and session');
   const exportResult = await call('/auth/dados?userId=' + users.bob.id, deleteToken);
   assert.equal(exportResult.profile.id, users.alice.id);
   assert.equal(exportResult.profile.email, users.alice.email);

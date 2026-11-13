@@ -75,7 +75,9 @@ jobs:
       - name: Preparar o Chrome do runner
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          echo "CHROME_PATH=$(command -v google-chrome || command -v google-chrome-stable)" >> "$GITHUB_ENV"
+          chrome_bin="$(command -v google-chrome || command -v google-chrome-stable)"
+          "$chrome_bin" --version
+          echo "CHROME_PATH=$chrome_bin" >> "$GITHUB_ENV"
 
       # Mesma versão major do banco do projeto (Supabase/PostgreSQL 17); o script recusa outra.
       - name: Instalar o PostgreSQL 17
@@ -85,14 +87,28 @@ jobs:
           sudo apt-get install -y -qq --no-install-recommends postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y -qq --no-install-recommends postgresql-17
-          # O PostgreSQL do Ubuntu cria o socket em /var/run/postgresql; o usuário do runner precisa escrever nele.
-          sudo chmod a+rwx /var/run/postgresql
+          # O harness utiliza somente TCP loopback, sem socket no diretório compartilhado.
           echo "bin=/usr/lib/postgresql/17/bin" >> "$GITHUB_OUTPUT"
 
       # O script cria um cluster PostgreSQL descartável (só 127.0.0.1), aplica as
       # migrations e executa apenas vitest.integration.config.ts (*.integration.test.ts).
       - name: Executar somente os testes de integração em banco descartável
-        run: npm run test:integration:disposable -- "${{ steps.postgres.outputs.bin }}" --integration-suite-only
+        run: |
+          mkdir -p .artifacts
+          npm run test:integration:disposable -- "${{ steps.postgres.outputs.bin }}" --integration-suite-only 2>&1 | tee .artifacts/disposable-integration.log
+
+      # Somente logs sanitizados; nunca publicar o cluster, manifesto ou senhas do harness.
+      - name: Preservar diagnóstico da integração (somente em falha)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagnostico-integracao
+          path: |
+            backend/.artifacts/disposable-integration.log
+            frontend/.artifacts/institution-real-db/diagnostics.json
+          if-no-files-found: ignore
+          include-hidden-files: true
+          retention-days: 7
 
       - name: Mostrar o log do PostgreSQL descartável (somente em falha)
         if: failure()

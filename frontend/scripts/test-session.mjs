@@ -95,6 +95,8 @@ try {
         if (window.fixture.delaySession) return new Promise(resolve => { window.releaseSession = resolve; });
         return new Response(JSON.stringify(window.fixture.session || { message: 'Sessão inválida.' }), { status: window.fixture.sessionStatus || 200 });
       }
+      if (route === '/institutions/availability') return new Response(JSON.stringify({ enabled: false, registrationEnabled: true, administrationEnabled: false, capabilities: {} }), { status: 200 });
+      if (route === '/institutions/mine') return new Response(JSON.stringify([]), { status: 200 });
       if (route === '/auth/logout') {
         if (window.fixture.delayLogout) return new Promise(resolve => { window.releaseLogout = resolve; });
         if (window.fixture.logoutStatus) return new Response(JSON.stringify({ message: 'Servidor temporariamente indisponível.' }), { status: window.fixture.logoutStatus });
@@ -137,6 +139,7 @@ try {
       if (route.startsWith('/reports/')) {
         const reply = (value, status = 200) => new Response(JSON.stringify(value), { status });
         if (window.fixture.reportStatus) return reply({ message: 'Relatório indisponível para esta conta.' }, window.fixture.reportStatus);
+        if (route === '/reports/overview') return reply(window.fixture.overview || { classes: 0, activeClasses: 0, students: 0, publishedExams: 0 });
         if (route === '/reports/classes') return reply({ items: window.fixture.reportClasses || [], page: 1, hasMore: false });
         const parts = route.split('/');
         const report = parts[4] === 'students' ? window.fixture.reportIndividuals?.[parts[3] + ':' + parts[5]] : window.fixture.reports?.[parts[3]];
@@ -149,6 +152,11 @@ try {
         const classes = window.fixture.classData ||= [];
         const exams = window.fixture.exams ||= [];
         if (window.fixture.classStatus) return reply({ message: 'Recurso indisponível para esta conta.' }, window.fixture.classStatus);
+        if(route==='/avaliacoes/eligible-questions'){
+          if(window.fixture.catalogNetwork)throw new TypeError('Falha de rede simulada');
+          if(window.fixture.catalogStatus)return reply({message:'Consulta de questões recusada.'},window.fixture.catalogStatus);
+          return reply({items:window.fixture.catalogEmpty?[]:(window.fixture.questions||[]),page:1,hasMore:false});
+        }
         if (route === '/turmas/join') {
           if (body.code !== 'A'.repeat(32)) return reply({ message: 'Convite inválido.' }, 404);
           window.fixture.enrolled = true; window.persistFixture(); return reply({ joined: true, message: 'Matrícula realizada.' });
@@ -193,6 +201,12 @@ try {
       }
       if (route.startsWith('/students/me/')) {
         if (window.fixture.historyStatus) return new Response(JSON.stringify({ message: 'Histórico temporariamente indisponível.' }), { status: window.fixture.historyStatus });
+        if (route === '/students/me/performance') {
+          return new Response(JSON.stringify(window.fixture.performance || {
+            kind: 'all', totals: { assigned: 0, answered: 0, correct: 0, incorrect: 0, unanswered: 0, percentage: null, activities: 0 },
+            modalities: [], disciplines: [], topics: [], provisional: false, reviewEnabled: false,
+          }), { status: 200 });
+        }
         const empty = { totals: { completedActivities: 0, completedDiagnostics: 0, completedTrails: 0, totalQuestions: 0, answeredQuestions: 0, correctAnswers: 0, incorrectAnswers: 0, unansweredQuestions: 0 }, evolution: [], recentActivities: [], latestDiagnosticId: null };
         if (route === '/students/me/overview') return new Response(JSON.stringify(window.fixture.overview || empty), { status: 200 });
         const cursor = new URL(String(url)).searchParams.get('cursor') || 'first';
@@ -209,6 +223,9 @@ try {
         return new Response(JSON.stringify({ usuario: window.fixture.session.user }), { status: 200 });
       }
       if (route === '/auth/email-verification') return new Response(JSON.stringify({ message: 'Reenvio simulado.' }), { status: 202 });
+      if (route === '/auth/register') { window.fixture.session.registrationIntent=JSON.parse(init.body).registrationIntent;window.persistFixture();return new Response(JSON.stringify({ token: 'registration-limited-fixture-token', emailVerification: { status: 'accepted' } }), { status: 201 }); }
+      if (route === '/auth/institution-register') { window.fixture.session.registrationIntent='INSTITUTION';window.persistFixture();return new Response(JSON.stringify({token:'registration-limited-fixture-token',emailVerification:{status:'accepted'}}),{status:201}); }
+      if (route === '/auth/conta/desativacao') return new Response(JSON.stringify({ message: window.fixture.deactivationFailure ? 'Senha atual incorreta.' : 'Conta desativada.' }), { status: window.fixture.deactivationFailure ? 400 : 200 });
       if (route === '/auth/login') {
         if (window.fixture.loginSuccess) return new Response(JSON.stringify({ token: 'local-login-fixture-token' }), { status: 200 });
         return new Response(JSON.stringify({ message: 'Credenciais inválidas.' }), { status: 401 });
@@ -243,7 +260,7 @@ try {
 
   await boot({ session: user() }, '/professor');
   await until('!!document.querySelector(".dashboard-page") && location.pathname === "/dashboard"');
-  assert.equal(await evaluate('!!document.querySelector(".professor-shell")'), false);
+  assert.equal(await evaluate('!!document.querySelector(".teacher-dashboard, .professor-shell")'), false);
   assert.equal(await evaluate('document.body.textContent.includes("Nome adulterado")'), false);
   assert.equal(await evaluate('document.querySelector(".dashboard-heading h1").textContent'), 'Seu espaço de estudos');
   pass('aluno usa sessão do servidor e mantém dashboard original mesmo com URL de professor e JWT de ADMIN');
@@ -278,11 +295,11 @@ try {
 
   for (const role of ['PROFESSOR', 'ADMIN']) {
     await boot({ session: user(role) }, '/dashboard', 'ALUNO');
-    await until(role === 'ADMIN' ? '!!document.querySelector(".admin-page") && location.pathname === "/administracao"' : '!!document.querySelector(".professor-shell") && location.pathname === "/professor"');
+    await until(role === 'ADMIN' ? '!!document.querySelector(".admin-page") && location.pathname === "/administracao"' : '!!document.querySelector(".teacher-dashboard, .professor-shell") && location.pathname === "/professor"');
     pass(role + ' usa a área existente conforme perfil validado, independentemente do JWT');
   }
   await boot({ session: user('PROFESSOR') }, '/professor', 'ADMIN');
-  await until('!!document.querySelector(".professor-shell")');
+  await until('!!document.querySelector(".teacher-dashboard, .professor-shell")');
   await evaluate(`[...document.querySelectorAll('nav button')].find(b => b.textContent.includes('Cadastrar')).click()`);
   await until('!!document.querySelector(".question-form")');
   await evaluate(`
@@ -291,6 +308,11 @@ try {
       Object.getOwnPropertyDescriptor(proto, 'value').set.call(input, input.tagName === 'TEXTAREA' ? 'Texto da questão para teste isolado' : 'Fixture');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
+    for (const [index, input] of [...document.querySelectorAll('.alternative-row textarea')].entries()) {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Alternativa de teste ' + index);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    document.querySelector('.alternative-row input[type=radio]').click();
   `);
   await evaluate('document.querySelector(".form-actions .primary").click()');
   await until('!!document.querySelector(".question-card")');
@@ -313,7 +335,7 @@ try {
     await evaluate('document.querySelector("button.primary").click()');
     await until('document.querySelector(".recovery-notice")?.textContent === "Reenvio simulado."');
     await evaluate('window.fixture.session.user.emailVerificado = true; window.dispatchEvent(new Event("focus"))');
-    await until(role === 'ALUNO' ? '!!document.querySelector(".dashboard-page")' : role === 'ADMIN' ? '!!document.querySelector(".admin-page")' : '!!document.querySelector(".professor-shell")');
+    await until(role === 'ALUNO' ? '!!document.querySelector(".dashboard-page")' : role === 'ADMIN' ? '!!document.querySelector(".admin-page")' : '!!document.querySelector(".teacher-dashboard, .professor-shell")');
     pass(role + ' pendente é bloqueado apesar do cache e reconhece confirmação após revalidar');
   }
 
@@ -343,7 +365,7 @@ try {
 
   await boot({ session: { ...user(), user: { ...user().user, role: 'INVALIDO' } } });
   await until('document.querySelector("[role=alert]")?.textContent.includes("validar")');
-  assert.equal(await evaluate('!!document.querySelector(".professor-shell")'), false);
+  assert.equal(await evaluate('!!document.querySelector(".teacher-dashboard, .professor-shell")'), false);
   pass('resposta de sessão inválida não escolhe permissões pelo cache');
 
   await boot({ session: user() });
@@ -364,7 +386,7 @@ try {
   await boot({ session: user('ADMIN') });
   await until('!!document.querySelector(".admin-page")');
   await evaluate(`window.client = await import('/src/api.ts'); window.fixture.session = ${JSON.stringify(user())}; window.fixture.resourceStatus = 403; await window.client.apiRequest('/questoes').catch(() => {});`);
-  await until('!document.querySelector(".admin-page") && !document.querySelector(".professor-shell") && document.body.textContent.includes("Acesso n\u00e3o autorizado")');
+  await until('!document.querySelector(".admin-page") && !document.querySelector(".teacher-dashboard, .professor-shell") && document.body.textContent.includes("Acesso n\u00e3o autorizado")');
   pass('redução de perfil após 403 remove a área anterior sem novo login');
 
   await boot({ session: user() });
@@ -374,7 +396,7 @@ try {
   await evaluate(`window.fixture.delaySession = false; window.fixture.session.user.nome = 'Nova sessão'; await window.sessions.establishSession('new-local-fixture-token'); window.releaseSession(new Response(JSON.stringify({ ...window.fixture.session, user: { ...window.fixture.session.user, role: 'ADMIN', nome: 'Resposta antiga' } }), { status: 200 })); await window.oldSession;`);
   assert.equal(await evaluate('sessionStorage.getItem("jurissim_token") === "new-local-fixture-token"'), true);
   assert.equal(await evaluate('sessionStorage.getItem("jurissim_user_name")'), 'Nova sessão');
-  assert.equal(await evaluate('!!document.querySelector(".professor-shell")'), false);
+  assert.equal(await evaluate('!!document.querySelector(".teacher-dashboard, .professor-shell")'), false);
   pass('resposta atrasada de sessão anterior não sobrescreve login novo');
 
   await evaluate(`window.client = await import('/src/api.ts'); window.fixture.delayResource = true; window.oldResource = window.client.apiRequest('/questoes').catch(() => null);`);
@@ -384,7 +406,17 @@ try {
   await evaluate(`await window.client.apiRequest('/auth/login', { method: 'POST', body: '{}' }, { authenticated: false }).catch(() => {});`);
   assert.equal(await evaluate('sessionStorage.getItem("jurissim_token") === "newer-local-fixture-token"'), true);
   pass('401 atrasado e erro de credenciais públicas não encerram outra sessão válida');
-  const go = async path => { await evaluate(`window.nav = await import('/src/navigation.ts'); window.nav.navigate(${JSON.stringify(path)});`); await until(`location.pathname === ${JSON.stringify(path)}`); };
+  const expectedProfileLocation = path => {
+    if (path === '/configuracoes') return '/perfil?aba=appearance';
+    if (path === '/professor/configuracoes') return '/professor/perfil?aba=appearance';
+    if (path === '/administracao/preferencias') return '/administracao/perfil?aba=appearance';
+    return path;
+  };
+  const go = async path => {
+    const expected = expectedProfileLocation(path);
+    await evaluate(`window.nav = await import('/src/navigation.ts'); window.nav.navigate(${JSON.stringify(path)});`);
+    await until(`location.pathname + location.search === ${JSON.stringify(expected)}`);
+  };
   const clickText = async (selector, text) => {
     const expression = `[...document.querySelectorAll(${JSON.stringify(selector)})].find(button => button.textContent.includes(${JSON.stringify(text)}))`;
     const marker = text === 'Sair' ? String(Math.random()) : undefined;
@@ -426,7 +458,7 @@ try {
     await evaluate('history.back()');
     await until('location.pathname.endsWith("/perfil") && !!document.querySelector("#profile-name")');
     await evaluate('history.forward()');
-    await until('(location.pathname.endsWith("/configuracoes") || location.pathname.endsWith("/preferencias")) && !!document.querySelector(".v0-theme-options")');
+    await until('location.search.includes("aba=appearance") && !!document.querySelector(".v0-theme-options")');
     await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
     await evaluate('document.querySelector(".v0-mobile-menu").click()');
     await until('document.querySelector(".v0-sidebar").classList.contains("v0-open")');
@@ -436,7 +468,7 @@ try {
       await clickText('.v0-sidebar nav button', 'Vis\u00e3o geral');
       await until('!!document.querySelector(".admin-page") && !document.querySelector(".v0-sidebar").classList.contains("v0-open")');
       await go('/administracao/perfil');
-    } else await clickText('.v0-sidebar nav button', 'Meu perfil');
+    } else await clickText('.v0-sidebar nav button', 'Perfil e configurações');
     await until('!!document.querySelector("#profile-name") && !document.querySelector(".v0-sidebar").classList.contains("v0-open")');
     await evaluate('document.querySelector(".v0-mobile-menu").click()');
     await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
@@ -444,8 +476,10 @@ try {
     assert.equal(await evaluate('document.activeElement.getAttribute("aria-label")'), 'Abrir menu');
     await evaluate('document.querySelector(".v0-user-trigger").click()');
     await until('!!document.querySelector(".v0-dropdown")');
-    await clickText('.v0-dropdown button', 'Configurações');
-    await until('(location.pathname.endsWith("/configuracoes") || location.pathname.endsWith("/preferencias")) && !document.querySelector(".v0-dropdown")');
+    await clickText('.v0-dropdown button', 'Perfil e configurações');
+    await until('!!document.querySelector("#profile-name") && !document.querySelector(".v0-dropdown")');
+    await go(base + '/perfil?aba=appearance');
+    await until('!!document.querySelector(".v0-menu-preference")');
     const shot = await cdp('Page.captureScreenshot', { format: 'png' });
     await writeFile(path.join(profile, `mobile-${role}.png`), Buffer.from(shot.data, 'base64'));
     await cdp('Emulation.setDeviceMetricsOverride', { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
@@ -510,8 +544,8 @@ try {
   await boot({ session: user() });
   await until('!!document.querySelector(".dashboard-page")');
   await go('/questoes');
-  await until('!!document.querySelector(".practice-page h1")');
-  assert.equal(await evaluate('document.querySelector(".practice-picker .primary").disabled'), true);
+  await until('!!document.querySelector(".practice-study h1")');
+  assert.equal(await evaluate('document.querySelector(".practice-summary .individual-primary").disabled'), true);
   assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/question-practice")'), false);
   await evaluate('history.back()');
   await until('location.pathname === "/dashboard" && !!document.querySelector(".dashboard-page")');
@@ -526,7 +560,7 @@ try {
     await until('!!document.querySelector(".auth-card")');
     await evaluate(`for (const [selector, value] of [['input[name=email]', 'fixture@example.invalid'], ['input[autocomplete=current-password]', 'isolated-fixture-password']]) { const input = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }`);
     await evaluate('document.querySelector(".auth-submit").click()');
-    await until(role === 'ALUNO' ? 'location.pathname === "/dashboard" && !!document.querySelector(".dashboard-page")' : 'location.pathname === "/professor" && !!document.querySelector(".professor-shell")');
+    await until(role === 'ALUNO' ? 'location.pathname === "/dashboard" && !!document.querySelector(".dashboard-page")' : 'location.pathname === "/professor" && !!document.querySelector(".teacher-dashboard, .professor-shell")');
     pass(role + ': login oficial com API isolada redireciona pelo perfil validado');
   }
   for (const role of ['ALUNO', 'PROFESSOR']) {
@@ -554,6 +588,7 @@ try {
   const storedResult = { id: historyActivity.id, finalizedAt: historyActivity.finalizedAt, totalQuestions: 10, answeredQuestions: 9, correctAnswers: 7, incorrectAnswers: 2, unansweredQuestions: 1, overallPercentage: 70, level: 'INTERMEDIARIO', recommendation: 'Recomendação persistida de teste', performances: [{ tipo: 'DISCIPLINA', disciplina: 'Civil', percentual: 70 }], trail: { id: 'saved-trail', disciplinaPrioritaria: 'Civil', assuntoPrioritario: 'Contratos', nivelRecomendado: 'INTERMEDIARIO', quantidadeRecomendada: 10, justificativa: 'Fixture persistida', simuladoGeradoId: trailActivity.id } };
   const populated = {
     session: user(), loginSuccess: true,
+    performance: { kind: 'all', totals: { assigned: 20, answered: 18, correct: 15, incorrect: 3, unanswered: 2, percentage: 83.33, activities: 2 }, modalities: [], disciplines: [], topics: [], provisional: false, reviewEnabled: false },
     overview: { latestDiagnosticId: historyActivity.id, totals: { completedActivities: 2, completedDiagnostics: 1, completedTrails: 1, totalQuestions: 20, answeredQuestions: 18, correctAnswers: 15, incorrectAnswers: 3, unansweredQuestions: 2 }, evolution: [historyActivity], recentActivities: [trailActivity, historyActivity] },
     results: { [`/diagnostics/${historyActivity.id}/result`]: storedResult, [`/trilhas/attempts/${trailActivity.id}/result`]: { ...storedResult, id: trailActivity.id, overallPercentage: 80, correctAnswers: 8, trail: null } },
     historyPages: { first: { items: [trailActivity], nextCursor: 'second' }, second: { items: [historyActivity], nextCursor: null } },
@@ -613,9 +648,9 @@ try {
   assert.equal(await evaluate('document.querySelector(".study-progress-card > strong").textContent.includes("1")'), true);
   await clickText('.study-discipline-panel button', 'Direito Civil');
   await clickText('.study-module-card', 'Contratos'); await until('!!document.querySelector(".study-module-detail")');
-  await clickText('.study-module-actions button', 'Ir ao banco de questões'); await until('!!document.querySelector(".practice-picker")');
-  assert.equal(await evaluate('document.querySelector("#practice-discipline").value'), 'Direito Civil');
-  assert.equal(await evaluate('document.querySelector(".practice-picker .primary").disabled'), true);
+  await clickText('.study-module-actions button', 'Ir ao banco de questões'); await until('!!document.querySelector(".practice-study")');
+  assert.equal(await evaluate('[...document.querySelectorAll(".practice-disciplines button")].find(button => button.getAttribute("aria-pressed") === "true")?.textContent.replace(/[\u2713\u2192]/g, "").trim()'), 'Civil');
+  assert.equal(await evaluate('document.querySelector(".practice-summary .individual-primary").disabled'), true);
   assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/question-practice")'), false);
   pass('trilha realista: cinco matérias, 27 módulos, recomendação do resultado existente, progresso local persistente e prática respeita feature flag');
 
@@ -628,9 +663,10 @@ try {
   pass('aluno sem diagnóstico recebe trilha inicial sem métricas inventadas e progresso separado por conta');
 
   await boot(populated, '/dashboard'); await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "18"');
-  await go('/desempenho'); await until('!!document.querySelector(".study-indicators")');
-  assert.equal(await evaluate('[...document.querySelectorAll(".study-indicators dl div")].find(item => item.querySelector("dt").textContent === "Respostas erradas").querySelector("dd").textContent'), '3');
-  assert.equal(await evaluate('[...document.querySelectorAll(".study-indicators dl div")].find(item => item.querySelector("dt").textContent === "Não respondidas").querySelector("dd").textContent'), '2');
+  await go('/desempenho'); await until('!!document.querySelector(".performance-stats")');
+  assert.equal(await evaluate('[...document.querySelectorAll(".performance-stats article")].find(item => item.querySelector("p").textContent === "Erros").querySelector("strong").textContent'), '3');
+  assert.equal(await evaluate('[...document.querySelectorAll(".performance-stats article")].find(item => item.querySelector("p").textContent === "Atividades concluídas").querySelector("small").textContent'), '2 questões em branco');
+  assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/students/me/performance")'), true);
   await captureStudyPage('performance');
   pass('indicadores diferenciam erros e não respondidas sem criar evolução com um único diagnóstico');
   await go('/historico'); await until('!!document.querySelector(".study-history-list")');
@@ -695,11 +731,41 @@ try {
   await go('/professor/simulados');
   await until('!!document.querySelector(".class-exams-page>.primary")');
   await clickText('.class-exams-page>.primary', 'Criar simulado');
-  await until('document.querySelectorAll(".exam-form fieldset input[type=checkbox]").length === 2');
+  await until('document.querySelectorAll(".exam-form fieldset:first-of-type input[type=checkbox]").length === 1');
+  assert.equal(await evaluate('document.querySelector(".exam-form").textContent.includes("Selecione ao menos uma turma")'),true);
+  await evaluate('document.querySelector(".exam-form fieldset:first-of-type input[type=checkbox]").click()');
+  await until('document.querySelectorAll(".exam-form fieldset:last-of-type input[type=checkbox]").length === 1');
+  await evaluate('window.fixture.catalogStatus=403');
+  await clickText('.exam-form fieldset:last-of-type button','Atualizar questões');
+  await until('document.querySelector(".exam-form").textContent.includes("Você não tem acesso às questões")');
+  assert.equal(await evaluate('document.querySelector(".exam-form").textContent.includes("Nenhuma questão elegível")'),false);
+  assert.equal(await evaluate('document.querySelector(".exam-form .class-actions .primary").disabled'),true);
+  await evaluate('window.fixture.catalogStatus=undefined;window.fixture.catalogEmpty=true');
+  await clickText('.exam-form fieldset:last-of-type button','Tentar novamente');
+  await until('document.querySelector(".exam-form").textContent.includes("Nenhuma questão elegível para as turmas")');
+  await evaluate('window.fixture.catalogEmpty=false');
+  await clickText('.exam-form fieldset:last-of-type button','Atualizar questões');
+  await until('document.querySelectorAll(".exam-form fieldset:last-of-type input[type=checkbox]").length===1');
+  await fill('#exam-quantity','2');
+  await until('document.querySelector(".exam-form").textContent.includes("Questões insuficientes")');
+  assert.equal(await evaluate('document.querySelector(".exam-form .class-actions .primary").disabled'),true);
+  await evaluate('window.fixture.catalogNetwork=true');
+  await clickText('.exam-form fieldset:last-of-type button','Atualizar questões');
+  await until('document.querySelector(".exam-form").textContent.includes("Falha de comunicação")');
+  await evaluate('window.fixture.catalogNetwork=false;window.fixture.catalogStatus=500');
+  await clickText('.exam-form fieldset:last-of-type button','Tentar novamente');
+  await until('document.querySelector(".exam-form").textContent.includes("Falha interna")');
+  await evaluate('window.fixture.catalogStatus=undefined');
+  await clickText('.exam-form fieldset:last-of-type button','Tentar novamente');
+  await until('document.querySelectorAll(".exam-form fieldset:last-of-type input[type=checkbox]").length===1');
+  await fill('#exam-quantity','1');
+  assert.equal(await evaluate('window.apiCalls.some(call=>call.route==="/avaliacoes"&&call.method==="POST")'),false);
+  pass('catálogo elegível distingue 403, vazio, insuficiência, rede e erro interno; nenhum estado habilita ou salva rascunho indevidamente');
   await fill('#exam-title', 'Simulado criado pelo professor');
   await fill('#exam-description', 'Descrição persistida pela API isolada');
   await fill('#exam-duration', '60');
-  await evaluate('for (const input of document.querySelectorAll(".exam-form fieldset input[type=checkbox]")) input.click()');
+  await evaluate('document.querySelector(".exam-form fieldset:last-of-type input[type=checkbox]").click()');
+  assert.equal(await evaluate('window.apiCalls.some(call=>call.route==="/questoes")'),false);
   await captureStudyPage('exam-form');
   await evaluate('document.querySelector(".exam-form").requestSubmit()');
   await until('!!document.querySelector(".exam-card") && !document.querySelector(".exam-form")');
@@ -873,7 +939,7 @@ try {
     await reloadDocument(); await until('document.querySelector(".v0-photo img")?.getAttribute("src") === "/avatars/justice.svg"');
     await logout(); await until('!!document.querySelector(".auth-card")');
     await fill('input[name=email]', 'fixture@example.invalid'); await fill('input[autocomplete=current-password]', 'isolated-fixture-password');
-    await evaluate('document.querySelector(".auth-submit").click()'); await until(role === 'ALUNO' ? '!!document.querySelector(".dashboard-page")' : role === 'ADMIN' ? '!!document.querySelector(".admin-page")' : '!!document.querySelector(".professor-shell")');
+    await evaluate('document.querySelector(".auth-submit").click()'); await until(role === 'ALUNO' ? '!!document.querySelector(".dashboard-page")' : role === 'ADMIN' ? '!!document.querySelector(".admin-page")' : '!!document.querySelector(".teacher-dashboard, .professor-shell")');
     await go(path); await until('document.querySelector(".v0-photo img")?.getAttribute("src") === "/avatars/justice.svg"');
     pass(`avatar de ${role}: confirmação/cancelamento, identidade compartilhada, recarga e novo login oficial`);
     await openPhoto(); await choosePhotoFile(); await until('!!document.querySelector(".photo-preview>img")');
@@ -966,8 +1032,154 @@ try {
   await evaluate(`window.fixture.session = ${JSON.stringify(replacementSession)}; window.persistFixture(); await window.sessionModule.establishSession('replacement-session-fixture');`);
   await evaluate('window.releaseLogout(new Response(JSON.stringify({ message: "Encerrada" }), { status: 200 })); await window.logoutPromise;');
   assert.equal(await evaluate('sessionStorage.getItem("jurissim_token")'), 'replacement-session-fixture');
-  await until('!!document.querySelector(".professor-shell")');
+  await until('!!document.querySelector(".teacher-dashboard, .professor-shell")');
   pass('resposta atrasada de logout não encerra nem redireciona a sessão de outra conta');
+  for (const institutional of [false, true]) {
+    await evaluate(`window.fixture={session:${JSON.stringify(user('ALUNO', false))}};window.persistFixture();(await import('/src/auth-session.ts')).endSession();`);
+    await navigateDocument(origin + (institutional ? '/instituicoes' : '/'));
+    await until('!!document.querySelector(".auth-card")');
+    if (!institutional) {
+      for (const width of [320,390,768,1280]) {
+        await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
+        assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
+        assert.equal(await evaluate('document.querySelector(".auth-brand-logo").getBoundingClientRect().bottom <= document.querySelector(".auth-pitch-copy").getBoundingClientRect().top'),true);
+        assert.equal(await evaluate('document.querySelectorAll(".auth-card").length'),1);
+        assert.equal(await evaluate('[...document.querySelectorAll("button")].filter(b=>b.textContent.trim()==="Represento uma instituição").length'),0);
+      }
+    }
+    await clickText('.auth-switch button', 'Cadastre-se');
+    assert.equal(await evaluate('document.querySelectorAll(".auth-card").length'),1);
+    assert.equal(await evaluate('[...document.querySelectorAll(".registration-choice button")].filter(b=>b.textContent.trim()==="Represento uma instituição").length'),1);
+    if (!institutional) {
+      await clickText('button','Voltar ao login');
+      await until('document.querySelector("h2")?.textContent==="Login"');
+      await clickText('.auth-switch button','Cadastre-se');
+      const shot=await cdp('Page.captureScreenshot',{format:'png'});await writeFile(path.join(profile,'registration-choice-desktop.png'),Buffer.from(shot.data,'base64'));
+      await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:900,deviceScaleFactor:1,mobile:true});
+      assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
+      const mobileShot=await cdp('Page.captureScreenshot',{format:'png'});await writeFile(path.join(profile,'registration-choice-mobile.png'),Buffer.from(mobileShot.data,'base64'));
+      await cdp('Emulation.clearDeviceMetricsOverride');
+      pass('login e escolha têm um único card, opções sem duplicação, retorno ao login e layout sem overflow em quatro larguras');
+    }
+    await clickText('button', institutional ? 'Represento uma instituição' : 'Sou aluno');
+    await until('!!document.querySelector("input[name=name]")');
+    if(institutional){
+      for(const [name,value] of Object.entries({name:'Instituição de teste',tradeName:'Academy de teste',registrationNumber:'12ABC34501DE35',contactEmail:'institution@example.invalid',phone:'11999999999',postalCode:'01001000',street:'Rua de teste',number:'S/N',district:'Centro',city:'São Paulo'}))await fill(`input[name=${name}]`,value);
+      await evaluate(`for(const [name,value] of [['institutionType','CURSO_PREPARATORIO'],['state','SP']]){const el=document.querySelector('select[name='+name+']');el.value=value;el.dispatchEvent(new Event('change',{bubbles:true}));}document.querySelector('[name=noWebsite]').click();`);
+      await clickText('button','Continuar');
+      for(const [name,value] of Object.entries({responsibleName:'Pessoa de teste',representativePosition:'Diretor',representativePhone:'11999999999',email:'registration@example.invalid',emailConfirmation:'registration@example.invalid'}))await fill(`input[name=${name}]`,value);
+      await fill('textarea[name=representationEvidence]','Referência de representação verificável junto à secretaria.');
+      await evaluate(`document.querySelector('[name=representationDeclaration]').click()`);await clickText('button','Continuar');
+      await fill('input[name=senha]','Isolated-registration1!');await fill('input[name=confirmacaoSenha]','Isolated-registration1!');
+      await evaluate(`document.querySelector('[name=accepted]').click()`);await clickText('button','Enviar solicitação para análise');
+    }else{
+    await fill('input[name=name]', 'Pessoa de teste');
+    await fill('input[name=email]', 'registration@example.invalid');
+    await fill('input[name=new-password]', 'Isolated-registration1!');
+    await fill('input[name=confirm-password]', 'Isolated-registration1!');
+    await evaluate('document.querySelector("#legal-acceptance").click()');
+    await clickText('.auth-submit', institutional ? 'Criar acesso de responsável' : 'Criar conta de estudante');
+    }
+    await until('!!document.querySelector(".email-confirmation-screen")');
+    assert.equal(await evaluate('window.apiCalls.some(call=>call.route==="/auth/login")'), false);
+    assert.equal(await evaluate('window.fixture.session.registrationIntent'), institutional ? 'INSTITUTION' : undefined);
+    assert.equal(await evaluate('!!document.querySelector(".dashboard-page,.admin-form,.v0-sidebar")'), false);
+    await clickText('button', 'Reenviar e-mail de confirmação');
+    await until('document.body.textContent.includes("Reenvio simulado")');
+    assert.equal(await evaluate('[...document.querySelectorAll("button")].find(b=>b.textContent.includes("para reenviar")).disabled'), true);
+    assert.equal(await evaluate('window.apiCalls.filter(call=>call.route==="/auth/email-verification").length'), 1);
+    await evaluate('window.fixture.session.user.emailVerificado=true;window.persistFixture()');
+    await clickText('button', 'Já confirmei meu e-mail');
+    await until(institutional ? '!!document.querySelector(".institution-portal") && document.body.textContent.includes("Cadastro institucional")' : '!!document.querySelector(".dashboard-page")');
+    pass((institutional ? 'responsável' : 'aluno') + ': cadastro abre confirmação pendente, limita reenvio e só libera após revalidação do backend');
+    if (institutional) {
+      await navigateDocument(origin + '/');
+      await until('!!document.querySelector(".institution-portal") && document.body.textContent.includes("Cadastro institucional")');
+      await evaluate("window.fixture.loginSuccess=true;window.persistFixture();(await import('/src/auth-session.ts')).endSession()");
+      await navigateDocument(origin + '/');await until('!!document.querySelector(".auth-card")');
+      await fill('input[name=email]', 'registration@example.invalid');
+      await fill('input[name=current-password]', 'Isolated-registration1!');
+      await clickText('.auth-submit', 'Entrar');
+      await until('!!document.querySelector(".institution-portal") && document.body.textContent.includes("Cadastro institucional")');
+      assert.equal(await evaluate('!!document.querySelector(".teacher-dashboard, .professor-shell,.dashboard-page")'), false);
+      pass('novo login na raiz recupera intenção institucional do backend sem conceder papel de professor ou ADMIN');
+    }
+  }
+  await boot({ session: user(), logoutStatus: 503 }, '/perfil');
+  await until('document.body.textContent.includes("Perfil e configurações")');
+  await clickText('button', 'Segurança');
+  for (const dark of [false, true]) {
+    await evaluate(`document.querySelector('.v0-app').classList.toggle('v0-dark',${dark})`);
+    for (const width of [320, 390, 1366]) {
+      await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 600 });
+      assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'), true);
+      assert.equal(await evaluate('[...document.querySelectorAll(".account-action-button")].every(b=>b.getBoundingClientRect().height>=42&&getComputedStyle(b).opacity==="1")'), true);
+    }
+  }
+  await evaluate('document.querySelector(".v0-app").classList.remove("v0-dark")');
+  await cdp('Emulation.clearDeviceMetricsOverride');
+  assert.equal(await evaluate('[...document.querySelectorAll("button")].find(b=>b.textContent==="Excluir minha conta").disabled'), true);
+  assert.equal(await evaluate('window.apiCalls.some(call=>call.route==="/auth/conta"&&call.method==="DELETE")'), false);
+  pass('ações do Aluno têm 42px, temas e layout sem sobreposição; exclusão bloqueada sem chamada de API');
+  assert.equal(await evaluate('document.body.textContent.includes("Desativar minha conta")'), false);
+  const logoutBeforeModal = await evaluate('window.apiCalls.filter(call=>call.route==="/auth/logout").length');
+  await clickText('button', 'Sair de todos os dispositivos');
+  await until('!!document.querySelector("[role=alertdialog]")');
+  assert.equal(await evaluate('document.querySelector("[role=alertdialog] h2").textContent'),'Encerrar todas as sessões?');
+  assert.equal(await evaluate('!!document.querySelector("[role=alertdialog] input[type=checkbox]")'),false);
+  assert.equal(await evaluate('document.activeElement.textContent'),'Cancelar');
+  assert.equal(await evaluate('window.apiCalls.filter(call=>call.route==="/auth/logout").length'),logoutBeforeModal);
+  for(const dark of [false,true]){
+    await evaluate(`document.querySelector('.v0-app:not(.account-confirmation-layer)').classList.toggle('v0-dark',${dark})`);
+    await until(`document.querySelector('.account-confirmation-layer').classList.contains('v0-dark')===${dark}`);
+    for(const width of [320,390,1366]){
+      await cdp('Emulation.setDeviceMetricsOverride',{width,height:700,deviceScaleFactor:1,mobile:width<600});
+      assert.equal(await evaluate('(()=>{const r=document.querySelector("[role=alertdialog]").getBoundingClientRect();return r.top>=0&&r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight})()'),true);
+    }
+  }
+  await cdp('Emulation.clearDeviceMetricsOverride');
+  await evaluate('document.querySelector(".account-session-confirm").focus()');
+  await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
+  assert.equal(await evaluate('document.activeElement.getAttribute("aria-label")'),'Fechar confirmação');
+  await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});
+  await until('!document.querySelector("[role=alertdialog]")');
+  assert.equal(await evaluate('document.activeElement.textContent'),'Sair de todos os dispositivos');
+  await clickText('button', 'Sair de todos os dispositivos');
+  await clickText('[role=alertdialog] button','Cancelar');
+  await until('!document.querySelector("[role=alertdialog]")');
+  assert.equal(await evaluate('window.apiCalls.filter(call=>call.route==="/auth/logout").length'),logoutBeforeModal);
+  pass('modal de logout sem checkbox: abertura/Cancelar/Escape não fazem requisição; foco, Tab, retorno, temas e dimensões validados');
+  await clickText('button', 'Sair de todos os dispositivos');
+  await clickText('[role=alertdialog] button','Sim, encerrar todas as sessões');
+  await until('document.body.textContent.includes("Servidor temporariamente indisponível")');
+  assert.ok(await evaluate('sessionStorage.getItem("jurissim_token")'));
+  await evaluate('window.fixture.logoutStatus=0;window.fixture.delayLogout=true');
+  await evaluate('const confirm=document.querySelector(".account-session-confirm");confirm.click();confirm.click();');
+  await until('typeof window.releaseLogout==="function"');
+  await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});
+  assert.equal(await evaluate('!!document.querySelector("[role=alertdialog]")'),true);
+  assert.equal(await evaluate('[...document.querySelectorAll("[role=alertdialog] button")].every(button=>button.disabled)'),true);
+  assert.ok(await evaluate('sessionStorage.getItem("jurissim_token")'));
+  assert.equal(await evaluate('window.apiCalls.filter(call=>call.route==="/auth/logout").length'), 2);
+  await evaluate('window.releaseLogout(new Response(JSON.stringify({message:"Sessões encerradas."}),{status:200}))');
+  await until('!!document.querySelector(".auth-card")');
+  assert.equal(await evaluate('sessionStorage.getItem("jurissim_token")'), null);
+  assert.equal(await evaluate('sessionStorage.getItem("unrelated-key")'), 'preserve');
+  assert.equal(await evaluate('document.body.textContent.includes("Você saiu de todos os dispositivos")'), true);
+  assert.equal(await evaluate('window.apiCalls.some(call=>call.route.includes("/auth/conta"))'), false);
+  pass('logout global exige confirmação, evita duplicação, preserva sessão no erro e só encerra após resposta da API simulada; não desativa/exclui');
+  await boot({session:user(),delayLogout:true},'/perfil?aba=security');
+  await until('document.body.textContent.includes("Sair de todos os dispositivos")');
+  await clickText('button','Sair de todos os dispositivos');
+  await clickText('[role=alertdialog] button','Sim, encerrar todas as sessões');
+  await until('typeof window.releaseLogout==="function"');
+  const replacement=user('PROFESSOR');replacement.user.id='replacement-global-logout';
+  await evaluate(`window.fixture.session=${JSON.stringify(replacement)};window.persistFixture();await (await import('/src/auth-session.ts')).establishSession('replacement-global-token')`);
+  await until('location.pathname==="/professor/perfil"&&document.querySelector(".v0-user-trigger small")?.textContent.includes("Professor")');
+  await evaluate('window.releaseLogout(new Response(JSON.stringify({message:"Sessões encerradas."}),{status:200}))');
+  await until('location.pathname==="/professor/perfil"&&document.querySelector(".v0-user-trigger small")?.textContent.includes("Professor")');
+  assert.equal(await evaluate('sessionStorage.getItem("jurissim_token")'),'replacement-global-token');
+  pass('resposta atrasada do logout global não encerra sessão substituta de outra conta');
   await navigateDocument(origin + '/#/verificar-email'); await until('document.querySelector("[role=alert]")?.textContent.includes("incompleto")');
   assert.equal(await evaluate('location.hash'), ''); assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/auth/email-verification/confirm")'), false);
   pass('link de confirmação incompleto tem erro acessível sem publicar token ou tentar confirmação vazia');

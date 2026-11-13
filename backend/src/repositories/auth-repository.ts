@@ -7,15 +7,18 @@ import { institutionsEnabled, institutionRegistrationEnabled, administrationEnab
 export const GOOGLE_PASSWORD_SENTINEL = '!GOOGLE_OAUTH_ACCOUNT!';
 
 export class AuthRepository {
-  findByEmail(email: string) {
-    return prisma.user.findUnique({
-      where: { email },
+  async findByEmail(email: string) {
+    const matches = await prisma.user.findMany({
+      where: { email: { equals: email.trim(), mode: 'insensitive' } },
+      take: 2,
       select: {
         id: true, nome: true, email: true, senhaHash: true, role: true, sessionVersion: true,
         legalAcceptedAt: true, termsVersion: true, privacyVersion: true,
         deletedAt: true,
       },
     });
+    if (matches.length > 1) throw new ApiError(409, 'Há mais de uma conta com este e-mail. Procure o suporte para evitar vinculação incorreta.');
+    return matches[0] ?? null;
   }
 
   findGoogleAccountsByEmail(email: string) {
@@ -28,15 +31,38 @@ export class AuthRepository {
       take: 2,
     });
   }
-  findById(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, nome: true, email: true, role: true, emailVerifiedAt: true, deletedAt: true } }); }
-  findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } }); }
+  async findById(id: string) {
+    const select = {
+      id: true,
+      nome: true,
+      email: true,
+      role: true,
+      emailVerifiedAt: true,
+      deletedAt: true,
+    } as const;
+
+    // The registration intent was introduced with the optional institutional
+    // schema. A regular session must keep working while that module remains
+    // disabled on a database that has not received its additive migration.
+    if (!institutionRegistrationEnabled() && !administrationEnabled()) {
+      const user = await prisma.user.findUnique({ where: { id }, select });
+      return user && { ...user, registrationIntent: null };
+    }
+
+    return prisma.user.findUnique({
+      where: { id },
+      select: { ...select, registrationIntent: true },
+    });
+  }
+  findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, registrationIntent:true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } }); }
   findByIdWithSenha(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, senhaHash: true } }); }
 
-  createUser(nome: string, email: string, senhaHash: string, acceptance: unknown) {
+  createUser(nome: string, email: string, senhaHash: string, acceptance: unknown, registrationIntent?: 'INSTITUTION') {
     const legal = acceptanceData(acceptance);
     return prisma.user.create({
       data: {
         nome, email, senhaHash, role: 'ALUNO', ...legal,
+        ...(registrationIntent === 'INSTITUTION' ? { registrationIntent } : {}),
         auditLogs: { create: [
           legal.auditLogs.create,
           { action: 'USUARIO_CADASTRADO' as AuditAction, occurredAt: legal.legalAcceptedAt },
@@ -46,11 +72,12 @@ export class AuthRepository {
     });
   }
 
-  createGoogleUser(nome: string, email: string, acceptance: unknown) {
+  createGoogleUser(nome: string, email: string, acceptance: unknown, registrationIntent?: 'INSTITUTION') {
     const legal = acceptanceData(acceptance);
     return prisma.user.create({
       data: {
         nome, email, role: 'ALUNO', senhaHash: GOOGLE_PASSWORD_SENTINEL, emailVerifiedAt: new Date(), ...legal,
+        ...(registrationIntent === 'INSTITUTION' ? { registrationIntent } : {}),
         auditLogs: { create: [
           legal.auditLogs.create,
           { action: 'USUARIO_CADASTRADO' as AuditAction, occurredAt: legal.legalAcceptedAt },
@@ -135,6 +162,31 @@ export class AuthRepository {
       });
       if (institutionRegistrationEnabled() || administrationEnabled()) await tx.institution.updateMany({ where: { ownerId: token.userId, status: 'EMAIL_PENDING' }, data: { status: 'PENDING' } });
       return true;
+    });
+  }
+
+  deactivateUser(id: string, expectedPasswordHash: string) {
+    return prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${id} FOR UPDATE`;
+      const user = await tx.user.findUnique({ where: { id }, select: { role: true, deletedAt: true, senhaHash: true } });
+      if (!user || user.deletedAt || user.senhaHash !== expectedPasswordHash)
+        throw new ApiError(409, 'Conta ou credenciais alteradas. Entre novamente antes de desativar.');
+      if (user.role === 'ADMIN') throw new ApiError(409, 'A desativação de administrador geral exige transferência de responsabilidade pelo suporte.');
+      // Ownership still matters while institutional feature flags are off.
+      if (await tx.institution.findFirst({ where: { ownerId: id }, select: { id: true } }))
+        throw new ApiError(409, 'Transfira a responsabilidade institucional antes de desativar sua conta.');
+      if (await tx.institutionalMembership.findFirst({ where: { userId: id, role: 'INSTITUTION_ADMIN', active: true }, select: { id: true } }))
+        throw new ApiError(409, 'Regularize a administração institucional antes de desativar sua conta.');
+      await tx.institutionalMembership.updateMany({ where: { userId: id, active: true }, data: { active: false } });
+      const now = new Date();
+      await tx.authToken.updateMany({ where: { userId: id, usedAt: null }, data: { usedAt: now } });
+      await tx.passwordRecoveryToken.updateMany({ where: { userId: id, consumedAt: null }, data: { consumedAt: now } });
+      await tx.user.update({ where: { id }, data: { deletedAt: now, sessionVersion: { increment: 1 } } });
+      await tx.administrativeEvent.create({ data: { event: 'ACCOUNT_DEACTIVATED', actorId: id, result: 'SUCCESS' } });
+    }, { isolationLevel: 'Serializable' }).catch(error => {
+      if ((error as { code?: string }).code === 'P2021')
+        throw new ApiError(503, 'Desativação indisponível até validar a estrutura de vínculos. Nenhuma alteração foi aplicada.');
+      throw error;
     });
   }
 

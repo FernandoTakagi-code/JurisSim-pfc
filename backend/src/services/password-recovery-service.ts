@@ -8,7 +8,9 @@ import { isValidAppUrl } from './app-url';
 import { PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from './auth-token-policy';
 import { assertValidPassword } from './password-policy';
 import { performance } from 'node:perf_hooks';
-import { isIndeterminateEmailDelivery } from './email-delivery-failure';
+import { classifyEmailDeliveryFailure } from './email-delivery-failure';
+import { emailFrontendUrl } from './email-frontend';
+import { emailAccepted, emailFailed } from './transactional-email-log';
 
 export { PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from './auth-token-policy';
 const NEUTRAL_RESPONSE = 'Se existir uma conta associada a este e-mail, voce recebera instrucoes caso o envio seja concluido. Se nao receber a mensagem, tente novamente mais tarde.';
@@ -21,7 +23,8 @@ export class PasswordRecoveryService {
   ) {}
 
   async requestRecovery(email: string) {
-    if (!this.emailSender?.isConfigured || !isValidAppUrl(this.publicAppUrl)) {
+    const publicAppUrl=emailFrontendUrl(this.publicAppUrl);
+    if (!this.emailSender?.isConfigured || !isValidAppUrl(publicAppUrl)) {
       throw new ApiError(503, 'A recuperação de senha está temporariamente indisponível.');
     }
 
@@ -39,15 +42,17 @@ export class PasswordRecoveryService {
     console.info('email.token.persisted', { flow: 'password_recovery', elapsedMs: Math.round(performance.now() - persistenceStartedAt) });
     if (!tokenId) return NEUTRAL_RESPONSE;
 
-    const resetUrl = `${new URL(this.publicAppUrl!).toString().replace(/\/$/, '')}/#/reset-password?token=${encodeURIComponent(token)}`;
+    const resetUrl = `${publicAppUrl}/#/reset-password?token=${encodeURIComponent(token)}`;
     try {
       await this.emailSender.sendPasswordRecovery({
-        to: email,
+        to: account.email ?? email,
         resetUrl,
         expiresInMinutes: PASSWORD_RECOVERY_TOKEN_TTL_MINUTES,
       });
+      emailAccepted('password_recovery',tokenId);
     } catch (error) {
-      if (isIndeterminateEmailDelivery(error)) {
+      emailFailed('password_recovery',tokenId,error);
+      if (classifyEmailDeliveryFailure(error).outcome==='indeterminate') {
         console.warn('Resultado do envio de recuperacao indeterminado; token preservado.');
       } else {
         await this.repository.invalidateToken(tokenId, new Date());

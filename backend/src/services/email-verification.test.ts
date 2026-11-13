@@ -71,15 +71,15 @@ describe('envio e reenvio de confirmação', () => {
   it('revoga token e omite detalhes do SMTP se o envio falhar', async () => {
     const { service, repository, sender } = dependencies();
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-    sender.sendEmailVerification.mockRejectedValue(new Error('private provider details'));
+    sender.sendEmailVerification.mockRejectedValue(new EmailDeliveryFailure('not_accepted','connect'));
     await expect(service.requestVerification('user-1')).rejects.toMatchObject({ statusCode: 503 });
     expect(repository.markTokenUsed).toHaveBeenCalledWith('token-row');
     expect(log).toHaveBeenCalledExactlyOnceWith('Falha no envio do e-mail de confirmação.');
   });
 
-  it('preserva token e orienta conferência da caixa quando a aceitação SMTP é indeterminada', async () => {
+  it.each(['classified','unclassified'])('preserva token e orienta conferência da caixa quando a aceitação SMTP é indeterminada: %s', async kind => {
     const { service, repository, sender } = dependencies();
-    sender.sendEmailVerification.mockRejectedValue(new EmailDeliveryFailure('indeterminate', 'request_deadline'));
+    sender.sendEmailVerification.mockRejectedValue(kind==='classified'?new EmailDeliveryFailure('indeterminate', 'request_deadline'):new Error('private unclassified failure'));
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     await expect(service.requestVerification('user-1')).rejects.toMatchObject({
       statusCode: 503,

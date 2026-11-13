@@ -1,4 +1,7 @@
-const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3333';
+// The local API listens on IPv4 loopback. Avoid `localhost` here because some
+// Windows resolvers prefer ::1 while the development server is intentionally
+// bound to 127.0.0.1.
+const api = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3333';
 
 export class ApiError extends Error {
   constructor(readonly status: number, message: string, readonly code?: string, readonly payload?: unknown) { super(message); }
@@ -14,7 +17,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}, option
   delete headers.authorization;
   if (!(init.body instanceof FormData) && !headers['content-type']) headers['Content-Type'] = 'application/json';
   if (authenticated) headers.Authorization = `Bearer ${token}`;
-  const academic=/^\/(turmas|avaliacoes|reports|questoes)(\/|$)/.test(path);
+  const academic=/^\/(turmas|avaliacoes|reports|questoes)(\/|\?|$)/.test(path);
   const institutionalView=window.location.pathname==='/instituicoes';
   const institution = institutionalView?(new URLSearchParams(window.location.search).get('instituicao')??sessionStorage.getItem('jurissim_administration_institution')):sessionStorage.getItem('jurissim_institution');
   const personalRole=sessionStorage.getItem('jurissim_personal_role');

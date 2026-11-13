@@ -4,12 +4,14 @@ import { AuthRepository } from '../repositories/auth-repository';
 import { ApiError } from '../errors/api-error';
 import { currentAccess } from '../services/institution-service';
 import { prisma } from '../lib/prisma';
+import { homologationParticipant, institutionRequestScope } from '../config/institution-homologation';
+import { institutionsGloballyEnabled } from '../config/institution-feature';
 
 const service = new AuthService();
 const repository = new AuthRepository();
 
 export interface AuthenticatedRequest extends Request {
-  auth?: { userId: string; role: string; institutionId?: string; allowedClassIds?: string[]; institutionAdmin?:boolean };
+  auth?: { userId: string; role: string; institutionId?: string; allowedClassIds?: string[]; institutionAdmin?:boolean;institutionalAccount?:boolean;invitationPending?:boolean };
 }
 
 export async function requireAuth(request: AuthenticatedRequest, response: Response, next: NextFunction) {
@@ -38,7 +40,8 @@ async function authenticate(request: AuthenticatedRequest, next: NextFunction, a
       return next(new ApiError(403, 'Confirme seu e-mail para acessar este recurso.'));
     }
     const access = await currentAccess(user.id, user.role);
-    request.auth = { userId: user.id, role: access?.effectiveRole ?? user.role };
+    request.auth = { userId: user.id, role: access?.effectiveRole ?? user.role, ...(user.role==='ALUNO'&&user.registrationIntent==='INSTITUTION'?{institutionalAccount:true}: {}) };
+    if(user.role==='ALUNO'&&user.registrationIntent==='TEACHER_INVITATION')request.auth.invitationPending=true;
     const administrativeContext=request.header('x-institution-context') === 'administration';
     if (access && request.auth.role !== 'ADMIN' && (request.auth.role==='PROFESSOR'||administrativeContext)) {
       const requested = request.header('x-institution-id');
@@ -52,6 +55,14 @@ async function authenticate(request: AuthenticatedRequest, next: NextFunction, a
       if (!selected && request.auth.role === 'PROFESSOR' && /^\/(turmas|avaliacoes|reports|questoes)(\/|\?|$)/.test(request.originalUrl)) return next(new ApiError(memberships.length?409:403, memberships.length?'Selecione uma instituição de trabalho.':'Vínculo docente ativo obrigatório. Regularize o acesso com a instituição responsável.'));
       request.auth.institutionId = selected?.institutionId;
       request.auth.allowedClassIds = selected ? (await prisma.institutionalClass.findMany({ where: { institutionId: selected.institutionId, ...(!administrativeContext?{turma:{professores:{some:{id:user.id}}}}:{}) }, select: { classId: true } })).map(c => c.classId) : [];
+    }
+    const restricted = !institutionsGloballyEnabled() ? homologationParticipant(user.id) : null;
+    if(access?.restricted && !restricted) return next(new ApiError(403,'Escopo de homologação revogado.'));
+    if (restricted) {
+      // The question module is outside this preparation and must not inherit
+      // broader class visibility from the request-scoped institutional flag.
+      if (/^\/questoes(?:\/|\?|$)/.test(request.originalUrl)) return next(new ApiError(403,'Gestão de questões não integra o escopo de homologação institucional.'));
+      return institutionRequestScope.run({userId:user.id,institutionId:restricted.institutionId,operational:access?.enabled === true}, () => next());
     }
     next();
   } catch (error) {

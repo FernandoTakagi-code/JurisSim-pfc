@@ -3,6 +3,12 @@
   margin: auto;
 }
 
+.admin-settings dl { display: grid; gap: 12px; }
+.admin-settings dt { color: var(--v0-muted, #a7b3c5); }
+.admin-settings dd { margin: 4px 0 0; }
+.admin-page details > summary { cursor: pointer; padding: 10px 0; }
+.admin-page dd, .admin-page article p { overflow-wrap: anywhere; }
+
 /* Integrated ADMIN content uses the same dashboard classes as student/teacher. */
 .admin-integrated {
   --panel-bg: var(--v0-panel, white);
@@ -165,6 +171,138 @@
   cursor: wait;
   opacity: 0.6;
 }
+.institution-portal {
+  width: min(100%, 1120px);
+  margin-inline: auto;
+  padding-bottom: 40px;
+}
+.institution-portal-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+.institution-portal-header h1 {
+  margin: 4px 0 8px;
+}
+.institution-portal-header > div > p:last-child {
+  max-width: 680px;
+  margin: 0;
+}
+.institution-portal-section-title {
+  margin: 30px 0 14px;
+  font-size: 1.15rem;
+}
+.institution-request-list {
+  display: grid;
+  gap: 16px;
+}
+.institution-request-card {
+  padding: 24px;
+  border: 1px solid color-mix(in srgb, var(--text-color, #182b43) 13%, transparent);
+  border-top: 3px solid #b99a50;
+  box-shadow: 0 10px 24px rgba(16, 37, 63, 0.07);
+}
+.institution-request-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-color, #182b43) 12%, transparent);
+}
+.institution-request-heading h3 {
+  margin: 0 0 5px;
+  color: var(--text-color, #182b43);
+}
+.institution-request-heading p,
+.institution-guidance {
+  margin: 0;
+  color: var(--muted-color, #526477);
+}
+.institution-request-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.institution-request-status > div {
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-bg, white) 84%, #e8eef5);
+}
+.institution-request-status dt {
+  margin-bottom: 7px;
+  color: var(--muted-color, #526477);
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.institution-request-status dd { margin: 0; }
+.institution-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+}
+.institution-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.institution-status.is-approved,
+.institution-status.is-ready { color: #21724a; }
+.institution-status.is-rejected { color: #a33232; }
+.institution-status.is-pending,
+.institution-status.is-waiting { color: #8a641d; }
+.institution-guidance {
+  padding: 12px 14px;
+  border-left: 3px solid #b99a50;
+  background: color-mix(in srgb, #b99a50 10%, transparent);
+}
+.institution-empty-state {
+  padding: 18px;
+  border: 1px dashed #aab6c4;
+  border-radius: 10px;
+  color: var(--muted-color, #526477);
+}
+/* H4.23.1: this portal is rendered outside InstitutionDashboard. */
+.institution-portal .institution-portal-header {
+  padding: clamp(20px,3vw,34px);
+  border: 1px solid color-mix(in srgb, var(--text-color, #182b43) 14%, transparent);
+  border-radius: 16px;
+  background: linear-gradient(120deg, var(--panel-bg, #fff), color-mix(in srgb, #b99a50 12%, var(--panel-bg, #fff)));
+}
+.institution-portal .institution-request-card {
+  background: var(--panel-bg, #fff);
+  color: var(--text-color, #182b43);
+}
+.institution-portal .institution-request-heading .primary-button,
+.institution-portal .primary-button {
+  background:#10253f;
+  color:#fff;
+  border:1px solid #10253f;
+  border-radius:9px;
+  padding:10px 14px;
+  font-weight:700;
+  min-height:42px;
+}
+.institution-portal .primary-button:hover:not(:disabled) { background:#173b5e; }
+.institution-portal .institution-guidance { line-height:1.55; margin-top:16px; }
+.institution-portal .institution-request-status > div { border:1px solid color-mix(in srgb, var(--text-color, #182b43) 10%, transparent); }
+.institution-portal .institution-status.is-approved,.institution-portal .institution-status.is-ready { color:#21724a; }
+.admin-form > .primary-button { justify-self:start; min-width:auto; font-size:14px; min-height:42px; padding-inline:16px; }
+.admin-form > .primary-button:disabled { opacity:.55; cursor:not-allowed; }
+@media (prefers-color-scheme: dark) {
+  .institution-portal .institution-request-card,.institution-portal .institution-portal-header { background:var(--panel-bg, #17283a); color:var(--text-color, #ecf1f7); }
+  .institution-portal .institution-status.is-approved,.institution-portal .institution-status.is-ready { color:#8cdaae; }
+}
 @media (max-width: 600px) {
   .admin-page .panel {
     padding: 14px;
@@ -173,6 +311,12 @@
   .admin-tabs button {
     flex: 1 1 140px;
   }
+  .institution-portal { width: 100%; }
+  .institution-portal-header { margin-bottom: 20px; }
+  .institution-request-card { padding: 18px; }
+  .institution-request-heading { align-items: stretch; flex-direction: column; }
+  .institution-request-heading .outline-button { width: 100%; }
+  .institution-request-status { grid-template-columns: 1fr; gap: 10px; }
 }
 
 /* Administrative adaptation of the v0 layout; never target the shared shell. */
@@ -232,3 +376,17 @@
     overflow-wrap: anywhere;
   }
 }
+.v0-app .institution-portal button.institution-manage-button {
+  min-height: 44px; padding: 12px 20px; border: 1px solid #c5a15d;
+  border-radius: 9px; background: #10253f; color: #fff3d5;
+  font-size: 14px; font-weight: 750; line-height: 1.4; white-space: normal;
+  cursor: pointer; display: inline-flex; justify-content: center; align-items: center;
+}
+.v0-app .institution-portal button.institution-manage-button:hover:not(:disabled) { background: #173b5e; border-color: #d6b26a; }
+.v0-app .institution-portal button.institution-manage-button:focus-visible { outline: 3px solid #c5a15d; outline-offset: 3px; }
+.institution-portal .institution-review-note { margin: 16px 0; padding: 14px 16px; border: 1px solid var(--v0-border, #d4dbe5); border-radius: 9px; background: var(--v0-bg, #f4f6f9); color: var(--v0-text, #17243a); }
+.institution-portal .institution-review-note > span { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 650; }
+.institution-portal .institution-review-note > p { margin: 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.v0-dark .institution-portal .institution-request-status :is(dt, .institution-status.is-pending, .institution-status.is-waiting) { color: #e0bf7c; }
+.v0-dark .institution-portal .institution-status:is(.is-approved, .is-ready) { color: #91deb2; }
+.v0-dark .institution-portal .institution-status.is-rejected { color: #ffadb7; }

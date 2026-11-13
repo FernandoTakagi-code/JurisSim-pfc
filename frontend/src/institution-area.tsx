@@ -25,6 +25,8 @@ export function InstitutionArea({
     if (authorized && id)
       sessionStorage.setItem("jurissim_administration_institution", id);
   }, [authorized, id]);
+  if (!session.user.emailVerificado)
+    return <EmailConfirmationGate email={session.user.email} onSair={onSair} />;
   if (id && authorized)
     return (
       <InstitutionDashboard
@@ -46,9 +48,6 @@ export function InstitutionArea({
         </section>
       ) : (
         <>
-          {!session.user.emailVerificado && (
-            <EmailConfirmationGate email={session.user.email} onSair={onSair} />
-          )}
           <InstitutionsPortal session={session} />
         </>
       )}

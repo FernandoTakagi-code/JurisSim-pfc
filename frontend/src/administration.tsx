@@ -1,3 +1,6 @@
+import { InstitutionRequest } from './institution-request';
+import { AdminAccountDeletion, EmailReuseRevocation } from './account-deletion';
+import { institutionPendingFields, noWebsiteDeclaration } from '../../backend/src/institution-registration';
 import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "./api";
 import { refreshSession, useSession, type Session } from "./auth-session";
@@ -17,11 +20,23 @@ import {
 
 type Page<T> = { items: T[]; page: number; hasMore: boolean };
 type Institution = {
+  ownerId?: string;
+  owner?: {emailVerifiedAt:string|null};
+  homologationApproval?: boolean;
+  approvalReview?: {pendingFields:string[];canApprove:boolean};
   id: string;
   name: string;
   status: string;
   email: string;
   responsibleName: string;
+  tradeName?: string;
+  address?: string;
+  representativePosition?: string;
+  contactEmail?: string;
+  institutionType?: string; postalCode?: string; street?: string; number?: string;
+  addressComplement?: string; district?: string; city?: string; state?: string; website?: string;
+  representativePhone?: string; representationDeclaration?: boolean;
+  representationDeclaredAt?: string; representationDeclarationVersion?: string; representationEvidence?: string;
   registrationNumber?: string;
   phone: string;
   description: string;
@@ -46,6 +61,7 @@ type AdminUser = {
   email: string;
   role: string;
   suspended: boolean;
+  createdAt?: string;
   emailVerifiedAt?: string | null;
   memberships: {
     role: string;
@@ -109,7 +125,7 @@ const sectionDescriptions: Record<AdminSectionId, string> = {
   notifications:
     "Consulte notificações institucionais destinadas à sua conta, quando o recurso estiver disponível.",
   settings:
-    "Acesse seu perfil e as preferências pessoais. Configurações globais não possuem API de edição.",
+    "Consulte os serviços e as funcionalidades disponíveis.",
 };
 const institutionalUnavailable: Partial<
   Record<AdminSectionId, { endpoint: string; message: string }>
@@ -142,7 +158,7 @@ const institutionalUnavailable: Partial<
   notifications: {
     endpoint: "/institutions/notifications",
     message:
-      "Esta API retorna notificações destinadas ao usuário autenticado, mas depende da habilitação administrativa. Não existe uma rota independente GET /notifications neste backend.",
+      "As notificações não estão disponíveis no momento.",
   },
 };
 const labels: Record<string, string> = {
@@ -165,6 +181,13 @@ const labels: Record<string, string> = {
 };
 const label = (value: string) => labels[value] ?? value;
 const date = (value: string) => new Date(value).toLocaleString("pt-BR");
+const auditResult = (value: string) => {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && 'reason' in parsed && typeof parsed.reason === 'string') return parsed.reason;
+  } catch { /* Older events contain only a result label. */ }
+  return value;
+};
 const json = (method: string, body?: unknown) => ({
   method,
   ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -233,6 +256,7 @@ export function Pages({
   return (
     <div className="admin-actions">
       <button
+        type="button"
         className="outline-button"
         disabled={page <= 1}
         onClick={() => change(page - 1)}
@@ -241,6 +265,7 @@ export function Pages({
       </button>
       <span>Página {page}</span>
       <button
+        type="button"
         className="outline-button"
         disabled={!hasMore}
         onClick={() => change(page + 1)}
@@ -333,23 +358,25 @@ export function InstitutionContext({ session }: { session: Session }) {
     </div>
   );
 }
-function Notifications() {
+function Notifications({recent=false}:{recent?:boolean}={}) {
   const [page, setPage] = useState(1);
+  const [expanded,setExpanded]=useState(false);
   const resource = useResource<
     Page<{ id: string; message: string; createdAt: string }>
   >(`/institutions/notifications?page=${page}`);
+  if(recent&&!expanded&&resource.data?.items.length===0)return null;
   return (
     <section>
-      <h2>Notificações</h2>
+      <h2>{recent&&!expanded?'Notificações recentes':'Notificações'}</h2>
       <ResourceState resource={resource} />
       {resource.data?.items.length === 0 && <p>Nenhuma notificação.</p>}
-      {resource.data?.items.map((n) => (
+      {(recent&&!expanded?resource.data?.items.slice(0,3):resource.data?.items)?.map((n) => (
         <article className="panel" key={n.id}>
           <time>{date(n.createdAt)}</time>
           <p>{n.message}</p>
         </article>
       ))}
-      <Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />
+      {recent&&!expanded?((resource.data?.hasMore||(resource.data?.items.length??0)>3)&&<button className="text-button" onClick={()=>setExpanded(true)}>Ver todas as notificações</button>):<Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />}
     </section>
   );
 }
@@ -387,7 +414,7 @@ export function AuditPanel({
         {["event", "actorId", ...(institutionId ? [] : ["institutionId"])].map(
           (field, i) => (
             <label key={field}>
-              {["Evento", "ID do usuário", "ID da instituição"][i]}
+              {["Tipo de evento", "Identificador do responsável", "Identificador da instituição"][i]}
               <input
                 value={draft[field] ?? ""}
                 maxLength={80}
@@ -405,9 +432,9 @@ export function AuditPanel({
             onChange={(e) => setDraft({ ...draft, severity: e.target.value })}
           >
             <option value="">Todas</option>
-            <option>INFO</option>
-            <option>WARN</option>
-            <option>ERROR</option>
+            <option value="INFO">Informação</option>
+            <option value="WARN">Aviso</option>
+            <option value="ERROR">Erro</option>
           </select>
         </label>
         {["from", "to"].map((field, i) => (
@@ -426,7 +453,7 @@ export function AuditPanel({
             />
           </label>
         ))}
-        <button>Aplicar filtros</button>
+        <button className="primary-button">Aplicar filtros</button>
       </form>
       <ResourceState resource={resource} />
       {resource.data?.items.length === 0 && <p>Nenhum evento neste período.</p>}
@@ -446,15 +473,15 @@ export function AuditPanel({
               <tr key={e.id}>
                 <td>{date(e.occurredAt)}</td>
                 <td>
-                  {e.event}
-                  <small>{e.severity}</small>
+                  <strong>{({CLASS_CREATED:'Turma criada',CLASS_CODE_ROTATED:'Código de convite renovado',ACCESS_DENIED:'Acesso bloqueado'} as Record<string,string>)[e.event] ?? e.event}</strong>
+                  <small>{e.event} · {({INFO:'Informação',WARN:'Aviso',ERROR:'Erro'} as Record<string,string>)[e.severity] ?? e.severity}</small>
                 </td>
                 <td>{e.actorId ?? "Não identificado"}</td>
                 <td>
                   {e.resourceId ?? "—"}
                   <small>{e.institutionId}</small>
                 </td>
-                <td>{e.result}</td>
+                <td>{({SUCCESS:'Sucesso',FAILED:'Falha'} as Record<string,string>)[e.result] ?? e.result}</td>
               </tr>
             ))}
           </tbody>
@@ -569,8 +596,7 @@ function PlatformAuditPanel() {
       {resource.data && (
         <p>
           Exibindo {resource.data.length} registro(s), até o limite de{" "}
-          {new URLSearchParams(query).get("limit")}. A API não fornece total
-          global nem paginação.
+          {new URLSearchParams(query).get("limit")}.
         </p>
       )}
       <div className="admin-table-wrap">
@@ -622,8 +648,7 @@ function AdministrationSecurity() {
         <dd>{user?.emailVerificado ? "Sim" : "Não confirmado"}</dd>
       </dl>
       <p>
-        Consulte LOGIN_SUCESSO e LOGIN_FALHA na auditoria da plataforma. Não há
-        API para contagem global de ameaças ou sessões ativas.
+        Consulte os acessos bem-sucedidos e as tentativas de acesso na auditoria da plataforma.
       </p>
       <div className="admin-actions">
         <button onClick={() => navigate("/administracao/auditoria")}>
@@ -689,12 +714,6 @@ export function GeneralAdministration() {
                   {(tab && institutionalUnavailable[tab]?.message) ||
                     "Os indicadores globais dependem da habilitação administrativa. A auditoria da plataforma e as preferências pessoais continuam independentes."}
                 </p>
-                {tab && institutionalUnavailable[tab] && (
-                  <p>
-                    Recurso protegido:{" "}
-                    <code>{institutionalUnavailable[tab]!.endpoint}</code>.
-                  </p>
-                )}
                 {tab === "users" && (
                   <button onClick={() => navigate("/administracao/perfil")}>
                     Consultar meu perfil
@@ -735,8 +754,7 @@ export function GeneralAdministration() {
                   <div className="empty-chart">
                     <span aria-hidden="true">⌁</span>
                     <p>
-                      Indisponível: a API atual não fornece séries históricas de
-                      cadastros.
+                      O histórico de cadastros não está disponível no momento.
                     </p>
                   </div>
                 </article>
@@ -749,8 +767,7 @@ export function GeneralAdministration() {
                   </div>
                   <div className="empty-chart">
                     <p>
-                      Indisponível: não há endpoint de distribuição global por
-                      perfil.
+                      A distribuição por perfil não está disponível no momento.
                     </p>
                   </div>
                 </article>
@@ -772,24 +789,7 @@ export function GeneralAdministration() {
               </div>
             </>
           ) : tab === "settings" ? (
-            <section className="panel">
-              <h2>Configurações globais</h2>
-              <p>
-                Não há endpoint para alterar configurações globais neste painel.
-                Preferências pessoais continuam disponíveis no menu do perfil.
-              </p>
-              <p>
-                Altere tema e recolhimento do menu nas preferências locais.
-                Nome, foto e segurança da sua própria conta usam os fluxos
-                pessoais existentes, sem ativação institucional.
-              </p>
-              <button
-                className="outline-button"
-                onClick={() => navigate("/administracao/preferencias")}
-              >
-                Preferências pessoais
-              </button>
-            </section>
+            <AdministrationSettings availability={availability.data} />
           ) : tab === 'classes' ? (
             <section className="panel"><h2>Gestão pedagógica institucional</h2><p>Turmas e alunos são gerenciados pelos responsáveis e professores autorizados da própria instituição. A administração geral não possui acesso pedagógico rotineiro.</p></section>
           ) : tab === "security" ? (
@@ -803,9 +803,8 @@ export function GeneralAdministration() {
                 <section className="panel">
                   <h2>Auditoria institucional indisponível</h2>
                   <p>
-                    Os eventos de instituições, convites e vínculos usam
-                    /institutions/admin/logs e permanecem protegidos pela flag.
-                    A consulta da plataforma acima continua disponível.
+                    A auditoria de instituições, convites e vínculos não está disponível no momento.
+                    Você pode consultar a auditoria da plataforma acima.
                   </p>
                 </section>
               ) : null}
@@ -835,6 +834,22 @@ export function GeneralAdministration() {
       )}
     </section>
   );
+}
+function AdministrationSettings({ availability }: { availability?: AdministrationAvailability }) {
+  const health = useResource<{status: string}>("/health");
+  return <div className="admin-settings">
+    <section className="panel"><h2>Estado do sistema</h2><ResourceState resource={health}/><dl>
+      <dt>Serviço</dt><dd>{health.loading ? 'Verificando…' : health.error ? 'Não foi possível verificar' : health.data?.status === 'ok' ? 'Disponível' : 'Indisponível'}</dd>
+      <dt>Serviço de e-mails</dt><dd>Não monitorado</dd>
+    </dl><button onClick={health.reload} disabled={health.loading}>Atualizar verificação</button></section>
+    <section className="panel"><h2>Funcionalidades</h2><dl>{[
+      ['Cadastro institucional', availability?.registrationEnabled],
+      ['Administração geral', availability?.administrationEnabled],
+      ['Operações institucionais completas', availability?.enabled],
+      ['Convites e vínculos institucionais', availability?.enabled],
+    ].map(([name, value]) => <div key={String(name)}><dt>{name}</dt><dd>{value === undefined ? 'Não foi possível verificar' : value ? 'Habilitada' : 'Desabilitada'}</dd></div>)}</dl></section>
+    <section className="panel"><h2>Controles administrativos</h2><h3>Controle de novos cadastros</h3><p>A opção de pausar temporariamente novas solicitações institucionais estará disponível em uma atualização futura.</p></section>
+  </div>;
 }
 function GlobalIndicators({ enabled }: { enabled: boolean }) {
   const resource = useResource<Record<string, number>>(
@@ -928,6 +943,35 @@ function RecentAdministrativeEvents({ enabled }: { enabled: boolean }) {
     </>
   );
 }
+const institutionPendingCategories: [string, string[]][] = [
+  ['Identificação institucional', ['Razão social', 'Nome fantasia', 'CNPJ', 'CNPJ inválido', 'Tipo']],
+  ['Endereço', ['CEP', 'Logradouro', 'Número', 'Bairro', 'Cidade', 'UF']],
+  ['Contatos', ['E-mail institucional', 'Telefone institucional']],
+  ['Responsável e comprovação', ['Responsável', 'Cargo', 'Telefone profissional', 'Comprovação de representação', 'Declaração de responsabilidade']],
+  ['Informações complementares', ['Site ou declaração de inexistência']],
+];
+function InstitutionPendingDetails({ institution }: { institution: Institution }) {
+  const pending = institutionReviewPendingFields(institution);
+  if (!pending.length) return <p>Sem pendências cadastrais identificadas.</p>;
+  return <section aria-label="Pendências cadastrais">
+    <p>Dados e vínculos existentes preservados.</p>
+    {institutionPendingCategories.map(([category, fields]) => {
+      const items = pending.filter(field => fields.includes(field));
+      return <div key={category}><h4>{category}</h4>{items.length ? <ul>{items.map(field => <li key={field}>{field === 'Tipo' ? 'Tipo de instituição' : field}</li>)}</ul> : <p>Sem pendências identificadas nesta categoria.</p>}</div>;
+    })}
+  </section>;
+}
+function institutionReviewPendingFields(institution:Institution){
+  return institution.approvalReview?.pendingFields??institutionPendingFields(institution);
+}
+function DecisionEmailControl({institutionId}:{institutionId:string}) {
+  const [open,setOpen]=useState(false);
+  const resource=useResource<{id?:string;state:string;canRetry:boolean;attempts?:number;lastAttemptAt?:string;finishedAt?:string;lastError?:{code:string}}>(open?`/institutions/admin/institutions/${institutionId}/decision-email`:null);
+  const action=useMutation(resource.reload);
+  const states:Record<string,string>={PENDING:'Aguardando envio',SENDING:'Envio em andamento ou sem resultado final',SENT:'Aceito pelo provedor',FAILED:'Envio não aceito ou indisponível',UNKNOWN:'Recebimento indeterminado; confira o provedor antes de qualquer novo envio',CANCELLED:'Decisão substituída; envio cancelado',NOT_QUEUED:'Sem notificação registrada'};
+  const errors:Record<string,string>={TRANSPORT_UNAVAILABLE:'Serviço de e-mail indisponível.',INVALID_APP_URL:'Endereço de acesso indisponível para a mensagem.',DELIVERY_NOT_ACCEPTED:'O envio não foi aceito pelo provedor.',DELIVERY_INDETERMINATE:'Não foi possível confirmar o resultado; confira o provedor antes de repetir.'};
+  return <div><button type="button" onClick={()=>{setOpen(true);if(open)resource.reload();}}>Consultar notificação por e-mail</button>{open&&<><ResourceState resource={resource}/>{resource.data&&<><p role="status">{states[resource.data.state]??'Estado indisponível'}</p>{typeof resource.data.attempts==='number'&&<p>Tentativas de processamento: {resource.data.attempts}</p>}{resource.data.lastAttemptAt&&<p>Última tentativa: {date(resource.data.lastAttemptAt)}</p>}{resource.data.finishedAt&&<p>Resultado registrado: {date(resource.data.finishedAt)}</p>}{resource.data.lastError&&<p>{errors[resource.data.lastError.code]??'Falha no processamento da notificação.'}</p>}</>}{resource.data?.canRetry&&<button disabled={action.busy} onClick={()=>{void action.run(`/institutions/admin/institutions/${institutionId}/decision-email/${resource.data!.id}/retry`,'POST',{confirmation:true});}}>Tentar envio seguro</button>}{action.feedback}</>}</div>;
+}
 function InstitutionReview({
   initialStatus = "PENDING",
   canDecide = true,
@@ -946,7 +990,7 @@ function InstitutionReview({
   const [historyId, setHistoryId] = useState<string>();
   return (
     <>
-      <h2>Solicitações e instituições</h2>
+      <h2>{initialStatus === 'PENDING' ? 'Análise de solicitações' : 'Instituições cadastradas'}</h2>
       <label>
         Estado
         <select
@@ -980,15 +1024,36 @@ function InstitutionReview({
           <p>
             {i.responsibleName} · {i.email} · {i.phone}
           </p>
+          {institutionReviewPendingFields(i).length > 0 && <p>Cadastro incompleto · {institutionReviewPendingFields(i).length} pendências para análise.</p>}
+          <details><summary>Dados cadastrais e análise</summary>
+          {i.homologationApproval && <p>Instituição de teste autorizada, sem CNPJ. A aprovação depende da análise cadastral.</p>}
+          <InstitutionPendingDetails institution={i}/>
           <p>{i.description}</p>
+          <dl>
+            <dt>E-mail do responsável confirmado</dt><dd>{i.owner?(i.owner.emailVerifiedAt?'Sim':'Não confirmado'):'Não disponível nesta consulta'}</dd>
+            <dt>Nome fantasia</dt><dd>{i.tradeName ?? 'Não informado no cadastro anterior'}</dd>
+            <dt>Endereço</dt><dd>{i.address ?? 'Não informado no cadastro anterior'}</dd>
+            <dt>Cargo do representante</dt><dd>{i.representativePosition ?? 'Não informado no cadastro anterior'}</dd>
+            <dt>Contato institucional</dt><dd>{i.contactEmail ?? i.email}</dd>
+            <dt>Tipo de instituição</dt><dd>{i.institutionType ? ({ENSINO_SUPERIOR:'Ensino superior', CURSO_PREPARATORIO:'Curso preparatório', OUTRA_ORGANIZACAO:'Outra organização'}[i.institutionType] ?? i.institutionType) : 'Não informado no cadastro anterior'}</dd>
+            <dt>Endereço estruturado</dt><dd>{[i.postalCode,i.street,i.number,i.addressComplement,i.district,i.city,i.state].filter(Boolean).join(' · ') || 'Não informado no cadastro anterior'}</dd>
+            <dt>Site oficial</dt><dd>{i.website || (i.description.includes(noWebsiteDeclaration) ? 'Declarou não possuir site oficial' : 'Não informado')}</dd>
+            <dt>Telefone profissional do responsável</dt><dd>{i.representativePhone ?? 'Não informado no cadastro anterior'}</dd>
+            <dt>Declaração de vínculo e responsabilidade</dt><dd>{i.representationDeclaration ? `Aceita em ${i.representationDeclaredAt ? date(i.representationDeclaredAt) : 'data não informada'} · versão ${i.representationDeclarationVersion}` : 'Não consta neste cadastro anterior'}</dd>
+            <dt>Referência para comprovação</dt><dd>{i.representationEvidence ?? 'Não informada no cadastro anterior'}</dd>
+          </dl>
+          {!i.institutionType && <p>“Cadastro anterior” indica que o tipo não foi informado nos dados existentes; não é um tipo de instituição.</p>}
+          <p>A declaração de representação deve ser verificada antes da aprovação. Não envie documentos pessoais sensíveis neste formulário.</p>
           {canDecide && <AdministrativeInstitutionDetails institution={i} reload={resource.reload}/>}
+          {canDecide&&<DecisionEmailControl institutionId={i.id}/>}
           {i.decisionReason && <p>Última decisão: {i.decisionReason}</p>}
+          </details>
           <div className="admin-actions">
             {(i.status === "PENDING" ||
               i.status === "SUSPENDED" ||
               i.status === "REJECTED") && (
               <button
-                disabled={!canDecide || action.busy}
+                disabled={!canDecide || action.busy || (i.approvalReview ? !i.approvalReview.canApprove : i.homologationApproval===true || (i.status !== "SUSPENDED" && institutionReviewPendingFields(i).length > 0))}
                 onClick={() => setSelected({ id: i.id, status: "ACTIVE" })}
               >
                 Aprovar / reativar
@@ -1060,10 +1125,20 @@ function InstitutionReview({
     </>
   );
 }
+function UserHistory({userId}: {userId: string}) {
+  const [page, setPage] = useState(1);
+  const resource = useResource<Page<Event>>(`/institutions/admin/users/${userId}/history?page=${page}`);
+  return <section className="panel"><h3>Histórico administrativo da conta</h3><ResourceState resource={resource}/>{resource.data?.items.length === 0 && <p>Nenhuma ocorrência registrada.</p>}{resource.data?.items.map(event => <p key={event.id}>{date(event.occurredAt)} · {event.event} · {auditResult(event.result)}</p>)}{resource.data && <Pages page={page} hasMore={resource.data.hasMore} change={setPage}/>}</section>;
+}
 function UserAdministration({ initialRole = "",permissionsOnly=false }: { initialRole?: string;permissionsOnly?:boolean }) {
   const currentUserId = useSession().session?.user.id;
   const [page, setPage] = useState(1),
-    [search, setSearch] = useState(""),
+    [search, setSearch] = useState<string | null>(null),
+    [queryRole, setQueryRole] = useState(initialRole),
+    [status, setStatus] = useState(""),
+    [queryStatus, setQueryStatus] = useState(""),
+    [reason, setReason] = useState(""),
+    [historyId, setHistoryId] = useState<string>(),
     [draft, setDraft] = useState(""),
     [role, setRole] = useState(initialRole);
   const [change, setChange] = useState<{
@@ -1072,31 +1147,40 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
     title: string;
   }>();
   const resource = useResource<Page<AdminUser>>(
-      `/institutions/admin/users?${new URLSearchParams({ page: String(page), ...(search ? { search } : {}), ...(role ? { role } : {}) })}`,
+      search ? `/institutions/admin/users?${new URLSearchParams({ page: String(page), search, ...(queryRole ? { role: queryRole } : {}), ...(queryStatus ? {status:queryStatus} : {}) })}` : null,
     ),
     action = useMutation(resource.reload);
   return (
     <>
-      <h2>{permissionsOnly?'Permissões administrativas':'Contas e vínculos administrativos'}</h2>
+      <h2>{permissionsOnly?'Permissões administrativas':initialRole === 'PROFESSOR'?'Consulta de professores e vínculos':'Consulta de contas'}</h2>
+      {!permissionsOnly && <EmailReuseRevocation />}
       <form
         className="admin-form"
         onSubmit={(e) => {
           e.preventDefault();
-          setSearch(draft);
+          if (draft.trim().length < 2) return;
+          setSearch(draft.trim());
+          setQueryRole(role);
+          setQueryStatus(status);
+          setHistoryId(undefined);
+          setChange(undefined);
+          resource.reload();
           setPage(1);
         }}
       >
         <label>
           Nome ou e-mail
           <input
+            required minLength={2}
             maxLength={120}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
         </label>
         <label>
-          Perfil
+          Perfil global
           <select
+            disabled={initialRole === "PROFESSOR"}
             value={role}
             onChange={(e) => {
               setRole(e.target.value);
@@ -1111,8 +1195,10 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
             ))}
           </select>
         </label>
+        <label>Situação da conta<select value={status} onChange={e => setStatus(e.target.value)}><option value="">Todas</option><option value="ACTIVE">Ativa</option><option value="SUSPENDED">Suspensa</option></select></label>
         <button>Pesquisar</button>
       </form>
+      {search === null && <p role="status">Pesquise por nome ou e-mail para consultar contas. Nenhuma conta é carregada automaticamente.</p>}
       {action.feedback}
       <ResourceState resource={resource} />
       {resource.data?.items.length === 0 && <p>Nenhuma conta encontrada.</p>}
@@ -1122,6 +1208,9 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
           <p>
             {u.email} · {label(u.role)} · {u.suspended ? "Suspenso" : "Ativo"}
           </p>
+          <details><summary>Ficha da conta e vínculos</summary>
+          {u.createdAt && <p>Cadastro: {date(u.createdAt)}</p>}
+          <p>Perfil global: {label(u.role)} · E-mail {u.emailVerifiedAt ? "confirmado" : "pendente"}</p>
           {u.role === "PROFESSOR" && (
             <p>
               Transição:{" "}
@@ -1137,8 +1226,7 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
               )
                 ? "vínculo docente ativo"
                 : "vínculo institucional docente pendente"}
-              . A regularização exige confirmação pelo titular e vínculo
-              legítimo autorizado; não é automática.
+              .
             </p>
           )}
           {u.memberships.map((m, index) => (
@@ -1148,9 +1236,14 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
               {label(m.institution.status)})
             </p>
           ))}
-          <div className="admin-actions">
+          {u.memberships.length === 0 && <p>Sem vínculos institucionais registrados.</p>}
+          <button onClick={() => setHistoryId(historyId === u.id ? undefined : u.id)}>Histórico administrativo</button>
+          </details>
+          <div className="admin-actions account-actions">
             {!permissionsOnly&&<button
+              className={`account-action-button${u.suspended ? ' account-action-positive' : ''}`}
               disabled={action.busy || u.id === currentUserId}
+              title={u.id === currentUserId ? 'Sua própria suspensão não pode ser alterada nesta tela.' : undefined}
               onClick={() =>
                 setChange({
                   id: u.id,
@@ -1161,7 +1254,9 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
             >
               {u.suspended ? "Reativar" : "Suspender"}
             </button>}
+            {!permissionsOnly && <AdminAccountDeletion userId={u.id} email={u.email} disabled={action.busy || u.id === currentUserId} onDone={resource.reload} />}
             {permissionsOnly&&<button
+              className="account-action-button"
               disabled={action.busy || u.id === currentUserId}
               onClick={() =>
                 setChange({
@@ -1182,28 +1277,32 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
         </article>
       ))}
       {change && (
-        <div className="panel" role="alert">
+        <div className="panel account-action-form" role="alert" aria-busy={action.busy}>
           <p>{change.title}? As sessões anteriores da conta serão revogadas.</p>
+          <p>Usuário: {resource.data?.items.find(user => user.id === change.id)?.email ?? change.id}. Reativar suspensão não restaura uma conta desativada ou excluída.</p>
+          <label>Justificativa<textarea required minLength={3} maxLength={500} disabled={action.busy} value={reason} onChange={e => setReason(e.target.value)}/></label>
           <button
-            disabled={action.busy}
+            className={`account-action-button${'suspended' in change.body && change.body.suspended === false ? ' account-action-positive' : ''}`}
+            disabled={action.busy || reason.trim().length < 3}
             onClick={() => {
               void action
                 .run(
                   `/institutions/admin/users/${change.id}`,
                   "PATCH",
-                  change.body,
+                  { ...change.body, reason: reason.trim() },
                 )
                 .then((ok) => {
-                  if (ok) setChange(undefined);
+                  if (ok) { setChange(undefined); setReason(""); }
                 });
             }}
           >
-            Confirmar alteração
+            {action.busy ? 'Salvando...' : 'Confirmar alteração'}
           </button>
-          <button onClick={() => setChange(undefined)}>Cancelar</button>
+          <button className="account-action-button" disabled={action.busy} onClick={() => {setChange(undefined);setReason("");}}>Cancelar</button>
         </div>
       )}
-      <Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />
+      {resource.data && <Pages page={page} hasMore={resource.data.hasMore} change={setPage} />}
+      {historyId && <UserHistory key={historyId} userId={historyId}/>}
     </>
   );
 }
@@ -1221,29 +1320,31 @@ export function InstitutionsPortal({ session }: { session: Session }) {
     session.administration?.memberships
       .filter((m) => m.role === "INSTITUTION_ADMIN")
       .map((m) => m.institutionId) ?? [];
+  const institutions = resource.data ?? [];
+  const activeInstitution = institutions.find((institution) => institution.status === "ACTIVE");
+  const hasPendingInstitution = institutions.some((institution) => institution.status === "PENDING");
+  const heading = activeInstitution
+    ? "Minha instituição"
+    : hasPendingInstitution
+      ? "Acompanhamento institucional"
+      : "Cadastro institucional";
+  const refreshInstitution = () => {
+    void refreshSession(true).then(resource.reload).catch(() => {});
+  };
   return (
-    <section className="page admin-page">
-      <p className="gold">INSTITUIÇÕES</p>
-      <h1>Cadastro e acompanhamento institucional</h1>
-      <p>
-        Solicite o cadastro sem vínculo anterior. Sua solicitação será analisada
-        pelo administrador geral; o envio não concede privilégios.
-      </p>
-      <button
-        className="outline-button"
-        onClick={() => {
-          void refreshSession(true)
-            .then(resource.reload)
-            .catch(() => {});
-        }}
-      >
-        Atualizar situação e permissões
-      </button>
+    <section className="page admin-page institution-portal">
+      <header className="institution-portal-header">
+        <div>
+          <p className="gold">INSTITUIÇÕES</p>
+          <h1>{heading}</h1>
+          <p>Acompanhe a situação cadastral e os recursos disponíveis para sua instituição.</p>
+        </div>
+      </header>
       <ResourceState resource={availability} />
       {availability.data &&
       !registrationAvailable(availability.data) &&
       !availability.data.administrationEnabled ? (
-        <p>
+        <p className="institution-empty-state">
           O recebimento de solicitações ainda não foi habilitado. Não é
           necessário vínculo prévio; quando autorizado, use sua conta individual
           para enviar e acompanhar a solicitação.
@@ -1253,144 +1354,49 @@ export function InstitutionsPortal({ session }: { session: Session }) {
           availability.data?.administrationEnabled) && (
           <>
             <ResourceState resource={resource} />
-            {registrationAvailable(availability.data) && session.user.emailVerificado ? (
+            {!resource.loading&&registrationAvailable(availability.data) && session.user.emailVerificado && !resource.data?.some(i=>i.ownerId===session.user.id) ? (
               <InstitutionRequest
                 onCreated={resource.reload}
                 contactEmail={session.user.email}
+                responsibleName={session.user.nome}
               />
             ) : (
-              <p>
-                Confirme seu e-mail antes de enviar uma nova solicitação. Se o recebimento estiver desabilitado, o acompanhamento das existentes permanece disponível.
-              </p>
+              !session.user.emailVerificado&&<p>Confirme seu e-mail antes de enviar uma solicitação.</p>
             )}
-            <h2>Meus vínculos e solicitações</h2>
-            {resource.data?.length === 0 && (
-              <p>Nenhuma solicitação ou vínculo institucional.</p>
+            <h2 className="institution-portal-section-title">Meus vínculos e solicitações</h2>
+            {institutions.length === 0 && (
+              <p className="institution-empty-state">Nenhuma solicitação ou vínculo institucional.</p>
             )}
-            {resource.data?.map((i) => (
-              <article className="panel" key={i.id}>
-                <h3>{i.name}</h3>
-                <p>{label(i.status)}</p>
-                {i.decisionReason && <p>{i.decisionReason}</p>}
+            <div className="institution-request-list">
+            {institutions.map((i) => (
+              <article className="panel institution-request-card" key={i.id}>
+                <div className="institution-request-heading">
+                  <div><h3>{i.name}</h3><p>Informações do seu cadastro institucional.</p></div>
+                  <button className="outline-button" onClick={refreshInstitution}>Atualizar situação e permissões</button>
+                </div>
+                <dl className="institution-request-status"><div><dt>Situação cadastral</dt><dd><span className={`institution-status ${i.status==='ACTIVE'?'is-approved':i.status==='REJECTED'?'is-rejected':'is-pending'}`}>{i.status==='ACTIVE'?'Cadastro aprovado':label(i.status)}</span></dd></div><div><dt>Situação operacional</dt><dd><span className={`institution-status ${i.status==='ACTIVE'&&availability.data?.enabled&&session.administration?.enabled&&adminIds.includes(i.id)?'is-ready':'is-waiting'}`}>{i.status==='ACTIVE'&&availability.data?.enabled&&session.administration?.enabled&&adminIds.includes(i.id)?'Disponível para sua gestão':i.status==='ACTIVE'?'Aguardando liberação':'Disponível após aprovação e liberação'}</span></dd></div></dl>
+                {i.decisionReason?.trim() && <aside className="institution-review-note" aria-label="Observação registrada na análise"><span>{i.status === 'REJECTED' ? 'Orientação para revisão do cadastro' : 'Observação registrada na análise'}</span><p>{i.decisionReason}</p></aside>}
+                {i.status==='REJECTED'&&i.ownerId===session.user.id&&registrationAvailable(availability.data)&&session.user.emailVerificado&&<InstitutionRequest onCreated={resource.reload} contactEmail={session.user.email} responsibleName={session.user.nome} initial={i}/>}
                 {!availability.data?.enabled && i.status === "ACTIVE" && (
-                  <p>
-                    Cadastro aprovado; operações institucionais aguardam
-                    ativação separada.
-                  </p>
+                  <p className="institution-guidance">O cadastro foi aprovado. As operações institucionais serão disponibilizadas após a liberação correspondente.</p>
                 )}
-                {availability.data?.enabled && adminIds.includes(i.id) && (
-                  <button onClick={() => {sessionStorage.setItem('jurissim_administration_institution',i.id);window.history.replaceState({},'',`/instituicoes?instituicao=${encodeURIComponent(i.id)}`);window.dispatchEvent(new Event('jurissim-institution-context'));}}>
+                {availability.data?.enabled && session.administration?.enabled && session.user.emailVerificado && i.status==='ACTIVE' && adminIds.includes(i.id) && (
+                  <button type="button" className="primary-button institution-manage-button" onClick={() => {sessionStorage.setItem('jurissim_administration_institution',i.id);window.history.replaceState({},'',`/instituicoes?instituicao=${encodeURIComponent(i.id)}`);window.dispatchEvent(new Event('jurissim-institution-context'));}}>
                     Administrar instituição
                   </button>
                 )}
               </article>
             ))}
+            </div>
 
             {session.user.emailVerificado &&
               administrativeCapability(availability.data, "notifications") && (
-                <Notifications />
+                <Notifications recent/>
               )}
           </>
         )
       )}
     </section>
-  );
-}
-function InstitutionRequest({
-  onCreated,
-  contactEmail,
-}: {
-  onCreated: () => void;
-  contactEmail: string;
-}) {
-  const action = useMutation(onCreated),
-    [open, setOpen] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  return (
-    <>
-      <button className="outline-button" onClick={() => setOpen(!open)}>
-        {open ? "Fechar solicitação" : "Solicitar cadastro de instituição"}
-      </button>
-      {action.feedback}
-      {submitted && (
-        <p role="status">
-          Solicitação enviada para análise. Acompanhe a situação abaixo; a
-          aprovação exige confirmação do e-mail e decisão do administrador
-          geral.
-        </p>
-      )}
-      {open && (
-        <form
-          className="panel admin-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const form = new FormData(e.currentTarget);
-            const body = Object.fromEntries(form.entries());
-            if (!body.registrationNumber) delete body.registrationNumber;
-            void action
-              .run("/institutions/requests", "POST", body)
-              .then((ok) => {
-                if (ok) {
-                  setSubmitted(true);
-                  setOpen(false);
-                }
-              });
-          }}
-        >
-          <h2>Solicitar cadastro</h2>
-          <p>
-            O e-mail da conta autenticada será o e-mail do responsável. A
-            solicitação depende de análise do administrador geral.
-          </p>
-          <label>
-            Tipo de instituição
-            <select name="institutionType" required defaultValue="">
-              <option value="" disabled>
-                Selecione
-              </option>
-              <option value="ENSINO_SUPERIOR">
-                Instituição de ensino superior
-              </option>
-              <option value="CURSO_PREPARATORIO">Curso preparatório</option>
-              <option value="OUTRA_ORGANIZACAO">
-                Outra organização educacional
-              </option>
-            </select>
-          </label>
-          <label>
-            E-mail de contato da conta
-            <input type="email" readOnly value={contactEmail} />
-          </label>
-          {[
-            ["name", "Nome da instituição", 180],
-            ["responsibleName", "Nome do responsável", 120],
-            ["registrationNumber", "CNPJ (quando aplicável)", 18],
-            ["phone", "Telefone", 25],
-          ].map(([name, title, max]) => (
-            <label key={name}>
-              {title}
-              <input
-                name={String(name)}
-                required={name !== "registrationNumber"}
-                minLength={name === "phone" ? 8 : 2}
-                maxLength={Number(max)}
-                type={name === "phone" ? "tel" : "text"}
-              />
-            </label>
-          ))}
-          <label>
-            Informações institucionais
-            <textarea
-              name="description"
-              required
-              minLength={10}
-              maxLength={1900}
-            />
-          </label>
-          <button disabled={action.busy}>Enviar solicitação</button>
-        </form>
-      )}
-    </>
   );
 }
 function AdministrativeInstitutionDetails({institution,reload}:{institution:Institution;reload:()=>void}){
@@ -1442,7 +1448,7 @@ export function ClassMembershipManager({
         {teacher ? "Solicitações de entrada" : "Minhas solicitações de entrada"}
       </h3>
       {action.feedback}
-      {teacher&&classId&&<form className="admin-form" onSubmit={e=>{e.preventDefault();void action.run(`/turmas/${classId}/students`,'POST',{email:studentEmail}).then(ok=>{if(ok)setStudentEmail('');});}}><label>E-mail do aluno já cadastrado<input type="email" required maxLength={254} value={studentEmail} onChange={e=>setStudentEmail(e.target.value)}/></label><button disabled={action.busy}>Vincular aluno</button></form>}
+      {teacher&&classId&&<form className="admin-form" onSubmit={e=>{e.preventDefault();void action.run(`/turmas/${classId}/students`,'POST',{email:studentEmail}).then(ok=>{if(ok)setStudentEmail('');});}}><label>E-mail do aluno já cadastrado<input type="email" required maxLength={254} value={studentEmail} onChange={e=>setStudentEmail(e.target.value)}/></label><button className="primary-button" disabled={action.busy}>Vincular aluno</button></form>}
       <ResourceState resource={resource} />
       {resource.data?.items.length === 0 && <p>Nenhuma solicitação.</p>}
       {resource.data?.items.map((r) => (

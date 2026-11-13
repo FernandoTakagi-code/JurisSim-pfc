@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { institutionsEnabled } from "../config/institution-feature";
+import { institutionsGloballyEnabled } from "../config/institution-feature";
 
 const select = {
   id: true,
@@ -32,7 +32,7 @@ export class InstitutionActivationBlocked extends Error {
 }
 export async function inspectInstitutionActivation(
   db: Pick<Prisma.TransactionClient, "user">,
-  requested = institutionsEnabled(),
+  requested = institutionsGloballyEnabled(),
 ): Promise<ActivationReadiness> {
   const result: ActivationReadiness = {
     checked: requested,

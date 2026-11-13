@@ -26,22 +26,49 @@ const questionPracticeMigration = '20261021130000_question_practice_sessions';
 const questionPracticeTopicMigration = '20261028120000_question_practice_topic';
 const diagnosticReviewSnapshotMigration = '20261030120000_diagnostic_review_snapshot';
 const requiredQuestionMigrations = [questionImportMigration, initialDiagnosticMigration, questionEligibilityMigration, questionPracticeMigration, questionPracticeTopicMigration, diagnosticReviewSnapshotMigration];
-const requiredInstitutionMigrations = ['20261104000100_institutions_administration', '20261105000100_teacher_invitation_onboarding'];
-const requiredTail = [...requiredQuestionMigrations, ...requiredInstitutionMigrations, '20261112130000_individual_exam_sessions', '20261112160000_private_practice_sessions', '20261113010000_question_review_sessions'];
+const requiredInstitutionMigrations = [
+  '20261104000100_institutions_administration',
+  '20261105000100_teacher_invitation_onboarding',
+  '20261111000100_institution_request_details',
+];
+
+const requiredTail = [
+  ...requiredQuestionMigrations,
+  ...requiredInstitutionMigrations,
+  '20261112130000_individual_exam_sessions',
+  '20261112160000_private_practice_sessions',
+  '20261113000100_email_reuse_block',
+  '20261113000200_email_reuse_registration_guard',
+  '20261113010000_question_review_sessions',
+];
 const pgBin = process.argv[2];
 const preflightOnly = process.argv[3] === '--preflight-only';
 const startupDiagnosticOnly = process.argv[3] === '--startup-diagnostic-only';
 // Same disposable cluster and migration checks, but only the Vitest integration suite
 // (skips the standalone scripts/test-*-db.ts scenario runners).
 const functionalSuite = process.argv[3] === '--functional-suite';
+
+const institutionSuite = process.argv[3] === '--institution-suite-only';
+const institutionEmailSuite = process.argv[3] === '--institution-email-suite-only';
+const emailSystemSuite = process.argv[3] === '--email-system-suite-only';
 const authorialDiagnosticOnly = process.argv[3] === '--authorial-diagnostic-only';
 const individualExamOnly = process.argv[3] === '--individual-exam-only';
 const questionPracticeOnly = process.argv[3] === '--question-practice-only';
 const accountPrivacyOnly = process.argv[3] === '--account-privacy-only';
-const integrationSuiteOnly = process.argv[3] === '--integration-suite-only' || functionalSuite || authorialDiagnosticOnly || individualExamOnly || questionPracticeOnly || accountPrivacyOnly;
+
+const integrationSuiteOnly =
+  process.argv[3] === '--integration-suite-only' ||
+  functionalSuite ||
+  institutionSuite ||
+  institutionEmailSuite ||
+  emailSystemSuite ||
+  authorialDiagnosticOnly ||
+  individualExamOnly ||
+  questionPracticeOnly || accountPrivacyOnly;
+
 if (!pgBin || (process.argv.length !== 3
   && !(process.argv.length === 4 && (preflightOnly || startupDiagnosticOnly || integrationSuiteOnly)))) {
-  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite|--authorial-diagnostic-only|--individual-exam-only|--question-practice-only|--account-privacy-only]');
+  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite|--institution-suite-only|--institution-email-suite-only|--email-system-suite-only|--authorial-diagnostic-only|--individual-exam-only|--question-practice-only|--account-privacy-only]');
   process.exit(1);
 }
 const resolvedPgBin = path.resolve(pgBin);
@@ -343,7 +370,10 @@ async function main() {
   startAttempted = true;
   const pgCtlStdout = path.join(artifacts, 'pg_ctl-start.stdout.log');
   const pgCtlStderr = path.join(artifacts, 'pg_ctl-start.stderr.log');
-  const startArgs = ['-D', data, '-l', log, '-o', `-h 127.0.0.1 -p ${port}`, '-w', '-t', '30', 'start'];
+  // All clients use guarded loopback TCP. Do not require write permissions on
+  // the host's shared /var/run/postgresql or expose a shared Unix socket.
+  const socketOptions = process.platform === 'win32' ? '' : ' -c unix_socket_directories=';
+  const startArgs = ['-D', data, '-l', log, '-o', `-h 127.0.0.1 -p ${port}${socketOptions}`, '-w', '-t', '30', 'start'];
   const startResult = runCaptured(executable('pg_ctl'), startArgs, pgCtlStdout, pgCtlStderr, env);
   fs.writeFileSync(path.join(artifacts, 'pg_ctl-start-diagnostic.json'), JSON.stringify({
     executable: executable('pg_ctl'), args: startArgs, dataDirectory: data, logFile: log,
@@ -506,10 +536,43 @@ async function main() {
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-question-import-db.ts', data]));
   if (!integrationSuiteOnly || functionalSuite) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-initial-diagnostic-db.ts', data]));
   if (authorialDiagnosticOnly) {
-    console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-authorial-diagnostic-db.ts', data]));
+    console.log(run(process.execPath, [
+      '--import',
+      'tsx',
+      'scripts/test-authorial-diagnostic-db.ts',
+      data,
+    ]));
   } else if (!accountPrivacyOnly) {
-    console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', ...(individualExamOnly ? ['src/__tests__/integration/individual-exam.integration.test.ts'] : questionPracticeOnly ? ['src/__tests__/integration/question-practice.integration.test.ts', 'src/__tests__/integration/individual-exam.integration.test.ts', 'src/__tests__/integration/question-review.integration.test.ts', 'src/__tests__/integration/attempt-lifecycle.integration.test.ts'] : [])]));
+    const selectedTests = emailSystemSuite
+      ? [
+          'src/__tests__/integration/email-system.integration.test.ts',
+          'src/__tests__/integration/institution-decision-email.integration.test.ts',
+          'src/__tests__/integration/institutions.integration.test.ts',
+        ]
+      : institutionEmailSuite
+        ? ['src/__tests__/integration/institution-decision-email.integration.test.ts']
+        : institutionSuite
+          ? ['src/__tests__/integration/institutions.integration.test.ts']
+          : individualExamOnly
+            ? ['src/__tests__/integration/individual-exam.integration.test.ts']
+            : questionPracticeOnly
+              ? [
+                  'src/__tests__/integration/question-practice.integration.test.ts',
+                  'src/__tests__/integration/individual-exam.integration.test.ts',
+                  'src/__tests__/integration/question-review.integration.test.ts',
+                  'src/__tests__/integration/attempt-lifecycle.integration.test.ts',
+                ]
+              : [];
+
+    console.log(run(process.execPath, [
+      path.join(backend, 'node_modules/vitest/vitest.mjs'),
+      'run',
+      '--config',
+      'vitest.integration.config.ts',
+      ...selectedTests,
+    ]));
   }
+
   assertNoDrift(integrationDatabase);
 }
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {

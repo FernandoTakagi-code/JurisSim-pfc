@@ -4,6 +4,12 @@ const db=vi.hoisted(()=>{
   return {turma:model(),avaliacao:model(),institutionalMembership:model(),institutionalClass:model(),administrativeEvent:model(),$queryRaw:vi.fn(),$transaction:vi.fn()};
 });
 vi.mock('../lib/prisma',()=>({prisma:db}));
+// Isolate authorization scenarios from any private local homologation registry.
+vi.mock('../config/institution-homologation', async importOriginal => ({
+  ...await importOriginal<typeof import('../config/institution-homologation')>(),
+  homologationClassBoundary: () => undefined,
+  restrictedInstitutionId: () => undefined,
+}));
 import {ClassExamService} from './class-exam-service';
 const service=new ClassExamService();
 const professor={userId:'teacher-1',role:'PROFESSOR',institutionId:'institution-a',allowedClassIds:['class-a']};

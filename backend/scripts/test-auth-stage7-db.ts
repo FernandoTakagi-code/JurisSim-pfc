@@ -13,6 +13,7 @@ import { prisma } from '../src/lib/prisma';
 import { AuthController } from '../src/controllers/auth-controller';
 import { AuthService } from '../src/services/auth-service';
 import { EmailVerificationService } from '../src/services/email-verification-service';
+import { EmailDeliveryFailure, type EmailDeliveryOutcome } from '../src/services/email-delivery-failure';
 import { PasswordRecoveryService } from '../src/services/password-recovery-service';
 import { createAuthRoutes } from '../src/routes/auth-routes';
 import { studentHistoryRoutes } from '../src/routes/student-history-routes';
@@ -23,11 +24,11 @@ import questaoRoutes from '../src/routes/questaoRoutes';
 import { errorHandler } from '../src/middlewares/error-handler';
 import versions from '../src/legal-versions.json';
 
-let server: Server | undefined, base: string, checks = 0, failNext = false;
+let server: Server | undefined, base: string, checks = 0, failNext: EmailDeliveryOutcome | false = false;
 const frontendOrigin = 'http://127.0.0.1:5184', fixtureKey = randomUUID();
 type Mail = { kind: 'verification' | 'recovery'; to: string; url: string };
 const outbox: Mail[] = [];
-const send = async (message: Mail) => { if (failNext) { failNext = false; throw new Error('Isolated delivery failure'); } outbox.push(message); };
+const send = async (message: Mail) => { if (failNext) { const outcome = failNext; failNext = false; throw new EmailDeliveryFailure(outcome, 'smtp'); } outbox.push(message); };
 const pass = (message: string) => { checks++; console.log(`PASS AUTH DB: ${message}`); };
 const tokenOf = (mail: Mail) => new URLSearchParams(new URL(mail.url).hash.split('?')[1]).get('token')!;
 const hashOf = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -134,7 +135,7 @@ async function main() {
   await prisma.passwordRecoveryToken.updateMany({ where: { userId: row.id }, data: { createdAt: new Date(Date.now() - 61000) } });
   assert.deepEqual(await request('/auth/password-recovery', { email }, undefined, 202), neutral); assert.equal(outbox.length, cappedCount);
 
-  const failedEmail = 'auth-stage7-failed@example.invalid'; failNext = true;
+  const failedEmail = 'auth-stage7-failed@example.invalid'; failNext = 'not_accepted';
   const failed = await request('/auth/register', registration(failedEmail), undefined, 201); assert.equal(failed.emailVerification.status, 'unavailable');
   const failedUser = await prisma.user.findUniqueOrThrow({ where: { email: failedEmail } });
   assert.equal(failedUser.emailVerifiedAt, null); assert.ok((await prisma.authToken.findFirstOrThrow({ where: { userId: failedUser.id } })).usedAt);
@@ -150,6 +151,16 @@ async function main() {
   const newest = latest(failedEmail, 'verification'); await prisma.authToken.updateMany({ where: { tokenHash: hashOf(tokenOf(newest)) }, data: { expiresAt: new Date(Date.now() - 1) } });
   await request('/auth/email-verification/confirm', { token: tokenOf(newest) }, undefined, 400);
   pass('simulated delivery failure leaves confirmation mandatory; durable three/hour quota and concurrent resend cannot be bypassed');
+
+  failNext = 'indeterminate';
+  const uncertainEmail = 'auth-stage7-uncertain@example.invalid';
+  const uncertain = await request('/auth/register', registration(uncertainEmail), undefined, 201);
+  assert.equal(uncertain.emailVerification.status, 'unavailable');
+  const uncertainUser = await prisma.user.findUniqueOrThrow({ where: { email: uncertainEmail } });
+  assert.equal(uncertainUser.emailVerifiedAt, null);
+  assert.equal((await prisma.authToken.findFirstOrThrow({ where: { userId: uncertainUser.id } })).usedAt, null);
+  await request('/goals', undefined, await login(uncertainEmail), 403, 'GET');
+  pass('indeterminate delivery preserves the potentially delivered token without granting confirmed access');
 
   // Deleted accounts and stale JWT permissions remain rejected across stage-1–6 resources.
   await prisma.user.update({ where: { id: failedUser.id }, data: { deletedAt: new Date() } });

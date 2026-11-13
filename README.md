@@ -13,15 +13,16 @@ Oferecer uma ferramenta de estudo adaptativa, na qual o desempenho do aluno em s
 
 ## 👥 Atores do Sistema
 
-- **Admin**: gerencia usuários e configurações gerais da plataforma.
-- **Professor**: cadastra questões, cria turmas (com código de convite) e acompanha o desempenho da turma.
+- **ADMIN global**: gerencia usuários e configurações gerais, sem acesso pedagógico rotineiro.
+- **Responsável institucional**: acompanha a solicitação e administra a instituição conforme seu vínculo autorizado, sem receber automaticamente o papel global de ADMIN.
+- **Professor**: acessa turmas, questões autorizadas, simulados e relatórios conforme suas permissões. O vínculo docente depende de convite e aceite explícito.
 - **Aluno**: resolve simulados, acompanha sua evolução e recebe trilhas de exercícios recomendadas.
 
 ## ⚙️ Funcionalidades Principais (MVP)
 
 1. **Autenticação e Controle de Acesso** — Login via JWT com controle de acesso baseado em papéis (Aluno vs Professor/Admin).
 2. **Gestão de Questões** — CRUD de questões organizadas por Disciplina, Assunto, Nível e Fundamentação Jurídica, com suporte a questões públicas (banco geral) ou vinculadas a uma turma.
-3. **Módulo de Simulado** — Simulado diagnóstico e resolução cronometrada, com correção automática e feedback imediato.
+3. **Módulo de Simulado** — Simulado diagnóstico e avaliações de turma, com duração quando configurada, correção automática e resultados após a conclusão.
 4. **Motor Adaptativo** — Geração de trilhas de exercícios personalizadas com base nas taxas de acerto do aluno por assunto/nível.
 5. **Dashboards Analíticos** — Painel de evolução para o aluno e painel de desempenho da turma para o professor.
 
@@ -42,9 +43,9 @@ Controllers → Services → Repositories
 | Camada | Tecnologias |
 |---|---|
 | **Back-end** | Node.js, Express, TypeScript, Prisma ORM, Zod, JWT, Bcrypt |
-| **Banco de Dados** | PostgreSQL (Supabase) |
-| **Front-end** | React, TypeScript, CSS, Recharts, Axios |
-| **Testes & Qualidade** | Vitest/Jest, ESLint, Prettier |
+| **Banco de Dados** | PostgreSQL, no ambiente autorizado para execução |
+| **Front-end** | React, TypeScript, Vite, CSS, cliente HTTP baseado em Fetch |
+| **Testes & Qualidade** | Vitest, verificações estáticas e testes de navegador com Chrome; Prettier disponível como ferramenta de desenvolvimento |
 
 ## 📁 Estrutura do Repositório
 
@@ -63,18 +64,19 @@ jurissim/
 │   ├── package.json
 │   └── tsconfig.json
 ├── frontend/
-│   └── (em desenvolvimento)
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.ts
 ├── docs/
-│   ├── diagrams/
-│   │   ├── bpmn-processes.xml
-│   │   └── class-diagram.xml
-│   └── README.md
+│   ├── evidence/
+│   └── (guias técnicos, relatórios e roteiro acadêmico)
 └── README.md
 ```
 
-## 📊 Diagramas de Arquitetura
+## 📊 Visão conceitual da arquitetura
 
-### Diagrama BPMN - Processos do Sistema
+### Processos do sistema
 
 O sistema JurisSim é modelado em 6 processos principais:
 
@@ -93,9 +95,9 @@ Motor Adaptativo (Análise de Desempenho) → Gerar Trilha →
 Simulado Personalizado → Atualizar Progresso
 ```
 
-Para mais detalhes, veja [docs/diagrams/bpmn-processes.xml](docs/diagrams/bpmn-processes.xml)
+Os arquivos XML de BPMN e UML anteriormente citados não estão incluídos nesta árvore. Este resumo não substitui os diagramas acadêmicos originais. Consulte a [arquitetura administrativa e de cadastro](docs/arquitetura-administrativa-cadastro-0911.md) para o contrato institucional documentado.
 
-### Diagrama de Classes UML
+### Modelos e contratos
 
 O sistema utiliza o padrão **MVC em Camadas** com separação clara de responsabilidades:
 
@@ -119,11 +121,11 @@ O sistema utiliza o padrão **MVC em Camadas** com separação clara de responsa
 
 #### Camada de Controllers (HTTP Endpoints)
 - **AuthController** - Endpoints de autenticação (/auth/*)
-- **DiagnosticController** - Endpoints de simulados (/diagnostic/*)
+- **DiagnosticController** - Endpoints de diagnóstico (/diagnostics/*)
 - **QuestaoController** - Endpoints de questões (/questoes/*)
-- **TrailController** - Endpoints de trilhas (/trails/*)
+- **TrailController** - Endpoints de trilhas (/trilhas/*)
 
-#### Relacionamentos Principais:
+#### Relacionamentos principais (resumo conceitual):
 ```
 User 1─→ * Questao (Professor cria questões)
 User 1─→ * Simulado (Aluno faz simulados)
@@ -134,16 +136,59 @@ Simulado 1─→ 1 TrilhaAdaptativa (Trilha gerada)
 User 1─→ * MetaDiaria (Metas do aluno)
 ```
 
-Para mais detalhes, veja [docs/diagrams/class-diagram.xml](docs/diagrams/class-diagram.xml)
+As cardinalidades e os campos completos estão no [schema Prisma](backend/prisma/schema.prisma); o registro de rotas está em [server.ts](backend/src/server.ts).
 
 ## 🚀 Como Rodar o Projeto
 
 ### Pré-requisitos
 
-- Node.js 24 e npm (mesma versão principal usada no CI)
-- Acesso autorizado a um banco PostgreSQL/Supabase; as credenciais são configuradas fora do Git.
+- Node.js compatível com o Vite 7: `^20.19.0 || >=22.12.0`. As validações recentes usaram Node.js 24.
+- npm e as dependências dos dois diretórios instaladas pelos respectivos lockfiles.
+- Configuração de PostgreSQL/schema previamente autorizada, além das variáveis necessárias de autenticação. Google e envio de e-mail exigem configuração própria quando utilizados.
+
+### Versão pública e overlay local
+
+No histórico versionado, `npm run dev` executado em `backend` inicia `tsx watch src/server.ts`; em `frontend`, inicia Vite. Nesta máquina, os manifestos de trabalho podem conter launchers privados de homologação: esse overlay não é distribuído pelo Git e não deve ser copiado para uma instalação pública. Não substitua `.env`, manifestos funcionais ou arquivos privados existentes seguindo instruções de instalação nova.
+
+Os comandos abaixo destinam-se a uma instalação nova e não aplicam migrations, seeds ou provisionamento. O ambiente de banco deve ser aprovado e preparado separadamente.
 
 ### Preparação local
+
+```powershell
+cd backend
+npm ci
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+# Preencher somente a configuração autorizada antes de iniciar.
+npm run prisma:generate
+npm run dev
+```
+
+O backend de desenvolvimento usa a porta 3333. Não inicie outra instância se essa porta já estiver ocupada.
+
+### Frontend
+
+Em outro terminal, a partir da raiz:
+
+```powershell
+cd frontend
+npm ci
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+npm run dev
+```
+
+O frontend usa a porta 5173. Mantenha a mesma origem durante login e convites: `localhost` e `127.0.0.1` não compartilham automaticamente a sessão.
+
+### Variáveis de ambiente
+
+Consulte os exemplos públicos [backend/.env.example](backend/.env.example) e [frontend/.env.example](frontend/.env.example). Preencha credenciais apenas nos arquivos privados locais; valores `VITE_*` chegam ao navegador e não devem conter segredos de servidor.
+
+As flags institucionais, os requisitos do acervo e a política privada de homologação continuam sendo verificados pelo backend. Não habilite funcionalidades apenas para contornar uma mensagem de indisponibilidade.
+
+## 📌 Status do Projeto
+
+### Setup automatizado e configuração por ambiente
+
+Para uma instalação nova, o projeto também oferece os comandos:
 
 ```bash
 npm run setup
@@ -152,60 +197,56 @@ npm ci --prefix frontend
 npm --prefix backend run prisma:generate
 ```
 
-O setup cria os arquivos locais ausentes e gera uma chave JWT privada. Nunca sobrescreve um `.env` existente. Preencha `DATABASE_URL` e `DIRECT_URL` em `backend/.env` com o destino autorizado, sem enviar credenciais pelo Git ou pelo chat. Execute `npm run config:check` para conferir o formato, sem conectar ao banco e sem exibir valores.
+O setup prepara arquivos locais ausentes e gera uma chave JWT privada, sem sobrescrever um `.env` existente. Configure `DATABASE_URL` e `DIRECT_URL` somente com o banco autorizado.
 
-Se estiver usando o banco compartilhado já preparado, não execute reset, seed ou migrations para iniciar. Um banco novo precisa ser preparado separadamente conforme o procedimento documentado.
+Use `npm run config:check` para validar a configuração sem conectar ao banco ou exibir credenciais.
 
-Em dois terminais:
+Não execute reset, seed ou migrations no banco compartilhado.
 
-```bash
-npm --prefix backend run dev
-# Em outro terminal:
-npm --prefix frontend run dev
-```
+### Publicação
 
-A API local usa `http://localhost:3333` e o site usa `http://localhost:5173`.
+O projeto utiliza [Vercel](https://jurissim.vercel.app) para o frontend e [Render](https://jurissim-pfc.onrender.com/health) para a API.
 
-### Configuração por ambiente
+Consulte [docs/variaveis-de-ambiente.md](docs/variaveis-de-ambiente.md) para a configuração de ambientes, funcionalidades e variáveis do GitHub, Render e Vercel.
 
-O projeto publicado usa [Vercel](https://jurissim.vercel.app) para o frontend e [Render](https://jurissim-pfc.onrender.com/health) para a API. `VITE_*` é configuração pública do build; banco, JWT e provedores de e-mail ficam no ambiente de execução do backend.
-
-Consulte [docs/variaveis-de-ambiente.md](docs/variaveis-de-ambiente.md) para a matriz completa, flags de funcionalidades, configuração de GitHub Environments/Variables/Secrets, Render e Vercel. A validação manual do GitHub usa apenas variáveis públicas; não precisa das credenciais do Supabase. Os `.env.example` documentam o contrato; os valores privados ficam fora do repositório.
-## 📌 Status do Projeto
+As credenciais permanecem fora do Git. Variáveis `VITE_*` são públicas no navegador.
 
 Projeto em desenvolvimento ativo, seguindo o cronograma da disciplina de Análise e Projeto de Software (2026/2º semestre).
 
-### Backend
-- [x] Configuração inicial do backend (Express + TypeScript)
-- [x] Modelagem de dados (Prisma + PostgreSQL/Supabase)
-- [x] Autenticação e autorização (JWT)
-- [x] CRUD de questões
-- [x] Módulo de simulado diagnóstico
-- [x] Motor adaptativo
-- [x] Testes automatizados
-- [ ] Dashboards analíticos (API pronta)
+| Área | Situação nesta branch |
+| --- | --- |
+| Autenticação, cadastro e confirmação | Backend e interfaces implementados; Google, e-mail e persistência reais dependem da configuração e homologação autorizadas. |
+| Dashboards de Aluno, Professor, Instituição e ADMIN | Interfaces e contratos implementados, com validações automatizadas isoladas. Acesso e dados dependem de papel, vínculo e contexto autorizado. |
+| Convites e primeiro acesso docente | Fluxos implementados com destinatário validado e aceite explícito; as restrições privadas permanecem. Nenhuma promoção ocorre ao abrir o link. |
+| Turmas, relatórios e simulados | Contratos existentes integrados às interfaces; consulta de questões elegíveis separada da gestão do acervo. Salvamento/publicação reais exigem autorização. |
+| Atividades próprias | Rota e contexto de turma disponíveis; criação, publicação, respostas e correção próprias ainda indisponíveis. |
+| Exclusão de conta H4.24 | Desabilitada para Aluno e ADMIN até validação segura da integração de persistência. |
+| Desativação da conta | Backend e componente existentes; a auditoria não localizou integração direta do componente no perfil. Não considerar a ação de interface homologada. |
 
-### Frontend
-- [ ] Estrutura inicial (React + TypeScript)
-- [ ] Telas de autenticação
-- [ ] Telas de simulados
-- [ ] Dashboards do aluno
-- [ ] Dashboards do professor
+Os testes com APIs/Prisma/SMTP mockados não comprovam operações reais. Os commits locais C01–C11 estão organizados; a integração posterior com `origin/main`, incluindo a PR #12, permanece pendente de autorização. Nenhuma funcionalidade H4.38 está sendo declarada concluída.
 
 ## 📚 Documentação Adicional
 
-- [Diagramas BPMN](docs/diagrams/bpmn-processes.xml) - Processos do sistema
-- [Diagrama de Classes UML](docs/diagrams/class-diagram.xml) - Estrutura de dados
+- [Arquitetura administrativa e cadastro](docs/arquitetura-administrativa-cadastro-0911.md)
+- [Administração institucional](docs/administracao-institucional-0911.md)
+- [Roteiro de apresentação acadêmica](docs/roteiro-apresentacao-academica.md)
+- [Evidências históricas](docs/evidence)
 - [Prisma Schema](backend/prisma/schema.prisma) - Modelo de dados completo
 
 ## 🧪 Testes
 
-```bash
+Para validação sem banco, a partir da raiz:
+
+```powershell
 cd backend
-npm run test        # Executar testes
-npm run test:watch  # Modo watch
-npm run coverage    # Cobertura de testes
+npm run build
+npm run test:no-db
+cd ../frontend
+npm run build
+npm run test:delivery-static
 ```
+
+Testes de integração com PostgreSQL exigem o harness descartável e autorização específica; não devem apontar para um banco existente. Esta branch não fornece scripts `lint` ou `coverage`: não os confunda com configurações ainda presentes apenas em `origin/main` ou em cópias isoladas.
 
 ## 🎓 Orientação
 
@@ -218,4 +259,4 @@ npm run coverage    # Cobertura de testes
 
 ---
 
-**Última atualização**: Setembro de 2026
+**Última revisão documental**: 13 de novembro de 2026. Não representa homologação real de todos os fluxos.

@@ -38,7 +38,9 @@ import {
   currentAccess,
   hashInvitation,
 } from "./institution-service";
+import { institutionApplication } from "../__tests__/fixtures/institution-request";
 import { ClassExamService } from "./class-exam-service";
+import { EmailDeliveryFailure } from './email-delivery-failure';
 
 const global = { userId: "global", role: "ADMIN" },
   owner = { userId: "owner", role: "ALUNO" };
@@ -64,7 +66,9 @@ beforeEach(() => {
   db.accountControl.findUnique.mockResolvedValue(null);
   db.teacherInvitationClass.findMany.mockResolvedValue([]);
   db.user.findFirst.mockResolvedValue({id:"authorized"});
+  db.user.findMany.mockResolvedValue([]);
   db.institution.findUnique.mockResolvedValue({
+    ...institutionApplication, registrationNumber: "12ABC34501DE35", description: "Declara\u00e7\u00e3o: institui\u00e7\u00e3o sem site oficial.",
     id: "institution",
     status: "PENDING",
     ownerId: "owner",
@@ -89,7 +93,59 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
+describe('H4.29 acceptance retries and transactional failures (in-memory persistence)', () => {
+  function lifecycle(failMembership = false) {
+    const state = { status: 'PENDING', role: 'ALUNO', acceptedById: null as string | null, history: ['previous-student-attempt'] };
+    let queue: Promise<unknown> = Promise.resolve();
+    db.$transaction.mockImplementation(work => {
+      const operation = queue.then(async () => {
+        const before = structuredClone(state);
+        try { return await work(db); } catch(error) { Object.assign(state, before); throw error; }
+      });
+      queue = operation.catch(() => undefined); return operation;
+    });
+    db.institution.findUnique.mockResolvedValue({status:'ACTIVE'});
+    db.teacherInvitation.findUnique.mockImplementation(() => ({id:'invite',institutionId:'institution',email:'teacher@example.com',status:state.status,acceptedById:state.acceptedById,expiresAt:new Date(Date.now()+60000)}));
+    db.user.findUnique.mockImplementation(() => ({id:'teacher',email:'teacher@example.com',emailVerifiedAt:new Date(),role:state.role,deletedAt:null}));
+    db.teacherInvitation.updateMany.mockImplementation(() => {
+      if(state.status!=='PENDING')return {count:0};state.status='ACCEPTED';state.acceptedById='teacher';return {count:1};
+    });
+    db.institutionalMembership.upsert.mockImplementation(() => {if(failMembership)throw new Error('mock membership persistence failed');return {id:'membership'};});
+    db.user.update.mockImplementation(({data}) => {state.role=data.role;return {id:'teacher'};});
+    return state;
+  }
+  it('serializes two repeated accepts, grants once and preserves student history', async () => {
+    const state=lifecycle();
+    const results=await Promise.all([service.accept({userId:'teacher',role:'ALUNO'},'a'.repeat(64)),service.accept({userId:'teacher',role:'ALUNO'},'a'.repeat(64))]);
+    expect(results[1].message).toContain('já foi aceito');expect(state.role).toBe('PROFESSOR');
+    expect(state.history).toEqual(['previous-student-attempt']);expect(db.institutionalMembership.upsert).toHaveBeenCalledOnce();expect(db.user.update).toHaveBeenCalledOnce();
+  });
+  it('rolls back the claimed invitation when membership persistence fails', async () => {
+    const state=lifecycle(true);
+    await expect(service.accept({userId:'teacher',role:'ALUNO'},'a'.repeat(64))).rejects.toThrow('mock membership persistence failed');
+    expect(state.status).toBe('PENDING');expect(state.role).toBe('ALUNO');expect(db.user.update).not.toHaveBeenCalled();
+  });
+  it('retry of an already accepted invitation does not reactivate a removed membership', async () => {
+    const state=lifecycle();state.status='ACCEPTED';state.acceptedById='teacher';state.role='PROFESSOR';
+    await expect(service.accept({userId:'teacher',role:'PROFESSOR'},'a'.repeat(64))).resolves.toHaveProperty('message');
+    expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();
+  });
+  it('clears the pending identity marker only on explicitly authenticated acceptance',async()=>{
+    lifecycle();
+    db.user.findUnique.mockResolvedValue({id:'teacher',email:'teacher@example.com',emailVerifiedAt:new Date(),role:'ALUNO',registrationIntent:'TEACHER_INVITATION'});
+    await service.accept({userId:'teacher',role:'ALUNO'},'a'.repeat(64));
+    expect(db.user.update).toHaveBeenCalledWith(expect.objectContaining({data:{role:'PROFESSOR',registrationIntent:null}}));
+    expect(db.institutionalMembership.upsert).toHaveBeenCalledOnce();
+  });
+});
+
 describe('institution-owned class delegation',()=>{
+  it('does not approve a request owned by a suspended account', async () => {
+    db.accountControl.findUnique.mockResolvedValue({ suspended: true });
+    await expect(service.decide(global, 'institution', 'ACTIVE', 'Verified request')).rejects.toMatchObject({ statusCode: 409 });
+    expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();
+    expect(db.institution.update).not.toHaveBeenCalled();
+  });
   it('returns current institutional counts instead of inferring totals from a paginated list',async()=>{
     db.institutionalMembership.findMany.mockResolvedValue([]);db.institutionalClass.findMany.mockResolvedValue([{classId:'class'}]);
     db.turma.findMany.mockResolvedValue([]);db.user.findMany.mockResolvedValue([]);db.user.count.mockResolvedValue(8);db.simulado.count.mockResolvedValue(3);
@@ -130,10 +186,14 @@ describe('institution-owned class delegation',()=>{
     expect(db.turma.update).toHaveBeenCalledWith({where:{id:'class'},data:{professores:{connect:{id:'authorized-teacher'}}},select:{id:true}});
     expect(db.institutionalClass.update).not.toHaveBeenCalled();
   });
-  it('restricts the global directory to administrative identities',async()=>{
-    db.user.findMany.mockResolvedValue([]);db.accountControl.findMany.mockResolvedValue([]);db.institutionalMembership.findMany.mockResolvedValue([]);
-    await service.users(global,1);
-    expect(db.user.findMany.mock.calls[0][0].where.AND[0].OR).toEqual(expect.arrayContaining([{institutionsOwned:{some:{}}},{institutionalMemberships:{some:{role:'INSTITUTION_ADMIN'}}}]));
+  it('does not query accounts without an explicit search',async()=>{
+    await expect(service.users(global,1)).resolves.toMatchObject({items:[]});
+    expect(db.user.findMany).not.toHaveBeenCalled();
+  });
+  it('searches all account profiles with bounded server pagination',async()=>{
+    db.user.findMany.mockResolvedValue([]);db.accountControl.findMany.mockResolvedValue([]);
+    await service.users(global,2,'aluno','ALUNO');
+    expect(db.user.findMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({role:'ALUNO',deletedAt:null}),take:26,skip:25}));
   });
 });
 describe('administrative institution maintenance',()=>{
@@ -170,6 +230,8 @@ describe("institutional approval and global authorization", () => {
   });
   it("does not query new tables before authorized activation (legacy DB compatibility)", async () => {
     vi.stubEnv("INSTITUTIONS_ENABLED", "false");
+    vi.stubEnv("ADMINISTRATION_ENABLED", "false");
+    vi.stubEnv("INSTITUTION_REGISTRATION_ENABLED", "false");
     expect(await currentAccess("student", "ALUNO")).toBeUndefined();
     expect(db.accountControl.findUnique).not.toHaveBeenCalled();
     expect(db.institutionalMembership.findMany).not.toHaveBeenCalled();
@@ -243,7 +305,7 @@ describe("institutional approval and global authorization", () => {
   });
   it("prevents self-promotion and changing the last active global administrator", async () => {
     await expect(
-      service.controlUser(global, "global", { globalAdmin: true }),
+      service.controlUser(global, "global", { globalAdmin: true, reason: "Authorized review" }),
     ).rejects.toMatchObject({ statusCode: 409 });
     db.user.findUnique.mockResolvedValue({
       role: "ADMIN",
@@ -252,7 +314,7 @@ describe("institutional approval and global authorization", () => {
     db.user.findMany.mockResolvedValue([{ id: "last" }]);
     db.accountControl.findMany.mockResolvedValue([]);
     await expect(
-      service.controlUser(global, "last", { suspended: true }),
+      service.controlUser(global, "last", { suspended: true, reason: "Authorized review" }),
     ).rejects.toMatchObject({ statusCode: 409 });
   });
   it("denies suspended accounts on the next authenticated access", async () => {
@@ -260,6 +322,46 @@ describe("institutional approval and global authorization", () => {
     await expect(currentAccess("student", "ALUNO")).rejects.toMatchObject({
       statusCode: 403,
     });
+  });
+});
+
+describe('account consultation and control safeguards', () => {
+  it('rechecks active verified ADMIN authority inside the suspension transaction', async () => {
+    db.user.findFirst.mockResolvedValue(null);
+    await expect(service.controlUser(global, 'student', { suspended: true, reason: 'Authorized account review' })).rejects.toMatchObject({ statusCode: 403 });
+    expect(db.accountControl.upsert).not.toHaveBeenCalled(); expect(db.user.update).not.toHaveBeenCalled();
+  });
+  it.each(['ACTIVE','SUSPENDED'] as const)('combines account status %s with name search in the database', async status => {
+    db.user.findMany.mockResolvedValue([]);db.accountControl.findMany.mockResolvedValue([]);
+    await service.users(global,1,'student','ALUNO',status);
+    const where = db.user.findMany.mock.calls[0][0].where;
+    expect(where.AND[0].OR).toHaveLength(2);
+    if(status==='SUSPENDED') expect(where.accountControl).toEqual({is:{suspended:true}});
+    else expect(where.OR).toHaveLength(2);
+  });
+  it('rejects missing reasons before any mutation', async () => {
+    await expect(service.controlUser(global,'student',{suspended:true})).rejects.toMatchObject({statusCode:400});
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+  it.each([true,false])('controls student suspension %s and revokes sessions atomically', async suspended => {
+    await service.controlUser(global,'student',{suspended,reason:'Authorized account review'});
+    expect(db.accountControl.upsert).toHaveBeenCalledWith(expect.objectContaining({update:{suspended}}));
+    expect(db.user.update).toHaveBeenCalledWith(expect.objectContaining({data:{sessionVersion:{increment:1}}}));
+    expect(db.administrativeEvent.create).toHaveBeenCalledWith({data:expect.objectContaining({resourceId:'student',event:suspended?'ACCOUNT_SUSPENDED':'ACCOUNT_REACTIVATED',result:JSON.stringify({status:'SUCCESS',reason:'Authorized account review'})})});
+  });
+  it('blocks incomplete applications without granting membership', async () => {
+    db.institution.findUnique.mockResolvedValue({id:'legacy',status:'PENDING',ownerId:'owner'});
+    await expect(service.decide(global,'legacy','ACTIVE','Reviewed application')).rejects.toMatchObject({statusCode:409});
+    expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();
+  });
+  it('keeps authorized reactivation available to legacy institutions', async () => {
+    db.institution.findUnique.mockResolvedValue({id:'legacy',status:'SUSPENDED',ownerId:'owner'});
+    await service.decide(global,'legacy','ACTIVE','Authorized reactivation');
+    expect(db.institutionalMembership.upsert).toHaveBeenCalled();
+  });
+  it('denies non-admin access to account history', async () => {
+    await expect(service.userHistory(owner,'student',1)).rejects.toMatchObject({statusCode:403});
+    expect(db.administrativeEvent.findMany).not.toHaveBeenCalled();
   });
 });
 
@@ -369,7 +471,7 @@ describe("teacher invitation lifecycle", () => {
       ...data,
     }));
     mail.send.mockRejectedValue(
-      new Error("provider credentials must never be logged"),
+        new EmailDeliveryFailure('not_accepted','connect'),
     );
     await expect(
       service.invite(owner, "institution", "teacher@example.com"),
@@ -408,6 +510,22 @@ describe("teacher invitation lifecycle", () => {
     expect(await currentAccess("teacher", "PROFESSOR")).toMatchObject({
       effectiveRole: "PROFESSOR",
     });
+  });
+  it('H4.6 retains an invitation when SMTP acceptance is indeterminate',async()=>{
+    db.teacherInvitation.findFirst.mockResolvedValue(null);
+    db.teacherInvitation.create.mockImplementation(async({data})=>({id:'invite',...data}));
+    mail.send.mockRejectedValue(new EmailDeliveryFailure('indeterminate','request_deadline'));
+    await expect(service.invite(owner,'institution','teacher@example.com')).rejects.toMatchObject({statusCode:503,message:expect.stringContaining('permanece válido')});
+    expect(db.teacherInvitation.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({where:{id:'invite',status:'PENDING'}}));
+    expect(db.administrativeEvent.create).toHaveBeenLastCalledWith({data:expect.objectContaining({event:'INVITATION_DELIVERY_UNKNOWN',severity:'WARN'})});
+  });
+  it('H4.6 does not cancel an accepted SMTP invitation when sentAt persistence fails',async()=>{
+    db.teacherInvitation.findFirst.mockResolvedValue(null);
+    db.teacherInvitation.create.mockImplementation(async({data})=>({id:'invite',...data}));
+    mail.send.mockResolvedValue(undefined);db.teacherInvitation.update.mockRejectedValue(new Error('isolated metadata failure'));
+    await expect(service.invite(owner,'institution','teacher@example.com')).resolves.toMatchObject({message:expect.stringContaining('aceitou')});
+    expect(mail.send).toHaveBeenCalledTimes(1);
+    expect(db.teacherInvitation.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({where:{id:'invite',status:'PENDING'}}));
   });
 });
 
@@ -491,15 +609,13 @@ describe("class admissions and tenant boundaries", () => {
         true,
       ),
     ).rejects.toMatchObject({ statusCode: 404 });
-    expect(db.turma.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: "other-class",
-          AND: [{ id: { in: ["class"] } }],
-          professores: { some: { id: "teacher" } },
-        }),
-      }),
-    );
+    const where=db.turma.findFirst.mock.calls[0][0].where;
+    expect(where.id).toBe('other-class');
+    // The retained private registry adds another tenant boundary. Both query
+    // shapes must retain the teacher and assigned-class restrictions.
+    const clauses=[where,...(where.AND??[])];
+    expect(clauses).toContainEqual(expect.objectContaining({professores:{some:{id:'teacher'}}}));
+    expect(clauses.flatMap(clause=>clause.AND??[clause])).toContainEqual({id:{in:['class']}});
     expect(db.classJoinRequest.update).not.toHaveBeenCalled();
   });
   it("removes enrollment without deleting any student attempts or history", async () => {

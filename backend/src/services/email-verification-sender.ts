@@ -1,4 +1,5 @@
 import { createBrevoEmailTransport, createBrevoSmtpTransport, type TransactionalEmailTransport } from './brevo-email-transport';
+import {escapeMail} from './email-html';
 
 export type EmailVerificationEmail = {
   userId?: string;
@@ -28,10 +29,11 @@ export class BrevoEmailVerificationSender implements EmailVerificationSender {
   constructor(
     smtpUser?: string,
     smtpKey?: string,
+    transport?: TransactionalEmailTransport,
   ) {
-    this.transport = smtpUser !== undefined || smtpKey !== undefined
+    this.transport = transport ?? (smtpUser !== undefined || smtpKey !== undefined
       ? createBrevoSmtpTransport(smtpUser, smtpKey)
-      : createBrevoEmailTransport();
+      : createBrevoEmailTransport());
     this.isConfigured = this.transport.isConfigured;
   }
 
@@ -46,7 +48,7 @@ export class BrevoEmailVerificationSender implements EmailVerificationSender {
           <h2 style="color: #0b1f3a;">Confirme seu e-mail</h2>
           <p>Falta pouco para começar a usar o JurisSim. Confirme seu e-mail clicando no botão abaixo.</p>
           <p>
-            <a href="${verifyUrl}" style="display: inline-block; background: #0b1f3a; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none;">
+            <a href="${escapeMail(verifyUrl)}" style="display: inline-block; background: #0b1f3a; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none;">
               Confirmar e-mail
             </a>
           </p>
@@ -54,7 +56,7 @@ export class BrevoEmailVerificationSender implements EmailVerificationSender {
             Este link expira em ${expiresInMinutes} minutos. Se você não se cadastrou no JurisSim, ignore este e-mail.
           </p>
           <p style="color: #68758a; font-size: 12px; word-break: break-all;">
-            Ou copie e cole este link no navegador: ${verifyUrl}
+            Ou copie e cole este link no navegador: ${escapeMail(verifyUrl)}
           </p>
         </div>
       `,
