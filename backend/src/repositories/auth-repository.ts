@@ -173,13 +173,11 @@ export class AuthRepository {
         throw new ApiError(409, 'Conta ou credenciais alteradas. Entre novamente antes de desativar.');
       if (user.role === 'ADMIN') throw new ApiError(409, 'A desativação de administrador geral exige transferência de responsabilidade pelo suporte.');
       // Ownership still matters while institutional feature flags are off.
-      {
-        if (await tx.institution.findFirst({ where: { ownerId: id }, select: { id: true } }))
-          throw new ApiError(409, 'Transfira a responsabilidade institucional antes de desativar sua conta.');
-        if (await tx.institutionalMembership.findFirst({ where: { userId: id, role: 'INSTITUTION_ADMIN', active: true }, select: { id: true } }))
-          throw new ApiError(409, 'Regularize a administração institucional antes de desativar sua conta.');
-        await tx.institutionalMembership.updateMany({ where: { userId: id, active: true }, data: { active: false } });
-      }
+      if (await tx.institution.findFirst({ where: { ownerId: id }, select: { id: true } }))
+        throw new ApiError(409, 'Transfira a responsabilidade institucional antes de desativar sua conta.');
+      if (await tx.institutionalMembership.findFirst({ where: { userId: id, role: 'INSTITUTION_ADMIN', active: true }, select: { id: true } }))
+        throw new ApiError(409, 'Regularize a administração institucional antes de desativar sua conta.');
+      await tx.institutionalMembership.updateMany({ where: { userId: id, active: true }, data: { active: false } });
       const now = new Date();
       await tx.authToken.updateMany({ where: { userId: id, usedAt: null }, data: { usedAt: now } });
       await tx.passwordRecoveryToken.updateMany({ where: { userId: id, consumedAt: null }, data: { consumedAt: now } });

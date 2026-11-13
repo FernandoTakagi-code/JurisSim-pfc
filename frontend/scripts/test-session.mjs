@@ -201,6 +201,12 @@ try {
       }
       if (route.startsWith('/students/me/')) {
         if (window.fixture.historyStatus) return new Response(JSON.stringify({ message: 'Histórico temporariamente indisponível.' }), { status: window.fixture.historyStatus });
+        if (route === '/students/me/performance') {
+          return new Response(JSON.stringify(window.fixture.performance || {
+            kind: 'all', totals: { assigned: 0, answered: 0, correct: 0, incorrect: 0, unanswered: 0, percentage: null, activities: 0 },
+            modalities: [], disciplines: [], topics: [], provisional: false, reviewEnabled: false,
+          }), { status: 200 });
+        }
         const empty = { totals: { completedActivities: 0, completedDiagnostics: 0, completedTrails: 0, totalQuestions: 0, answeredQuestions: 0, correctAnswers: 0, incorrectAnswers: 0, unansweredQuestions: 0 }, evolution: [], recentActivities: [], latestDiagnosticId: null };
         if (route === '/students/me/overview') return new Response(JSON.stringify(window.fixture.overview || empty), { status: 200 });
         const cursor = new URL(String(url)).searchParams.get('cursor') || 'first';
@@ -302,6 +308,11 @@ try {
       Object.getOwnPropertyDescriptor(proto, 'value').set.call(input, input.tagName === 'TEXTAREA' ? 'Texto da questão para teste isolado' : 'Fixture');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
+    for (const [index, input] of [...document.querySelectorAll('.alternative-row textarea')].entries()) {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Alternativa de teste ' + index);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    document.querySelector('.alternative-row input[type=radio]').click();
   `);
   await evaluate('document.querySelector(".form-actions .primary").click()');
   await until('!!document.querySelector(".question-card")');
@@ -533,8 +544,8 @@ try {
   await boot({ session: user() });
   await until('!!document.querySelector(".dashboard-page")');
   await go('/questoes');
-  await until('!!document.querySelector(".practice-page h1")');
-  assert.equal(await evaluate('document.querySelector(".practice-picker .primary").disabled'), true);
+  await until('!!document.querySelector(".practice-study h1")');
+  assert.equal(await evaluate('document.querySelector(".practice-summary .individual-primary").disabled'), true);
   assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/question-practice")'), false);
   await evaluate('history.back()');
   await until('location.pathname === "/dashboard" && !!document.querySelector(".dashboard-page")');
@@ -577,6 +588,7 @@ try {
   const storedResult = { id: historyActivity.id, finalizedAt: historyActivity.finalizedAt, totalQuestions: 10, answeredQuestions: 9, correctAnswers: 7, incorrectAnswers: 2, unansweredQuestions: 1, overallPercentage: 70, level: 'INTERMEDIARIO', recommendation: 'Recomendação persistida de teste', performances: [{ tipo: 'DISCIPLINA', disciplina: 'Civil', percentual: 70 }], trail: { id: 'saved-trail', disciplinaPrioritaria: 'Civil', assuntoPrioritario: 'Contratos', nivelRecomendado: 'INTERMEDIARIO', quantidadeRecomendada: 10, justificativa: 'Fixture persistida', simuladoGeradoId: trailActivity.id } };
   const populated = {
     session: user(), loginSuccess: true,
+    performance: { kind: 'all', totals: { assigned: 20, answered: 18, correct: 15, incorrect: 3, unanswered: 2, percentage: 83.33, activities: 2 }, modalities: [], disciplines: [], topics: [], provisional: false, reviewEnabled: false },
     overview: { latestDiagnosticId: historyActivity.id, totals: { completedActivities: 2, completedDiagnostics: 1, completedTrails: 1, totalQuestions: 20, answeredQuestions: 18, correctAnswers: 15, incorrectAnswers: 3, unansweredQuestions: 2 }, evolution: [historyActivity], recentActivities: [trailActivity, historyActivity] },
     results: { [`/diagnostics/${historyActivity.id}/result`]: storedResult, [`/trilhas/attempts/${trailActivity.id}/result`]: { ...storedResult, id: trailActivity.id, overallPercentage: 80, correctAnswers: 8, trail: null } },
     historyPages: { first: { items: [trailActivity], nextCursor: 'second' }, second: { items: [historyActivity], nextCursor: null } },
@@ -636,9 +648,9 @@ try {
   assert.equal(await evaluate('document.querySelector(".study-progress-card > strong").textContent.includes("1")'), true);
   await clickText('.study-discipline-panel button', 'Direito Civil');
   await clickText('.study-module-card', 'Contratos'); await until('!!document.querySelector(".study-module-detail")');
-  await clickText('.study-module-actions button', 'Ir ao banco de questões'); await until('!!document.querySelector(".practice-picker")');
-  assert.equal(await evaluate('document.querySelector("#practice-discipline").value'), 'Direito Civil');
-  assert.equal(await evaluate('document.querySelector(".practice-picker .primary").disabled'), true);
+  await clickText('.study-module-actions button', 'Ir ao banco de questões'); await until('!!document.querySelector(".practice-study")');
+  assert.equal(await evaluate('[...document.querySelectorAll(".practice-disciplines button")].find(button => button.getAttribute("aria-pressed") === "true")?.textContent.replace(/[\u2713\u2192]/g, "").trim()'), 'Civil');
+  assert.equal(await evaluate('document.querySelector(".practice-summary .individual-primary").disabled'), true);
   assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/question-practice")'), false);
   pass('trilha realista: cinco matérias, 27 módulos, recomendação do resultado existente, progresso local persistente e prática respeita feature flag');
 
@@ -651,9 +663,10 @@ try {
   pass('aluno sem diagnóstico recebe trilha inicial sem métricas inventadas e progresso separado por conta');
 
   await boot(populated, '/dashboard'); await until('document.querySelector(".dashboard-stats article:nth-child(2) strong")?.textContent === "18"');
-  await go('/desempenho'); await until('!!document.querySelector(".study-indicators")');
-  assert.equal(await evaluate('[...document.querySelectorAll(".study-indicators dl div")].find(item => item.querySelector("dt").textContent === "Respostas erradas").querySelector("dd").textContent'), '3');
-  assert.equal(await evaluate('[...document.querySelectorAll(".study-indicators dl div")].find(item => item.querySelector("dt").textContent === "Não respondidas").querySelector("dd").textContent'), '2');
+  await go('/desempenho'); await until('!!document.querySelector(".performance-stats")');
+  assert.equal(await evaluate('[...document.querySelectorAll(".performance-stats article")].find(item => item.querySelector("p").textContent === "Erros").querySelector("strong").textContent'), '3');
+  assert.equal(await evaluate('[...document.querySelectorAll(".performance-stats article")].find(item => item.querySelector("p").textContent === "Atividades concluídas").querySelector("small").textContent'), '2 questões em branco');
+  assert.equal(await evaluate('window.apiCalls.some(call => call.route === "/students/me/performance")'), true);
   await captureStudyPage('performance');
   pass('indicadores diferenciam erros e não respondidas sem criar evolução com um único diagnóstico');
   await go('/historico'); await until('!!document.querySelector(".study-history-list")');

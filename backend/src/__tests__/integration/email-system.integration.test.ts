@@ -100,20 +100,24 @@ async function institution(){
   await service.decide({userId:admin.id,role:'ADMIN'},created.id,'ACTIVE','Aprovação fictícia para teste isolado.');messages.length=0;
   return {id:created.id,owner,service,actor:{userId:owner.id,role:'ALUNO',institutionId:created.id,institutionAdmin:true}};
 }
-it('existing teacher invitation targets the correct user and cannot be accepted by another account or twice',async()=>{
+it('existing teacher invitation targets the correct user and repeated acceptance is idempotent',async()=>{
   const item=await institution(),teacher=await account(),wrong=await account();await item.service.invite(item.actor,item.id,teacher.email.toUpperCase());
   expect(messages).toHaveLength(1);expect(messages[0]!.to).toBe(teacher.email.toLowerCase());const token=rawToken(messages[0]!);
   await expect(item.service.accept({userId:wrong.id,role:'ALUNO'},token)).rejects.toMatchObject({statusCode:403});
   await item.service.accept({userId:teacher.id,role:'ALUNO'},token);
-  await expect(item.service.accept({userId:teacher.id,role:'PROFESSOR'},token)).rejects.toMatchObject({statusCode:409});
+  await expect(item.service.accept({userId:teacher.id,role:'PROFESSOR'},token)).resolves.toHaveProperty('message');
+  expect(await prisma.administrativeEvent.count({where:{institutionId:item.id,event:'TEACHER_INVITATION_ACCEPTED'}})).toBe(1);
   expect(await prisma.institutionalMembership.count({where:{institutionId:item.id,userId:teacher.id,role:'TEACHER',active:true}})).toBe(1);expect(messages).toHaveLength(1);
 });
-it('first-time teacher onboarding sends a separate proof and grants membership only after valid completion',async()=>{
+it('legacy proof prepares identity and grants membership only after explicit acceptance',async()=>{
   const item=await institution(),email=`new-teacher-${randomUUID()}@example.invalid`;await item.service.invite(item.actor,item.id,email);const token=rawToken(messages[0]!);
   const onboarding=new InvitationOnboardingService(mail());await onboarding.start(token,'Professor fictício',acceptance);expect(messages).toHaveLength(2);
   const proof=rawToken(messages[1]!,'confirmacao');const user=await prisma.user.findUniqueOrThrow({where:{email}});expect(user.emailVerifiedAt).toBeNull();
   expect(await prisma.institutionalMembership.count({where:{userId:user.id}})).toBe(0);
   await onboarding.complete(token,proof,'Professor-test9!','Professor-test9!');
+  expect((await prisma.user.findUniqueOrThrow({where:{id:user.id}})).role).toBe('ALUNO');
+  expect(await prisma.institutionalMembership.count({where:{userId:user.id}})).toBe(0);
+  await item.service.accept({userId:user.id,role:'ALUNO'},token);
   expect((await prisma.user.findUniqueOrThrow({where:{id:user.id}})).role).toBe('PROFESSOR');
   await expect(onboarding.complete(token,proof,'Professor-test9!','Professor-test9!')).rejects.toMatchObject({statusCode:409});expect(messages).toHaveLength(2);
 });
@@ -153,25 +157,34 @@ async function directInvite(){
   return {...item,email,token:rawToken(messages[0]!)};
 }
 const registration=(token:string)=>({token,nome:'Professor novo',password,confirmation:password,acceptance});
-it('H4.12 inspection is read-only; one invitation atomically creates a confirmed teacher without SMTP or second proof',async()=>{
+it('H4.32 inspection is read-only; registration, login and explicit acceptance remain separate without another email',async()=>{
   const item=await directInvite();const before=await prisma.user.count();
   for(let n=0;n<2;n++){const inspected=await post('/institutions/invitations/inspect',{token:item.token});expect(inspected.status).toBe(200);expect(inspected.body).toMatchObject({email:item.email,accountExists:false});}
   expect(await prisma.user.count()).toBe(before);
   smtp.sendMail.mockRejectedValue(new Error('SMTP unavailable during acceptance'));
   expect((await post('/institutions/invitations/register',registration(item.token))).status).toBe(201);
   const user=await prisma.user.findUniqueOrThrow({where:{email:item.email}});
-  expect(user.role).toBe('PROFESSOR');expect(user.emailVerifiedAt).not.toBeNull();expect(user.legalAcceptedAt).not.toBeNull();
+  expect(user.role).toBe('ALUNO');expect(user.registrationIntent).toBe('TEACHER_INVITATION');expect(user.emailVerifiedAt).not.toBeNull();expect(user.legalAcceptedAt).not.toBeNull();
   expect(await bcrypt.compare(password,user.senhaHash!)).toBe(true);
   expect(await prisma.invitationOnboarding.count({where:{userId:user.id}})).toBe(0);
+  expect(await prisma.institutionalMembership.count({where:{userId:user.id,institutionId:item.id,role:'TEACHER',active:true}})).toBe(0);
+  const login=await post('/auth/login',{email:item.email,senha:password});expect(login.status).toBe(200);
+  expect((await prisma.teacherInvitation.findFirstOrThrow({where:{institutionId:item.id}})).status).toBe('PENDING');
+  expect((await post('/institutions/invitations/accept',{token:item.token},login.body.token)).status).toBe(200);
+  expect((await prisma.user.findUniqueOrThrow({where:{id:user.id}})).role).toBe('PROFESSOR');
   expect(await prisma.institutionalMembership.count({where:{userId:user.id,institutionId:item.id,role:'TEACHER',active:true}})).toBe(1);
-  expect((await post('/auth/login',{email:item.email,senha:password})).status).toBe(200);
   expect((await post('/institutions/invitations/register',registration(item.token))).status).toBe(409);expect(messages).toHaveLength(1);
 });
-it('H4.12 concurrent acceptance creates exactly one user and one membership',async()=>{
+it('H4.32 concurrent registration creates one pending identity; explicit acceptance grants one membership',async()=>{
   const item=await directInvite();
   const outcomes=await Promise.all([post('/institutions/invitations/register',registration(item.token)),post('/institutions/invitations/register',registration(item.token))]);
   expect(outcomes.map(r=>r.status).sort()).toEqual([201,409]);
   expect(await prisma.user.count({where:{email:item.email}})).toBe(1);
+  const user=await prisma.user.findUniqueOrThrow({where:{email:item.email}});
+  expect(user.role).toBe('ALUNO');expect(await prisma.institutionalMembership.count({where:{userId:user.id}})).toBe(0);
+  expect(await prisma.teacherInvitation.count({where:{institutionId:item.id,status:'PENDING'}})).toBe(1);
+  await item.service.accept({userId:user.id,role:'ALUNO'},item.token);
+  expect(await prisma.institutionalMembership.count({where:{userId:user.id,institutionId:item.id,active:true,role:'TEACHER'}})).toBe(1);
   expect(await prisma.teacherInvitation.count({where:{institutionId:item.id,status:'ACCEPTED'}})).toBe(1);expect(messages).toHaveLength(1);
 });
 it.each(['expired','revoked','inactive'])('H4.12 %s invitation creates no identity or privilege',async state=>{
@@ -200,14 +213,18 @@ it('H4.12 missing acceptance or mismatch cannot create an account; retired endpo
   expect((await post('/institutions/invitations/onboarding',{token:item.token,nome:'Professor',acceptance})).status).toBe(410);
   expect(await prisma.user.count({where:{email:item.email}})).toBe(0);expect(messages).toHaveLength(1);
 });
-it('H4.12 database failure after account insertion rolls back identity, email confirmation, invitation and membership',async()=>{
+it('H4.32 transaction failure after identity insertion rolls back identity and keeps invitation pending',async()=>{
   const item=await directInvite();
-  const original=InstitutionService.prototype.acceptInTransaction;
-  const failure=vi.spyOn(InstitutionService.prototype,'acceptInTransaction').mockRejectedValueOnce(new Error('Isolated database failure'));
-  await expect(new InvitationOnboardingService(mail()).register(item.token,'Professor',password,password,acceptance)).rejects.toThrow('Isolated database failure');failure.mockRestore();
+  const original=prisma.$transaction.bind(prisma);
+  const failure=vi.spyOn(prisma,'$transaction').mockImplementationOnce(async work=>{
+    if(typeof work!=='function')throw new Error('Expected interactive transaction');
+    return original(async tx=>{await work(tx);throw new Error('Isolated database failure');});
+  });
+  try { await expect(new InvitationOnboardingService(mail()).register(item.token,'Professor',password,password,acceptance)).rejects.toThrow('Isolated database failure'); }
+  finally { failure.mockRestore(); }
   expect(await prisma.user.count({where:{email:item.email}})).toBe(0);
   expect((await prisma.teacherInvitation.findFirstOrThrow({where:{institutionId:item.id}})).status).toBe('PENDING');
-  expect(InstitutionService.prototype.acceptInTransaction).toBe(original);
+  expect(await prisma.institutionalMembership.count({where:{institutionId:item.id,role:'TEACHER'}})).toBe(0);
 });
 it('H4.12 new invitee can explicitly decline without creating an identity or sending another message',async()=>{
   const item=await directInvite();
@@ -221,5 +238,8 @@ it('H4.12 resumes only an untouched legacy provisional account from the same inv
   const pending=await prisma.user.findUniqueOrThrow({where:{email:item.email}});
   await service.register(item.token,'Professor',password,password,acceptance);
   const current=await prisma.user.findUniqueOrThrow({where:{email:item.email}});
-  expect(current.id).toBe(pending.id);expect(current.role).toBe('PROFESSOR');expect(messages).toHaveLength(2);
+  expect(current.id).toBe(pending.id);expect(current.role).toBe('ALUNO');expect(current.registrationIntent).toBe('TEACHER_INVITATION');
+  expect(await prisma.institutionalMembership.count({where:{userId:current.id}})).toBe(0);
+  await item.service.accept({userId:current.id,role:'ALUNO'},item.token);
+  expect((await prisma.user.findUniqueOrThrow({where:{id:current.id}})).role).toBe('PROFESSOR');expect(messages).toHaveLength(2);
 });

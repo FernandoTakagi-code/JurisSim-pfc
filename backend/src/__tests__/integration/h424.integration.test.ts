@@ -11,6 +11,8 @@ import { AuthService } from '../../services/auth-service';
 import { createAuthRoutes } from '../../routes/auth-routes';
 import { createInstitutionRoutes } from '../../routes/institution-routes';
 import versions from '../../legal-versions.json';
+import { accountDeletionEnabled } from '../../account-deletion-availability';
+import { assertDisposableDatabase } from './disposable-database';
 
 const googleVerify = vi.hoisted(() => vi.fn());
 vi.mock('google-auth-library', () => ({ OAuth2Client: class { verifyIdToken = googleVerify; } }));
@@ -31,8 +33,7 @@ async function request(method: string, path: string, user?: Parameters<typeof to
   return { status: response.status, body: await response.json() };
 }
 beforeAll(async () => {
-  const [identity] = await prisma.$queryRaw<{ db: string; host: string; port: number }[]>`SELECT current_database() AS db, host(inet_server_addr()) AS host, inet_server_port() AS port`;
-  expect(identity).toEqual({ db: 'jurissim_h424_test', host: '127.0.0.1', port: 5432 });
+  await assertDisposableDatabase(prisma);
   admin = await fixture('ADMIN');
   const app = express(); app.use(express.json()); app.use('/auth', createAuthRoutes()); app.use('/institutions', createInstitutionRoutes());
   app.use((error: any, _req: any, res: any, _next: any) => res.status(error.statusCode || (error.name === 'ZodError' ? 400 : 500)).json({ message: error.statusCode ? error.message : 'Invalid request' }));
@@ -40,7 +41,10 @@ beforeAll(async () => {
 });
 afterAll(async () => { if (server) await new Promise<void>(resolve => server.close(() => resolve())); await prisma.$disconnect(); });
 
-describe('H4.24 real isolated PostgreSQL and HTTP', () => {
+// Preserved legacy positive scenarios. Unavailable while production deletion is
+// deliberately blocked; no environment flag can enable this suite or feature.
+// Current real-database refusal coverage lives in h424-disabled.integration.test.ts.
+describe.skipIf(!accountDeletionEnabled())('H4.24 positive PostgreSQL scenarios — pending explicit activation review', () => {
   it('requires authentication, strict confirmation, and current password', async () => {
     const user = await fixture();
     expect((await request('DELETE', '/auth/conta', undefined, { confirmation: 'EXCLUIR', senhaAtual: password })).status).toBe(401);

@@ -1,13 +1,28 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": { "includes": ["src/**", "tests/**", "prisma/**/*.ts", "*.ts"] },
-  "formatter": { "enabled": false },
-  "assist": { "enabled": false },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "src/**",
+      "tests/**",
+      "prisma/**/*.ts",
+      "*.ts",
+      "!!**/.local"
+    ]
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "assist": {
+    "enabled": false
+  },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
       "correctness": {
         "noUnusedImports": "error",
         "noUnusedVariables": "error",
@@ -31,13 +46,24 @@
       "complexity": {
         "noStaticOnlyClass": "off",
         "noThisInStatic": "off"
-      }
+      },
+      "preset": "recommended"
     }
   },
   "overrides": [
     {
-      "includes": ["**/*.test.ts", "tests/**", "src/__tests__/**"],
-      "linter": { "rules": { "suspicious": { "noExplicitAny": "off" } } }
+      "includes": [
+        "**/*.test.ts",
+        "tests/**",
+        "src/__tests__/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
     }
   ]
 }

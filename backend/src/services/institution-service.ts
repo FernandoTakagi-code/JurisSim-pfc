@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { ApiError } from "../errors/api-error";
 import { assertTeacherInvitationsAvailable, teacherInvitationMode } from '../config/teacher-invitations';
-import { institutionsEnabled, institutionsGloballyEnabled, administrationEnabled, institutionRegistrationEnabled } from "../config/institution-feature";
+import { institutionsGloballyEnabled, administrationEnabled, institutionRegistrationEnabled } from "../config/institution-feature";
 import { homologationParticipant, assertRestrictedInstitution, assertRestrictedParticipant, restrictedInstitutionId } from '../config/institution-homologation';
 import {
   createBrevoEmailTransport,
@@ -237,7 +237,7 @@ export class InstitutionService {
   async provisionHomologationFixture(actor: InstitutionActor, input: unknown, reason: string) {
     requireGlobal(actor);
     const manifest=homologationManifest();
-    if(!manifest || !manifest.adminIds.includes(actor.userId) || reason.trim().length<3 || reason.length>500) throw new ApiError(403,'Provisionamento não autorizado.');
+    if(!manifest?.adminIds.includes(actor.userId) || reason.trim().length<3 || reason.length>500) throw new ApiError(403,'Provisionamento não autorizado.');
     const data=institutionFixtureSchema.parse(input);
     return this.createRequest({userId:manifest.ownerId,role:'ALUNO'}, {...data,name:'JurisSim Academy — HOMOLOGAÇÃO',tradeName:'JurisSim Academy — TESTE',description:'Instituição fictícia para homologação acadêmica interna do JurisSim, sem representação de instituição real e sem finalidade operacional.'}, {manifest,actor,reason:reason.trim()});
   }
@@ -259,7 +259,7 @@ export class InstitutionService {
         if(!configured || JSON.stringify(configured)!==JSON.stringify(fixture.manifest)) throw new ApiError(403,'Configuração de homologação alterada.');
         const admin=await tx.user.findUnique({where:{id:fixture.actor.userId},select:{role:true,deletedAt:true,emailVerifiedAt:true}});
         const control=await tx.accountControl.findUnique({where:{userId:fixture.actor.userId}});
-        if(!admin || admin.role!=='ADMIN' || admin.deletedAt || !admin.emailVerifiedAt || control?.suspended) throw new ApiError(403,'Administrador indisponível.');
+        if(admin?.role!=='ADMIN' || admin.deletedAt || !admin.emailVerifiedAt || control?.suspended) throw new ApiError(403,'Administrador indisponível.');
         const owner=await tx.user.findUnique({where:{id:actor.userId},select:{role:true}});
         if(owner?.role!=='ALUNO' || (await tx.accountControl.findUnique({where:{userId:actor.userId}}))?.suspended) throw new ApiError(403,'Responsável indisponível.');
       }

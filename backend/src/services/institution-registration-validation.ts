@@ -6,7 +6,7 @@ const phone = z.string().trim().max(25).regex(/^\+?[\d ()-]+$/, 'Informe um tele
 const optionalText = (max: number) => z.preprocess(v => v === '' ? undefined : v, z.string().trim().max(max).optional());
 const institutionRequestFields = z.object({
   name: z.string().trim().min(2).max(180),
-  registrationNumber: z.string().trim().max(25).transform(v => v.replace(/[.\/\-\s]/g, '').toUpperCase()).refine(validRegistrationNumber, 'Informe um CNPJ com dígitos verificadores válidos.'),
+  registrationNumber: z.string().trim().max(25).transform(v => v.replace(/[./\-\s]/g, '').toUpperCase()).refine(validRegistrationNumber, 'Informe um CNPJ com dígitos verificadores válidos.'),
   tradeName: z.string().trim().min(2).max(180),
   noWebsite: z.boolean().optional(),
   institutionType: z.enum(['ENSINO_SUPERIOR','CURSO_PREPARATORIO','OUTRA_ORGANIZACAO']),

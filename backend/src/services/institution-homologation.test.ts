@@ -9,7 +9,7 @@ vi.mock('node:fs',async original=>{
     lstatSync:(p:never)=>isManifest(p)?{isSymbolicLink:()=>false}:actual.lstatSync(p),
     realpathSync:(p:never)=>isManifest(p)?String(p):actual.realpathSync(p),
     statSync:(p:never)=>isManifest(p)?{size:state.manifest.length}:actual.statSync(p),
-    readFileSync:(p:never,...args:never[])=>isManifest(p)?state.manifest:(actual.readFileSync as Function)(p,...args),
+    readFileSync:(...args:Parameters<typeof actual.readFileSync>)=>isManifest(args[0])?state.manifest:actual.readFileSync(...args),
   }};
 });
 const db=vi.hoisted(()=>{

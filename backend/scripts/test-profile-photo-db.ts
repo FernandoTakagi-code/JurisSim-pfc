@@ -108,22 +108,27 @@ async function main() {
   pass('revoked and expired tokens cannot read or replace photos; other user sessions stay valid');
 
   const deleteToken = await login(users.alice.email);
-  await call('/auth/conta', deleteToken, 'DELETE', JSON.stringify({ senhaAtual: password, confirmation: 'EXCLUIR' }));
-  assert.equal(await prisma.profilePhoto.count({ where: { userId: users.alice.id } }), 0);
-  await call('/profile/photo', deleteToken, 'GET', undefined, undefined, 401);
-  await call('/profile/photo/image', deleteToken, 'PUT', original, 'image/jpeg', 401);
+  const beforeDeletion = await prisma.user.findUniqueOrThrow({ where: { id: users.alice.id } });
+  const beforePhoto = await call('/profile/photo', deleteToken);
+  await call('/auth/conta', deleteToken, 'DELETE', JSON.stringify({ senhaAtual: password }), undefined, 400);
+  await call('/auth/conta', deleteToken, 'DELETE', JSON.stringify({ senhaAtual: password, confirmation: 'EXCLUIR' }), undefined, 503);
+  assert.deepEqual(await prisma.user.findUniqueOrThrow({ where: { id: users.alice.id } }), beforeDeletion);
+  assert.deepEqual(await call('/profile/photo', deleteToken), beforePhoto);
+  assert.equal(await prisma.profilePhoto.count({ where: { userId: users.alice.id } }), 1);
   const hardDelete = await prisma.user.create({ data: { nome: 'Cascade fixture', email: 'photo-cascade@example.invalid', role: 'ALUNO', profilePhotos: { create: { avatarId: 'books' } } } });
   await prisma.user.delete({ where: { id: hardDelete.id } });
   assert.equal(await prisma.profilePhoto.count({ where: { userId: hardDelete.id } }), 0);
-  pass('official account anonymization atomically removes photo; hard deletion cascades and cannot recreate images with old token');
+  pass('missing confirmation is rejected; disabled H4.24 preserves identity, session and photo; fixture hard deletion cascades');
+  const beforeTeacher = await prisma.user.findUniqueOrThrow({ where: { id: users.teacher.id } });
   const [uploadRace] = await Promise.all([
     fetch(base + '/profile/photo/image', { method: 'PUT', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'image/jpeg' }, body: Uint8Array.from(original) }),
-    call('/auth/conta', t, 'DELETE', JSON.stringify({ senhaAtual: password, confirmation: 'EXCLUIR' })),
+    call('/auth/conta', t, 'DELETE', JSON.stringify({ senhaAtual: password, confirmation: 'EXCLUIR' }), undefined, 503),
   ]);
-  assert.ok([200, 401].includes(uploadRace.status)); await uploadRace.text();
-  assert.equal(await prisma.profilePhoto.count({ where: { userId: users.teacher.id } }), 0);
-  assert.ok((await prisma.user.findUniqueOrThrow({ where: { id: users.teacher.id } })).deletedAt);
-  pass('concurrent photo replacement and account deletion leave no image bytes associated with the deleted account');
+  assert.equal(uploadRace.status, 200); await uploadRace.text();
+  assert.equal(await prisma.profilePhoto.count({ where: { userId: users.teacher.id } }), 1);
+  assert.deepEqual(await prisma.user.findUniqueOrThrow({ where: { id: users.teacher.id } }), beforeTeacher);
+  assert.equal((await call('/profile/photo', t)).kind, 'image');
+  pass('concurrent upload succeeds while disabled deletion preserves the teacher identity and session');
   console.log(`PostgreSQL photo integration: ${checks} scenarios passed.`);
 }
 main().catch(error => { console.error('Local photo integration failed:', error.message); process.exitCode = 1; }).finally(async () => { if (server) await new Promise<void>(resolve => server!.close(() => resolve())); await prisma.$disconnect(); });

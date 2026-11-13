@@ -103,7 +103,7 @@ institutionRoutes.post('/invitations/inspect', authRateLimit(30, 60_000), async 
   const {token} = z.object({token:invitationToken}).strict().parse(req.body);
   res.json(await onboarding.inspect(token));
 });
-institutionRoutes.post('/invitations/onboarding', authRateLimit(5, 3600_000), async (req, res) => {
+institutionRoutes.post('/invitations/onboarding', authRateLimit(5, 3600_000), async (_req, _res) => {
   throw new ApiError(410,'O primeiro acesso agora é concluído pelo convite original, sem outro e-mail. Abra novamente seu convite.');
 });
 institutionRoutes.post('/invitations/register',authRateLimit(10,3600_000),async(req,res)=>{

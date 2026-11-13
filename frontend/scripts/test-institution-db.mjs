@@ -294,7 +294,10 @@ try {
     assert.equal(await evaluate('document.querySelector("input[name=email]").value'),invitedEmail);
     await evaluate('{for(const [name,value] of '+JSON.stringify([['email',invitedEmail],['current-password',password]])+'){const input=document.querySelector("input[name="+name+"]");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(input,value);input.dispatchEvent(new Event("input",{bubbles:true}));}}');
     await evaluate('document.querySelector("button.auth-submit").click()');
-    await until('location.pathname==="/professor"&&!!document.querySelector(".professor-shell")');
+    await until('!!document.querySelector(".invitation-actions .invitation-primary")');
+    assert.equal(await evaluate('location.pathname'), '/convite-professor');
+    await evaluate('document.querySelector(".invitation-actions .invitation-primary").click()');
+    await until('location.pathname==="/professor"&&!!document.querySelector(".teacher-dashboard")');
     console.log('PASS H4.12 REAL UI: original invite, readonly email, responsive form, password/terms, one captured email, teacher login and dashboard.');
   }
   for (const [role, account, route, selector] of [
@@ -308,7 +311,7 @@ try {
       "PROFESSOR",
       unified ? 'teacher@institucional.example.invalid' : process.env.JURISSIM_DB_UI_TEACHER,
       "/professor",
-      ".professor-shell",
+      ".teacher-dashboard",
     ],
     ["ALUNO", unified ? 'aluno@institucional.example.invalid' : process.env.JURISSIM_DB_UI_STUDENT, "/", ".v0-app"],
     ...(unified ? [["ALUNO_VINCULADO", 'linked@institucional.example.invalid', '/', '.v0-app']] : []),

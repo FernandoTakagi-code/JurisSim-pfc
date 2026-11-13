@@ -62,3 +62,18 @@ it.each([false, true])('prepares atomic email policy %s, token/session invalidat
   const audit = JSON.stringify(db.administrativeEvent.create.mock.calls);
   expect(audit).toContain('Authorized fixture'); expect(audit).not.toContain('Admin-fixture1!'); expect(audit).not.toContain(admin.senhaHash);
 });
+
+it('preserves the revocation justification in the administrative audit (mock persistence only)', async () => {
+  db.emailReuseBlock.findUnique.mockResolvedValue({ id: 'blocked-email', revokedAt: null });
+  await service.revoke(actor, 'fixture@example.invalid', '  Authorized fixture review  ');
+  expect(db.administrativeEvent.create).toHaveBeenCalledWith({ data: {
+    event: 'EMAIL_REUSE_BLOCK_REVOKED', actorId: actor.userId, resourceId: 'blocked-email',
+    result: JSON.stringify({ status: 'SUCCESS', reason: 'Authorized fixture review' }),
+  } });
+});
+
+it.each(['', '  ', 'x'.repeat(501)])('rejects invalid revocation justification before changing persistence', async reason => {
+  await expect(service.revoke(actor, 'fixture@example.invalid', reason)).rejects.toMatchObject({ statusCode: 400 });
+  expect(db.emailReuseBlock.update).not.toHaveBeenCalled();
+  expect(db.administrativeEvent.create).not.toHaveBeenCalled();
+});

@@ -69,6 +69,7 @@ export class AccountDeletionService {
   async revoke(actor: InstitutionActor, email: string, reason: string) {
     requireGlobal(actor);
     assertAccountDeletionEnabled();
+    if (reason.trim().length < 3 || reason.length > 500) throw new ApiError(400, 'Justificativa obrigatória (3 a 500 caracteres).');
     if (!emailReuseBlocksEnabled()) throw new ApiError(503, 'Política indisponível.');
     return institutionalTransaction(async tx => {
       await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${actor.userId} FOR UPDATE`;
@@ -77,7 +78,7 @@ export class AccountDeletionService {
       const block = await tx.emailReuseBlock.findUnique({ where: { emailNormalized: normalizeReusableEmail(email) } });
       if (!block || block.revokedAt) throw new ApiError(404, 'Bloqueio ativo não encontrado.');
       await tx.emailReuseBlock.update({ where: { id: block.id }, data: { revokedAt: new Date(), revokedById: actor.userId } });
-      await tx.administrativeEvent.create({ data: { event: 'EMAIL_REUSE_BLOCK_REVOKED', actorId: actor.userId, resourceId: block.id, result: 'SUCCESS' } });
+      await tx.administrativeEvent.create({ data: { event: 'EMAIL_REUSE_BLOCK_REVOKED', actorId: actor.userId, resourceId: block.id, result: JSON.stringify({ status: 'SUCCESS', reason: reason.trim() }) } });
       return { message: 'Bloqueio de reutilização revogado.' };
     });
   }

@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
 import { assertTeacherInvitationsAvailable } from '../config/teacher-invitations';
-import { administrativeEvent, hashInvitation, institutionalTransaction, InstitutionService, fixtureProvenance, type Tx } from './institution-service';
+import { administrativeEvent, hashInvitation, institutionalTransaction, fixtureProvenance, type Tx } from './institution-service';
 import { acceptanceData, acceptanceSchema } from './legal-acceptance';
 import { assertValidPassword } from './password-policy';
 import { createBrevoEmailTransport, type TransactionalEmailTransport } from './brevo-email-transport';
