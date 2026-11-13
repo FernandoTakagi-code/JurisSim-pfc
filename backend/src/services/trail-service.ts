@@ -1,7 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { ApiError } from '../errors/api-error';
 import { TrailRepository } from '../repositories/trail-repository';
-import { StudentRepository } from '../repositories/student-repository';
 import { analyzeDiagnostic, buildTrailFilters } from './adaptive-engine';
 import type { AnsweredQuestion } from '../types/diagnostic';
 
@@ -12,19 +11,17 @@ type Attempt = Prisma.SimuladoGetPayload<{
 export class TrailService {
   constructor(
     private readonly repository = new TrailRepository(),
-    private readonly students = new StudentRepository(),
   ) {}
 
   async generate(trilhaId: string, userId: string) {
     const trilha = await this.repository.findTrilha(trilhaId);
     if (!trilha) throw new ApiError(404, 'Trilha adaptativa nao encontrada.');
     this.requireOwner(trilha.simulado.alunoId, userId);
-    if (trilha.simuladoGeradoId) throw new ApiError(409, 'Esta trilha ja gerou uma sessao de exercicios.');
+    if (trilha.simuladoGeradoId) return this.getAttemptOrFail(trilha.simuladoGeradoId, userId);
 
     const filters = buildTrailFilters(trilha.disciplinaPrioritaria, trilha.assuntoPrioritario, trilha.nivelRecomendado);
     const questions = await this.repository.findQuestionsForTrail(filters, trilha.quantidadeRecomendada);
-    if (questions.length === 0) throw new ApiError(409, 'Nao ha questoes disponiveis para gerar esta trilha.');
-
+    // The locked repository first recovers a concurrent winner, then checks inventory.
     return this.repository.createTrailAttempt(trilha.simulado.alunoId, trilha.id, questions.map((question) => question.id));
   }
 
@@ -43,23 +40,21 @@ export class TrailService {
     if (attempt.finalizadoEm) throw new ApiError(409, 'Esta trilha de exercicios ja foi finalizada.');
     const attemptQuestion = attempt.questoes.find((item) => item.questaoId === questionId);
     if (!attemptQuestion) throw new ApiError(404, 'A questao nao pertence a esta trilha.');
-    if (attemptQuestion.resposta) throw new ApiError(409, 'Esta questao ja foi respondida.');
+    if (attemptQuestion.resposta) {
+      if (attemptQuestion.resposta.alternativaEscolhidaId === selectedOptionId) return { message: 'Resposta registrada.' };
+      throw new ApiError(409, 'Esta questao ja foi respondida.');
+    }
     const alternative = attemptQuestion.questao.alternativas.find((item) => item.id === selectedOptionId);
     if (!alternative) throw new ApiError(422, 'A alternativa informada nao pertence a esta questao.');
-    await this.repository.saveAnswer(attempt.id, questionId, attemptQuestion.id, alternative.id, alternative.correta);
+    await this.repository.saveAnswer(attempt.id, questionId, attemptQuestion.id, alternative.id, alternative.correta, userId);
     return { message: 'Resposta registrada.' };
   }
 
   async finalize(attemptId: string, userId: string) {
     const attempt = await this.getAttemptOrFail(attemptId, userId);
-    if (attempt.finalizadoEm) throw new ApiError(409, 'Esta trilha de exercicios ja foi finalizada.');
-    if (!attempt.questoes.some((question) => question.resposta)) throw new ApiError(422, 'Responda ao menos uma questao antes de finalizar.');
-
-    const result = analyzeDiagnostic(this.answeredQuestions(attempt));
-    const finalized = await this.repository.finalize(attemptId);
-    if (!finalized) throw new ApiError(409, 'Esta trilha de exercicios ja foi finalizada.');
-
-    await this.students.updateLevel(attempt.alunoId, result.level);
+    const completed = attempt.finalizadoEm ? attempt : await this.repository.finalize(attemptId, userId,
+      current => analyzeDiagnostic(this.answeredQuestions(current)));
+    const result = analyzeDiagnostic(this.answeredQuestions(completed));
     return { level: result.level, overallPercentage: result.overallPercentage, recommendation: result.recommendation };
   }
 

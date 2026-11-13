@@ -215,7 +215,9 @@ describe('question practice with disposable PostgreSQL', () => {
       if (q.id === first.id) expect(saved.body.explanation).not.toBe('Texto alterado apenas no banco isolado.');
     }
     expect((await request('GET', `/question-practice/${attempt.id}`, token)).body.attempt.questions.every((q: any) => q.feedback?.explanation)).toBe(true);
-    expect((await request('POST', `/question-practice/${attempt.id}/finalize`, token)).body.result.provisional).toBe(true);
+    const completions = await Promise.all(Array.from({ length: 3 }, () => request('POST', `/question-practice/${attempt.id}/finalize`, token)));
+    expect(completions.every(r => r.status === 200 && r.body.result.provisional === true)).toBe(true);
+    expect(completions[1].body.result).toEqual(completions[0].body.result);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: student.id } })).nivelAtual).toBe(student.nivelAtual);
     const examRepo = new PrismaIndividualExamRepository(prisma);
     expect((await examRepo.available(student.id)).filter(q => q.discipline === 'Direito Civil')).toHaveLength(7);

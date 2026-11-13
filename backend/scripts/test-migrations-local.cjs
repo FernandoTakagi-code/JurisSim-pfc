@@ -505,7 +505,7 @@ async function main() {
   if (authorialDiagnosticOnly) {
     console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-authorial-diagnostic-db.ts', data]));
   } else {
-    console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', ...(individualExamOnly ? ['src/__tests__/integration/individual-exam.integration.test.ts'] : questionPracticeOnly ? ['src/__tests__/integration/question-practice.integration.test.ts', 'src/__tests__/integration/individual-exam.integration.test.ts', 'src/__tests__/integration/question-review.integration.test.ts'] : [])]));
+    console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', ...(individualExamOnly ? ['src/__tests__/integration/individual-exam.integration.test.ts'] : questionPracticeOnly ? ['src/__tests__/integration/question-practice.integration.test.ts', 'src/__tests__/integration/individual-exam.integration.test.ts', 'src/__tests__/integration/question-review.integration.test.ts', 'src/__tests__/integration/attempt-lifecycle.integration.test.ts'] : [])]));
   }
   assertNoDrift(integrationDatabase);
 }

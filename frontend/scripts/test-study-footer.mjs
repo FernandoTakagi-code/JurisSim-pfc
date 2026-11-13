@@ -6,7 +6,7 @@ import path from "node:path";
 
 const origin = "http://127.0.0.1:5183";
 const profile = await mkdtemp(path.join(tmpdir(), "jurissim-study-layout-"));
-const vite = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "5183", "--strictPort"], {
+const vite = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--configLoader", "runner", "--host", "127.0.0.1", "--port", "5183", "--strictPort"], {
   windowsHide: true,
   stdio: "ignore",
   env: { ...process.env, VITE_API_URL: "http://127.0.0.1:1", VITE_GOOGLE_CLIENT_ID: "", VITE_INITIAL_DIAGNOSTIC_UI_ENABLED: "false", VITE_QUESTION_PRACTICE_UI_ENABLED: "false" },
@@ -82,6 +82,8 @@ try {
     sessionStorage.setItem('jurissim_token', 'layout-fixture-token');
     window.fetch = async (input) => {
       const path = new URL(typeof input === 'string' ? input : input.url, location.href).pathname;
+      if (path.startsWith('/question-practice/catalog/')) return new Response(JSON.stringify({ topics: [] }), { status: 200 });
+      if (path === '/goals/dashboard') return new Response(JSON.stringify({ streak: { current: 0, longest: 0 }, totalAnsweredQuestions: 0, todayAnsweredQuestions: 0, todayGoal: null, currentLevel: null }), { status: 200 });
       if (path === '/auth/session') return new Response(JSON.stringify({ user: { id: 'layout-fixture', nome: 'Estudante de teste', email: 'study@example.invalid', role: 'ALUNO', emailVerificado: true }, nextStep: 'DASHBOARD' }), { status: 200 });
       if (path === '/students/me/overview') return new Response(JSON.stringify({ totals: { completedActivities: 0 }, latestDiagnosticId: null, evolution: [], recentActivities: [] }), { status: 200 });
       return new Response(JSON.stringify({ items: [], questions: [], turmas: [], data: [] }), { status: 200 });
@@ -111,7 +113,7 @@ try {
   assert.equal(await evaluate("!!document.querySelector('.app-legal-footer .legal-links')"), true, "footer remains after returning to the module list");
 
   await cdp("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1, connectionType: "none" });
-  for (const [route, selector] of [["/dashboard", ".dashboard-page"], ["/desempenho", ".page h1"], ["/simulados", ".class-exams-page h1"], ["/questoes", ".practice-picker"], ["/trilha", ".study-trail-page"], ["/turmas", ".class-exams-page h1"], ["/perfil", ".v0-page"], ["/configuracoes", ".v0-page"]]) {
+  for (const [route, selector] of [["/dashboard", ".dashboard-page"], ["/desempenho", ".page h1"], ["/simulados", ".class-exams-page h1"], ["/questoes", ".practice-picker"], ["/trilha", ".adaptive-trail-page"], ["/turmas", ".class-exams-page h1"], ["/perfil", ".v0-page"], ["/configuracoes", ".v0-page"]]) {
     await evaluate(`history.pushState({}, '', ${JSON.stringify(route)}); window.dispatchEvent(new PopStateEvent('popstate'))`);
     try { await until(`!!document.querySelector(${JSON.stringify(selector)}) && !!document.querySelector('.app-legal-footer .legal-links')`); }
     catch { throw new Error(`${route} did not render ${selector}; page: ${(await evaluate("document.body.innerText")).slice(0, 240)}`); }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "./api";
 import { navigate } from "./navigation";
 import "./goals-reports.css";
@@ -104,20 +104,22 @@ function useRemote<T>(path: string) {
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
+  const generation = useRef(0);
   useEffect(() => {
+    const current = ++generation.current;
     let active = true;
     setData(undefined);
     setLoading(true);
     setError("");
     void apiRequest<T>(path)
       .then((value) => {
-        if (active) setData(value);
+        if (active && current === generation.current) setData(value);
       })
       .catch((cause) => {
-        if (active) setError(textError(cause));
+        if (active && current === generation.current) setError(textError(cause));
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && current === generation.current) setLoading(false);
       });
     return () => {
       active = false;
@@ -127,7 +129,13 @@ function useRemote<T>(path: string) {
     data,
     loading,
     error,
-    reload: () => setRevision((value) => value + 1),
+    reload: () => {
+      generation.current++;
+      setData(undefined);
+      setError("");
+      setLoading(true);
+      setRevision((value) => value + 1);
+    },
   };
 }
 function State({
@@ -207,8 +215,11 @@ export function GoalsPage() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
+  const mutationPending = useRef(false);
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (mutationPending.current) return;
+    mutationPending.current = true;
     setBusy(true);
     setError("");
     setNotice("");
@@ -219,14 +230,18 @@ export function GoalsPage() {
       });
       setEditing(undefined);
       setNotice("Meta salva.");
-      remote.reload();
     } catch (cause) {
       setError(textError(cause));
     } finally {
+      remote.reload();
+      summary.reload();
+      mutationPending.current = false;
       setBusy(false);
     }
   };
   const complete = async (goal: Goal) => {
+    if (mutationPending.current) return;
+    mutationPending.current = true;
     setBusy(true);
     setError("");
     setNotice("");
@@ -236,10 +251,12 @@ export function GoalsPage() {
         body: "{}",
       });
       setNotice("Meta concluída com o progresso registrado.");
-      remote.reload();
     } catch (cause) {
       setError(textError(cause));
     } finally {
+      remote.reload();
+      summary.reload();
+      mutationPending.current = false;
       setBusy(false);
     }
   };
@@ -247,6 +264,7 @@ export function GoalsPage() {
     <section className="page goals-reports-page goals-page">
       <p className="gold">ORGANIZAÇÃO DOS ESTUDOS</p>
       <h1>Metas de estudo</h1>
+      <State {...summary} />
       {summary.data && <article className="panel goal-streak"><h2>Frequência de estudo</h2><p>{summary.data.streak.current} dia(s) consecutivo(s) · recorde de {summary.data.streak.longest} dia(s)</p><p className="muted">Última atividade: {summary.data.streak.lastActivityDate ? calendar(summary.data.streak.lastActivityDate) : 'nenhuma atividade registrada'} · {summary.data.totalAnsweredQuestions} respostas persistidas · nível atual: {summary.data.currentLevel ?? 'ainda não classificado'}</p>{summary.data.todayGoal ? <p>Hoje: {summary.data.todayAnsweredQuestions} de {summary.data.todayGoal.targetQuestions} questões ({summary.data.todayGoal.progressPercentage}%).</p> : <p>Hoje: {summary.data.todayAnsweredQuestions} questão(ões). Crie uma meta abaixo para acompanhar o progresso diário.</p>}</article>}
       <p className="muted">
         Defina sua quantidade diária de questões. O progresso usa respostas

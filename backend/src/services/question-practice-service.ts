@@ -119,11 +119,7 @@ export class QuestionPracticeService {
       throw new ApiError(409, 'Responda todas as questões antes de finalizar a prática.');
     }
     const completed = await this.repository.finalize(studentId, attemptId);
-    const analysis = analyzeDiagnostic(completed.questions.map(({ question, selectedOptionId }) => ({
-      discipline: question.discipline, topic: question.topic, difficulty: question.level as Level,
-      isCorrect: Boolean(question.alternatives.find(option => option.id === selectedOptionId)?.correct),
-    })));
-    if (!completed.questions.some(item => item.question.provisional)) await this.repository.updateLevel(studentId, analysis.level);
+    // The repository finalizes and updates the level of non-provisional attempts atomically.
     return this.result(completed);
   }
 

@@ -31,10 +31,10 @@ describe('frontend session routing decisions', () => {
     expect(sessionRedirectTarget(session, '/diagnostico-inicial')).toBeNull();
   });
 
-  it('does not redirect on unverified or staff sessions', () => {
+  it('preserva aluno pendente e professor, mas mantém ADMIN no contexto administrativo', () => {
     expect(sessionRedirectTarget(student('INITIAL_DIAGNOSTIC', false), '/dashboard')).toBeNull();
     expect(sessionRedirectTarget({ user: { role: 'PROFESSOR', emailVerificado: true }, nextStep: 'PROFESSOR' }, '/dashboard')).toBeNull();
-    expect(sessionRedirectTarget({ user: { role: 'ADMIN', emailVerificado: true }, nextStep: 'PROFESSOR' }, '/dashboard')).toBeNull();
+    expect(sessionRedirectTarget({ user: { role: 'ADMIN', emailVerificado: true }, nextStep: 'PROFESSOR' }, '/dashboard')).toBe('/administracao');
   });
 
   it('allows a pending legacy diagnostic to stay on its existing route', () => {

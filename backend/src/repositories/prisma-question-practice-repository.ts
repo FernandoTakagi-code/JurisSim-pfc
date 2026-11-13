@@ -7,6 +7,7 @@ import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from
 import { ApiError } from '../errors/api-error';
 import type { PracticeAttempt, PracticeQuestion, QuestionPracticeRepository } from '../services/question-practice-service';
 import type { Level } from '../types/diagnostic';
+import { analyzeDiagnostic } from '../services/adaptive-engine';
 
 type SessionRow = { id: string; simuladoId: string; alunoId: string; disciplina: string; assunto?: string | null; finalizadoEm: Date | null };
 type AttemptRow = Prisma.SimuladoGetPayload<{ select: {
@@ -90,7 +91,7 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
     const session = await this.findSession(studentId, attemptId);
     if (!session) return null;
     const row = await this.db.simulado.findFirst({
-      where: { id: session.simuladoId, alunoId: studentId, tipo: 'PERSONALIZADO' }, select: attemptSelect,
+      where: { id: session.simuladoId, alunoId: studentId, tipo: 'PERSONALIZADO', trilhaOrigem: null }, select: attemptSelect,
     });
     return row ? { ...mapAttempt(row, session.disciplina), topic: session.assunto ?? null } : null;
   }
@@ -141,9 +142,10 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
       const session = await tx.$queryRaw<SessionRow[]>`
         SELECT p."id", p."simuladoId", p."alunoId", p."disciplina", s."finalizadoEm"
         FROM "SessaoPratica" p JOIN "Simulado" s ON s."id" = p."simuladoId" AND s."alunoId" = p."alunoId"
-        WHERE p."alunoId" = ${studentId} AND p."simuladoId" = ${attemptId} FOR UPDATE OF s`;
-      if (!session[0]) throw new Error('Practice attempt not found.');
-      if (session[0].finalizadoEm) throw new Error('Practice attempt already completed.');
+        WHERE p."alunoId" = ${studentId} AND p."simuladoId" = ${attemptId}
+        AND s.tipo = 'PERSONALIZADO' AND NOT EXISTS (SELECT 1 FROM "TrilhaAdaptativa" t WHERE t."simuladoGeradoId" = s.id) FOR UPDATE OF s`;
+      if (!session[0]) throw new ApiError(404, 'Prática não encontrada.');
+      if (session[0].finalizadoEm) throw new ApiError(409, 'Esta prática já foi finalizada.');
       const link = await tx.questaoSimulado.findFirst({ where: { simuladoId: attemptId, questaoId: questionId }, select: { id: true, conteudoSnapshot: true } });
       const snapshot = readDiagnosticQuestionSnapshot(link?.conteudoSnapshot);
       const snapshotAlternative = snapshot?.alternatives.find(a => a.id === alternativeId);
@@ -177,31 +179,41 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
         answeredCount: progress, totalQuestions,
         consistency: recentConsistency,
         recommendation: weak ? `Próximo foco: ${weak.topic} (${weak.discipline}), com ${Number(100 * weak.correct / weak.total).toFixed(2)}% no histórico disponível.` : 'Ainda não há histórico suficiente para recomendar outro assunto.' };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   }
 
   async finalize(studentId: string, attemptId: string): Promise<PracticeAttempt> {
-    await this.db.$transaction(async tx => {
+    return this.db.$transaction(async tx => {
       const session = await tx.$queryRaw<SessionRow[]>`
-        SELECT p."id", p."simuladoId", p."alunoId", p."disciplina", s."finalizadoEm"
+        SELECT p."id", p."simuladoId", p."alunoId", p."disciplina", p."assunto", s."finalizadoEm"
         FROM "SessaoPratica" p JOIN "Simulado" s ON s."id" = p."simuladoId" AND s."alunoId" = p."alunoId"
-        WHERE p."alunoId" = ${studentId} AND p."simuladoId" = ${attemptId} FOR UPDATE OF s`;
-      if (!session[0]) throw new Error('Practice attempt not found.');
-      if (session[0].finalizadoEm) return;
+        WHERE p."alunoId" = ${studentId} AND p."simuladoId" = ${attemptId}
+        AND s.tipo = 'PERSONALIZADO' AND NOT EXISTS (SELECT 1 FROM "TrilhaAdaptativa" t WHERE t."simuladoGeradoId" = s.id) FOR UPDATE OF s`;
+      if (!session[0]) throw new ApiError(404, 'Prática não encontrada.');
+      const row = await tx.simulado.findFirst({ where: { id: attemptId, alunoId: studentId,
+        tipo: 'PERSONALIZADO', trilhaOrigem: null }, select: attemptSelect });
+      if (!row) throw new ApiError(404, 'Prática não encontrada.');
+      if (row.finalizadoEm) return { ...mapAttempt(row, session[0].disciplina), topic: session[0].assunto ?? null };
       const unanswered = await tx.questaoSimulado.count({ where: { simuladoId: attemptId, resposta: null } });
-      if (unanswered !== 0) throw new Error('Practice attempt has unanswered questions.');
+      if (unanswered !== 0 || !row.questoes.length) throw new ApiError(409, 'Responda todas as questões antes de finalizar a prática.');
+      const attempt = mapAttempt(row, session[0].disciplina);
+      const analysis = analyzeDiagnostic(attempt.questions.map(({ question, selectedOptionId }) => ({
+        discipline: question.discipline, topic: question.topic, difficulty: question.level as Level,
+        isCorrect: question.alternatives.some(a => a.id === selectedOptionId && a.correct) })));
       await tx.simulado.updateMany({ where: { id: attemptId, alunoId: studentId, tipo: 'PERSONALIZADO', finalizadoEm: null }, data: { finalizadoEm: new Date() } });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    const result = await this.findAttempt(studentId, attemptId);
-    if (!result) throw new Error('Practice attempt not found after finalization.');
-    return result;
+      if (!attempt.questions.some(q => q.question.provisional)) {
+        await tx.user.update({ where: { id: studentId }, data: { nivelAtual: analysis.level } });
+      }
+      return { ...mapAttempt({ ...row, finalizadoEm: new Date() }, session[0].disciplina), topic: session[0].assunto ?? null };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   }
 
   private async findSession(studentId: string, attemptId: string): Promise<SessionRow | null> {
     const rows = await this.db.$queryRaw<SessionRow[]>`
       SELECT p."id", p."simuladoId", p."alunoId", p."disciplina", p."assunto", s."finalizadoEm"
       FROM "SessaoPratica" p JOIN "Simulado" s ON s."id" = p."simuladoId" AND s."alunoId" = p."alunoId"
-      WHERE p."alunoId" = ${studentId} AND p."simuladoId" = ${attemptId} LIMIT 1`;
+      WHERE p."alunoId" = ${studentId} AND p."simuladoId" = ${attemptId}
+        AND s.tipo = 'PERSONALIZADO' AND NOT EXISTS (SELECT 1 FROM "TrilhaAdaptativa" t WHERE t."simuladoGeradoId" = s.id) LIMIT 1`;
     return rows[0] ?? null;
   }
 }
