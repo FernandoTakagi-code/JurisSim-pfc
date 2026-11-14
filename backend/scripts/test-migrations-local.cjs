@@ -55,6 +55,7 @@ const authorialDiagnosticOnly = process.argv[3] === '--authorial-diagnostic-only
 const individualExamOnly = process.argv[3] === '--individual-exam-only';
 const questionPracticeOnly = process.argv[3] === '--question-practice-only';
 const accountPrivacyOnly = process.argv[3] === '--account-privacy-only';
+const loadOnly = process.argv[3] === '--load-only';
 
 const integrationSuiteOnly =
   process.argv[3] === '--integration-suite-only' ||
@@ -64,11 +65,11 @@ const integrationSuiteOnly =
   emailSystemSuite ||
   authorialDiagnosticOnly ||
   individualExamOnly ||
-  questionPracticeOnly || accountPrivacyOnly;
+  questionPracticeOnly || accountPrivacyOnly || loadOnly;
 
 if (!pgBin || (process.argv.length !== 3
   && !(process.argv.length === 4 && (preflightOnly || startupDiagnosticOnly || integrationSuiteOnly)))) {
-  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite|--institution-suite-only|--institution-email-suite-only|--email-system-suite-only|--authorial-diagnostic-only|--individual-exam-only|--question-practice-only|--account-privacy-only]');
+  console.error('Usage: node scripts/test-migrations-local.cjs <PostgreSQL-bin-directory> [--preflight-only|--startup-diagnostic-only|--integration-suite-only|--functional-suite|--institution-suite-only|--institution-email-suite-only|--email-system-suite-only|--authorial-diagnostic-only|--individual-exam-only|--question-practice-only|--account-privacy-only|--load-only]');
   process.exit(1);
 }
 const resolvedPgBin = path.resolve(pgBin);
@@ -542,6 +543,15 @@ async function main() {
       'scripts/test-authorial-diagnostic-db.ts',
       data,
     ]));
+  } else if (loadOnly) {
+    assert.ok(process.env.JURISSIM_K6_BIN && fs.existsSync(process.env.JURISSIM_K6_BIN), 'Set JURISSIM_K6_BIN to the official k6 executable.');
+    const result = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/load/run-local.ts'], {
+      cwd: backend, env: { ...env, JURISSIM_K6_BIN: process.env.JURISSIM_K6_BIN },
+      stdio: 'inherit', windowsHide: true, timeout: 600_000,
+    });
+    if (result.error) throw result.error;
+    assert.equal(result.status, 0, 'Isolated load test failed; inspect backend/.local/load-* reports.');
+    console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', 'src/__tests__/integration/initial-diagnostic-concurrency.integration.test.ts']));
   } else if (!accountPrivacyOnly) {
     const selectedTests = emailSystemSuite
       ? [

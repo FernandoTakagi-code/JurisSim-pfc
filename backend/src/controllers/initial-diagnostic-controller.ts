@@ -6,6 +6,7 @@ import {
 } from '../services/initial-diagnostic-service';
 import type { InitialDiagnosticResolutionService } from '../services/initial-diagnostic-resolution-service';
 import { z } from 'zod';
+import { ApiError } from '../errors/api-error';
 
 type InitialDiagnosticApplication = Pick<InitialDiagnosticService, 'getOrCreate'>;
 type InitialDiagnosticResolutionApplication = Pick<InitialDiagnosticResolutionService,
@@ -42,6 +43,11 @@ export class InitialDiagnosticController {
         ...(result.attempt.provisional ? { provisional: true } : {}),
       });
     } catch (error) {
+      if (error instanceof ApiError) {
+        if (error.retryAfter) response.setHeader('Retry-After', String(error.retryAfter));
+        response.status(error.statusCode).json({ message: error.message });
+        return;
+      }
       if (error instanceof InitialDiagnosticServiceUnavailableError) {
         response.status(503).json({ code: 'INITIAL_DIAGNOSTIC_UNAVAILABLE' });
         return;

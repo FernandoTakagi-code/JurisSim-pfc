@@ -12,6 +12,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "npm test && npm run test:integration",
     "test:integration:disposable": "node scripts/test-migrations-local.cjs",
+    "test:load:disposable": "node scripts/load/launch.cjs",
     "lint": "biome lint --error-on-warnings",
     "test:watch": "vitest",
     "inventory:check": "tsx scripts/check-question-inventory.ts",
