@@ -1,0 +1,120 @@
+name: CI
+
+# Integração contínua: roda a cada Pull Request aberto ou atualizado para a main.
+on:
+  pull_request:
+    branches: [main]
+
+# Permissões mínimas: a pipeline só precisa ler o código.
+permissions:
+  contents: read
+
+# Um novo push no mesmo PR cancela a execução anterior.
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  unit-tests:
+    name: Testes unitários
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v7
+
+      - name: Configurar Node.js 24 com cache do npm
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar o Prisma Client
+        run: npx prisma generate
+
+      - name: Executar somente os testes unitários (vitest.config.ts)
+        run: npm test
+
+  integration-tests:
+    name: Testes de integração
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v7
+
+      - name: Configurar Node.js 24 com cache do npm
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Instalar dependências do backend
+        run: npm ci
+
+      # Um teste de integração abre o frontend (Vite) no Chrome contra a API e o banco reais.
+      - name: Instalar dependências do frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Gerar o Prisma Client
+        run: npx prisma generate
+
+      # O Ubuntu do runner bloqueia namespaces de usuário via AppArmor, e o sandbox do Chrome depende deles.
+      - name: Preparar o Chrome do runner
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          echo "CHROME_PATH=$(command -v google-chrome || command -v google-chrome-stable)" >> "$GITHUB_ENV"
+
+      # Mesma versão major do banco do projeto (Supabase/PostgreSQL 17); o script recusa outra.
+      - name: Instalar o PostgreSQL 17
+        id: postgres
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq --no-install-recommends postgresql-17
+          # O PostgreSQL do Ubuntu cria o socket em /var/run/postgresql; o usuário do runner precisa escrever nele.
+          sudo chmod a+rwx /var/run/postgresql
+          echo "bin=/usr/lib/postgresql/17/bin" >> "$GITHUB_OUTPUT"
+
+      # O script cria um cluster PostgreSQL descartável (só 127.0.0.1), aplica as
+      # migrations e executa apenas vitest.integration.config.ts (*.integration.test.ts).
+      - name: Executar somente os testes de integração em banco descartável
+        run: npm run test:integration:disposable -- "${{ steps.postgres.outputs.bin }}" --integration-suite-only
+
+      - name: Mostrar o log do PostgreSQL descartável (somente em falha)
+        if: failure()
+        run: tail -n 50 /tmp/jurissim-migrations-*/postgres.log || true
+
+  lint:
+    name: Linter
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v7
+
+      - name: Configurar Node.js 24 com cache do npm
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Analisar o código com Biome (biome.json)
+        run: npm run lint

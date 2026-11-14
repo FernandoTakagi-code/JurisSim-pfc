@@ -19,7 +19,7 @@ export async function validInvitation(tx:Tx, token:string) {
   await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${found.institutionId} FOR UPDATE`;
   const invitation = await tx.teacherInvitation.findUnique({where:{id:found.id}});
   const institution = await tx.institution.findUnique({where:{id:found.institutionId},select:{id:true,name:true,status:true}});
-  if(!invitation || invitation.status!=='PENDING' || invitation.expiresAt<=new Date() || institution?.status!=='ACTIVE')
+  if(invitation?.status!=='PENDING' || invitation.expiresAt<=new Date() || institution?.status!=='ACTIVE')
     throw new ApiError(409,'Convite inválido ou indisponível. Solicite orientação à instituição.');
   return {invitation,institution};
 }
