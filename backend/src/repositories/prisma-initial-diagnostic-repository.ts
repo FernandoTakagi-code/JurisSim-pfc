@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { withSerializableRetry } from './serializable-retry';
 import { INITIAL_DIAGNOSTIC_DISCIPLINES, type InitialDiagnosticCandidate } from '../services/initial-diagnostic-composition';
 import {
   type CreateInitialDiagnosticInput,
@@ -243,7 +244,7 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
     validateCreateInput(input);
 
     try {
-      return await this.db.$transaction(async tx => {
+      return await withSerializableRetry(() => this.db.$transaction(async tx => {
         const existing = await tx.diagnosticoInicial.findUnique({
           where: { alunoId: input.studentId },
           include: initialInclude,
@@ -289,7 +290,7 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
             ...(input.provisional ? { provisional: true } : {}) },
           created: true,
         };
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
     } catch (error) {
       if (!isPrismaConflict(error)) throw error;
 
