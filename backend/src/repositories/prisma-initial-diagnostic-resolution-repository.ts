@@ -1,5 +1,6 @@
 import { AuditAction, Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { withSerializableRetry } from './serializable-retry';
 import type { AdaptiveResult } from '../types/diagnostic';
 import type {
   InitialDiagnosticFinalizeOutcome,
@@ -111,7 +112,7 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
   }
 
   async saveOrUpdateAnswer(studentId: string, attemptId: string, questionId: string, alternativeId: string) {
-    return this.db.$transaction(async tx => {
+    return withSerializableRetry(() => this.db.$transaction(async tx => {
       if (!await this.lockOwnedAttempt(tx, studentId, attemptId)) return 'NOT_FOUND' as const;
       const identity = await this.findOwnedAttemptInTransaction(tx, studentId, attemptId);
       if (!identity) return 'NOT_FOUND' as const;
@@ -140,7 +141,7 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
         select: { id: true },
       });
       return 'SAVED' as const;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
   }
 
   async finalizeAtomically(
@@ -149,7 +150,7 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
     analyze: (attempt: InitialDiagnosticResolutionAttempt) => AdaptiveResult,
   ): Promise<InitialDiagnosticFinalizeOutcome> {
     try {
-      return await this.db.$transaction(async tx => {
+      return await withSerializableRetry(() => this.db.$transaction(async tx => {
         if (!await this.lockOwnedAttempt(tx, studentId, attemptId)) return { status: 'NOT_FOUND' } as const;
         const identity = await this.findOwnedAttemptInTransaction(tx, studentId, attemptId);
         if (!identity) return { status: 'NOT_FOUND' } as const;
@@ -181,7 +182,7 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
         const finalized = await this.findOwnedAttemptInTransaction(tx, studentId, attemptId);
         if (!finalized) throw new Error('A tentativa finalizada não pôde ser recuperada.');
         return { status: 'FINALIZED', attempt: toResolutionAttempt(finalized, studentId) } as const;
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
     } catch (error) {
       if (!isRecoverablePrismaConflict(error)) throw error;
       const winner = await this.findOwnedAttempt(studentId, attemptId);
