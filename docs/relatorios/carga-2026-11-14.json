@@ -1,0 +1,202 @@
+{
+  "tool": "Grafana k6 2.4.0",
+  "execution": {
+    "generatedAt": "2026-11-14T15:25:31.275Z",
+    "testedCommit": "4071414cb526dc21236b45d36c356c53828b7deb",
+    "environment": "Disposable local PostgreSQL and actual HTTP API; not Render/Supabase capacity",
+    "mode": "AUTORAL_30, public synthetic reviewed fixtures; external providers disabled; bcrypt cost 10; startup excluded from k6 percentiles",
+    "node": "v24.21.0",
+    "logicalCpus": 12,
+    "startupMs": 1069.4019999999998,
+    "peakApiRssMB": 404.00390625,
+    "peakCpuCoresUsed": 4.632153672891947,
+    "peakEventLoopUtilization": 1,
+    "stages": [
+      {
+        "stage": "smoke",
+        "users": 1,
+        "passed": true,
+        "requests": 42,
+        "commonP95": 65.29190000000004,
+        "finalizeP95": 46.720565,
+        "loginP95": 128.8408,
+        "errorRate": 0
+      },
+      {
+        "stage": "five",
+        "users": 5,
+        "passed": true,
+        "requests": 210,
+        "commonP95": 68.56080999999955,
+        "finalizeP95": 63.17483,
+        "loginP95": 137.40524,
+        "errorRate": 0
+      },
+      {
+        "stage": "ten",
+        "users": 10,
+        "passed": true,
+        "requests": 420,
+        "commonP95": 97.3409599999999,
+        "finalizeP95": 65.38137499999999,
+        "loginP95": 195.24674,
+        "errorRate": 0
+      },
+      {
+        "stage": "twenty",
+        "users": 20,
+        "passed": true,
+        "requests": 840,
+        "commonP95": 130.18952499999997,
+        "finalizeP95": 67.85952499999999,
+        "loginP95": 360.7207,
+        "errorRate": 0
+      },
+      {
+        "stage": "thirty",
+        "users": 30,
+        "passed": true,
+        "requests": 1260,
+        "commonP95": 192.1892099999998,
+        "finalizeP95": 389.00766000000004,
+        "loginP95": 512.7448499999999,
+        "errorRate": 0
+      },
+      {
+        "stage": "spike",
+        "users": 30,
+        "passed": true,
+        "requests": 2340,
+        "commonP95": 284.9032499999999,
+        "finalizeP95": 291.33656,
+        "loginP95": 540.1216649999999,
+        "errorRate": 0
+      }
+    ],
+    "integrity": {
+      "passed": true,
+      "students": 96,
+      "attempts": 126,
+      "answers": 3780,
+      "noDuplicateAttempts": true,
+      "noLostAnswers": true,
+      "exactSelectionsPreserved": true,
+      "correctScores": true,
+      "noRepeatedQuestions": true,
+      "isolatedAccounts": true,
+      "immutableResults": true
+    }
+  },
+  "previousFailedRuns": [
+    {
+      "run": 1,
+      "stages": [
+        {
+          "stage": "smoke",
+          "users": 1,
+          "passed": false,
+          "requests": 37,
+          "commonP95": 97.88245,
+          "finalizeP95": 0,
+          "loginP95": 130.3714,
+          "errorRate": 0.02702702702702703
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "stages": [
+        {
+          "stage": "smoke",
+          "users": 1,
+          "passed": true,
+          "requests": 42,
+          "commonP95": 95.94199000000002,
+          "finalizeP95": 72.72419,
+          "loginP95": 113.4743,
+          "errorRate": 0
+        },
+        {
+          "stage": "five",
+          "users": 5,
+          "passed": false,
+          "requests": 86,
+          "commonP95": 163.3404,
+          "finalizeP95": 0,
+          "loginP95": 123.51607999999999,
+          "errorRate": 0.011627906976744186
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "stages": [
+        {
+          "stage": "smoke",
+          "users": 1,
+          "passed": true,
+          "requests": 42,
+          "commonP95": 84.76999,
+          "finalizeP95": 70.192545,
+          "loginP95": 110.4218,
+          "errorRate": 0
+        },
+        {
+          "stage": "five",
+          "users": 5,
+          "passed": true,
+          "requests": 210,
+          "commonP95": 69.95585999999997,
+          "finalizeP95": 79.012935,
+          "loginP95": 204.82186,
+          "errorRate": 0
+        },
+        {
+          "stage": "ten",
+          "users": 10,
+          "passed": false,
+          "requests": 382,
+          "commonP95": 107.7826999999998,
+          "finalizeP95": 143.22907999999987,
+          "loginP95": 258.2416999999999,
+          "errorRate": 0.002617801047120419
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "stages": [
+        {
+          "stage": "smoke",
+          "users": 1,
+          "passed": true,
+          "requests": 42,
+          "commonP95": 92.21943,
+          "finalizeP95": 77.924455,
+          "loginP95": 109.0042,
+          "errorRate": 0
+        },
+        {
+          "stage": "five",
+          "users": 5,
+          "passed": true,
+          "requests": 210,
+          "commonP95": 94.42668999999998,
+          "finalizeP95": 92.93724999999998,
+          "loginP95": 107.862,
+          "errorRate": 0
+        },
+        {
+          "stage": "ten",
+          "users": 10,
+          "passed": false,
+          "requests": 384,
+          "commonP95": 133.03485,
+          "finalizeP95": 245.19956499999998,
+          "loginP95": 213.4283,
+          "errorRate": 0.0026041666666666665
+        }
+      ]
+    }
+  ]
+}
