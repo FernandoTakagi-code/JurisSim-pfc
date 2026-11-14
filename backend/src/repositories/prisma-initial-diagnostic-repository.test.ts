@@ -28,6 +28,7 @@ function identity(overrides: Record<string, unknown> = {}) {
 
 function dbMock(overrides: Record<string, unknown> = {}) {
   const tx = {
+    $queryRaw: vi.fn().mockResolvedValue([{ id: 'student-1' }]),
     diagnosticoInicial: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue({ id: 'identity-1' }) },
     simulado: { create: vi.fn().mockResolvedValue({ id: 'simulado-1' }) },
     questao: { findMany: vi.fn().mockResolvedValue(questionRows()) },
@@ -100,6 +101,11 @@ function officialRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe('adaptador Prisma do Diagnóstico Inicial', () => {
+  it('does not create an attempt when its owner disappeared before the per-student lock', async () => {
+    const { db, tx } = dbMock(); tx.$queryRaw.mockResolvedValue([]);
+    await expect(new PrismaInitialDiagnosticRepository(db).createInitialOrGetExisting({ studentId: 'student-1', orderedQuestionIds: questionIds() })).rejects.toMatchObject({ statusCode: 404 });
+    expect(tx.simulado.create).not.toHaveBeenCalled(); expect(tx.diagnosticoInicial.create).not.toHaveBeenCalled();
+  });
   it('recupera tentativa existente, status e questões em ordem persistida', async () => {
     const current = identity({ simulado: {
       id: 'simulado-1', alunoId: 'student-1', tipo: 'DIAGNOSTICO', finalizadoEm: new Date(),
@@ -125,7 +131,7 @@ describe('adaptador Prisma do Diagnóstico Inicial', () => {
       .rejects.toThrow(/propriedade/);
   });
 
-  it('persiste simulado, identidade e 30 vínculos em uma transação serializável, na ordem recebida', async () => {
+  it('persiste simulado, identidade e 30 vínculos em uma transação com trava por aluno, na ordem recebida', async () => {
     const { db, tx } = dbMock();
     const repository = new PrismaInitialDiagnosticRepository(db);
     const ids = questionIds();
@@ -136,7 +142,7 @@ describe('adaptador Prisma do Diagnóstico Inicial', () => {
       });
 
     expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function), {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
     });
     expect(tx.simulado.create).toHaveBeenCalledWith({
       data: { tipo: 'DIAGNOSTICO', alunoId: 'student-1' }, select: { id: true },
@@ -162,6 +168,7 @@ describe('adaptador Prisma do Diagnóstico Inicial', () => {
     let committed: typeof staged | null = null;
     let rolledBack = false;
     const tx = {
+    $queryRaw: vi.fn().mockResolvedValue([{ id: 'student-1' }]),
       diagnosticoInicial: {
         findUnique: vi.fn().mockResolvedValue(null),
         create: vi.fn(async () => { staged.identity = 'identity-1'; return { id: 'identity-1' }; }),

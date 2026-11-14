@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { withSerializableRetry } from './serializable-retry';
+import { ApiError } from '../errors/api-error';
 import { INITIAL_DIAGNOSTIC_DISCIPLINES, type InitialDiagnosticCandidate } from '../services/initial-diagnostic-composition';
 import {
   type CreateInitialDiagnosticInput,
@@ -244,7 +244,13 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
     validateCreateInput(input);
 
     try {
-      return await withSerializableRetry(() => this.db.$transaction(async tx => {
+      return await this.db.$transaction(async tx => {
+        // The existing user row is the stable per-student lock even before a
+        // diagnostic exists. Read the winning identity only after acquiring it.
+        // ReadCommitted avoids unrelated students conflicting on an absent-key
+        // Serializable predicate while the unique identity remains the DB guard.
+        const owners = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "User" WHERE "id" = ${input.studentId} AND "deletedAt" IS NULL FOR UPDATE`;
+        if (!owners.length) throw new ApiError(404, 'Aluno indisponível para iniciar o diagnóstico.');
         const existing = await tx.diagnosticoInicial.findUnique({
           where: { alunoId: input.studentId },
           include: initialInclude,
@@ -290,7 +296,7 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
             ...(input.provisional ? { provisional: true } : {}) },
           created: true,
         };
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
     } catch (error) {
       if (!isPrismaConflict(error)) throw error;
 
