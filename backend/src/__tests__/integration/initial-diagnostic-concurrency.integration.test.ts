@@ -38,7 +38,10 @@ it('preserves all 30 answers and one result when a student resends and finalizes
   const resent = await Promise.all(Array.from({ length: 4 }, () => resolution.saveAnswer(student.id, id, last.id, last.alternatives[0].id)));
   expect(resent).toHaveLength(4);
   expect(await prisma.resposta.count({ where: { simuladoId: id } })).toBe(30);
-  const results = await Promise.all(Array.from({ length: 3 }, () => resolution.finalize(student.id, id)));
+  const outcomes = await Promise.allSettled([resolution.saveAnswer(student.id, id, last.id, last.alternatives[0].id),
+    ...Array.from({ length: 3 }, () => resolution.finalize(student.id, id))]);
+  if (outcomes[0].status === 'rejected') expect(outcomes[0].reason).toMatchObject({ statusCode: 409 });
+  const results = outcomes.slice(1).map(outcome => { if (outcome.status !== 'fulfilled') throw outcome.reason; return outcome.value as Awaited<ReturnType<typeof resolution.finalize>>; });
   expect(results.every(result => result.correctAnswers === 30 && result.overallPercentage === 100)).toBe(true);
   expect(await prisma.trilhaAdaptativa.count({ where: { simuladoId: id } })).toBe(1);
   expect(await prisma.auditLog.count({ where: { userId: student.id, resourceId: id, action: 'DIAGNOSTICO_FINALIZADO' } })).toBe(1);

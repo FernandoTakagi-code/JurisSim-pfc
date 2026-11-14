@@ -112,6 +112,9 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
   }
 
   async saveOrUpdateAnswer(studentId: string, attemptId: string, questionId: string, alternativeId: string) {
+    // Every mutation locks the attempt before reading its state. ReadCommitted
+    // sees the committed winner after waiting and avoids cross-student SSI
+    // predicate conflicts; the snapshot, answer upsert and finalization remain atomic.
     return withSerializableRetry(() => this.db.$transaction(async tx => {
       if (!await this.lockOwnedAttempt(tx, studentId, attemptId)) return 'NOT_FOUND' as const;
       const identity = await this.findOwnedAttemptInTransaction(tx, studentId, attemptId);
@@ -141,7 +144,7 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
         select: { id: true },
       });
       return 'SAVED' as const;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }));
   }
 
   async finalizeAtomically(
@@ -182,7 +185,7 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
         const finalized = await this.findOwnedAttemptInTransaction(tx, studentId, attemptId);
         if (!finalized) throw new Error('A tentativa finalizada não pôde ser recuperada.');
         return { status: 'FINALIZED', attempt: toResolutionAttempt(finalized, studentId) } as const;
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }));
     } catch (error) {
       if (!isRecoverablePrismaConflict(error)) throw error;
       const winner = await this.findOwnedAttempt(studentId, attemptId);
