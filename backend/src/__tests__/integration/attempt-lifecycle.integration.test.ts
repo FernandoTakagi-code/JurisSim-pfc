@@ -15,14 +15,19 @@ import { criarUsuario, limparBanco, prisma, encerrar } from './helpers';
 beforeEach(limparBanco);
 afterAll(() => encerrar());
 
-async function fixture() {
+async function fixture(eligible = false) {
   const owner = await criarUsuario('ALUNO');
   const author = await criarUsuario('PROFESSOR');
   const questions = [];
   for (let i = 0; i < 7; i++) questions.push(await prisma.questao.create({ data: {
     enunciado: `Questão isolada de regressão ${i}`, disciplina: 'Direito Civil', assunto: 'Contratos',
     nivel: 'BASICO', publica: true, fundamentacaoJuridica: 'Fixture técnica, não é acervo.', autorId: author.id,
-    alternativas: { create: [{ texto: 'Correta', correta: true }, { texto: 'Incorreta', correta: false }] },
+    // Synthetic approvals exist only in the disposable database, never in the real inventory.
+    ...(eligible ? { origem: 'IA', revisaoJuridicaEm: new Date(), revisorJuridicoId: author.id,
+      revisaoPedagogicaEm: new Date(), revisorPedagogicoId: author.id,
+      liberadaAcervoEm: new Date(), liberadaAcervoPorId: author.id } : {}),
+    alternativas: { create: eligible ? (['A','B','C','D'] as const).map((letra, index) => ({ letra, texto: `Alternativa ${letra}`, correta: index === 0 }))
+      : [{ texto: 'Correta', correta: true }, { texto: 'Incorreta', correta: false }] },
   }, include: { alternativas: true } }));
   const diagnostics = new DiagnosticService();
   const initial = await diagnostics.start(owner.id, 30);
@@ -31,7 +36,7 @@ async function fixture() {
 }
 
 async function generated() {
-  const f = await fixture();
+  const f = await fixture(true);
   await f.diagnostics.finalize(f.initial.id, f.owner.id);
   const trail = await f.diagnostics.getTrail(f.initial.id, f.owner.id);
   const service = new TrailService();
@@ -57,7 +62,7 @@ function failingClient(model: 'user' | 'trilhaAdaptativa'): PrismaClient {
 
 describe('P0 · ciclo de tentativas com PostgreSQL descartável real', () => {
   it('rechecks committed winners before rejecting an empty inventory snapshot', async () => {
-    const f = await fixture();
+    const f = await fixture(true);
     expect((await new DiagnosticRepository().createAttempt(f.owner.id, [])).id).toBe(f.initial.id);
     await f.diagnostics.finalize(f.initial.id, f.owner.id);
     const trail = await f.diagnostics.getTrail(f.initial.id, f.owner.id);
@@ -85,7 +90,7 @@ describe('P0 · ciclo de tentativas com PostgreSQL descartável real', () => {
   });
 
   it('gera uma única trilha para solicitações simultâneas e retries', async () => {
-    const f = await fixture(); await f.diagnostics.finalize(f.initial.id, f.owner.id);
+    const f = await fixture(true); await f.diagnostics.finalize(f.initial.id, f.owner.id);
     const trail = await f.diagnostics.getTrail(f.initial.id, f.owner.id), service = new TrailService();
     const results = await Promise.all(Array.from({ length: 4 }, () => service.generate(trail.id, f.owner.id)));
     expect(new Set(results.map(r => r.id)).size).toBe(1);
@@ -94,7 +99,7 @@ describe('P0 · ciclo de tentativas com PostgreSQL descartável real', () => {
   });
 
   it('rollback da geração não deixa tentativa órfã; retry recupera o vínculo', async () => {
-    const f = await fixture(); await f.diagnostics.finalize(f.initial.id, f.owner.id);
+    const f = await fixture(true); await f.diagnostics.finalize(f.initial.id, f.owner.id);
     const trail = await f.diagnostics.getTrail(f.initial.id, f.owner.id);
     await expect(new TrailRepository(failingClient('trilhaAdaptativa')).createTrailAttempt(f.owner.id, trail.id, [f.questions[0].id])).rejects.toThrow('Falha intermediária');
     expect(await prisma.simulado.count({ where: { tipo: 'PERSONALIZADO' } })).toBe(0);

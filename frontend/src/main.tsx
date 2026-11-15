@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
@@ -23,13 +23,14 @@ import { InitialDiagnosticPage } from "./initial-diagnostic";
 import { DiagnosticReview } from './diagnostic-review';
 import { navigate as navigateTo, usePath } from "./navigation";
 import { sessionRedirectTarget } from './auth-routing';
-import { ClassesPage, ExamsPage, ClassExamAttempt } from "./class-exams";
+import { ClassesPage, ExamsPage, ClassExamAttempt, StudentClassDetailsPage } from "./class-exams";
 import { GoalsPage } from "./goals-reports";
 import { useStudentProgress, ProgressStatus, Evolution, RecentActivities, StudentHistory, PersistedResult } from "./student-progress";
 import { AdaptiveTrail } from "./adaptive-trail";
 import { TrailLaunchButton } from "./trail-launch";
-import { StudyTrail } from "./study-trail";
+const StudyTrail = lazy(() => import('./study-trail').then(module => ({ default: module.StudyTrail })));
 import { useAttemptResume } from './attempt-resume';
+import { ConfirmAccountEmailChange } from './account-security';
 
 
 type Alternative = { id: string; text: string };
@@ -73,9 +74,13 @@ const labels: Record<string, string> = {
 
 function App() {
   const path = usePath();
-  const [authLink, setAuthLink] = useState(() => /^#\/(verificar-email|reset-password)(\?|$)/.test(window.location.hash));
+  const [emailChangeLink, setEmailChangeLink] = useState(() => window.location.hash.startsWith('#/confirm-email-change'));
+  const [authLink, setAuthLink] = useState(() => /^#\/(verificar-email|reset-password|confirm-email-change)(\?|$)/.test(window.location.hash));
   useEffect(() => {
-    const update = () => setAuthLink(/^#\/(verificar-email|reset-password)(\?|$)/.test(window.location.hash));
+    const update = () => {
+      setAuthLink(/^#\/(verificar-email|reset-password|confirm-email-change)(\?|$)/.test(window.location.hash));
+      setEmailChangeLink(window.location.hash.startsWith('#/confirm-email-change'));
+    };
     window.addEventListener('hashchange', update);
     return () => window.removeEventListener('hashchange', update);
   }, []);
@@ -92,6 +97,7 @@ function App() {
   useEffect(() => {
     if (redirectTarget) navigateTo(redirectTarget, true);
   }, [redirectTarget]);
+  if(emailChangeLink) return <ConfirmAccountEmailChange />;
   if(path === '/convite-professor') return <TeacherInvitationLanding/>;
   if (authLink || (auth.status === 'anonymous' && !sessionStorage.getItem('jurissim_token'))) return <AuthGate />;
   if (auth.status === 'error') return <main className="page"><p className="error" role="alert">{auth.message}</p><button onClick={() => void refreshSession().catch(() => {})}>Tentar novamente</button><button onClick={() => void logoutSession()}>Sair</button></main>;
@@ -136,13 +142,10 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState<string>();
   const [currentResult, setResult] = useState<Result>();
-  const progress = useStudentProgress();
-  const previousProgressRoute = useRef(route);
-  useEffect(() => {
-    const changed = previousProgressRoute.current !== route;
-    previousProgressRoute.current = route;
-    if (changed && ["/dashboard", "/trilha"].includes(route)) void progress.refresh();
-  }, [route, progress.refresh]);
+  const progress = useStudentProgress(
+    ["/dashboard", "/trilha", "/desempenho", "/estudar", "/diagnostico"].includes(route),
+    route === '/dashboard',
+  );
   const result = (currentResult?.level || route === '/diagnostico' ? currentResult : undefined)
     ?? (["/dashboard", "/desempenho", "/trilha", "/estudar"].includes(route) ? progress.latestResult : undefined);
   const [error, setError] = useState("");
@@ -194,6 +197,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const reviewRoute = /^\/questoes\/revisao\/([^/]+)$/.exec(route);
 
 
+  const studentClassRoute = /^\/turmas\/([^/]+)$/.exec(route);
+  if (studentClassRoute) return <StudentClassDetailsPage key={studentClassRoute[1]} classId={studentClassRoute[1]} />;
   const classAttemptRoute = /^\/simulados\/tentativas\/([^/]+)$/.exec(route);
   const individualExamRoute = /^\/simulados\/individual\/([^/]+)$/.exec(route);
   if (individualExamRoute) return <IndividualExamPage key={individualExamRoute[1]} id={individualExamRoute[1]} />;
@@ -205,7 +210,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const diagnosticReviewRoute = /^\/resultados\/diagnostico\/([^/]+)\/correcao$/.exec(route);
   if (diagnosticReviewRoute) return <DiagnosticReview attemptId={diagnosticReviewRoute[1]} onBack={() => navigate(`/resultados/diagnostico/${diagnosticReviewRoute[1]}`)} />;
   if (route === "/historico") return <StudentHistory />;
-  if (route === "/estudar") return <StudyTrail userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
+  if (route === "/estudar") return <StudyTrail userId={userId} result={result} recommendationLoading={progress.loading} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
   if (route === "/trilha") return <AdaptiveTrail progress={progress} />;
   if (resultRoute) return <PersistedResult type={resultRoute[1] as "diagnostico" | "diagnostico-inicial" | "trilha"} id={resultRoute[2]} />;
 
@@ -671,7 +676,7 @@ const application = (
       {import.meta.env.VITE_JURISSIM_DEMO_MODE === 'true' && <div className="jurissim-demo-global-banner" role="status">
         DEMONSTRAÇÃO ACADÊMICA — todos os registros são sintéticos. Os slots OAB são apenas simulações técnicas; não são questões oficiais, licenciadas ou homologadas.
       </div>}
-      <App />
+      <Suspense fallback={<SessionValidationScreen />}><App /></Suspense>
     </LegalBoundary>
 );
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();

@@ -11,6 +11,7 @@ vi.mock('../services/class-exam-service', () => ({ ClassExamService: class {
   listClasses = mocks.list; createClass = mocks.create; updateClass = mocks.update; rotateInvite = mocks.invite;
   join = mocks.join; students = mocks.students; listExams = mocks.exams; saveExam = mocks.save; publish = mocks.publish;
   eligibleQuestions=mocks.eligible;
+  studentClassDetails = vi.fn(async () => ({ id: 'fixture', exams: [] }));
   start = mocks.start; attempt = mocks.attempt; answer = mocks.answer; finalize = mocks.finalize;
 } }));
 import { classRoutes, examRoutes } from './class-exam-routes';
@@ -67,7 +68,7 @@ describe('class and teacher-exam HTTP guards', () => {
     expect((await request(method as string, path as string, body)).status).toBe(403);
   });
   it.each([
-    ['POST', '/turmas/join'], ['POST', `/avaliacoes/${id}/attempts`], ['GET', `/avaliacoes/attempts/${id}`],
+    ['POST', '/turmas/join'], ['GET', `/turmas/${id}`], ['POST', `/avaliacoes/${id}/attempts`], ['GET', `/avaliacoes/attempts/${id}`],
     ['PUT', `/avaliacoes/attempts/${id}/answers/${id}`], ['POST', `/avaliacoes/attempts/${id}/finalize`],
   ])('teacher cannot impersonate a student: %s %s', async (method, path) => {
     expect((await request(method, path)).status).toBe(403);

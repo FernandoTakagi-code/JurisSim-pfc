@@ -40,6 +40,8 @@ const requiredTail = [
   '20261113000100_email_reuse_block',
   '20261113000200_email_reuse_registration_guard',
   '20261113010000_question_review_sessions',
+  '20261115193000_class_lifecycle',
+  '20261115203000_class_activities',
 ];
 const pgBin = process.argv[2];
 const preflightOnly = process.argv[3] === '--preflight-only';
@@ -54,6 +56,10 @@ const emailSystemSuite = process.argv[3] === '--email-system-suite-only';
 const authorialDiagnosticOnly = process.argv[3] === '--authorial-diagnostic-only';
 const individualExamOnly = process.argv[3] === '--individual-exam-only';
 const questionPracticeOnly = process.argv[3] === '--question-practice-only';
+const profileSecurityOnly = process.argv[3] === '--profile-security-only';
+const studentClassesOnly = process.argv[3] === '--student-classes-only';
+const teacherQuestionsOnly = process.argv[3] === '--teacher-questions-only';
+const teacherManagementOnly = process.argv[3] === '--teacher-management-only';
 const accountPrivacyOnly = process.argv[3] === '--account-privacy-only';
 const loadOnly = process.argv[3] === '--load-only';
 
@@ -65,7 +71,7 @@ const integrationSuiteOnly =
   emailSystemSuite ||
   authorialDiagnosticOnly ||
   individualExamOnly ||
-  questionPracticeOnly || accountPrivacyOnly || loadOnly;
+  questionPracticeOnly || profileSecurityOnly || studentClassesOnly || teacherQuestionsOnly || teacherManagementOnly || accountPrivacyOnly || loadOnly;
 
 if (!pgBin || (process.argv.length !== 3
   && !(process.argv.length === 4 && (preflightOnly || startupDiagnosticOnly || integrationSuiteOnly)))) {
@@ -128,6 +134,11 @@ const allowedEnvironment = new Set([
 ]);
 const env = Object.fromEntries(Object.entries(process.env)
   .filter(([key]) => allowedEnvironment.has(key.toUpperCase())));
+// Explicit mail smoke test opt-in; no database URL or mail credential is inherited.
+if (profileSecurityOnly && process.env.JURISSIM_PROFILE_SEND_REAL_EMAIL === 'true') {
+  env.JURISSIM_PROFILE_SEND_REAL_EMAIL = 'true';
+  env.JURISSIM_PROFILE_TEST_RECIPIENT = process.env.JURISSIM_PROFILE_TEST_RECIPIENT ?? '';
+}
 Object.assign(env, {
   NODE_ENV: 'test', NODE_OPTIONS: '',
   JWT_SECRET: 'local-postgres-stage3-test-key-over-32-characters',
@@ -553,7 +564,15 @@ async function main() {
     assert.equal(result.status, 0, 'Isolated load test failed; inspect backend/.local/load-* reports.');
     console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', 'src/__tests__/integration/initial-diagnostic-concurrency.integration.test.ts']));
   } else if (!accountPrivacyOnly) {
-    const selectedTests = emailSystemSuite
+    const selectedTests = teacherManagementOnly
+      ? ['src/__tests__/integration/teacher-management.integration.test.ts', 'src/__tests__/integration/class-activities.integration.test.ts', 'src/__tests__/integration/teacher-management-browser.integration.test.ts', 'src/__tests__/integration/teacher-class-questions.integration.test.ts', 'src/__tests__/integration/student-class-details.integration.test.ts', 'src/__tests__/integration/turma-routes.integration.test.ts']
+      : teacherQuestionsOnly
+      ? ['src/__tests__/integration/teacher-class-questions.integration.test.ts', 'src/__tests__/integration/student-class-details.integration.test.ts', 'src/__tests__/integration/questao-controller.integration.test.ts', 'src/__tests__/integration/turma-questao-fluxo.integration.test.ts']
+      : studentClassesOnly
+      ? ['src/__tests__/integration/student-class-details.integration.test.ts', 'src/__tests__/integration/turma-routes.integration.test.ts', 'src/__tests__/integration/turma-questao-fluxo.integration.test.ts']
+      : profileSecurityOnly
+      ? ['src/__tests__/integration/profile-security.integration.test.ts', 'src/__tests__/integration/h424-disabled.integration.test.ts']
+      : emailSystemSuite
       ? [
           'src/__tests__/integration/email-system.integration.test.ts',
           'src/__tests__/integration/institution-decision-email.integration.test.ts',

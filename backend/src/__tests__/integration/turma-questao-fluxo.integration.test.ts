@@ -44,9 +44,8 @@ describe('Fluxo turma -> questão privada da turma -> aluno matriculado', () => 
     expect(antesDeIngressar.corpo).toEqual([]);
     expect(ingresso.corpo.joined).toBe(true);
     expect(questoesDaTurma.status).toBe(200);
-    expect(questoesDaTurma.corpo).toHaveLength(1);
-    expect(questoesDaTurma.corpo[0]).toMatchObject({ id: criacaoQuestao.corpo.id, turmaId, assunto: 'Estatuto da OAB' });
-    expect(questoesDaTurma.corpo[0].alternativas[0]).not.toHaveProperty('correta');
+    // Private content is delivered through authorized evaluations, not raw CRUD.
+    expect(questoesDaTurma.corpo).toEqual([]);
     expect(visaoDeFora.corpo).toEqual([]);
     expect(filtroDeFora.status).toBe(403);
     expect(filtroDeFora.corpo).toEqual({ message: 'Turma indisponível para esta conta.' });

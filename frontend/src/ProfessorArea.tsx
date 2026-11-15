@@ -17,6 +17,7 @@ type Questao = {
   nivel: Nivel;
   fundamentacaoJuridica: string;
   publica: boolean;
+  turmaId?: string;
   autorId: string;
   canManage?:boolean;
   createdAt?: string;
@@ -57,6 +58,7 @@ const letra = (index: number) => String.fromCharCode(65 + index);
 
 export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: string; nome: string; email: string; role: string; onSair: () => void }) {
   const path = usePath();
+  const classCreation = /^\/professor\/turmas\/([^/]+)\/questoes\/nova$/.exec(path)?.[1];
 
   const [questoes, setQuestoes] = useState<Questao[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,11 +78,12 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
   };
 
   useEffect(() => {
-    carregar();
-  }, []);
+    if (!classCreation) carregar();
+  }, [classCreation]);
 
   useEffect(() => {
     if (!path.startsWith("/professor")) navigate("/professor", true);
+    if (path === '/professor/questoes/nova') navigate('/professor/turmas', true);
   }, [path]);
   const editId = /^\/professor\/questoes\/([^/]+)\/editar$/.exec(path)?.[1];
   const editQuestion = questoes.find(question => question.id === editId);
@@ -93,7 +96,7 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
 
   const irPara = (destino: Tela) => {
     setAviso("");
-    navigate(destino.nome === "painel" ? "/professor" : destino.nome === "nova" ? "/professor/questoes/nova" : destino.nome === "editar" ? `/professor/questoes/${destino.questao.id}/editar` : "/professor/questoes");
+    navigate(destino.nome === "painel" ? "/professor" : destino.nome === "nova" ? "/professor/turmas" : destino.nome === "editar" ? `/professor/questoes/${destino.questao.id}/editar` : "/professor/questoes");
     window.scrollTo?.(0, 0);
   };
 
@@ -112,6 +115,8 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
   };
 
   const individualReport = /^\/professor\/relatorios\/turmas\/([^/]+)\/alunos\/([^/]+)$/.exec(path);
+  if (classCreation) return <ClassQuestionCreation key={classCreation} classId={classCreation} />;
+  if (path === '/professor/questoes/nova') return <section className="page"><p role="status">Selecione uma turma para cadastrar questões.</p></section>;
   const reportRoute = /^\/professor\/(relatorios|desempenho)(?:\/turmas\/([^/]+))?$/.exec(path);
   if (individualReport) return <StudentClassReport key={individualReport[1] + individualReport[2]} classId={individualReport[1]} studentId={individualReport[2]} />;
   if (reportRoute) return <TeacherReports classId={reportRoute[2]} mode={reportRoute[1] === "desempenho" ? "performance" : "reports"} />;
@@ -399,6 +404,23 @@ function BancoQuestoes({
   );
 }
 
+function ClassQuestionCreation({ classId }: { classId: string }) {
+  const [turma, setTurma] = useState<{ id: string; nome: string }>();
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [sequence, setSequence] = useState(0);
+  useEffect(() => {
+    let active = true;
+    call<{ id: string; nome: string }>(`/questoes/turmas/${encodeURIComponent(classId)}/contexto`)
+      .then(data => { if (active) setTurma(data); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'Não foi possível carregar a turma.'); });
+    return () => { active = false; };
+  }, [classId]);
+  if (!turma) return <section className="page professor-page"><h1>Cadastrar questões da turma</h1><p role={error ? 'alert' : 'status'}>{error || 'Verificando autorização da turma…'}</p><button onClick={() => navigate('/professor/turmas')}>Voltar para turmas</button></section>;
+  if (saved) return <section className="page professor-page"><h1>{turma.nome}</h1><article className="panel"><h2 role="status">Questão cadastrada com sucesso</h2><p>A questão foi vinculada exclusivamente a esta turma.</p><div className="form-actions"><button className="primary" onClick={() => { setSequence(n => n + 1); setSaved(false); }}>Cadastrar outra questão</button><button className="outline-button" onClick={() => navigate('/professor/turmas')}>Voltar para turmas</button></div></article></section>;
+  return <QuestaoForm key={sequence} turma={turma} disciplinasExistentes={[]} onCancelar={() => navigate('/professor/turmas')} onSalva={() => setSaved(true)} />;
+}
+
 const alternativasIniciais = (): Alternativa[] => [
   { texto: "", correta: false },
   { texto: "", correta: false },
@@ -408,11 +430,13 @@ const alternativasIniciais = (): Alternativa[] => [
 
 function QuestaoForm({
   questao,
+  turma,
   disciplinasExistentes,
   onCancelar,
   onSalva,
 }: {
   questao?: Questao;
+  turma?: { id: string; nome: string };
   disciplinasExistentes: string[];
   onCancelar: () => void;
   onSalva: () => void;
@@ -423,7 +447,8 @@ function QuestaoForm({
     assunto: questao?.assunto ?? "",
     nivel: questao?.nivel ?? "BASICO",
     fundamentacaoJuridica: questao?.fundamentacaoJuridica ?? "",
-    publica: questao?.publica ?? true,
+    publica: false,
+    turmaId: turma?.id ?? questao?.turmaId,
     alternativas: questao ? (() => {
       const existing = [...questao.alternativas];
       if (existing.every(a => a.letra && QUESTION_LETTERS.includes(a.letra as typeof QUESTION_LETTERS[number]))) {
@@ -484,6 +509,7 @@ function QuestaoForm({
     <section className="page professor-page">
       <p className="gold">{questao ? "EDITAR QUESTÃO" : "CADASTRO DE QUESTÃO"}</p>
       <h1>{questao ? "Editar questão" : "Nova questão"}</h1>
+      {turma && <h2>Turma: {turma.nome}</h2>}
       <p className="muted">Questões já usadas em simulados não podem ser editadas nem excluídas, para preservar o histórico dos alunos.</p>
       <article className="panel question-form">
         <label>
@@ -549,11 +575,7 @@ function QuestaoForm({
             </div>
           ))}
         </fieldset>
-        <label className="checkbox-row">
-          <input type="checkbox" checked={dados.publica} onChange={(e) => campo("publica", e.target.checked)} />
-          Disponível no banco público
-        </label>
-        <p className="muted">O uso no diagnóstico inicial e na prática individual depende também da revisão e liberação do acervo.</p>
+        <p className="muted">Questão privada da turma, disponível somente nas atividades e simulados autorizados. Não será publicada no banco global.</p>
         {tentouSalvar && problemas.length > 0 && (
           <ul className="form-problems">{problemas.map((p) => <li key={p}>{p}</li>)}</ul>
         )}

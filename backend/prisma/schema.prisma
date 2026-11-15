@@ -89,6 +89,8 @@ model PasswordRecoveryToken {
 }
 
 model Turma {
+  activities ClassActivity[]
+  lifecycle ClassLifecycle?
   invitationAssignments TeacherInvitationClass[]
   id            String    @id @default(uuid())
   nome          String
@@ -102,6 +104,17 @@ model Turma {
   professores   User[]    @relation("ProfessorTurmas")
   institutionalClass InstitutionalClass?
   joinRequests ClassJoinRequest[]
+}
+
+// Separate optional metadata keeps deployments compatible before migration.
+// Historical ownership is never inferred from current teacher assignments.
+model ClassLifecycle {
+  classId String @id
+  createdById String?
+  deletedAt DateTime?
+  deletedById String?
+  turma Turma @relation(fields: [classId], references: [id], onDelete: Restrict)
+  @@index([deletedAt])
 }
 
 model Questao {
@@ -252,6 +265,8 @@ model SessaoRevisaoQuestao {
 }
 
 model Avaliacao {
+  settings ClassExamSettings?
+  activity ClassActivity?
   id String @id @default(uuid())
   titulo String
   descricao String @default("")
@@ -265,6 +280,29 @@ model Avaliacao {
   tentativas Simulado[]
 
   @@index([autorId, createdAt, id])
+}
+
+// Activity scheduling/lifecycle is distinct; assessment questions and attempts
+// reuse the existing engine without copying student answers or results.
+model ClassActivity {
+  id String @id @default(uuid())
+  evaluationId String @unique
+  classId String
+  dueAt DateTime?
+  maxPoints Float @default(10)
+  closedAt DateTime?
+  cancelledAt DateTime?
+  avaliacao Avaliacao @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
+  turma Turma @relation(fields: [classId], references: [id], onDelete: Restrict)
+  @@index([classId, dueAt, id])
+}
+
+model ClassExamSettings {
+  evaluationId String @id
+  expectedQuestions Int
+  closedAt DateTime?
+  archivedAt DateTime?
+  avaliacao Avaliacao @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
 }
 
 model AvaliacaoQuestao {

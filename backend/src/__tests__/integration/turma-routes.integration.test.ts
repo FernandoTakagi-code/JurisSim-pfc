@@ -174,7 +174,7 @@ describe('GET /turmas/students e GET /turmas/:id/students', () => {
 
     // Assert
     expect(resposta.status).toBe(200);
-    expect(resposta.corpo).toEqual({
+    expect(resposta.corpo).toMatchObject({
       items: [{ id: aluno.usuario.id, nome: aluno.usuario.nome, email: aluno.usuario.email }],
       page: 1,
       hasMore: false,

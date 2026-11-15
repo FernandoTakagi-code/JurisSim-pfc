@@ -3,10 +3,13 @@ import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
 import { homologationClassBoundary } from '../config/institution-homologation';
 
+import { visibleClasses } from './class-lifecycle';
 type Actor = { userId: string; role: string; allowedClassIds?: string[]; institutionAdmin?:boolean;institutionId?:string };
-const managed=(actor:Actor):Prisma.TurmaWhereInput => {
+const managed=async(actor:Actor,history=false):Promise<Prisma.TurmaWhereInput> => {
   const base: Prisma.TurmaWhereInput=actor.institutionAdmin&&actor.institutionId ? {institutionalClass:{institutionId:actor.institutionId}} : {professores:{some:{id:actor.userId}}};
-  const boundary=homologationClassBoundary(); return boundary?{AND:[base,boundary]}:base;
+  const boundary=homologationClassBoundary(),visible=history?{}:await visibleClasses();
+  if(!Object.keys(visible).length)return boundary?{AND:[base,boundary]}:base;
+  return {AND:[base,...(boundary?[boundary]:[]),visible]};
 };
 type Tx = Prisma.TransactionClient;
 // Every report uses current enrollment AND the exam's target class. Membership
@@ -86,7 +89,7 @@ export class ClassReportService {
   async overview(actor: Actor) {
     if (actor.role === 'ADMIN' || !(actor.role === 'PROFESSOR' || (actor.institutionAdmin && actor.institutionId)))
       throw new ApiError(403, 'Indicadores exclusivos da gestão acadêmica autorizada.');
-    const where: Prisma.TurmaWhereInput = { ...managed(actor), ...(actor.allowedClassIds ? { id: { in: actor.allowedClassIds } } : {}) };
+    const where: Prisma.TurmaWhereInput = { ...await managed(actor), ...(actor.allowedClassIds ? { id: { in: actor.allowedClassIds } } : {}) };
     return prisma.$transaction(async tx => {
       const classes = await tx.turma.count({ where });
       const activeClasses = await tx.turma.count({ where: { ...where, archivedAt: null } });
@@ -98,14 +101,16 @@ export class ClassReportService {
   }
   async classes(actor: Actor, page: number) {
     if (actor.role==='ADMIN'||!(actor.role==='PROFESSOR'||(actor.institutionAdmin&&actor.institutionId))) throw new ApiError(403, 'Relatórios exclusivos de professores.');
-    const items = await prisma.turma.findMany({ where: { ...managed(actor), ...(actor.allowedClassIds ? { id: { in: actor.allowedClassIds } } : {}) },
+    const items = await prisma.turma.findMany({ where: { ...await managed(actor), ...(actor.allowedClassIds ? { id: { in: actor.allowedClassIds } } : {}) },
       select: { id: true, nome: true, archivedAt: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 21, skip: (page - 1) * 20 });
     return { items: items.slice(0, 20), page, hasMore: items.length > 20 };
   }
   private async authorize(tx: Tx, actor: Actor, classId: string) {
     if (actor.allowedClassIds && !actor.allowedClassIds.includes(classId)) throw new ApiError(404, 'Turma indisponível neste vínculo institucional.');
     if (actor.role==='ADMIN'||!(actor.role==='PROFESSOR'||(actor.institutionAdmin&&actor.institutionId))) throw new ApiError(403, 'Relatórios exclusivos de professores responsáveis pela turma.');
-    const turma = await tx.turma.findFirst({ where: { id: classId, ...managed(actor) },
+    // Read-only reports remain available to currently authorized teachers after
+    // logical deletion. Operational listings and mutations still exclude them.
+    const turma = await tx.turma.findFirst({ where: { id: classId, ...await managed(actor,true) },
       select: { id: true, nome: true, archivedAt: true } });
     if (!turma) throw new ApiError(404, 'Turma indisponível para relatórios desta conta.');
     return turma;

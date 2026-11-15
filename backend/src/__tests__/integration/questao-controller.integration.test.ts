@@ -24,11 +24,17 @@ beforeEach(async () => {
 
 // Enunciado único por chamada: o banco rejeita questões com o mesmo conteúdo (fingerprint).
 function questaoUnica(sobrescrever: Record<string, unknown> = {}) {
-  return questaoValida({ enunciado: `${questaoValida().enunciado} Caso ${randomUUID()}.`, ...sobrescrever });
+  return questaoValida({ enunciado: `${questaoValida().enunciado} Caso ${randomUUID()}.`, publica: false, ...sobrescrever });
+}
+
+async function corpoDocente(token: string, sobrescrever: Record<string, unknown> = {}) {
+  const turma = await requisicao(baseUrl, 'POST', '/turmas', { token, corpo: { nome: 'Turma de cadastro' } });
+  expect(turma.status).toBe(201);
+  return { ...questaoUnica(sobrescrever), turmaId: turma.corpo.turma.id };
 }
 
 async function criarQuestao(token: string, sobrescrever: Record<string, unknown> = {}) {
-  const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token, corpo: questaoUnica(sobrescrever) });
+  const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token, corpo: await corpoDocente(token, sobrescrever) });
   expect(resposta.status).toBe(201);
   return resposta.corpo as { id: string; enunciado: string };
 }
@@ -53,6 +59,9 @@ describe('GET /questoes', () => {
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const aluno = await loginPelaApi(baseUrl, 'ALUNO');
     const criada = await criarQuestao(professor.token);
+
+    // Simulate a historical global question; teacher CRUD cannot publish it.
+    await prisma.questao.update({ where: { id: criada.id }, data: { publica: true, turmaId: null } });
 
     // Act
     const resposta = await requisicao(baseUrl, 'GET', '/questoes', { token: aluno.token });
@@ -96,7 +105,7 @@ describe('GET /questoes/:id', () => {
       assunto: 'Locação',
       nivel: 'INTERMEDIARIO',
       fundamentacaoJuridica: 'Art. 46, §1º, da Lei 8.245/91',
-      publica: true,
+      publica: false,
       autorId: professor.usuario.id,
     });
     expect(resposta.corpo.alternativas).toHaveLength(4);
@@ -121,7 +130,7 @@ describe('POST /questoes', () => {
   it('criar_comoProfessorAutenticado_deveRetornar201EPersistirQuestaoComAlternativas', async () => {
     // Arrange
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
-    const corpo = questaoUnica({ nivel: 'AVANCADO' });
+    const corpo = await corpoDocente(professor.token, { nivel: 'AVANCADO' });
 
     // Act
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token: professor.token, corpo });
@@ -185,7 +194,7 @@ describe('POST /questoes', () => {
   it('criar_comConteudoDuplicado_deveRetornar409EManterApenasAOriginal', async () => {
     // Arrange
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
-    const corpo = questaoUnica();
+    const corpo = await corpoDocente(professor.token);
     await requisicao(baseUrl, 'POST', '/questoes', { token: professor.token, corpo });
 
     // Act

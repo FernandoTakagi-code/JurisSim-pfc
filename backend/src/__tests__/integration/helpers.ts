@@ -1,14 +1,16 @@
+import {activityRoutes} from "../../routes/class-activity-routes";
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import bcrypt from 'bcrypt';
 import express from 'express';
+import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../lib/prisma';
 import { prisma as prismaQuestoes } from '../../config/prisma';
 import { authRoutes } from '../../routes/auth-routes';
 import questaoRoutes from '../../routes/questaoRoutes';
-import { classRoutes } from '../../routes/class-exam-routes';
+import { classRoutes, examRoutes } from '../../routes/class-exam-routes';
 import { errorHandler } from '../../middlewares/error-handler';
 import { assertDisposableDatabase } from './disposable-database';
 
@@ -17,10 +19,14 @@ export { prisma };
 // Monta a mesma API do server.ts (sem chamar listen na porta fixa).
 export async function iniciarServidor() {
   const app = express();
+  app.use(cors({origin:'http://127.0.0.1:5199'}));
+  app.get('/test/disposable-proof',async(_req,res)=>{await assertDisposableDatabase(prisma);res.json({capability:process.env.JURISSIM_TEST_CAPABILITY});});
   app.use(express.json());
   app.use('/auth', authRoutes);
   app.use('/questoes', questaoRoutes);
   app.use('/turmas', classRoutes);
+  app.use('/avaliacoes', examRoutes);
+app.use('/atividades', activityRoutes);
   app.use(errorHandler);
   const server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));

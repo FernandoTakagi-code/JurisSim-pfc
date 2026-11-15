@@ -22,7 +22,7 @@ export function TeacherWorkspace({ session, onSair }: { session: Session; onSair
   if (individual) return academic(<StudentClassReport key={individual[1] + ':' + individual[2]} classId={individual[1]} studentId={individual[2]} />);
   const report = /^\/professor\/(relatorios|desempenho)(?:\/turmas\/([^/]+))?$/.exec(path);
   if (report) return academic(<TeacherReports key={report[1] + ':' + (report[2] ?? '')} classId={report[2]} mode={report[1] === 'desempenho' ? 'performance' : 'reports'} />);
-  if (path === '/professor/questoes' || path === '/professor/questoes/nova' || /^\/professor\/questoes\/[^/]+\/editar$/.test(path)) {
+  if (path === '/professor/questoes' || path === '/professor/questoes/nova' || /^\/professor\/turmas\/[^/]+\/questoes\/nova$/.test(path) || /^\/professor\/questoes\/[^/]+\/editar$/.test(path)) {
     const { user } = session;
     return <ProfessorArea userId={user.id} nome={user.nome} email={user.email} role={user.role} onSair={onSair} />;
   }

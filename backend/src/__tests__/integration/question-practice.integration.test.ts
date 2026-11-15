@@ -84,6 +84,27 @@ beforeAll(setupServer);
 afterAll(async () => { delete process.env.QUESTION_PRACTICE_PILOT_ENABLED; delete process.env.QUESTION_PRACTICE_PILOT_BATCH_ID; delete process.env.INDIVIDUAL_EXAM_PILOT_ENABLED; delete process.env.INDIVIDUAL_EXAM_PILOT_BATCH_ID; await encerrar(server); });
 
 describe('question practice with disposable PostgreSQL', () => {
+  it.each([5, 10, 20])('completes and resumes a %i-question practice with eligible disposable fixtures', async quantity => {
+    const author = await criarUsuario('PROFESSOR'), student = await criarUsuario('ALUNO');
+    await createQuestionSet(author.id, 'Direito Administrativo', quantity);
+    const token = tokenPara(student);
+    const started = await request('POST', '/question-practice', token, { discipline: 'Direito Administrativo', quantity });
+    expect(started.status).toBe(201);
+    const { attempt } = started.body;
+    expect(attempt.questions).toHaveLength(quantity);
+    for (const question of attempt.questions) {
+      const response = await request('PUT', `/question-practice/${attempt.id}/answers/${question.id}`, token,
+        { alternativeId: question.alternatives[0].id });
+      expect(response.status).toBe(200);
+    }
+    const recovered = await request('GET', `/question-practice/${attempt.id}`, token);
+    expect(recovered.body.attempt.questions.every((q: { selectedOptionId: string | null }) => q.selectedOptionId)).toBe(true);
+    const completed = await request('POST', `/question-practice/${attempt.id}/finalize`, token, {});
+    expect(completed.status).toBe(200);
+    expect(completed.body.result).toMatchObject({ total: quantity, correct: quantity });
+    expect((await request('GET', `/question-practice/${attempt.id}/result`, token)).body.result).toEqual(completed.body.result);
+  });
+
   it('creates and resumes separate discipline sessions and filters private questions', async () => {
     const author = await criarUsuario('PROFESSOR');
     const student = await criarUsuario('ALUNO');

@@ -1409,9 +1409,11 @@ function AdministrativeInstitutionDetails({institution,reload}:{institution:Inst
 export function ClassMembershipManager({
   classId,
   teacher,
+  requestsOnly=false,
 }: {
   classId?: string;
   teacher: boolean;
+  requestsOnly?: boolean;
 }) {
   const [page, setPage] = useState(1);
   const [studentEmail,setStudentEmail]=useState('');
@@ -1428,12 +1430,12 @@ export function ClassMembershipManager({
       createdAt: string;
     }>
   >(
-    available.data?.enabled
+    (!teacher || requestsOnly || available.data?.enabled)
       ? `/turmas/${classId ? `${classId}/` : ""}requests?page=${page}`
       : null,
   );
   const students = useResource<Page<{ id: string; nome: string }>>(
-    available.data?.enabled && teacher && classId
+    available.data?.enabled && teacher && classId && !requestsOnly
       ? `/turmas/${classId}/students?page=${page}`
       : null,
   );
@@ -1441,21 +1443,21 @@ export function ClassMembershipManager({
     resource.reload();
     students.reload();
   });
-  if (!available.data?.enabled) return null;
+  if (teacher && !requestsOnly && !available.data?.enabled) return null;
   return (
     <section className="panel">
       <h3>
         {teacher ? "Solicitações de entrada" : "Minhas solicitações de entrada"}
       </h3>
       {action.feedback}
-      {teacher&&classId&&<form className="admin-form" onSubmit={e=>{e.preventDefault();void action.run(`/turmas/${classId}/students`,'POST',{email:studentEmail}).then(ok=>{if(ok)setStudentEmail('');});}}><label>E-mail do aluno já cadastrado<input type="email" required maxLength={254} value={studentEmail} onChange={e=>setStudentEmail(e.target.value)}/></label><button className="primary-button" disabled={action.busy}>Vincular aluno</button></form>}
+      {teacher&&classId&&!requestsOnly&&<form className="admin-form" onSubmit={e=>{e.preventDefault();void action.run(`/turmas/${classId}/students`,'POST',{email:studentEmail}).then(ok=>{if(ok)setStudentEmail('');});}}><label>E-mail do aluno já cadastrado<input type="email" required maxLength={254} value={studentEmail} onChange={e=>setStudentEmail(e.target.value)}/></label><button className="primary-button" disabled={action.busy}>Vincular aluno</button></form>}
       <ResourceState resource={resource} />
       {resource.data?.items.length === 0 && <p>Nenhuma solicitação.</p>}
       {resource.data?.items.map((r) => (
         <article key={r.id}>
           <p>
             {teacher ? (r.studentName ?? "Aluno indisponível") : r.className} ·{" "}
-            {label(r.status)} · {date(r.createdAt)}
+            {!teacher && r.status === 'PENDING' ? 'Aguardando aprovação do professor' : label(r.status)} · {date(r.createdAt)}
           </p>
           {teacher && r.status === "PENDING" && (
             <div className="admin-actions">
@@ -1488,7 +1490,7 @@ export function ClassMembershipManager({
         </article>
       ))}
       <Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />
-      {teacher && (
+      {teacher && !requestsOnly && (
         <>
           <h3>Alunos aprovados</h3>
           <ResourceState resource={students} />
@@ -1516,7 +1518,7 @@ export function ClassMembershipManager({
     </section>
   );
 }
-function RemoveStudent({
+export function RemoveStudent({
   busy,
   remove,
 }: {

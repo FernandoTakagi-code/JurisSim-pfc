@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -52,7 +52,7 @@ try {
   const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
   const cdp = (method, params = {}) => send(method, params, sessionId);
   const evaluate = async expression => { const result = await cdp('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (result.exceptionDetails) throw new Error('Isolated browser expression failed: ' + expression.slice(0, 120)); return result.result.value; };
-  const until = async expression => { for (let i = 0; i < 120; i++) { if (await evaluate(expression).catch(() => false)) return; await sleep(50); } throw new Error('Condition failed: ' + expression); };
+  const until = async expression => { for (let i = 0; i < 120; i++) { if (await evaluate(expression).catch(() => false)) return; await sleep(50); } throw new Error('Condition failed: ' + expression + ' State: ' + JSON.stringify(await evaluate('({path:location.pathname,text:document.body.innerText.slice(0,1500),requests:window.requests})'))); };
   const pass = name => { checks++; console.log('PASS: ' + name); };
   await cdp('Page.enable');
   await cdp('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
@@ -66,9 +66,13 @@ try {
       const body = init.body ? JSON.parse(init.body) : undefined;
       window.requests.push({route,method,body});
       const reply = value => new Response(JSON.stringify(value), {status:200});
-      if (route === '/auth/session') return reply({user:{id:'teacher-fixture',nome:'Professor de teste',email:'teacher@example.invalid',role:'PROFESSOR',emailVerificado:true},nextStep:'PROFESSOR'});
+      if (route === '/auth/session') return reply({user:{id:'teacher-fixture',nome:'Professor de teste',email:'teacher@example.invalid',role:'PROFESSOR',emailVerificado:true},nextStep:'PROFESSOR',administration:{enabled:false,needsInstitutionLink:false,memberships:[]}});
       if (route === '/profile/photo') return reply({kind:'default'});
       if (route === '/institutions/availability') return reply({enabled:false});
+      if (route === '/turmas') return reply({items:[{id:'class-fixture',nome:'Teste 1',archivedAt:null,_count:{alunos:1}},{id:'archived-fixture',nome:'Arquivada',archivedAt:'2026-01-01',_count:{alunos:0}}],page:1,hasMore:false});
+      if (route === '/questoes/turmas/class-fixture/contexto') return reply({id:'class-fixture',nome:'Teste 1'});
+      if (route === '/questoes/turmas/forbidden/contexto') return new Response(JSON.stringify({message:'Turma indisponível para esta conta.'}),{status:403});
+      if (route.startsWith('/turmas/') && route.endsWith('/requests')) return reply({items:[],page:1,hasMore:false});
       if (route === '/questoes' && method === 'GET') return reply(window.questions);
       if (route.startsWith('/questoes') && ['POST','PUT'].includes(method)) {
         const id = method === 'POST' ? 'question-fixture' : route.split('/')[2];
@@ -80,8 +84,25 @@ try {
     };
   ` });
   await cdp('Emulation.setDeviceMetricsOverride', {width:1366,height:900,deviceScaleFactor:1,mobile:false});
-  await cdp('Page.navigate', {url:origin+'/professor/questoes/nova'});
+  await cdp('Page.navigate', {url:origin+'/professor/turmas'});
+  await until('[...document.querySelectorAll(".class-actions button")].filter(b=>b.textContent==="Cadastrar questões").length===2');
+  assert.equal(await evaluate('[...document.querySelectorAll(".v0-sidebar nav button")].some(b=>/Cadastrar questão|Instituições e solicitações/.test(b.textContent))'),false);
+  assert.equal(await evaluate('[...document.querySelectorAll(".class-actions button")].filter(b=>b.textContent==="Cadastrar questões")[1].disabled'),true);
+  await evaluate('[...document.querySelectorAll(".class-actions button")].find(b=>b.textContent==="Cadastrar questões").click()');
   await until('!!document.querySelector(".question-form")');
+  assert.equal(await evaluate('location.pathname'),'/professor/turmas/class-fixture/questoes/nova');
+  assert.equal(await evaluate('document.body.textContent.includes("Turma: Teste 1")'),true);
+  assert.equal(await evaluate('!!document.querySelector(".checkbox-row")'),false);
+  const evidence = path.resolve('../docs/evidence/teacher-questions');
+  await mkdir(evidence, {recursive:true});
+  for (const width of [1440,768,390]) {
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
+    assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
+    const capture=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});
+    await writeFile(path.join(evidence,`class-question-${width}.png`),Buffer.from(capture.data,'base64'));
+  }
+  await cdp('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
+  pass('cadastro parte da turma correta, sem publicação global; turma arquivada está bloqueada');
   assert.equal(await evaluate('document.querySelectorAll(".alternative-row textarea").length'),4);
   assert.equal(await evaluate('document.querySelectorAll(".alternative-row input:checked").length'),0);
   assert.equal(await evaluate('!!document.querySelector(".alternative-row button")'),false);
@@ -109,11 +130,20 @@ try {
   pass('textos repetidos são recusados antes de enviar');
   await fill('[aria-label="Texto da alternativa B"]','Resposta de teste B');
   await submit();
-  await until('!!document.querySelector(".question-card")');
+  await until('document.body.textContent.includes("Questão cadastrada com sucesso")');
   const created = await evaluate('window.requests.find(r=>r.method==="POST").body');
+  assert.equal(created.turmaId,'class-fixture');assert.equal(created.publica,false);
   assert.equal(created.alternativas.length,4);
   assert.deepEqual(created.alternativas.map(a=>a.correta),[false,false,true,false]);
   pass('cadastro válido envia quatro alternativas e mantém a seleção C');
+  await evaluate('[...document.querySelectorAll("button")].find(b=>b.textContent==="Cadastrar outra questão").click()');
+  await until('!!document.querySelector(".question-form")');
+  assert.equal(await evaluate('document.querySelector(".question-form > label textarea").value'),'');
+  await evaluate('document.querySelector(".form-actions .outline-button").click()');
+  await until('location.pathname==="/professor/turmas"&&!!document.querySelector(".class-actions")');
+  pass('cadastrar outra limpa o formulário e voltar retorna às turmas');
+  await cdp('Page.navigate',{url:origin+'/professor/questoes'});
+  await until('!!document.querySelector(".question-card")');
   await evaluate('[...document.querySelectorAll(".question-card-actions button")].find(b=>b.textContent.includes("Editar")).click()');
   await until('!!document.querySelector(".question-form")');
   assert.equal(await isCorrect('C'),true);
@@ -150,6 +180,12 @@ try {
   const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});
   await writeFile(path.join(profile,'question-form-mobile.png'),Buffer.from(shot.data,'base64'));
   pass('formulário funciona sem transbordamento horizontal em 390 px');
+  await cdp('Page.navigate',{url:origin+'/professor/turmas/forbidden/questoes/nova'});
+  await until('document.body.textContent.includes("Turma indisponível para esta conta.")');
+  assert.equal(await evaluate('!!document.querySelector(".question-form")'),false);
+  await cdp('Page.navigate',{url:origin+'/professor/questoes/nova'});
+  await until('location.pathname==="/professor/turmas"');
+  pass('URL sem turma redireciona e turma não autorizada não monta o formulário');
   console.log(`Questões: ${checks} verificações aprovadas; API simulada. Captura: ${profile}`);
 } finally {
   try { await closeBrowser?.(); } catch {}

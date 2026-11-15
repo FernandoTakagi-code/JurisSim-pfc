@@ -588,13 +588,10 @@ describe("class admissions and tenant boundaries", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           alunoId: "student",
-          avaliacao: expect.objectContaining({
-            turmas: expect.objectContaining({
-              some: expect.objectContaining({
-                alunos: { some: { id: "student" } },
-              }),
-            }),
-          }),
+          OR: expect.arrayContaining([
+            { finalizadoEm: { not: null } },
+            expect.objectContaining({avaliacao:expect.objectContaining({turmas:expect.objectContaining({some:expect.objectContaining({alunos:{some:{id:'student'}}})})})}),
+          ]),
         }),
       }),
     );

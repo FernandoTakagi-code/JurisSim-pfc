@@ -3,6 +3,7 @@ export function Icon({ name }: { name: string }) {
     building: "M4 22V3h12v19M16 8h4v14M2 22h20M8 7h4M8 11h4M8 15h4M9 22v-3h3v3",
     graduation: "m2 9 10-5 10 5-10 5L2 9m4 2v6c4 3 8 3 12 0v-6m4-2v7",
     mail: "M3 5h18v14H3zM3 5l9 8 9-8",
+    lock: "M5 10h14v12H5zM8 10V7a4 4 0 0 1 8 0v3m-4 5v3",
     bell: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4",
     search: "M21 21l-5-5M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14",
     moon: "M21 13a9 9 0 0 1-10-10 9 9 0 1 0 10 10",

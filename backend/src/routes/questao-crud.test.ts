@@ -36,7 +36,7 @@ const accountIds: Record<string, string> = {
 const accountRoles: Record<string, string> = { PROFESSOR: 'PROFESSOR', ALUNO: 'ALUNO', ADMIN: 'ADMIN', OUTRO_PROFESSOR: 'PROFESSOR', OUTRO_ALUNO: 'ALUNO' };
 const body = {
   enunciado: 'Enunciado original da questão', disciplina: 'Civil', assunto: 'Contratos',
-  nivel: 'BASICO', fundamentacaoJuridica: 'Fundamentação de teste', publica: true,
+  nivel: 'BASICO', fundamentacaoJuridica: 'Fundamentação de teste', publica: false, turmaId: 'turma-a',
   alternativas: [{ texto: 'Alternativa A', correta: true }, { texto: 'Alternativa B', correta: false }, { texto: 'Alternativa C', correta: false }, { texto: 'Alternativa D', correta: false }],
 };
 const clone = <T,>(value: T): T => structuredClone(value);
@@ -94,7 +94,7 @@ beforeEach(() => {
   db.auditLog.create.mockImplementation(async ({ data }) => ({ ...data, id: `audit-${++sequence}`, occurredAt: new Date() }));
   db.questao.findUnique.mockImplementation(async ({ where, select }) => {
     const q = records.get(where.id);
-    return q ? select ? { autorId: q.autorId, turmaId:q.turmaId, _count: clone(q._count) } : publicRecord(q) : null;
+    return q ? select ? { autorId: q.autorId, turmaId:q.turmaId, publica:q.publica, _count: clone(q._count) } : publicRecord(q) : null;
   });
   db.questao.findFirst.mockImplementation(async ({ where }) => {
     const q = visibleRecords(where)[0];
@@ -271,7 +271,7 @@ describe('CRUD completo de questões por HTTP', () => {
     const q = await create();
     for (const path of ['', `/${q.id}`]) {
       const response = await call('GET', path, undefined, 'ALUNO');
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(path ? 404 : 200);
       expect(JSON.stringify(await response.json())).not.toContain('correta');
     }
     for (const method of ['POST', 'PUT', 'DELETE']) {
@@ -386,9 +386,12 @@ describe('autoria, privacidade e isolamento entre turmas', () => {
     expect(records.has(q.id)).toBe(true);
   });
   async function questionFor(role: string, overrides: Record<string, unknown> = {}) {
-    const response = await call('POST', '', { ...body, ...overrides }, role);
+    const response = await call('POST', '', { ...body, turmaId: role === 'OUTRO_PROFESSOR' ? 'turma-b' : 'turma-a', ...overrides, publica: false }, role);
     expect(response.status).toBe(201);
-    return response.json();
+    const created = await response.json();
+    // Existing public records are fixtures, never newly published by professors.
+    if (overrides.publica === true) { records.get(created.id)!.publica = true; return publicRecord(records.get(created.id)!); }
+    return created;
   }
 
   it.each([true, false])('professor não altera questão alheia, pública=%s, mesmo pertencendo à turma', async publica => {
@@ -422,12 +425,13 @@ describe('autoria, privacidade e isolamento entre turmas', () => {
   it('aluno vê somente suas turmas e questões públicas, sem gabarito', async () => {
     const own = await questionFor('PROFESSOR', { publica: false, turmaId: 'turma-a' });
     const foreign = await questionFor('OUTRO_PROFESSOR', { publica: false, turmaId: 'turma-b' });
-    const global = await questionFor('OUTRO_PROFESSOR');
+    const global = await questionFor('OUTRO_PROFESSOR', { publica: true });
+    records.get(global.id)!.turmaId = null;
     const response = await call('GET', '', undefined, 'ALUNO');
     const values = await response.json();
-    expect(values.map((q: any) => q.id).sort()).toEqual([own.id, global.id].sort());
+    expect(values.map((q: any) => q.id).sort()).toEqual([global.id]);
     expect(JSON.stringify(values)).not.toContain('correta');
-    expect((await call('GET', `/${own.id}`, undefined, 'ALUNO')).status).toBe(200);
+    expect((await call('GET', `/${own.id}`, undefined, 'ALUNO')).status).toBe(404);
     expect((await call('GET', `/${foreign.id}`, undefined, 'ALUNO')).status).toBe(404);
     expect((await call('GET', '?turmaId=turma-b', undefined, 'ALUNO')).status).toBe(403);
     expect((await call('GET', '?turmaId=turma-a', undefined, 'OUTRO_ALUNO')).status).toBe(403);
@@ -435,12 +439,12 @@ describe('autoria, privacidade e isolamento entre turmas', () => {
 
   it('filtro por turma é restritivo e exige vínculo de aluno/professor; ADMIN pode consultar', async () => {
     const own = await questionFor('PROFESSOR', { publica: false, turmaId: 'turma-a' });
-    await questionFor('PROFESSOR');
+    await questionFor('OUTRO_PROFESSOR', { turmaId: 'turma-b' });
     await questionFor('OUTRO_PROFESSOR', { turmaId: 'turma-b' });
     for (const role of ['ALUNO', 'PROFESSOR']) {
       const response = await call('GET', '?turmaId=turma-a', undefined, role);
       expect(response.status).toBe(200);
-      expect((await response.json()).map((q: any) => q.id)).toEqual([own.id]);
+      expect((await response.json()).map((q: any) => q.id)).toEqual(role === 'ALUNO' ? [] : [own.id]);
     }
     expect((await call('GET', '?turmaId=turma-a', undefined, 'OUTRO_PROFESSOR')).status).toBe(403);
     classes.get('turma-a')!.alunos = [];

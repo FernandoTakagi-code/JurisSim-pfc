@@ -1,3 +1,4 @@
+import {activityRoutes} from "./routes/class-activity-routes";
 import express from 'express';
 import cors from 'cors';
 import { configureHttpSecurity } from './config/http-security';
@@ -60,12 +61,12 @@ app.get('/health', (_req, res) => {
 });
 app.use('/auth', authRoutes);
 app.use('/institutions', institutionRoutes);
-app.use(['/questoes','/trilhas','/diagnostics','/initial-diagnostic','/students/me','/turmas','/avaliacoes','/goals','/reports','/question-practice','/individual-exams','/question-review'],requireAuth,denyGlobalAcademicAccess);
+app.use(['/questoes','/trilhas','/diagnostics','/initial-diagnostic','/students/me','/turmas','/atividades', '/avaliacoes','/goals','/reports','/question-practice','/individual-exams','/question-review'],requireAuth,denyGlobalAcademicAccess);
 // These study routes are behind a server-side initial-diagnostic gate. Auth is
 // checked here before the gate; route-level authorization remains in place.
 app.use([
   '/questoes', '/trilhas', '/diagnostics', '/students/me', '/turmas',
-  '/avaliacoes', '/goals', '/reports', '/question-practice', '/profile/photo', '/individual-exams', '/question-review',
+  '/atividades', '/avaliacoes', '/goals', '/reports', '/question-practice', '/profile/photo', '/individual-exams', '/question-review',
 ], (request, response, next) => isInitialDiagnosticRequired()
   ? requireAuth(request, response, next)
   : next(), requireInitialDiagnosticCompletion);
@@ -80,6 +81,7 @@ app.use('/audit-logs', auditRoutes);
 app.use('/students/me', studentHistoryRoutes);
 app.use('/turmas', classRoutes);
 app.use('/avaliacoes', examRoutes);
+app.use('/atividades', activityRoutes);
 app.use('/goals', goalRoutes);
 app.use('/reports', reportRoutes);
 app.use('/profile/photo', profilePhotoRoutes);
