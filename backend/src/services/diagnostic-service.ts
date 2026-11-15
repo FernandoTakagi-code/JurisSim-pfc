@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { ApiError } from '../errors/api-error';
-import { diagnosticAttemptSelect, DiagnosticRepository } from '../repositories/diagnostic-repository';
+import { diagnosticAttemptSelect, DiagnosticRepository, type DiagnosticResultAttempt } from '../repositories/diagnostic-repository';
 import type { AnsweredQuestion } from '../types/diagnostic';
 import { analyzeDiagnostic } from './adaptive-engine';
 import { gerarJustificativaComIA } from './feedback-service';
@@ -161,8 +161,8 @@ export class DiagnosticService {
     });
   }
 
-  private async getResultAttemptOrFail(attemptId: string, studentId: string): Promise<Attempt> {
-    const attempt = await this.repository.findAttempt(attemptId, studentId);
+  private async getResultAttemptOrFail(attemptId: string, studentId: string): Promise<DiagnosticResultAttempt> {
+    const attempt = await this.repository.findAttemptForResult(attemptId, studentId);
     if (!attempt) throw new ApiError(404, 'Diagnostico nao encontrado.');
     return attempt;
   }

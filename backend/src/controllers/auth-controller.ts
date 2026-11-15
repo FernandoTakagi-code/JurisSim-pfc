@@ -14,10 +14,14 @@ import { passwordSchema } from '../services/password-policy';
 import { ApiError } from '../errors/api-error';
 import { AccountDeletionService } from '../services/account-deletion';
 import { accountDeletionEnabled, accountDeletionUnavailableMessage } from '../account-deletion-availability';
+import { AccountEmailChangeService } from '../services/account-email-change';
+import { BrevoAccountEmailChangeSender } from '../services/account-email-change-sender';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional(), confirmation: z.literal('EXCLUIR') }).strict();
 const deactivateAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024), confirmation: z.literal('DESATIVAR') }).strict();
 const emailSchema = z.string().trim().email('E-mail inválido').max(254).transform(value => value.toLowerCase());
+const changeAccountEmailSchema = z.object({ newEmail: emailSchema, confirmationEmail: emailSchema,
+  senhaAtual: z.string().min(1).max(1024), }).strict();
 const perfilSchema = z.enum(['ALUNO', 'PROFESSOR']).optional();
 
 const registerSchema = z.object({
@@ -63,6 +67,7 @@ export class AuthController {
     private readonly emailVerification = new EmailVerificationService(undefined,
       isLocalEmailCaptureRequested() ? localEmailVerificationCapture : new BrevoEmailVerificationSender()),
     private readonly localEmailCapture: LocalEmailVerificationCapture = localEmailVerificationCapture,
+    private readonly accountEmailChange = new AccountEmailChangeService(new BrevoAccountEmailChangeSender()),
   ) {}
 
   registerInstitution = async (request: Request,response: Response) => {
@@ -230,5 +235,23 @@ export class AuthController {
       return;
     }
     response.json(await this.emailVerification.confirm(parsed.data.token));
+  };
+
+  solicitarTrocaEmail = async (request: AuthenticatedRequest, response: Response) => {
+    const parsed = changeAccountEmailSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Informe e confirme um novo e-mail válido e sua senha atual.' });
+      return;
+    }
+    response.status(202).json(await this.accountEmailChange.request(request.auth!.userId, parsed.data));
+  };
+
+  confirmarTrocaEmail = async (request: Request, response: Response) => {
+    const parsed = z.object({ token: z.string().min(20).max(2048) }).strict().safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Link inválido, expirado ou já utilizado.' });
+      return;
+    }
+    response.json(await this.accountEmailChange.confirm(parsed.data.token));
   };
 }

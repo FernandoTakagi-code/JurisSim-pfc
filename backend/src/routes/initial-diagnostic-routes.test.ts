@@ -119,7 +119,6 @@ describe('initial diagnostic API feature gate and ownership', () => {
     ['GET', `/${attemptId}/answers`],
     ['PUT', `/${attemptId}/answers/${questionId}`],
     ['POST', `/${attemptId}/finalize`],
-    ['GET', `/${attemptId}/result`],
   ])('keeps every resolution endpoint behind the disabled feature flag (%s %s)', async (method, path) => {
     const response = await request(method, path, studentToken, method === 'PUT' ? { selectedOptionId: questionId } : undefined);
     expect(response.status).toBe(503);
@@ -130,6 +129,15 @@ describe('initial diagnostic API feature gate and ownership', () => {
     expect(mocks.saveAnswer).not.toHaveBeenCalled();
     expect(mocks.finalize).not.toHaveBeenCalled();
     expect(mocks.getResult).not.toHaveBeenCalled();
+  });
+
+  it('reads an owned historical result while new diagnostics are disabled', async () => {
+    const response = await request('GET', `/${attemptId}/result`, studentToken);
+    expect(response.status).toBe(200);
+    expect(mocks.getResult).toHaveBeenCalledWith(studentId, attemptId);
+    expect(mocks.getOrCreate).not.toHaveBeenCalled();
+    expect((await request('GET', `/${attemptId}/result`)).status).toBe(401);
+    expect((await request('GET', `/${attemptId}/result`, teacherToken)).status).toBe(403);
   });
 
   it.each([

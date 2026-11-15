@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from './ui-icon';
 import { navigate } from "./navigation";
 import { studyDisciplines, studyModules, type StudyLesson, type StudyModule } from "./study-content";
 import { StudyLessonView } from "./study-lesson";
@@ -51,7 +52,8 @@ function loadLessonChunk(discipline: string): Promise<Partial<Record<string, Stu
   return import("./labor-lessons").then(module => module.laborLessons);
 }
 
-export function StudyTrail({ userId, result, onQuestions }: { userId: string; result?: StudyResult; onQuestions: (discipline: string) => void }) {
+export function StudyTrail({ userId, result, onQuestions, recommendationLoading = false }: { userId: string; result?: StudyResult; onQuestions: (discipline: string) => void; recommendationLoading?: boolean }) {
+  const moduleArea = useRef<HTMLDivElement>(null);
   const [discipline, setDiscipline] = useState<string>(studyDisciplines[0]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [progress, setProgress] = useState<LearningState>(() => readState(userId));
@@ -65,6 +67,9 @@ export function StudyTrail({ userId, result, onQuestions }: { userId: string; re
   const weakest = metrics.length ? [...metrics].sort((a, b) => a.percentual - b.percentual)[0] : undefined;
   const priorityDiscipline = result?.trail?.disciplinaPrioritaria || weakest?.disciplina;
   const priorityDisciplineCanonical = priorityDiscipline ? canonicalDiscipline(priorityDiscipline) : undefined;
+  const priorityMetric = metrics.find(metric => canonicalDiscipline(metric.disciplina) === priorityDisciplineCanonical);
+  const recommendedLevel = result?.trail?.nivelRecomendado;
+  const levelLabels: Record<string, string> = { BASICO: 'Básico', INTERMEDIARIO: 'Intermediário', AVANCADO: 'Avançado' };
   const priorityModule = result?.trail?.assuntoPrioritario
     ? studyModules.find(module => module.discipline === priorityDisciplineCanonical && normalize(module.title).includes(normalize(result.trail!.assuntoPrioritario!)))
     : undefined;
@@ -133,7 +138,17 @@ export function StudyTrail({ userId, result, onQuestions }: { userId: string; re
 
     {resumableModule && !selected && <article className="panel study-continue"><h2>Continue seu estudo</h2><p>{resumableModule.discipline} · {resumableModule.title}</p><button className="primary" disabled={Boolean(loadingModuleId)} onClick={() => { chooseDiscipline(resumableModule.discipline); openModule(resumableModule); }}>Continuar aula</button></article>}
 
-    {priorityDiscipline ? <aside className="study-adaptive-note" aria-label="Recomendação baseada no diagnóstico existente"><span aria-hidden="true">✦</span><div><strong>Prioridade sugerida pelo seu resultado disponível</strong><p>{priorityDisciplineCanonical ?? priorityDiscipline}{weakest ? ` · ${weakest.percentual}% de acertos no resultado carregado` : ""}{result?.trail?.nivelRecomendado ? ` · nível recomendado: ${result.trail.nivelRecomendado}` : ""}</p><small>O diagnóstico original permanece intacto. A recomendação não altera sua avaliação.</small></div>{priorityDisciplineCanonical && <button className="outline-button" onClick={() => chooseDiscipline(priorityDisciplineCanonical)}>Estudar esta disciplina</button>}</aside> : <aside className="study-adaptive-note study-adaptive-note--initial"><span aria-hidden="true">✦</span><div><strong>Conteúdos organizados por matéria</strong><p>Não há dados suficientes de diagnóstico carregados para recomendar uma dificuldade. Você pode escolher qualquer disciplina.</p></div></aside>}
+    {recommendationLoading ? <aside className="study-adaptive-note study-priority-card" role="status"><div><h2>Carregando sua recomendação…</h2><p>Consultando o resultado disponível na sua conta.</p></div></aside> : priorityDiscipline ? <aside className="study-adaptive-note study-priority-card" aria-labelledby="study-priority-title">
+      <div className="study-priority-copy"><h2 id="study-priority-title">Prioridade sugerida pelo seu resultado disponível</h2><p className="study-priority-discipline">{priorityDisciplineCanonical ?? priorityDiscipline}</p>
+        <dl className="study-priority-metrics"><div><dt>Acertos nesta disciplina</dt><dd>{priorityMetric ? `${priorityMetric.percentual.toLocaleString('pt-BR')}%` : 'Sem percentual disponível'}</dd></div><div><dt>Nível sugerido</dt><dd>{recommendedLevel ? levelLabels[recommendedLevel] ?? recommendedLevel : 'Sem nível disponível'}</dd></div></dl>
+        <small>Orientação baseada no resultado disponível da sua conta.</small>
+      </div>
+      {priorityDisciplineCanonical && <button type="button" className="primary study-priority-button" disabled={Boolean(loadingModuleId)} aria-busy={Boolean(loadingModuleId)} onClick={() => {
+        chooseDiscipline(priorityDisciplineCanonical);
+        if (priorityModule) openModule(priorityModule);
+        requestAnimationFrame(() => { moduleArea.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); moduleArea.current?.focus({ preventScroll: true }); });
+      }}>{loadingModuleId ? 'Carregando conteúdo…' : 'Estudar esta disciplina'}<Icon name="right" /></button>}
+    </aside> : <aside className="study-adaptive-note study-priority-card study-adaptive-note--initial"><div><h2>Conteúdos organizados por matéria</h2><p>Não há dados suficientes de diagnóstico carregados para recomendar uma dificuldade. Você pode escolher qualquer disciplina.</p></div></aside>}
 
     <div className="study-trail-layout">
       <aside className="study-discipline-panel" aria-label="Disciplinas"><p className="gold">DISCIPLINAS</p><div role="list">{studyDisciplines.map((item, index) => {
@@ -142,7 +157,7 @@ export function StudyTrail({ userId, result, onQuestions }: { userId: string; re
         return <button role="listitem" key={item} className={discipline === item ? "active" : ""} disabled={Boolean(loadingModuleId)} aria-pressed={discipline === item} onClick={() => chooseDiscipline(item)}><span className="study-discipline-number">0{index + 1}</span><span className="study-discipline-copy"><strong>{item}</strong><small>{count} módulos{metric ? ` · ${metric.percentual}% no diagnóstico` : ""}</small></span><span aria-hidden="true">›</span></button>;
       })}</div></aside>
 
-      <div className="study-module-area">
+      <div className="study-module-area" ref={moduleArea} tabIndex={-1} aria-label={`Conteúdo de ${discipline}`}>
         {selected ? <article className="study-module-detail"><button className="study-back-link" onClick={() => setSelectedId(null)}>← Voltar aos módulos de {discipline}</button><p className="gold">{selected.discipline.toLocaleUpperCase("pt-BR")} · MÓDULO DE ESTUDO</p><h2>{selected.title}</h2>
           <div className="study-draft-banner" role="note"><strong>Rascunho educativo · revisão jurídica e pedagógica pendente</strong><span>Material introdutório original. Ainda não foi validado como material jurídico ou pedagógico; confira a legislação vigente.</span></div>
           {selected.discipline !== "Direito Constitucional" && !selectedLesson ? lessonLoadError === selected.id ? <div role="alert" className="study-lesson-load-error"><p>Não foi possível carregar esta aula agora.</p><button type="button" className="outline-button" disabled={loadingModuleId === selected.id} onClick={() => openModule(selected)}>{loadingModuleId === selected.id ? "Carregando aula…" : "Tentar novamente"}</button></div> : <p className="study-lesson-loading" role="status" aria-live="polite">Carregando aula…</p> : selectedLesson ? <StudyLessonView key={`${userId}:${selected.id}`} module={selected.lesson ? selected : { ...selected, lesson: selectedLesson }} userId={userId} status={statusFor(selected.id)} openedSections={progress.openedSections[selected.id] ?? []} onOpenSection={(sectionId, isOpen) => recordSection(selected, sectionId, isOpen)} onOpenIndex={openLessonSection} onComplete={() => markCompleted(selected)} onQuestions={() => onQuestions(selected.discipline)} /> : <>

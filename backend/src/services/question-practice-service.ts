@@ -80,8 +80,10 @@ export class QuestionPracticeService {
     const active = await this.repository.findActiveAttempt(studentId, discipline, topic);
     if (active) return { attempt: this.publicAttempt(active), resumed: true };
 
-    const pool = await this.repository.listEligibleQuestions(discipline, topic);
-    const answered = await this.repository.listAnsweredQuestionIds(studentId, discipline, topic);
+    const [pool, answered] = await Promise.all([
+      this.repository.listEligibleQuestions(discipline, topic),
+      this.repository.listAnsweredQuestionIds(studentId, discipline, topic),
+    ]);
     const unseen = pool.filter(question => !answered.has(question.id));
     if (unseen.length < quantity) {
       throw new ApiError(409, 'Ainda não há questões elegíveis e inéditas suficientes para esta prática.',);

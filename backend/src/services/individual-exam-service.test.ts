@@ -8,6 +8,11 @@ const attempt = (completed = false): IndividualExamAttempt => ({ id: 'exam', com
 const repo = (overrides: Partial<IndividualExamRepository> = {}): IndividualExamRepository => ({ available: vi.fn(async () => pool()), active: vi.fn(async () => null), find: vi.fn(async () => attempt()), create: vi.fn(async () => attempt()), answer: vi.fn(async () => {}), finalize: vi.fn(async () => attempt(true)), ...overrides });
 
 describe('IndividualExamService', () => {
+  it('uses a bounded active summary for availability instead of loading all answer snapshots', async () => {
+    const repository = repo({ activeSummary: vi.fn(async () => ({ id: 'existing', provisional: true })) });
+    expect(await new IndividualExamService(repository).availability('s1')).toMatchObject({ activeAttemptId: 'existing', provisional: true });
+    expect(repository.active).not.toHaveBeenCalled();
+  });
   it('keeps the provisional marker in attempts and results independently of later pilot flags', async () => {
     const source = attempt(true); source.questions.forEach(q => { q.snapshot.provisional = true; });
     const service = new IndividualExamService(repo({ find: vi.fn(async () => source) }));

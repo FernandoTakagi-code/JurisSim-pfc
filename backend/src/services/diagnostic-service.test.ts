@@ -171,10 +171,10 @@ describe('regras do diagnostico', () => {
 
   it('consulta resultado apenas para o aluno proprietario e retorna 404 quando nao pertence a ele', async () => {
     const { service, repository } = serviceWith(attempt({ finalizadoEm: new Date() }));
-    repository.findAttempt.mockResolvedValueOnce(null as never);
+    repository.findAttemptForResult.mockResolvedValueOnce(null as never);
 
     await expect(service.getResult('attempt-1', 'other-student')).rejects.toMatchObject({ statusCode: 404 });
-    expect(repository.findAttempt).toHaveBeenCalledWith('attempt-1', 'other-student');
+    expect(repository.findAttemptForResult).toHaveBeenCalledWith('attempt-1', 'other-student');
   });
 
   it('getTrail continua recuperando a trilha da consulta especifica de resultado', async () => {

@@ -27,6 +27,15 @@ async function lockAttempt(db: Connection, studentId: string, id: string) {
 
 export class PrismaIndividualExamRepository implements IndividualExamRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
+  async activeSummary(studentId: string) {
+    const rows = await this.db.$queryRaw<{ id: string; provisional: boolean }[]>`
+      SELECT s.id, EXISTS (SELECT 1 FROM "QuestaoSimulado" q WHERE q."simuladoId"=s.id
+        AND q."conteudoSnapshot"->>'provisional'='true') AS provisional
+      FROM "SessaoSimuladoIndividual" e JOIN "Simulado" s ON s.id=e."simuladoId" AND s."alunoId"=e."alunoId"
+      WHERE e."alunoId"=${studentId} AND s.tipo='PERSONALIZADO' AND s."finalizadoEm" IS NULL
+      ORDER BY e."criadaEm" ASC LIMIT 1`;
+    return rows[0] ?? null;
+  }
   async available(studentId: string): Promise<ExamCandidate[]> {
     // One inventory query across all five disciplines; never one query per question.
     const rows = await this.db.questao.findMany({ where: { ...individualExamInventoryWhere(), respostas: { none: { simulado: { alunoId: studentId } } } }, select: inventorySelect });

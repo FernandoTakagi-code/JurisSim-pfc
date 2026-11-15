@@ -48,6 +48,7 @@ beforeEach(() => {
   db.audit.mockResolvedValue({});
   db.transaction.mockImplementation(async work => work({
     passwordRecoveryToken: { findUnique: db.token, updateMany: db.claim },
+    authToken: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     $queryRaw: db.lock, user: { findUnique: db.account, updateMany: db.update },
     auditLog: { create: db.audit },
   }));

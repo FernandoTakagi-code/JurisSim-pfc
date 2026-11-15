@@ -125,7 +125,7 @@ beforeEach(() => {
   mocks.auditCreate.mockResolvedValue({});
   mocks.auditFind.mockResolvedValue([]);
   mocks.diagnosticFind.mockResolvedValue(null);
-  mocks.tokenCreate.mockResolvedValue({ id: 'fixture-token-row' });
+  mocks.tokenCreate.mockImplementation(async () => { claimed = false; return { id: 'fixture-token-row' }; });
   mocks.tokenFind.mockImplementation(async ({ where }) => !claimed && account && !account.deletedAt &&
     where.tokenHash === createHash('sha256').update(confirmation).digest('hex') ? { id: 'fixture-token-row', userId } : null);
   mocks.tokenClaim.mockImplementation(async () => { if (claimed) return { count: 0 }; claimed = true; return { count: 1 }; });
@@ -279,7 +279,8 @@ describe('permissões seguem o perfil atual, independentemente do JWT', () => {
     expect((await call('POST', '/questoes', bearer, question)).status).toBe(403);
     account!.emailVerifiedAt = null;
     expect((await call('GET', '/questoes', bearer)).status).toBe(403);
-    expect(mocks.userFind).toHaveBeenCalledTimes(7);
+    // Five separate requests each revalidate; nested guards reuse that request's result.
+    expect(mocks.userFind).toHaveBeenCalledTimes(5);
   });
 });
 
@@ -484,6 +485,9 @@ describe('revogação de sessões após redefinir senha', () => {
     expect(session.status).toBe(200);
     expect((await session.json()).user.emailVerificado).toBe(false);
     expect((await call('GET', '/questoes', bearer)).status).toBe(403);
+    // Reset invalidates previously issued verification/email-change links.
+    expect((await call('POST', '/auth/email-verification/confirm', undefined, { token: confirmation })).status).toBe(400);
+    expect((await call('POST', '/auth/email-verification', bearer)).status).toBe(202);
     expect((await call('POST', '/auth/email-verification/confirm', undefined, { token: confirmation })).status).toBe(200);
     expect((await call('GET', '/questoes', bearer)).status).toBe(200);
     expect((await call('GET', '/questoes', token())).status).toBe(401);

@@ -29,6 +29,10 @@ export function createInitialDiagnosticRoutes(options: InitialDiagnosticRoutesOp
   const controller = new InitialDiagnosticController(service, resolutionService);
   const enabled = options.isEnabled ?? isInitialDiagnosticApiEnabled;
 
+  // Historical results remain readable when creation/resolution is suspended.
+  // Ownership and completion are still checked by the resolution service.
+  router.get('/:attemptId/result', requireAuth, requireRoles('ALUNO'), controller.getResult);
+
   // Gate before auth: the existing auth middleware reads the user from the
   // database. While disabled this endpoint must not perform any DB access.
   router.use((_request, response, next) => {
@@ -46,7 +50,6 @@ export function createInitialDiagnosticRoutes(options: InitialDiagnosticRoutesOp
   router.get('/:attemptId/answers', controller.getAnswers);
   router.put('/:attemptId/answers/:questionId', controller.saveAnswer);
   router.post('/:attemptId/finalize', controller.finalize);
-  router.get('/:attemptId/result', controller.getResult);
   return router;
 }
 

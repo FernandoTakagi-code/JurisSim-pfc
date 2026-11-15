@@ -9,6 +9,8 @@ import { institutionsGloballyEnabled } from '../config/institution-feature';
 
 const service = new AuthService();
 const repository = new AuthRepository();
+// Reuse only within one Express request; revocations are checked anew on the next.
+const authenticatedRequests = new WeakSet<Request>();
 
 export interface AuthenticatedRequest extends Request {
   auth?: { userId: string; role: string; institutionId?: string; allowedClassIds?: string[]; institutionAdmin?:boolean;institutionalAccount?:boolean;invitationPending?:boolean };
@@ -16,7 +18,11 @@ export interface AuthenticatedRequest extends Request {
 
 export async function requireAuth(request: AuthenticatedRequest, response: Response, next: NextFunction) {
   response.set('Cache-Control', 'no-store');
-  return authenticate(request, next, false);
+  if (authenticatedRequests.has(request)) return next();
+  return authenticate(request, error => {
+    if (!error && request.auth) authenticatedRequests.add(request);
+    if (error) next(error); else next();
+  }, false);
 }
 
 // Explicit exception for session inspection, personal export, logout and confirmation resend.
@@ -52,7 +58,7 @@ async function authenticate(request: AuthenticatedRequest, next: NextFunction, a
       // Session and invitation routes remain accessible before a context is selected.
       if (requested && !selected) return next(new ApiError(403, 'Vínculo institucional não autorizado.'));
       if(administrativeContext&&!selected) return next(new ApiError(403,'Selecione uma instituição com administração ativa e autorizada.'));
-      if (!selected && request.auth.role === 'PROFESSOR' && /^\/(turmas|avaliacoes|reports|questoes)(\/|\?|$)/.test(request.originalUrl)) return next(new ApiError(memberships.length?409:403, memberships.length?'Selecione uma instituição de trabalho.':'Vínculo docente ativo obrigatório. Regularize o acesso com a instituição responsável.'));
+      if (!selected && request.auth.role === 'PROFESSOR' && /^\/(turmas|avaliacoes|atividades|reports|questoes)(\/|\?|$)/.test(request.originalUrl)) return next(new ApiError(memberships.length?409:403, memberships.length?'Selecione uma instituição de trabalho.':'Vínculo docente ativo obrigatório. Regularize o acesso com a instituição responsável.'));
       request.auth.institutionId = selected?.institutionId;
       request.auth.allowedClassIds = selected ? (await prisma.institutionalClass.findMany({ where: { institutionId: selected.institutionId, ...(!administrativeContext?{turma:{professores:{some:{id:user.id}}}}:{}) }, select: { classId: true } })).map(c => c.classId) : [];
     }

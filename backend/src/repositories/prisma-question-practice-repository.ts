@@ -76,12 +76,8 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
   }
 
   async listAnsweredQuestionIds(studentId: string, discipline: string, topic?: string | null): Promise<ReadonlySet<string>> {
-    const eligible = await this.db.questao.findMany({
-      where: { ...practiceInventoryWhere(), disciplina: discipline, ...(topic ? { assunto: topic } : {}) }, select: { id: true },
-    });
-    if (!eligible.length) return new Set();
     const answers = await this.db.resposta.findMany({
-      where: { simulado: { alunoId: studentId }, questaoId: { in: eligible.map(question => question.id) } },
+      where: { simulado: { alunoId: studentId }, questao: { ...practiceInventoryWhere(), disciplina: discipline, ...(topic ? { assunto: topic } : {}) } },
       select: { questaoId: true }, distinct: ['questaoId'],
     });
     return new Set(answers.map(answer => answer.questaoId));
@@ -122,6 +118,12 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
           AND (${topic}::text IS NULL OR p."assunto"=${topic})
         ORDER BY p."criadaEm" ASC LIMIT 1`;
       if (active[0]) return active[0].simuladoId;
+      const currentRows = await tx.questao.findMany({ where: { ...practiceInventoryWhere(), disciplina: discipline,
+        ...(topic ? { assunto: topic } : {}), id: { in: questions.map(q => q.id) } }, select: inventorySelect });
+      const valid = new Map(currentRows.flatMap(row => { const q = questionFromRow(row); return q ? [[q.id, q] as const] : []; }));
+      if (valid.size !== questions.length) throw new ApiError(409, 'O acervo disponível mudou. Atualize a disponibilidade.');
+      // Use the freshly validated content for the persisted snapshot.
+      questions = questions.map(q => valid.get(q.id)!);
       const answered = await tx.resposta.findMany({ where: { simulado: { alunoId: studentId }, questaoId: { in: questions.map(q => q.id) } }, select: { questaoId: true } });
       if (answered.length) throw new ApiError(409, 'O estoque mudou. Atualize a disponibilidade para iniciar um treino inédito.');
       const simulado = await tx.simulado.create({ data: { tipo: 'PERSONALIZADO', alunoId: studentId }, select: { id: true } });

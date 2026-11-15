@@ -10,6 +10,7 @@ export type IndividualExamAttempt = {
   questions: { id: string; position: number; snapshot: DiagnosticQuestionSnapshot; selectedOptionId: string | null }[];
 };
 export interface IndividualExamRepository {
+  activeSummary?(studentId: string): Promise<{ id: string; provisional: boolean } | null>;
   available(studentId: string): Promise<ExamCandidate[]>;
   active(studentId: string): Promise<IndividualExamAttempt | null>;
   find(studentId: string, id: string): Promise<IndividualExamAttempt | null>;
@@ -21,12 +22,16 @@ export interface IndividualExamRepository {
 export class IndividualExamService {
   constructor(private readonly repo: IndividualExamRepository, private readonly random = Math.random) {}
   async availability(studentId: string) {
-    const [pool, active] = await Promise.all([this.repo.available(studentId), this.repo.active(studentId)]);
+    const [pool, active] = await Promise.all([this.repo.available(studentId),
+      this.repo.activeSummary ? this.repo.activeSummary(studentId) : this.repo.active(studentId).then(attempt => attempt ? {
+        id: attempt.id, provisional: attempt.questions.some(q => q.snapshot.provisional),
+      } : null),
+    ]);
     const disciplines = PRACTICE_DISCIPLINES.map(discipline => {
       const available = new Set(pool.filter(q => q.discipline === discipline).map(q => q.id)).size;
       return { discipline, available, required: 6, missing: Math.max(0, 6 - available) };
     });
-    return { quantity: 30, provisional: Boolean(individualExamPilotBatchId()) || Boolean(active?.questions.some(q => q.snapshot.provisional)), disciplines, canStart: disciplines.every(d => d.missing === 0), activeAttemptId: active?.id ?? null };
+    return { quantity: 30, provisional: Boolean(individualExamPilotBatchId()) || Boolean(active?.provisional), disciplines, canStart: disciplines.every(d => d.missing === 0), activeAttemptId: active?.id ?? null };
   }
   async start(studentId: string) {
     const active = await this.repo.active(studentId);

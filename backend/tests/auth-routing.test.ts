@@ -6,6 +6,14 @@ const student = (nextStep: 'DASHBOARD' | 'DIAGNOSTIC' | 'INITIAL_DIAGNOSTIC', em
 });
 
 describe('frontend session routing decisions', () => {
+  it('redirects teachers away from institution pages while retaining their academic routes and invitations', () => {
+    const session = { user: { role: 'PROFESSOR' as const, emailVerificado: true }, nextStep: 'PROFESSOR' as const,
+      administration: { enabled: true, memberships: [{ role: 'INSTITUTION_ADMIN' }] } };
+    expect(sessionDestination(session)).toBe('/professor');
+    for (const path of ['/instituicoes', '/instituicoes/', '/instituicoes/cadastro']) expect(sessionRedirectTarget(session, path)).toBe('/professor');
+    for (const path of ['/professor', '/professor/turmas', '/professor/alunos', '/professor/atividades', '/professor/simulados', '/professor/questoes', '/professor/desempenho', '/professor/relatorios', '/convite-professor'])
+      expect(sessionRedirectTarget(session, path)).toBeNull();
+  });
   it('routes a pending invited identity only to its invitation, never to a student or teacher dashboard',()=>{
     const session={user:{role:'ALUNO' as const,emailVerificado:true},registrationIntent:'TEACHER_INVITATION' as const,nextStep:'INVITATION' as const};
     expect(sessionDestination(session)).toBe('/convite-professor');

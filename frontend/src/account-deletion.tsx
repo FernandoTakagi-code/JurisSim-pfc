@@ -18,7 +18,7 @@ function IdentityFields({ password, setPassword, google, setGoogle, busy, ready,
   </>;
 }
 
-export function AccountDeletion() {
+export function AccountDeletion({ embedded = false }: { embedded?: boolean } = {}) {
   const { session } = useSession();
   const [open, setOpen] = useState(false), [password, setPassword] = useState(''), [confirmation, setConfirmation] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [google, setGoogle] = useState(false);
   const pending = useRef(false);
@@ -33,8 +33,10 @@ export function AccountDeletion() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível excluir a conta.'); }
     finally { pending.current = false; setBusy(false); setPassword(''); }
   }
-  return <article className="v0-panel">
-    <h2>Excluir minha conta</h2>
+  const Container = embedded ? 'section' : 'article';
+  const Heading = embedded ? 'h3' : 'h2';
+  return <Container className={embedded ? 'profile-security-section profile-security-danger' : 'v0-panel'}>
+    <Heading>Excluir minha conta</Heading>
     <p>A exclusão é irreversível: seu nome, e-mail, senha e foto serão removidos e suas sessões encerradas. Históricos acadêmicos e auditoria serão preservados com uma identidade anonimizada. O e-mail ficará disponível para novo cadastro, que não terá acesso ao histórico anterior.</p>
     <p>Responsáveis institucionais devem transferir suas responsabilidades antes da exclusão.</p>
     {!available && <p className="account-action-note" role="status">{accountDeletionUnavailableMessage}</p>}
@@ -45,7 +47,7 @@ export function AccountDeletion() {
       <div className="account-actions">{!google && <button className="account-action-button account-action-danger" disabled={busy || confirmation !== 'EXCLUIR' || !password}>{busy ? 'Excluindo...' : 'Confirmar exclusão da minha conta'}</button>}
         <button className="account-action-button" type="button" disabled={busy} onClick={() => { setOpen(false); setPassword(''); setConfirmation(''); setError(''); }}>Cancelar</button></div>
     </form>}
-  </article>;
+  </Container>;
 }
 
 export function AdminAccountDeletion({ userId, email, disabled, onDone }: { userId: string; email: string; disabled: boolean; onDone: () => void }) {

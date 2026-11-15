@@ -27,7 +27,8 @@ describe('PrismaQuestionPracticeRepository isolation contract', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fakeDb.$transaction.mockImplementation(async (work: (tx: unknown) => Promise<unknown>) => work(fakeDb));
-    fakeDb.questao.findMany.mockResolvedValue([]);
+    fakeDb.questao.findMany.mockImplementation(async (query: { where?: { id?: { in?: string[] } } }) =>
+      (query.where?.id?.in ?? []).map(id => candidate(id)));
     fakeDb.resposta.findMany.mockResolvedValue([]);
     fakeDb.simulado.create.mockResolvedValue({ id: 'simulado-1' });
     fakeDb.simulado.findFirst.mockResolvedValue({
@@ -52,6 +53,24 @@ describe('PrismaQuestionPracticeRepository isolation contract', () => {
     expect(query.where).toMatchObject({ publica: true, turmaId: null, disciplina: 'Direito Civil' });
     expect(query.select).toHaveProperty('revisaoJuridicaEm', true);
     expect(query.select).toHaveProperty('situacaoDireitos', true);
+  });
+
+  it('filters answered IDs by student and question relation without loading inventory twice', async () => {
+    fakeDb.resposta.findMany.mockResolvedValue([{ questaoId: 'answered' }]);
+    const result = await new PrismaQuestionPracticeRepository(fakeDb as never).listAnsweredQuestionIds('owner', 'Direito Civil', 'Contratos');
+    expect([...result]).toEqual(['answered']);
+    expect(fakeDb.questao.findMany).not.toHaveBeenCalled();
+    expect(fakeDb.resposta.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {
+      simulado: { alunoId: 'owner' }, questao: expect.objectContaining({ disciplina: 'Direito Civil', assunto: 'Contratos', publica: true }),
+    } }));
+  });
+
+  it('refuses a question whose editorial eligibility was revoked after selection', async () => {
+    fakeDb.$queryRaw.mockResolvedValueOnce([{ id: 'student-1' }]).mockResolvedValueOnce([]);
+    fakeDb.questao.findMany.mockResolvedValue([{ ...candidate('q1'), liberadaAcervoEm: null }]);
+    await expect(new PrismaQuestionPracticeRepository(fakeDb as never).createAttempt('student-1', 'Direito Civil', null, [practiceQuestion('q1')]))
+      .rejects.toMatchObject({ statusCode: 409 });
+    expect(fakeDb.simulado.create).not.toHaveBeenCalled();
   });
 
   it('persists the attempt, ordered question links, and session marker in one transaction', async () => {

@@ -72,7 +72,7 @@ const errorMessage = (cause: unknown) =>
     ? cause.message
     : "Não foi possível carregar os dados.";
 
-export function useStudentProgress() {
+export function useStudentProgress(academicEnabled = true, dashboardEnabled = true) {
   const [data, setData] = useState<Overview>();
   const [latestResult, setLatestResult] = useState<StudyResult>();
   const [studyDashboard, setStudyDashboard] = useState<StudyDashboard>();
@@ -139,12 +139,13 @@ export function useStudentProgress() {
     await Promise.all([refreshAcademic(), refreshDashboard()]);
   }, [refreshAcademic, refreshDashboard]);
   useEffect(() => {
-    void refresh();
+    if (academicEnabled) void refreshAcademic();
+    if (dashboardEnabled) void refreshDashboard();
     return () => {
       revision.current++;
       dashboardRevision.current++;
     };
-  }, [refresh]);
+  }, [academicEnabled, dashboardEnabled, refreshAcademic, refreshDashboard]);
   return { data, latestResult, studyDashboard, loading, error, resultError, refresh, refreshAcademic, dashboardLoading, dashboardError, refreshDashboard };
 }
 

@@ -1,5 +1,5 @@
 import type {Session} from './auth-session';
-export const profileTabs=['personal','security','appearance','preferences'] as const;
+export const profileTabs=['personal','security','appearance'] as const;
 export type ProfileTab=(typeof profileTabs)[number];
 export function profilePath(role:Session['user']['role']){return role==='ADMIN'?'/administracao/perfil':role==='PROFESSOR'?'/professor/perfil':'/perfil';}
 export function profileRoute(role:Session['user']['role'],path:string,search=''){
@@ -10,6 +10,7 @@ export function profileRoute(role:Session['user']['role'],path:string,search='')
   if(!recognized)return null;
   const params=new URLSearchParams(search),requested=params.get('aba');
   const tab:ProfileTab=profileTabs.includes(requested as ProfileTab)?requested as ProfileTab:appearance?'appearance':'personal';
+  if(requested&&!profileTabs.includes(requested as ProfileTab))params.set('aba',tab);
   if(appearance&&!requested)params.set('aba',tab);
   return {canonical,tab,target:canonical+(params.size?'?'+params.toString():'')};
 }

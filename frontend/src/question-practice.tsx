@@ -345,7 +345,6 @@ export function QuestionPracticePage({
             </p>
           </fieldset>
         )}
-        {availability?.provisional && <ProvisionalNotice />}
         {!enabled && (
           <p className="individual-notice">
             {review

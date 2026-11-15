@@ -93,6 +93,7 @@ export class PasswordRecoveryRepository {
       await tx.passwordRecoveryToken.updateMany({
         where: { userId: account.id, consumedAt: null }, data: { consumedAt: now },
       });
+      await tx.authToken.updateMany({ where: { userId: account.id, usedAt: null }, data: { usedAt: now } });
 
       await tx.auditLog.create({
         data: { userId: account.id, action: 'SENHA_REDEFINIDA' as AuditAction, occurredAt: now },

@@ -133,6 +133,7 @@ describe('consumo atômico e redefinição', () => {
     db.transaction.mockReset().mockImplementation((work: (tx: unknown) => Promise<unknown>) => work({
       $queryRaw: async () => [{ id: 'user-1' }],
       passwordRecoveryToken: { count: db.tokenCount, create: db.tokenCreate, findUnique: db.tokenFindUnique, updateMany: db.tokenUpdateMany },
+      authToken: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       user: { findUnique: db.userFindUnique, updateMany: db.userUpdateMany },
       auditLog: { create: db.auditCreate },
     }));

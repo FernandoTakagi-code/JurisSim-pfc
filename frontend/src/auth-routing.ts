@@ -8,10 +8,10 @@ export type SessionRoute = {
 
 export function sessionDestination(session: SessionRoute): string {
   if (session.user.role === 'ADMIN') return '/administracao';
+  if (session.user.role === 'PROFESSOR') return '/professor';
   if(session.user.role==='ALUNO'&&session.registrationIntent==='TEACHER_INVITATION')return '/convite-professor';
   if (session.user.role === 'ALUNO' && session.registrationIntent === 'INSTITUTION') return '/instituicoes';
   if (session.administration?.memberships.some(m => m.role === 'INSTITUTION_ADMIN')) return '/instituicoes';
-  if (session.user.role !== 'ALUNO') return '/professor';
   if (session.nextStep === 'INITIAL_DIAGNOSTIC') return '/diagnostico-inicial';
   return session.nextStep === 'DASHBOARD' ? '/dashboard' : '/';
 }
@@ -25,8 +25,9 @@ export function sessionRedirectTarget(session: SessionRoute, path: string, searc
     if (path === '/administracao' || path.startsWith('/administracao/')) return null;
     return '/administracao';
   }
-  if (['/instituicoes', '/convite-professor'].includes(path)) return null;
+  if (path === '/convite-professor') return null;
   if (session.user.role === 'PROFESSOR') return path === '/professor' || path.startsWith('/professor/') ? null : '/professor';
+  if (path === '/instituicoes') return null;
   if(session.user.role==='ALUNO'&&session.registrationIntent==='INSTITUTION')return '/instituicoes';
   if (session.user.role !== 'ALUNO' || !session.user.emailVerificado) return null;
   if (path === '/' && session.registrationIntent === 'INSTITUTION') return '/instituicoes';

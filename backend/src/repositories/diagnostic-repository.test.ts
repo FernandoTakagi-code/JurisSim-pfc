@@ -100,6 +100,7 @@ describe('DiagnosticRepository.findAttemptForResult', () => {
     expect(diagnosticResultSelect.questoes).toEqual({
       orderBy: { posicao: 'asc' },
       select: {
+        conteudoSnapshot: true,
         questao: { select: { disciplina: true, assunto: true, nivel: true } },
         resposta: { select: { correta: true } },
       },
