@@ -10,6 +10,18 @@ vi.mock('./institution-service', async importOriginal => ({
 }));
 
 describe('regras de autenticacao', () => {
+  it('keeps institutional applicants out of student diagnostics with institutional modules disabled', async () => {
+    vi.stubEnv('INSTITUTIONS_ENABLED', 'false');
+    vi.stubEnv('ADMINISTRATION_ENABLED', 'false');
+    vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED', 'false');
+    vi.stubEnv('INITIAL_DIAGNOSTIC_REQUIRED', 'true');
+    const repository = {findById:vi.fn().mockResolvedValue({id:'owner',nome:'Responsável',email:'owner@example.invalid',role:'ALUNO',emailVerifiedAt:new Date(),registrationIntent:'INSTITUTION'}),hasCompletedDiagnostic:vi.fn(),hasCompletedInitialDiagnostic:vi.fn()};
+    try {
+      expect(await new AuthService(repository as never).session('owner')).toMatchObject({registrationIntent:'INSTITUTION',nextStep:'DASHBOARD',user:{role:'ALUNO'}});
+      expect(repository.hasCompletedDiagnostic).not.toHaveBeenCalled();
+      expect(repository.hasCompletedInitialDiagnostic).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); }
+  });
   it('keeps a newly invited identity in invitation onboarding without student diagnosis or teacher privileges',async()=>{
     const repository={findById:vi.fn().mockResolvedValue({id:'pending',nome:'Pending',email:'pending@example.invalid',role:'ALUNO',emailVerifiedAt:new Date(),registrationIntent:'TEACHER_INVITATION'}),hasCompletedDiagnostic:vi.fn(),hasCompletedInitialDiagnostic:vi.fn()};
     expect(await new AuthService(repository as never).session('pending')).toMatchObject({registrationIntent:'TEACHER_INVITATION',nextStep:'INVITATION',user:{role:'ALUNO'}});

@@ -192,6 +192,8 @@ export class AuthService {
     const demoActive = Boolean(demoAvailable && localDemoRequested);
     const nextStep = user.role !== 'ALUNO'
       ? 'PROFESSOR'
+      : user.registrationIntent === 'INSTITUTION'
+        ? 'DASHBOARD'
       : diagnosticRequired
         ? demoActive || initialDiagnosticCompleted ? 'DASHBOARD' : 'INITIAL_DIAGNOSTIC'
         : await this.repository.hasCompletedDiagnostic(userId) ? 'DASHBOARD' : 'DIAGNOSTIC';

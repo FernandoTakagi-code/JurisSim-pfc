@@ -37,22 +37,14 @@ export class AuthRepository {
       nome: true,
       email: true,
       role: true,
+      registrationIntent: true,
       emailVerifiedAt: true,
       deletedAt: true,
     } as const;
 
-    // The registration intent was introduced with the optional institutional
-    // schema. A regular session must keep working while that module remains
-    // disabled on a database that has not received its additive migration.
-    if (!institutionRegistrationEnabled() && !administrationEnabled()) {
-      const user = await prisma.user.findUnique({ where: { id }, select });
-      return user && { ...user, registrationIntent: null };
-    }
-
-    return prisma.user.findUnique({
-      where: { id },
-      select: { ...select, registrationIntent: true },
-    });
+    // Identity is independent of feature availability. Authentication already
+    // requires this column in findByIdForAuth, even with institutional flags off.
+    return prisma.user.findUnique({ where: { id }, select });
   }
   findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, registrationIntent:true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } }); }
   findByIdWithSenha(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, senhaHash: true } }); }
