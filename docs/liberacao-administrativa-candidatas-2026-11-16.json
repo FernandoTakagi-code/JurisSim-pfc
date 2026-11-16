@@ -1,0 +1,308 @@
+{
+  "status": "APPLIED_ADMINISTRATIVE_PRACTICE_AUTHORIZATION_NOT_LEGAL_REVIEW",
+  "capturedAt": "2026-11-16T18:08:39.121Z",
+  "policy": "OWNER_AUTHORIZATION_FOR_STUDENT_PRACTICE_ONLY_NOT_LEGAL_REVIEW",
+  "candidateCount": 29,
+  "questions": [
+    {
+      "id": "e3fb4162-c795-432c-ab0d-ef9d57d4d7cb",
+      "discipline": "Direito Administrativo",
+      "topic": "Competência administrativa",
+      "contentDigest": "ff9031bb4b0c3aff748976bb9a3c513e05d9abdbf985fa645b064a38f5d14ea6",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "16933a7a-42ec-49b9-a6d7-99b0c5e79b52",
+      "discipline": "Direito Administrativo",
+      "topic": "Convalidação de atos administrativos",
+      "contentDigest": "e6ddcbcd1c9ecf47085ddb8699d16f93414031c353de4ddb9ba62f019efd6eb8",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "f3819e1e-7bd8-4ca0-a15b-6579c836d9ad",
+      "discipline": "Direito Administrativo",
+      "topic": "Motivação de sanções administrativas",
+      "contentDigest": "485f497556b70e0013abafaebc698554927f012bbd28489d2b76a4f1860db134",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "80ecaa34-38d3-43b3-961a-eb2ba39b7432",
+      "discipline": "Direito Administrativo",
+      "topic": "Prazo recursal e efeito suspensivo",
+      "contentDigest": "3d649c5f5284b65648ba3670c1271845d0d635535a7489b6bae22cbdcef938f7",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "a378086a-d402-4972-8fee-8668a62bfc4e",
+      "discipline": "Direito Administrativo",
+      "topic": "Recurso ordinário e revisão sancionadora",
+      "contentDigest": "bfc053b40b751b86afe4c4be453c13ef19b6459bdfe7f843c2a13ad19a0a2a39",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "4fa037e4-486c-4a7a-9d0b-8bf08ab9a779",
+      "discipline": "Direito Civil",
+      "topic": "Cessão de crédito e pagamento",
+      "contentDigest": "cd153b23d885fd0c44785feb3048f432b9588ce62886b1ada5698ecfc6e12be5",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "ec36430f-f130-4d41-9830-819eceda293f",
+      "discipline": "Direito Civil",
+      "topic": "Cláusula penal",
+      "contentDigest": "03b5c6e50b419ea2b808764fb865d6c5d14a16d2fb85c55b05e08add69a34ba3",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "9b62e1c4-df5a-4ad5-8619-2282ebf3ed71",
+      "discipline": "Direito Civil",
+      "topic": "Domicílio profissional",
+      "contentDigest": "439f3848f61487e40d828ff30a18c92c3f14b4a534ecc730971f446c5256ab1f",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "b904b611-d47d-482f-a608-6127c0f30702",
+      "discipline": "Direito Civil",
+      "topic": "Solidariedade nas obrigações",
+      "contentDigest": "2f806522e09468d27e3386dceb5b6fde7012500cf934e81fc9ad888c133867c9",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "9ebe2f09-37bd-4b1d-96fc-a4c6e124f500",
+      "discipline": "Direito Civil",
+      "topic": "Solidariedade: renúncia e rateio da insolvência",
+      "contentDigest": "a315d8721047789a6ee4f9a699ba2fbb95cabf08e6b3194e79d5f269ae4accea",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "dd6ea6f9-cba9-48c6-955f-5d4ef1ea7063",
+      "discipline": "Direito Civil",
+      "topic": "Venda de ascendente a descendente",
+      "contentDigest": "9af1d4d918da7f7e2b70f8d65107a1831cfb0f253c490f51f48b14c3507a0bab",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "94549ab7-29e6-49ec-8b48-6d2fdfdaa32f",
+      "discipline": "Direito Constitucional",
+      "topic": "Alistamento e voto facultativos",
+      "contentDigest": "a4147dbd4debf47a7f542c2aef204200b90d3389765607866b755034e76e2f90",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "bcd95687-b790-49a0-a667-74a2af1e003a",
+      "discipline": "Direito Constitucional",
+      "topic": "Competência legislativa concorrente",
+      "contentDigest": "86b23db41305f8d905d657f22c1d443184a520aae12ea1477db48897e3072c70",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "78b9c1a9-ad58-45d9-9db4-adf488814230",
+      "discipline": "Direito Constitucional",
+      "topic": "Controle concentrado: quóruns e modulação",
+      "contentDigest": "24eb51b2da074e61336bdc34fb3129a13a98756ee6b2f444e23789ae9f0463c7",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "75270f6c-98a5-49ad-b7b8-9c8e2fc47ce1",
+      "discipline": "Direito Constitucional",
+      "topic": "Direito de petição",
+      "contentDigest": "fe0ebf98d1d3fe158c638503656065ec788f4338f8949b7f0ab6fdd1313207b3",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "9a86d0a8-becd-4e02-95f6-1ccfc1acb1d7",
+      "discipline": "Direito Constitucional",
+      "topic": "Liberdade de associação",
+      "contentDigest": "eea180307bb5f03281b1d678b2edd068c25e7b784b4eda3eed1c943932f61ee9",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "0a9f2378-51b1-4201-bb57-a1015231fec3",
+      "discipline": "Direito Constitucional",
+      "topic": "Mandado de segurança: decadência e reconsideração",
+      "contentDigest": "88bb61bdd1c9918c86c7b6abaea1041d1e2bd16e6f0741845b9ae65a410c96a2",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "2691db89-35f8-4dfe-b0ed-27d5b12f8313",
+      "discipline": "Direito do Trabalho",
+      "topic": "Banco de horas individual",
+      "contentDigest": "513a2f536e0b43f5b873d4ccc29e1717a8b57e8a5e009ed67dc7aa81ffd88ff1",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "92a5596d-747c-4a1b-83b0-77846440e785",
+      "discipline": "Direito do Trabalho",
+      "topic": "Banco de horas: extinção antes da compensação",
+      "contentDigest": "8e6319dd474df35aa3bb346648bc234f76ebc79ae0d429fd46aac1b19a9a54d0",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "804a608d-33fd-4f8a-aaeb-3d538e5e32fc",
+      "discipline": "Direito do Trabalho",
+      "topic": "Férias: fracionamento, início e comunicação",
+      "contentDigest": "7ce98e8e4c5d6f0d5e8f22fb9962c1dc1ccb4b1af767a1254b427b15a3ce1576",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "011ed7ae-5d70-48bc-9f43-9dd66f805155",
+      "discipline": "Direito do Trabalho",
+      "topic": "Intervalo entre jornadas",
+      "contentDigest": "5805d00efed02d39cb60702b77a9a511559fc0706eac6e6d59e8bbbf14dceddc",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "77a50b34-2a87-4da8-bee3-69bf0e9307c0",
+      "discipline": "Direito do Trabalho",
+      "topic": "Pagamento do salário mensal",
+      "contentDigest": "6a0b8dbcc96b03957d0a5dbabff3e8ed5929f00668b396697df57c1cc43ea030",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "b05463b3-f478-4426-ba55-c92e570e8816",
+      "discipline": "Direito do Trabalho",
+      "topic": "Retorno do teletrabalho ao presencial",
+      "contentDigest": "84257ab88d3fec2a9d619aa1d09733c483554f78d38c1fe13b719ee58eb0e76c",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "ccb9bc27-1970-4c11-9357-70bd97b4a013",
+      "discipline": "Direito Penal",
+      "topic": "Arrependimento posterior: marco temporal e redução",
+      "contentDigest": "c406dd3b4e80b723d6b4247b48e1ab89f880f670e89e68c797d64b0bd57e4f12",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "89d01323-b65f-44a1-9ab1-47f5f43aa4fc",
+      "discipline": "Direito Penal",
+      "topic": "Concurso formal próprio e limite da soma",
+      "contentDigest": "eb62ee8df124dadce9f78cc1b194b64ab4013bf643ff75f40fefe196ab301b28",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "dd25d2af-40bf-4c19-9680-d6d4d2aa7aa6",
+      "discipline": "Direito Penal",
+      "topic": "Desistência voluntária",
+      "contentDigest": "e34fd6593a7c20638a9f986b6bd19107d9207a45098878a3a9c748e0dbafa36c",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "0680efe1-2dfa-4c6b-b212-93f73f503604",
+      "discipline": "Direito Penal",
+      "topic": "Erro sobre elemento do tipo",
+      "contentDigest": "83b8815879d677fc41fc59e19e7612f5ae5b2339bea66ac21f9483e45f86ff4a",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "3fc3a807-76d9-431d-94cc-149662085b1d",
+      "discipline": "Direito Penal",
+      "topic": "Lugar do crime",
+      "contentDigest": "a7cdfba7f188bd3b8550065afe3f43db75ca627222f87fb6f07102d3d12d5ea3",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    },
+    {
+      "id": "83537104-6c4b-4f94-9f4f-ad00e3156a2f",
+      "discipline": "Direito Penal",
+      "topic": "Tempo do crime",
+      "contentDigest": "eeb334dcac21355642a46511cbc4431d957e72f0748f2888e36ce68bfccbcbfd",
+      "previousRelease": {
+        "liberadaAcervoEm": null,
+        "liberadaAcervoPorId": null
+      }
+    }
+  ],
+  "selectionSha256": "292cad34a94306ef99a2ecf581b4645eb90fd881ff969ad922a09fb07a5a9526",
+  "publication": {
+    "batchId": "ad14df9908b80ded531a8683515b31a290f84d5dafa26d75434d8a027ab50217",
+    "published": 29,
+    "alreadyPublished": 0,
+    "completedAt": "2026-11-16T18:26:17.584Z",
+    "addedIds": [],
+    "removedIds": [],
+    "actorReference": "Existing verified ADMIN recorded in the database audit events"
+  }
+}

@@ -24,6 +24,18 @@ const practiceQuestion = (id: string) => {
 };
 
 describe('PrismaQuestionPracticeRepository isolation contract', () => {
+  it('exposes only aggregate public topic metadata and counts incomplete editorial release separately', async () => {
+    fakeDb.questao.findMany.mockResolvedValueOnce([
+      candidate('released'), { ...candidate('pending'), liberadaAcervoEm: null },
+    ]);
+    const result = await new PrismaQuestionPracticeRepository(fakeDb as never).listCatalogTopics('Direito Civil');
+    expect(fakeDb.questao.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { publica: true, turmaId: null, disciplina: 'Direito Civil' },
+    }));
+    expect(result).toEqual([{ name: 'Contratos', catalogCount: 2, pendingReviewCount: 1 }]);
+    expect(JSON.stringify(result)).not.toContain('Enunciado');
+    expect(result[0]).not.toHaveProperty('alternativas');
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     fakeDb.$transaction.mockImplementation(async (work: (tx: unknown) => Promise<unknown>) => work(fakeDb));

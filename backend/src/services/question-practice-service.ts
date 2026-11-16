@@ -34,6 +34,7 @@ export interface QuestionPracticeRepository {
   findAttempt(studentId: string, attemptId: string): Promise<PracticeAttempt | null>;
   findActiveAttempt(studentId: string, discipline: string, topic?: string | null): Promise<PracticeAttempt | null>;
   listEligibleQuestions(discipline: string, topic?: string | null): Promise<PracticeQuestion[]>;
+  listCatalogTopics?(discipline: string): Promise<{ name: string; catalogCount: number; pendingReviewCount: number }[]>;
   listAnsweredQuestionIds(studentId: string, discipline: string, topic?: string | null): Promise<ReadonlySet<string>>;
   createAttempt(studentId: string, discipline: string, topic: string | null, questions: PracticeQuestion[]): Promise<PracticeAttempt>;
   saveAnswer(studentId: string, attemptId: string, questionId: string, alternativeId: string): Promise<{ correct: boolean; explanation: string; selectedOptionId: string; answeredCount: number; totalQuestions: number; consistency: number | null; recommendation: string }>;
@@ -49,23 +50,37 @@ export class QuestionPracticeService {
 
   async topics(discipline: string) {
     if (!PRACTICE_DISCIPLINES.includes(discipline as typeof PRACTICE_DISCIPLINES[number])) throw new ApiError(422, 'Selecione uma disciplina válida.');
-    return [...new Set((await this.repository.listEligibleQuestions(discipline)).map(question => question.topic))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const [eligible, catalog] = await Promise.all([
+      this.repository.listEligibleQuestions(discipline),
+      this.repository.listCatalogTopics?.(discipline) ?? [],
+    ]);
+    return [...new Set([...eligible.map(question => question.topic), ...catalog.map(topic => topic.name)])].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }
 
   async availability(studentId: string, discipline: string, topic: string | null) {
     if (!PRACTICE_DISCIPLINES.includes(discipline as typeof PRACTICE_DISCIPLINES[number])) throw new ApiError(422, 'Selecione uma disciplina válida.');
-    const [pool, answered, active] = await Promise.all([
+    const [pool, answered, active, catalog] = await Promise.all([
       this.repository.listEligibleQuestions(discipline),
       this.repository.listAnsweredQuestionIds(studentId, discipline),
       this.repository.findActiveAttempt(studentId, discipline, topic),
+      this.repository.listCatalogTopics?.(discipline) ?? [],
     ]);
     const unseen = pool.filter(question => !answered.has(question.id));
+    const eligibleCount = topic ? pool.filter(question => question.topic === topic).length : pool.length;
     const count = topic ? unseen.filter(question => question.topic === topic).length : unseen.length;
     return {
       discipline, topic, provisional: Boolean(questionPracticePilotBatchId()), availableCount: count,
+      eligibleCount, answeredCount: eligibleCount - count,
+      disciplineAvailableCount: unseen.length,
+      disciplineEligibleCount: pool.length,
+      availabilityReason: eligibleCount === 0 ? 'NO_ELIGIBLE_QUESTIONS'
+        : count === 0 ? 'NO_UNSEEN_QUESTIONS' : count < 5 ? 'INSUFFICIENT_UNSEEN_QUESTIONS' : null,
       availableQuantities: PRACTICE_QUANTITIES.filter(quantity => quantity <= count),
-      topics: [...new Set(pool.map(question => question.topic))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-        .map(name => ({ name, availableCount: unseen.filter(question => question.topic === name).length })),
+      topics: [...new Set([...pool.map(question => question.topic), ...catalog.map(item => item.name), ...(active?.topic ? [active.topic] : [])])].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+        .map(name => ({ name, availableCount: unseen.filter(question => question.topic === name).length,
+          eligibleCount: pool.filter(question => question.topic === name).length,
+          catalogCount: catalog.find(item => item.name === name)?.catalogCount ?? 0,
+          pendingReviewCount: catalog.find(item => item.name === name)?.pendingReviewCount ?? 0 })),
       activeAttempt: active ? { id: active.id, quantity: active.questions.length, topic: active.topic ?? null } : null,
     };
   }

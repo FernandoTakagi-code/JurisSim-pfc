@@ -23,6 +23,25 @@ function repository(overrides: Partial<QuestionPracticeRepository> = {}): Questi
 }
 
 describe('QuestionPracticeService', () => {
+  it('distinguishes an insufficient topic from sufficient discipline stock without changing the selected filter', async () => {
+    const rows=Array.from({length:6},(_,i)=>({...question(`q${i}`),topic:`Assunto ${i}`}));
+    const service=new QuestionPracticeService(repository({listEligibleQuestions:vi.fn(async()=>rows)}));
+    expect(await service.availability('s1','Direito Civil','Assunto 0')).toMatchObject({availableCount:1,eligibleCount:1,availableQuantities:[],disciplineAvailableCount:6,disciplineEligibleCount:6});
+    expect(await service.availability('s1','Direito Civil',null)).toMatchObject({availableCount:6,availableQuantities:[5]});
+    const exhausted=new QuestionPracticeService(repository({listEligibleQuestions:vi.fn(async()=>rows),listAnsweredQuestionIds:vi.fn(async()=>new Set(rows.map(q=>q.id)))}));
+    expect(await exhausted.availability('s1','Direito Civil',null)).toMatchObject({eligibleCount:6,answeredCount:6,availableCount:0,availableQuantities:[],availabilityReason:'NO_UNSEEN_QUESTIONS'});
+  });
+  it('lists public catalog topics with pending status without authorizing their questions', async () => {
+    const repo = repository({ listEligibleQuestions: vi.fn(async () => []),
+      listCatalogTopics: vi.fn(async () => [{ name: 'Em revisão', catalogCount: 4, pendingReviewCount: 4 }]) });
+    const service = new QuestionPracticeService(repo);
+    expect(await service.topics('Direito Civil')).toEqual(['Em revisão']);
+    const result = await service.availability('s1', 'Direito Civil', 'Em revisão');
+    expect(result).toMatchObject({ availableCount: 0, availableQuantities: [],
+      topics: [{ name: 'Em revisão', availableCount: 0, eligibleCount: 0, catalogCount: 4, pendingReviewCount: 4 }] });
+    await expect(service.start('s1', 'Direito Civil', 'Em revisão', 5)).rejects.toMatchObject({ statusCode: 409 });
+    expect(repo.createAttempt).not.toHaveBeenCalled();
+  });
   it('locks corrected answers while allowing a safe retry of the same option', async () => {
     const source = attempt([question('q1')], true);
     const repo = repository({ findAttempt: vi.fn(async () => source) });
@@ -67,6 +86,22 @@ describe('QuestionPracticeService', () => {
     const result = await new QuestionPracticeService(repo).availability('s1', 'Direito Civil', null);
     expect(result).toMatchObject({ availableQuantities: [], activeAttempt: { id: active.id, quantity: 1, topic: null } });
     expect(result.activeAttempt).not.toHaveProperty('questions');
+  });
+
+  it('distinguishes unreleased stock from answered and insufficient unseen inventory without writing', async () => {
+    const empty = repository({ listEligibleQuestions: vi.fn(async () => []) });
+    expect(await new QuestionPracticeService(empty).availability('s1', 'Direito Civil', null))
+      .toMatchObject({ eligibleCount: 0, answeredCount: 0, availableCount: 0, availabilityReason: 'NO_ELIGIBLE_QUESTIONS' });
+    const pool = Array.from({ length: 6 }, (_, i) => question(`q${i}`));
+    const exhausted = repository({ listEligibleQuestions: vi.fn(async () => pool),
+      listAnsweredQuestionIds: vi.fn(async () => new Set(pool.map(q => q.id))) });
+    expect(await new QuestionPracticeService(exhausted).availability('s1', 'Direito Civil', null))
+      .toMatchObject({ eligibleCount: 6, answeredCount: 6, availableCount: 0, availabilityReason: 'NO_UNSEEN_QUESTIONS' });
+    const partial = repository({ listEligibleQuestions: vi.fn(async () => pool),
+      listAnsweredQuestionIds: vi.fn(async () => new Set(['q0', 'q1'])) });
+    expect(await new QuestionPracticeService(partial).availability('s1', 'Direito Civil', null))
+      .toMatchObject({ eligibleCount: 6, answeredCount: 2, availableCount: 4, availabilityReason: 'INSUFFICIENT_UNSEEN_QUESTIONS' });
+    for (const repo of [empty, exhausted, partial]) expect(repo.createAttempt).not.toHaveBeenCalled();
   });
 
   it('uses each student history independently and leaves start responsible for rechecking stock', async () => {

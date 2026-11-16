@@ -39,6 +39,11 @@ build/
 /.local-admin-preview/
 /frontend/.artifacts/
 
+# Read-only production audit exports include private catalog metadata. Preserve
+# them locally; share aggregate reports and the approved public-only manifest.
+/docs/auditoria-editorial-questoes-2026-11-16.csv
+/docs/auditoria-publicacao-aluno-2026-11-16.csv
+
 # Keep the supplied visual source for reproducible comparisons; auxiliary export
 # tooling stays local and is not a second Next.js application to install or deploy.
 /referencia-dashboard-institucional-v0/*
