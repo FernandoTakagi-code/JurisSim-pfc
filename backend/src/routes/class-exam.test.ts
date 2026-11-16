@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import type { Server } from 'node:http';
-const mocks = vi.hoisted(() => ({ user: vi.fn(), list: vi.fn(), create: vi.fn(), update: vi.fn(), invite: vi.fn(), join: vi.fn(), students: vi.fn(), exams: vi.fn(), eligible:vi.fn(),save: vi.fn(), publish: vi.fn(), start: vi.fn(), attempt: vi.fn(), answer: vi.fn(), finalize: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: vi.fn(), list: vi.fn(), create: vi.fn(), update: vi.fn(), invite: vi.fn(), join: vi.fn(), students: vi.fn(), exams: vi.fn(), eligible:vi.fn(),preview:vi.fn(),save: vi.fn(), publish: vi.fn(), start: vi.fn(), attempt: vi.fn(), answer: vi.fn(), finalize: vi.fn() }));
 vi.mock('../repositories/auth-repository', () => ({ AuthRepository: class { findByIdForAuth = mocks.user; } }));
 // This suite tests legacy HTTP role guards, not database-backed memberships.
 // Keep configured local flags from causing accidental Prisma calls in unit tests.
@@ -10,7 +10,7 @@ vi.mock('../services/institution-service', () => ({ currentAccess: vi.fn().mockR
 vi.mock('../services/class-exam-service', () => ({ ClassExamService: class {
   listClasses = mocks.list; createClass = mocks.create; updateClass = mocks.update; rotateInvite = mocks.invite;
   join = mocks.join; students = mocks.students; listExams = mocks.exams; saveExam = mocks.save; publish = mocks.publish;
-  eligibleQuestions=mocks.eligible;
+  eligibleQuestions=mocks.eligible; eligibleQuestionPreview=mocks.preview;
   studentClassDetails = vi.fn(async () => ({ id: 'fixture', exams: [] }));
   start = mocks.start; attempt = mocks.attempt; answer = mocks.answer; finalize = mocks.finalize;
 } }));
@@ -36,6 +36,15 @@ beforeEach(() => {
 });
 
 describe('class and teacher-exam HTTP guards', () => {
+  it('valida as turmas e o papel antes da prévia de alternativas',async()=>{
+    const path=`/avaliacoes/eligible-questions/${id}?turmaIds=${id}`;
+    expect((await request('GET',path)).status).toBe(200);
+    expect(mocks.preview).toHaveBeenCalledWith(expect.objectContaining({role:'PROFESSOR'}),[id],id);
+    mocks.preview.mockClear();expect((await request('GET',`/avaliacoes/eligible-questions/${id}?turmaIds=invalid`)).status).toBe(422);
+    for(const role of ['ALUNO','ADMIN']){mocks.user.mockResolvedValue({id,role,emailVerifiedAt:new Date(),sessionVersion:0});expect((await request('GET',path)).status).toBe(403);}
+    expect(mocks.preview).not.toHaveBeenCalled();expect((await request('GET',path,undefined,null)).status).toBe(401);
+  });
+
   it('exposes only the assessment read contract with validated class ids',async()=>{
     expect((await request('GET',`/avaliacoes/eligible-questions?turmaIds=${id}`)).status).toBe(200);
     expect(mocks.eligible).toHaveBeenCalledWith({userId:id,role:'PROFESSOR'},[id],1);

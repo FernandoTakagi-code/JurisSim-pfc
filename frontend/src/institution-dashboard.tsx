@@ -104,9 +104,6 @@ function Notice({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function ReadOnlyNotice({ title, text }: { title: string; text: string }) {
-  return <article className="panel institution-readonly-card"><h2>{title}</h2><p>{text}</p></article>;
-}
 
 function ReadOnlyClasses({ classes, onStudentsSelected }: { classes: Class[]; onStudentsSelected: (id: string) => void }) {
   return <section className="panel table-panel"><div className="table-toolbar"><div><h2>Turmas vinculadas</h2><p>Consulta das turmas associadas à sua instituição.</p></div></div><div className="table-scroll"><table><thead><tr><th>Turma</th><th>Situação</th><th>Alunos matriculados</th><th>Consulta</th></tr></thead><tbody>{classes.map(item => <tr key={item.id}><td><strong>{item.nome}</strong></td><td>{item.archivedAt ? "Arquivada" : "Ativa"}</td><td>{item._count.alunos}</td><td><button className="outline-button" onClick={() => onStudentsSelected(item.id)}>Ver alunos</button></td></tr>)}</tbody></table></div>{classes.length === 0 && <p>Nenhuma turma vinculada disponível para consulta.</p>}</section>;
@@ -612,7 +609,6 @@ function Overview({
         </div>
       </section>}
       {readOnly && teacherManagementAvailable && <section className="panel institution-actions"><div><p className="eyebrow">GESTÃO DE PROFESSORES</p><h2>Convites e vínculos autorizados</h2><p>Convide professores e gerencie suas designações nas turmas vinculadas.</p></div><div className="header-actions"><button className="primary-button institution-invite-button" disabled={!teacherInvitationsAvailable} title={!teacherInvitationsAvailable ? teacherInvitationReason : undefined} onClick={() => open("invite")}>Convidar professor</button><button className="outline-button" onClick={() => go("teachers")}>Gerenciar professores</button><button className="outline-button" onClick={() => go("invitations")}>Ver convites</button></div></section>}
-      {readOnly && <ReadOnlyNotice title="Acompanhamento seguro" text={teacherManagementAvailable ? (teacherInvitationsAvailable ? "Indicadores e consultas refletem os vínculos ativos. Convites e designações docentes estão liberados; os demais módulos aguardam suas capacidades específicas." : `Indicadores e consultas estão disponíveis. ${teacherInvitationReason ?? "O envio de convites está indisponível."}`) : "Indicadores e consultas institucionais estão disponíveis para este perfil."} />}
       <Notifications recent />
     </div>
   );

@@ -159,3 +159,18 @@ it('denies a previously issued token after session revocation even while institu
   const { next } = await authenticate();
   expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
 });
+
+it.each([
+ ['POST','/avaliacoes'],['PUT',`/avaliacoes/${userId}`],['POST',`/avaliacoes/${userId}/publish`],['POST',`/avaliacoes/${userId}/close`],['POST',`/avaliacoes/${userId}/archive`],['DELETE',`/avaliacoes/${userId}`],
+])('permite escrita de simulados com capacidade específica: %s %s',async(method,path)=>{
+ vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_EXAM_MANAGEMENT_ENABLED','true');vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','false');
+ mocks.user.mockResolvedValue({id:userId,role:'ALUNO',registrationIntent:'INSTITUTION',emailVerifiedAt:new Date(),sessionVersion:0});mocks.memberships.mockResolvedValue([{institutionId:'first',role:'INSTITUTION_ADMIN',institution:{name:'Primeira'}}]);
+ const result=await authenticate('first',path,true,method);expect(result.next).toHaveBeenCalledWith();expect(result.req.auth).toMatchObject({institutionId:'first',institutionAdmin:true});
+});
+it('a capacidade de simulados não libera outras operações nem ignora revogação',async()=>{
+ vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_EXAM_MANAGEMENT_ENABLED','true');vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','false');
+ mocks.user.mockResolvedValue({id:userId,role:'ALUNO',registrationIntent:'INSTITUTION',emailVerifiedAt:new Date(),sessionVersion:0});mocks.memberships.mockResolvedValue([{institutionId:'first',role:'INSTITUTION_ADMIN',institution:{name:'Primeira'}}]);
+ for(const path of ['/turmas','/atividades',`/avaliacoes/${userId}/attempts`])expect((await authenticate('first',path,true,'POST')).next).toHaveBeenCalledWith(expect.objectContaining({statusCode:503}));
+ vi.stubEnv('INSTITUTION_EXAM_MANAGEMENT_ENABLED','false');expect((await authenticate('first','/avaliacoes',true,'POST')).next).toHaveBeenCalledWith(expect.objectContaining({statusCode:503}));
+ vi.stubEnv('INSTITUTION_EXAM_MANAGEMENT_ENABLED','true');mocks.memberships.mockResolvedValue([]);expect((await authenticate('first','/avaliacoes',true,'POST')).next).toHaveBeenCalledWith(expect.objectContaining({statusCode:403}));
+});
