@@ -126,7 +126,7 @@ export function IntegrationShell({
   useEffect(()=>{if(profile&&profileLocation!==profile.target)navigate(profile.target,true);},[profileLocation,profile?.target]);
   const navPath = teacher ? teacherCanonicalPath(path) : path;
   const currentNav = [...primary, ...secondary].filter(item => navPath === item.path || (item.path !== base && item.path !== "/" && navPath.startsWith(item.path + "/"))).sort((a, b) => b.path.length - a.path.length)[0];
-  const title = utility ? "Perfil e configura\u00e7\u00f5es" : path.endsWith("/editar") ? "Editar quest\u00e3o" : currentNav?.label ?? "JurisSim";
+  const title = utility ? "Perfil e configurações" : path.endsWith("/editar") ? "Editar questão" : currentNav?.label ?? "JurisSim";
 
   useEffect(() => {
     setMobileOpen(false);
