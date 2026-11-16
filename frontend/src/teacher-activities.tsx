@@ -37,15 +37,15 @@ export function TeacherActivities({
       <header>
         <span className="teacher-eyebrow">ÁREA DOCENTE</span>
         <h1>Atividades</h1>
-        <p>Organize o acompanhamento das suas turmas autorizadas.</p>
+        <p>Crie tarefas com prazo e pontuação e acompanhe as entregas dos alunos.</p>
       </header>
       <article className="panel">
-        <h2>Contexto da turma</h2>
+        <h2>Escolha a turma</h2>
         <ResourceState resource={resource} />
         {resource.data && (
           <>
             <label>
-              Turma autorizada
+              Turma de trabalho
               <select
                 value={turma ? selected : ""}
                 onChange={(event) => {
@@ -59,7 +59,7 @@ export function TeacherActivities({
                   );
                 }}
               >
-                <option value="">Selecione uma turma desta página</option>
+                <option value="">Selecione uma turma</option>
                 {resource.data.items.map((row) => (
                   <option key={row.id} value={row.id}>
                     {row.nome}
@@ -78,11 +78,11 @@ export function TeacherActivities({
             {!resource.data.items.length && (
               <p>Nenhuma turma autorizada disponível.</p>
             )}
-            <Pages
+            {(page > 1 || resource.data.hasMore) && <Pages
               page={page}
               hasMore={resource.data.hasMore}
               change={setPage}
-            />
+            />}
           </>
         )}
         {turma && (
@@ -100,16 +100,17 @@ export function TeacherActivities({
             <button
               onClick={() =>
                 onNavigate ? onNavigate("reports", turma.id) : navigate(
-                  `/professor/relatorios/turmas/${encodeURIComponent(turma.id)}`,
+                  `/professor/desempenho/turmas/${encodeURIComponent(turma.id)}`,
                 )
               }
             >
               <Icon name="chart" />
-              Relatório da turma
+              Desempenho da turma
             </button>
           </div>
         )}
       </article>
+      {!turma && !resource.loading && !resource.error && <article className="teacher-empty-state"><span className="teacher-empty-icon"><Icon name="book"/></span><h2>Uma turma, todas as atividades</h2><p>Selecione a turma acima para criar uma tarefa ou consultar as entregas. Para uma avaliação com questões, use Simulados.</p></article>}
       {turma && (
         <ActivityManager
           key={turma.id}
@@ -168,16 +169,18 @@ function ActivityManager({
   const [page, setPage] = useState(1),
     [editing, setEditing] = useState<Activity | "new">(),
     [notice, setNotice] = useState("");
+  const [statusFilter,setStatusFilter] = useState<Activity["status"]|"ALL">("ALL");
   const [detailsId,setDetailsId]=useState('');
   const activities = useResource<ActivityPage>(
     `/atividades?classId=${encodeURIComponent(classId)}&page=${page}`,
   );
-  const action = useMutation(activities.reload);
+  const action = useMutation(()=>{setNotice("");activities.reload();});
   return (
     <div className="teacher-activity-manager">
-      <div className="class-actions">
+      <div className="class-actions teacher-section-heading"><div><h2>Atividades da turma</h2><p>Salve um rascunho, revise e publique quando estiver pronto.</p></div>
         <button
           className="primary"
+          hidden={Boolean(editing)}
           disabled={archived || Boolean(activities.error) || activities.loading}
           onClick={() => setEditing("new")}
         >
@@ -208,9 +211,11 @@ function ActivityManager({
           }}
         />
       )}
-      {activities.data && (
+      {activities.data && !editing && (
         <>
-          {(Object.keys(labels) as Array<keyof typeof labels>).map((status) => (
+          <div className="teacher-status-filters" role="group" aria-label="Situação das atividades">{(['ALL',...Object.keys(labels)] as const).map(status=><button key={status} aria-pressed={statusFilter===status} onClick={()=>setStatusFilter(status as Activity['status']|'ALL')}>{status==='ALL'?'Todas':labels[status as keyof typeof labels]}</button>)}</div>
+          {!activities.data.items.some(a=>statusFilter==='ALL'||a.status===statusFilter)&&<article className="teacher-empty-state"><span className="teacher-empty-icon"><Icon name="book"/></span><h3>{statusFilter==='ALL'?'Sua turma ainda não tem atividades nesta página':'Nenhuma atividade neste filtro'}</h3><p>{statusFilter==='ALL'?'Comece em Criar atividade. Você poderá revisar antes de publicar.':'Escolha outra situação para consultar as atividades desta página.'}</p></article>}
+          {(Object.keys(labels) as Array<keyof typeof labels>).filter(status=>(statusFilter==='ALL'||status===statusFilter)&&activities.data!.items.some(a=>a.status===status)).map((status) => (
             <section key={status} className="activity-status-group">
               <h2>{labels[status]}</h2>
               {!activities.data!.items.some((a) => a.status === status) && (
@@ -222,7 +227,7 @@ function ActivityManager({
                 .data!.items.filter((a) => a.status === status)
                 .map((a) => (
                   <article className="panel activity-card" key={a.id}>
-                    <h3>{a.titulo}</h3>
+                    <span className="teacher-state-badge">{({DRAFT:"Rascunho",PUBLISHED:"Publicada",CLOSED:"Encerrada",CANCELLED:"Cancelada"})[a.status]}</span><h3>{a.titulo}</h3>
                     <p className="activity-description">{a.descricao}</p>
                     <p>
                       {a.questionCount} questão(ões) · {a.attemptCount ?? 0}{" "}
@@ -306,11 +311,11 @@ function ActivityManager({
                 ))}
             </section>
           ))}
-          <Pages
+          {(page > 1 || activities.data.hasMore) && <Pages
             page={page}
             hasMore={activities.data.hasMore}
             change={setPage}
-          />
+          />}
         </>
       )}
     </div>
@@ -328,6 +333,7 @@ function ActivityEditor({
   onSaved: () => void;
   onCancel: () => void;
 }) {
+  const [questionSearch,setQuestionSearch] = useState("");
   const [title, setTitle] = useState(activity?.titulo ?? ""),
     [description, setDescription] = useState(activity?.descricao ?? "");
   const [maxPoints,setMaxPoints]=useState(activity?.maxPoints??10);
@@ -439,7 +445,9 @@ function ActivityEditor({
             Questões autorizadas · {selected.length} selecionada(s)
           </legend>
           <ResourceState resource={questions} />
-          {questions.data?.items.map((q) => (
+          <label className="activity-question-search">Pesquisar nesta página<input type="search" value={questionSearch} onChange={e=>setQuestionSearch(e.target.value)} placeholder="Enunciado ou disciplina"/></label>
+          <div className="activity-question-list">
+          {questions.data?.items.filter(q=>!questionSearch.trim()||`${q.enunciado} ${q.disciplina}`.toLocaleLowerCase("pt-BR").includes(questionSearch.trim().toLocaleLowerCase("pt-BR"))).map((q) => (
             <label className="activity-question" key={q.id}>
               <input
                 type="checkbox"
@@ -459,7 +467,9 @@ function ActivityEditor({
               </span>
             </label>
           ))}
-          {questions.data && !questions.data.items.length && (
+
+          </div>
+          {questions.data && questionSearch.trim() && !questions.data.items.some(q=>`${q.enunciado} ${q.disciplina}`.toLocaleLowerCase("pt-BR").includes(questionSearch.trim().toLocaleLowerCase("pt-BR"))) && <p role="status">Nenhuma questão corresponde à busca nesta página. Tente outra disciplina ou avance para a próxima página.</p>}          {questions.data && !questions.data.items.length && (
             <p>
               Nenhuma questão elegível nesta página. Cadastre questões privadas
               da turma ou utilize o acervo efetivamente revisado e liberado.

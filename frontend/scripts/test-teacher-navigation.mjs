@@ -95,13 +95,13 @@ try {
   assert.equal(await evaluate('window.teacherRequests.some(p=>p.startsWith("/institutions/"))'),false);
   assert.equal(await evaluate('!!document.querySelector("select[aria-label=\\"Contexto de acesso\\"]")'),false);
   console.log('PASS: direct institutional URL redirects teacher to dashboard without loading institutional modules');checks++;
-  const entries=[['Turmas','/professor/turmas'],['Alunos','/professor/alunos'],['Atividades','/professor/atividades'],['Simulados','/professor/simulados'],['Banco de questões','/professor/questoes'],['Desempenho','/professor/desempenho'],['Relatórios','/professor/relatorios']];
+  const entries=[['Turmas','/professor/turmas'],['Alunos','/professor/alunos'],['Atividades','/professor/atividades'],['Simulados','/professor/simulados'],['Banco de questões','/professor/questoes'],['Desempenho','/professor/desempenho']];
   for(const [label,path]of entries){
     await evaluate(`(()=>{const b=[...document.querySelectorAll('.v0-sidebar nav button')].find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!b)throw Error('Missing teacher module');b.click()})()`);
     await until('location.pathname==='+JSON.stringify(path));
     assert.equal(await evaluate('document.body.textContent.includes("Instituições e solicitações")'),false);
   }
-  console.log('PASS: seven teacher module destinations remain accessible through the original sidebar');checks++;
+  console.log('PASS: six teacher module destinations remain accessible through the original sidebar');checks++;
   const fill=async(selector,value)=>evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(e.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event(e.tagName==='SELECT'?'change':'input',{bubbles:true}));})()`);
   const click=async text=>evaluate(`(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(text)});if(!b)throw Error('Missing action');b.click();})()`);
   await cdp('Page.navigate',{url:origin+'/professor/alunos'});

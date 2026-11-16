@@ -1,3 +1,4 @@
+import {teacherSections,teacherCanonicalPath} from './teacher-navigation';
 import {Icon} from './ui-icon';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { apiRequest } from "./api";
@@ -103,17 +104,7 @@ export function IntegrationShell({
   const mainRef = useRef<HTMLDivElement>(null);
   const wasMobileOpen = useRef(false);
   let primary: Item[] = admin ? [...adminSections] : institutional ? [{path:'/instituicoes',label:'Acompanhamento institucional',icon:'users'}] : teacher
-    ? [
-        { path: base, label: "Início", icon: "home" },
-        { path: base + "/turmas", label: "Turmas", icon: "users" },
-        { path: base + "/alunos", label: "Alunos", icon: "users" },
-        { path: base + "/atividades", label: "Atividades", icon: "book" },
-        { path: base + "/simulados", label: "Simulados", icon: "file" },
-        { path: base + "/questoes", label: "Banco de questões", icon: "book" },
-        // Class data, not account settings: keep them with the teaching modules.
-        { path: base + "/desempenho", label: "Desempenho", icon: "chart" },
-        { path: base + "/relatorios", label: "Relatórios", icon: "file" },
-      ]
+    ? [...teacherSections]
     : [
         { path: "/dashboard", label: "Início", icon: "home" },
         { path: "/estudar", label: "Estudar", icon: "book" },
@@ -133,7 +124,8 @@ export function IntegrationShell({
   const profile=profileRoute(user.role,path,profileLocation.slice(path.length));
   const utility=!!profile;
   useEffect(()=>{if(profile&&profileLocation!==profile.target)navigate(profile.target,true);},[profileLocation,profile?.target]);
-  const currentNav = [...primary, ...secondary].filter(item => path === item.path || (item.path !== base && item.path !== "/" && path.startsWith(item.path + "/"))).sort((a, b) => b.path.length - a.path.length)[0];
+  const navPath = teacher ? teacherCanonicalPath(path) : path;
+  const currentNav = [...primary, ...secondary].filter(item => navPath === item.path || (item.path !== base && item.path !== "/" && navPath.startsWith(item.path + "/"))).sort((a, b) => b.path.length - a.path.length)[0];
   const title = utility ? "Perfil e configura\u00e7\u00f5es" : path.endsWith("/editar") ? "Editar quest\u00e3o" : currentNav?.label ?? "JurisSim";
 
   useEffect(() => {
@@ -224,7 +216,7 @@ export function IntegrationShell({
   );
   return (
     <PhotoProvider key={user.id}><div
-      className={`v0-app ${dark ? "v0-dark" : ""} ${collapsed ? "v0-collapsed" : ""}`}
+      className={`v0-app ${teacher ? "v0-teacher" : ""} ${dark ? "v0-dark" : ""} ${collapsed ? "v0-collapsed" : ""}`}
       data-theme={theme}
     >
       {mobileOpen && (
@@ -270,7 +262,7 @@ export function IntegrationShell({
           <p className="v0-nav-label">
             {admin ? "Administração geral" : institutional ? 'Administração institucional' : teacher ? "Área do professor" : "Área do aluno"}
           </p>
-          <nav aria-label={admin ? "Administração" : "Estudos"}>{primary.map(navItem)}</nav>
+          <nav aria-label={admin ? "Administração" : teacher ? "Área do professor" : "Estudos"}>{primary.map(navItem)}</nav>
           <><p className="v0-nav-label">Minha conta</p>
           <nav aria-label="Conta e preferências">
             {secondary.map(navItem)}

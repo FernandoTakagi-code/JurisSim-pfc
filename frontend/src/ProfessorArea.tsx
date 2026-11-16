@@ -1,4 +1,5 @@
 import { apiRequest } from './api';
+import { useResource, ResourceState, Pages } from './administration';
 import { useEffect, useMemo, useState } from "react";
 
 import { navigate, usePath } from "./navigation";
@@ -78,12 +79,11 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
   };
 
   useEffect(() => {
-    if (!classCreation) carregar();
-  }, [classCreation]);
+    if (!classCreation && path !== '/professor/questoes/nova') carregar();
+  }, [classCreation,path]);
 
   useEffect(() => {
     if (!path.startsWith("/professor")) navigate("/professor", true);
-    if (path === '/professor/questoes/nova') navigate('/professor/turmas', true);
   }, [path]);
   const editId = /^\/professor\/questoes\/([^/]+)\/editar$/.exec(path)?.[1];
   const editQuestion = questoes.find(question => question.id === editId);
@@ -96,7 +96,7 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
 
   const irPara = (destino: Tela) => {
     setAviso("");
-    navigate(destino.nome === "painel" ? "/professor" : destino.nome === "nova" ? "/professor/turmas" : destino.nome === "editar" ? `/professor/questoes/${destino.questao.id}/editar` : "/professor/questoes");
+    navigate(destino.nome === "painel" ? "/professor" : destino.nome === "nova" ? "/professor/questoes/nova" : destino.nome === "editar" ? `/professor/questoes/${destino.questao.id}/editar` : "/professor/questoes");
     window.scrollTo?.(0, 0);
   };
 
@@ -116,7 +116,7 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
 
   const individualReport = /^\/professor\/relatorios\/turmas\/([^/]+)\/alunos\/([^/]+)$/.exec(path);
   if (classCreation) return <ClassQuestionCreation key={classCreation} classId={classCreation} />;
-  if (path === '/professor/questoes/nova') return <section className="page"><p role="status">Selecione uma turma para cadastrar questões.</p></section>;
+  if (path === '/professor/questoes/nova') return <QuestionClassPicker />;
   const reportRoute = /^\/professor\/(relatorios|desempenho)(?:\/turmas\/([^/]+))?$/.exec(path);
   if (individualReport) return <StudentClassReport key={individualReport[1] + individualReport[2]} classId={individualReport[1]} studentId={individualReport[2]} />;
   if (reportRoute) return <TeacherReports classId={reportRoute[2]} mode={reportRoute[1] === "desempenho" ? "performance" : "reports"} />;
@@ -176,6 +176,13 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
 
     </div>
   );
+}
+
+function QuestionClassPicker() {
+  const [page,setPage] = useState(1);
+  const classes = useResource<{items:{id:string;nome:string;archivedAt?:string|null}[];hasMore:boolean}>(`/turmas?page=${page}`);
+  const active = classes.data?.items.filter(turma=>!turma.archivedAt) ?? [];
+  return <section className="page"><p className="teacher-eyebrow">Nova questão · primeiro passo</p><h1>Escolha a turma da questão</h1><p>As novas questões são privadas da turma. Você poderá usá-las nas atividades e nos simulados dessa mesma turma.</p><ResourceState resource={classes}/><div className="teacher-class-choices">{active.map(turma=><button key={turma.id} onClick={()=>navigate(`/professor/turmas/${encodeURIComponent(turma.id)}/questoes/nova`)}><strong>{turma.nome}</strong><span>Cadastrar questão nesta turma →</span></button>)}</div>{classes.data && !active.length && <article className="teacher-empty-state"><h2>Nenhuma turma ativa nesta página</h2><p>Consulte as outras páginas ou crie uma turma antes de cadastrar a questão.</p><button onClick={()=>navigate('/professor/turmas?acao=nova')}>Nova turma</button></article>}{classes.data && (page>1||classes.data.hasMore) && <Pages page={page} hasMore={classes.data.hasMore} change={setPage}/>}<button className="outline-button" onClick={()=>navigate('/professor/questoes')}>Voltar ao banco de questões</button></section>;
 }
 
 function Painel({
