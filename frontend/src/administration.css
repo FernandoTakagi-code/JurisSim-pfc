@@ -390,3 +390,11 @@
 .v0-dark .institution-portal .institution-request-status :is(dt, .institution-status.is-pending, .institution-status.is-waiting) { color: #e0bf7c; }
 .v0-dark .institution-portal .institution-status:is(.is-approved, .is-ready) { color: #91deb2; }
 .v0-dark .institution-portal .institution-status.is-rejected { color: #ffadb7; }
+.admin-workspace .admin-settings { display: grid; gap: 20px; }
+.admin-workspace .admin-settings p { max-width: 76ch; line-height: 1.65; }
+.admin-workspace .admin-status-label { font-size: 1.1rem; font-weight: 700; }
+.admin-workspace .admin-availability-list > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; padding: 12px 0; border-bottom: 1px solid var(--v0-border, #d4dbe5); }
+.admin-workspace .admin-availability-list dd { margin: 0; font-weight: 650; }
+.admin-workspace .admin-permission-tools { width: 100%; margin-top: 8px; }
+.admin-workspace .admin-permission-tools summary { cursor: pointer; padding: 10px 0; }
+.admin-workspace .admin-permission-tools p { max-width: 70ch; line-height: 1.6; }

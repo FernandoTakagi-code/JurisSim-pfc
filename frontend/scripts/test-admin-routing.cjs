@@ -39,7 +39,10 @@ for (const path of [
 ]) {
   assert.equal(sessionRedirectTarget(session("ADMIN"), path), "/administracao");
 }
-assert.equal(new Set(adminSections.map((section) => section.path)).size, 9);
+assert.equal(new Set(adminSections.map((section) => section.path)).size, 7);
+assert.ok(!adminSections.some(section=>['teachers','security'].includes(section.id)));
+assert.equal(adminSection('/administracao/professores').id,'teachers');
+assert.equal(adminSection('/administracao/seguranca').id,'security');
 assert.ok(!adminSections.some(section=>section.id==='classes'));
 assert.equal(adminSection('/administracao/turmas').id,'classes');
 for (const section of adminSections) {
@@ -85,5 +88,5 @@ assert.equal(
   "/instituicoes",
 );
 console.log(
-  "OK: nove menus administrativos e rota legada, destinos por papel e preservação dos destinos de aluno/professor/instituição. Sem rede.",
+  "OK: sete menus administrativos sem duplicação e rotas antigas preservadas; destinos por papel. Sem rede.",
 );

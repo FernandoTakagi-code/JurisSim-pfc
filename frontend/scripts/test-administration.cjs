@@ -86,7 +86,7 @@ vm.runInNewContext(compiled, {
 });
 function render(tab, enabled, extra = {}) {
   route =
-    (tab==="classes"?"/administracao/turmas":navigation.adminSections.find((section) => section.id === tab)?.path) ??
+    ({classes:'/administracao/turmas',teachers:'/administracao/professores',security:'/administracao/seguranca'}[tab]??navigation.adminSections.find((section) => section.id === tab)?.path) ??
     "/administracao/inexistente";
   stateIndex = 0;
   dependencies = [];
@@ -107,11 +107,9 @@ const sections = [
   "Instituições",
   "Solicitações de cadastro",
   "Usuários",
-  "Professores",
   "Logs e auditoria",
-  "Segurança",
-  "Notificações",
-  "Configurações do sistema",
+  "Avisos",
+  "Estado do sistema",
 ];
 let checks = 0;
 function check(name, fn) {
@@ -120,7 +118,7 @@ function check(name, fn) {
   console.log(`OK ${name}`);
 }
 check(
-  "nove seções acessíveis sem módulo ativo; nenhuma consulta protegida",
+  "sete seções acessíveis sem módulo ativo; nenhuma consulta protegida",
   () => {
     const { html, paths } = render("overview", false);
     assert.deepEqual(
@@ -165,6 +163,19 @@ for (const [tab, expected] of [
 check('ADMIN has no academic class query',()=>{const result=render('classes',true);assert.ok(result.html.includes('Gestão pedagógica institucional'));assert.ok(!result.paths.some(p=>p.startsWith('/institutions/admin/classes')));});
 check('account searches do not load users before a search', () => {
   for (const tab of ['users', 'teachers']) assert.ok(!render(tab, true).paths.some(p => p.startsWith('/institutions/admin/users')));
+});
+check('consulta de usuários reúne professores e remove a revogação indisponível',()=>{
+  const html=render('users',true).html;
+  assert.ok(html.includes('Perfil da conta'));
+  assert.ok(html.includes('Professor'));
+  assert.ok(!html.includes('Revogar bloqueio de reutilização'));
+});
+check('estado do sistema explica cadastro pausado sem prometer controles futuros',()=>{
+  const html=render('settings',false).html;
+  assert.ok(html.includes('Cadastro pausado'));
+  assert.ok(html.includes('independente do cadastro de alunos'));
+  assert.ok(!html.includes('atualização futura'));
+  assert.ok(!html.includes('Não monitorado'));
 });
 check("carregamento e erro com opção de tentar novamente", () => {
   assert.ok(
