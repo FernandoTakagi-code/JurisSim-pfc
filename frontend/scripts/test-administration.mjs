@@ -1287,17 +1287,17 @@ try {
   await evaluate("sessionStorage.setItem('fixture-context-owner-role','ALUNO');sessionStorage.setItem('fixture-rich-institution','true');sessionStorage.setItem('fixture-institutions-enabled','true');");
   await cdp('Page.navigate',{url:origin+'/instituicoes?instituicao=institution-ui&secao=overview'});
   await until('document.querySelector(".institution-workspace .institution-key-metrics .metric-card strong")?.textContent==="1"');
-  assert.equal(await evaluate('document.querySelectorAll(".institution-workspace .nav-groups .nav-item").length'),11);
+  assert.equal(await evaluate('document.querySelectorAll(".institution-workspace .nav-groups .nav-item").length'),10);
   assert.equal(await evaluate('document.querySelectorAll("aside").length'),1);
   assert.equal(await evaluate('document.body.textContent.includes("Faculdade Alfa")||document.body.textContent.includes("12,4%")'),false);
-  const modules=[['overview','Visão geral','/institutions/institution-ui/summary'],['institution','Minha instituição','/institutions/institution-ui/summary'],['teachers','Professores','/institutions/institution-ui/summary'],['invitations','Convites','/institutions/institution-ui/invitations'],['classes','Turmas','/turmas'],['students','Alunos','/turmas/students'],['performance','Desempenho acadêmico','/reports/classes'],['exams','Simulados','/avaliacoes'],['reports','Relatórios','/reports/classes'],['notifications','Notificações','/institutions/notifications'],['settings','Auditoria institucional','/institutions/institution-ui/logs']];
+  const modules=[['overview','Visão geral','/institutions/institution-ui/summary'],['institution','Minha instituição','/institutions/institution-ui/summary'],['teachers','Professores','/institutions/institution-ui/summary'],['invitations','Convites','/institutions/institution-ui/invitations'],['classes','Turmas','/turmas'],['students','Alunos','/turmas/students'],['performance','Desempenho acadêmico','/reports/classes'],['exams','Simulados','/avaliacoes'],['notifications','Notificações','/institutions/notifications'],['settings','Auditoria institucional','/institutions/institution-ui/logs']];
   for(const [section,label,endpoint] of modules){
     await evaluate(`const n=await import('/src/institution-navigation.ts');n.institutionNavigate('institution-ui',${JSON.stringify(section)});`);
     await until(`document.querySelector('.institution-workspace .breadcrumb strong')?.textContent===${JSON.stringify(label)}`);
     await until(`window.requests.some(r=>r.p===${JSON.stringify(endpoint)})`);
     assert.equal(await evaluate('document.querySelector(".institution-workspace .page-body").textContent.includes("Endpoint fora do cenário")'),false);
   }
-  pass('onze módulos institucionais navegam pela URL e consultam somente os contratos existentes, sem dados demonstrativos do v0');
+  pass('dez módulos institucionais navegam pela URL e consultam somente os contratos existentes, sem dados demonstrativos do v0');
   await evaluate("const n=await import('/src/institution-navigation.ts');n.institutionNavigate('institution-ui','performance',{turma:'class-ui'});");
   await until('document.querySelector(".institution-workspace .class-report-content")?.textContent.includes("80%")');
   await click('Consultar aluno');
@@ -1392,8 +1392,8 @@ try {
     }
   }
   await writeFile(path.join(reviewDir,'inventory.json'),JSON.stringify(inventory,null,2));
-  await writeFile(path.join(reviewDir,'index.html'),'<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Revisão institucional isolada</title><style>body{font:16px system-ui;background:#eef1f5;padding:24px;color:#14263d}nav{display:flex;flex-wrap:wrap;gap:12px}article{margin:30px 0}img{max-width:100%;border:1px solid #aaa}small{display:block}</style><h1>Onze módulos — revisão local com dados fictícios</h1><p>Capturas automatizadas. Sem Supabase, contas reais ou envio de e-mail.</p><nav>'+modules.map(([id,label])=>`<a href="#${id}">${label}</a>`).join('')+'</nav>'+modules.map(([id,label])=>`<article id="${id}"><h2>${label}</h2>${inventory.filter(r=>r.section===id).map(r=>`<details ${r.variant==='desktop-light'?'open':''}><summary>${r.variant} · ${r.width}px</summary><a href="${r.file}">Abrir PNG</a><br><img loading="lazy" src="${r.file}" alt="${label}, ${r.variant}, dados de teste"></details>`).join('')}</article>`).join('')+'</html>');
-  pass('33 capturas dos onze módulos e inventário de ações gerados; desktop/celular/temas e menu móvel validados sem botões inertes');
+  await writeFile(path.join(reviewDir,'index.html'),'<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Revisão institucional isolada</title><style>body{font:16px system-ui;background:#eef1f5;padding:24px;color:#14263d}nav{display:flex;flex-wrap:wrap;gap:12px}article{margin:30px 0}img{max-width:100%;border:1px solid #aaa}small{display:block}</style><h1>Dez módulos — revisão local com dados fictícios</h1><p>Capturas automatizadas. Sem Supabase, contas reais ou envio de e-mail.</p><nav>'+modules.map(([id,label])=>`<a href="#${id}">${label}</a>`).join('')+'</nav>'+modules.map(([id,label])=>`<article id="${id}"><h2>${label}</h2>${inventory.filter(r=>r.section===id).map(r=>`<details ${r.variant==='desktop-light'?'open':''}><summary>${r.variant} · ${r.width}px</summary><a href="${r.file}">Abrir PNG</a><br><img loading="lazy" src="${r.file}" alt="${label}, ${r.variant}, dados de teste"></details>`).join('')}</article>`).join('')+'</html>');
+  pass('30 capturas dos dez módulos e inventário de ações gerados; desktop/celular/temas e menu móvel validados sem botões inertes');
   await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await evaluate("window.requests=[];const n=await import('/src/navigation.ts');n.navigate('/instituicoes?instituicao=foreign');");
   await until('document.body.textContent.includes("Acesso institucional não autorizado")');
@@ -1419,7 +1419,7 @@ try {
   await cdp('Page.navigate',{url:origin+'/instituicoes?instituicao=institution-ui'});
   await until('document.body.textContent.includes("Operações institucionais aguardam ativação autorizada")');
   assert.equal(await evaluate('window.requests.some(r=>r.p.includes("/institution-ui/"))'),false);
-  pass('flag institucional desativada impede consultas e operações dos onze módulos, sem habilitação implícita');
+  pass('flag institucional desativada impede consultas e operações dos dez módulos, sem habilitação implícita');
   await evaluate("sessionStorage.removeItem('fixture-context-owner-role');sessionStorage.setItem('fixture-login-role','ALUNO');");
   await cdp('Page.navigate',{url:origin+'/diagnostico'});
   await until('document.body.textContent.includes("diagnóstico legado")');

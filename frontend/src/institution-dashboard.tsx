@@ -20,6 +20,7 @@ import {
   institutionNavigate,
   useInstitutionLocation,
   canViewInstitution,
+  resolveInstitutionSection,
   type InstitutionSection,
 } from "./institution-navigation";
 import "./institution-dashboard.css";
@@ -160,12 +161,14 @@ function InstitutionWorkspace({
 }) {
   const location = useInstitutionLocation();
   const params = new URL(location, window.location.origin).searchParams;
-  const current = institutionSections.find(
-    (s) => s.id === (params.get("secao") ?? "overview"),
-  ) ?? institutionSections[0];
+  const current = resolveInstitutionSection(params.get("secao"));
   const section = current.id;
   useEffect(() => {
     if (params.get("secao") === "activities") institutionNavigate(id, "overview");
+    if (params.get("secao") === "reports") institutionNavigate(id, "performance", {
+      ...(params.get("turma") ? {turma: params.get("turma")!} : {}),
+      ...(params.get("aluno") ? {aluno: params.get("aluno")!} : {}),
+    });
   }, [location, id]);
   const [page, setPage] = useState(1);
   const [classRevision, setClassRevision] = useState(0);
@@ -465,7 +468,7 @@ function InstitutionWorkspace({
                 {section === "students" && (
                   <ClassStudents institutional key={params.get("turma") ?? "all"} classId={params.get("turma") ?? undefined} onBack={() => go("classes")} />
                 )}
-                {(section === "performance" || section === "reports") &&
+                {section === "performance" &&
                   (params.get("turma") && params.get("aluno") ? (
                     <StudentClassReport
                       key={params.get("turma")! + params.get("aluno")!}
@@ -478,9 +481,7 @@ function InstitutionWorkspace({
                   ) : (
                     <TeacherReports
                       classId={params.get("turma") ?? undefined}
-                      mode={
-                        section === "performance" ? "performance" : "reports"
-                      }
+                      mode="performance"
                       onClassSelected={(turma) => go(section, { turma })}
                       onStudentSelected={(turma, aluno) =>
                         go(section, { turma, aluno })
@@ -547,9 +548,8 @@ const descriptions: Record<InstitutionSection, string> = {
   invitations: "Convide professores e acompanhe suas ativações.",
   classes: "Organize turmas, delegações docentes e matrículas.",
   students: "Consulte alunos das turmas autorizadas da instituição.",
-  performance: "Consulte resultados reais por turma, disciplina e avaliação.",
+  performance: "Acompanhe os resultados por turma, disciplina e avaliação e consulte os relatórios individuais dos alunos.",
   exams: "Crie e acompanhe avaliações das turmas da instituição.",
-  reports: "Acesse os relatórios das turmas e de seus alunos autorizados.",
   notifications: "Consulte mensagens reais destinadas à sua conta.",
   settings: "Consulte a auditoria institucional.",
 };
@@ -605,7 +605,7 @@ function Overview({
           <button className="outline-button" onClick={() => go("institution")}>Configurações da instituição</button>
           <button className="outline-button" onClick={() => go("students")}>Alunos matriculados</button>
           <button className="outline-button" onClick={() => go("exams")}>Simulados</button>
-          <button className="text-button" onClick={() => go("reports")}>Relatórios</button>
+          <button className="text-button" onClick={() => go("performance")}>Desempenho acadêmico</button>
         </div>
       </section>}
       {readOnly && teacherManagementAvailable && <section className="panel institution-actions"><div><p className="eyebrow">GESTÃO DE PROFESSORES</p><h2>Convites e vínculos autorizados</h2><p>Convide professores e gerencie suas designações nas turmas vinculadas.</p></div><div className="header-actions"><button className="primary-button institution-invite-button" disabled={!teacherInvitationsAvailable} title={!teacherInvitationsAvailable ? teacherInvitationReason : undefined} onClick={() => open("invite")}>Convidar professor</button><button className="outline-button" onClick={() => go("teachers")}>Gerenciar professores</button><button className="outline-button" onClick={() => go("invitations")}>Ver convites</button></div></section>}

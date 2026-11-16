@@ -34,13 +34,22 @@ vm.runInNewContext(
 const { institutionSections, canManageInstitution, institutionNavigate } =
   exportsObject;
 const dashboard = fs.readFileSync(path.join(root, "src/institution-dashboard.tsx"), "utf8");
-assert.equal(institutionSections.length, 11);
-assert.equal(new Set(institutionSections.map((s) => s.id)).size, 11);
+assert.equal(institutionSections.length, 10);
+assert.equal(new Set(institutionSections.map((s) => s.id)).size, 10);
 assert.equal(institutionSections.some((section) => section.id === "activities"), false);
 assert.match(dashboard, /params\.get\("secao"\) === "activities".*institutionNavigate\(id, "overview"\)/s);
 assert.doesNotMatch(dashboard, /Atividades publicadas|Entregas concluídas|go\("activities"\)/);
 assert.match(dashboard, /section !== "teachers" && section !== "invitations"\) setInvitationNotice\(""\)/);
 assert.match(dashboard, /invitationNotice && \(section === "teachers" \|\| section === "invitations"\)/);
+assert.equal(institutionSections.some(section=>section.id==='reports'),false);
+assert.equal(exportsObject.resolveInstitutionSection('reports').id,'performance');
+assert.equal(exportsObject.resolveInstitutionSection('unknown').id,'overview');
+institutionNavigate('authorized','reports',{turma:'class',aluno:'student'});
+const legacy=new URL(calls.at(-1),'http://localhost');
+assert.equal(legacy.searchParams.get('secao'),'performance');
+assert.equal(legacy.searchParams.get('turma'),'class');
+assert.equal(legacy.searchParams.get('aluno'),'student');
+assert.match(dashboard,/params\.get\("secao"\) === "reports"/);
 const session = (role) => ({
   user: { role, emailVerificado: true },
   administration: {
@@ -123,5 +132,5 @@ assert.deepEqual(
   ["src"],
 );
 console.log(
-  "OK: onze módulos, atividades fora da navegação institucional, papel pessoal preservado, autorização por vínculo, rotas contextualizadas e CSS isolado; sem rede ou banco.",
+  "OK: dez módulos, atividades fora da navegação institucional, papel pessoal preservado, autorização por vínculo, rotas contextualizadas e CSS isolado; sem rede ou banco.",
 );
