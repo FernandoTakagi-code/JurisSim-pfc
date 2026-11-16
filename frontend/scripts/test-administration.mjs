@@ -544,14 +544,14 @@ try {
   pass("auditoria mostra data, evento, responsável e resultado");
   for (const [title, expected] of [
     ["Solicitações de cadastro", "Pendente"],
-    ["Professores", "Professor de teste"],
-    ["Segurança", "Segurança da conta administrativa"],
-    ["Notificações", "Nenhuma notificação"],
-    ["Configurações do sistema", "Estado do sistema"],
+    ["Usuários", "Professor de teste"],
     ["Visão geral", "Seu painel administrativo"],
   ]) {
     await click(title);
-    if (title === "Professores") await searchAccounts();
+    if (title === "Usuários") {
+      await evaluate('const select=document.querySelector(".admin-form select");Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"value").set.call(select,"PROFESSOR");select.dispatchEvent(new Event("change",{bubbles:true}));');
+      await searchAccounts();
+    }
     await until(
       `document.querySelector('.admin-page').textContent.includes(${JSON.stringify(expected)})`,
     );
@@ -562,7 +562,7 @@ try {
     ),
   );
   pass(
-    "nove seções navegam por URLs reais; professores usam filtro contratual e lacunas permanecem explícitas",
+    "cinco seções navegam por URLs reais; professores usam o filtro de usuários",
   );
   await evaluate(
     'sessionStorage.setItem("fixture-institutions-enabled","false");',
@@ -575,11 +575,7 @@ try {
     "Instituições",
     "Solicitações de cadastro",
     "Usuários",
-    "Professores",
     "Logs e auditoria",
-    "Segurança",
-    "Notificações",
-    "Configurações do sistema",
     "Visão geral",
   ])
     await click(title);
@@ -631,7 +627,7 @@ try {
   await until(
     `window.requests.filter(r=>r.p==="/audit-logs").length>${previousAuditCalls}`,
   );
-  await click("Configurações do sistema");
+  await evaluate("const n=await import('/src/navigation.ts');n.navigate('/administracao/configuracoes');");
   await evaluate('window.fixtureFailure={path:"/audit-logs",network:true}');
   await click("Logs e auditoria");
   await until(
@@ -645,14 +641,14 @@ try {
   pass(
     "erro de rede da auditoria independente é apresentado sem dados inventados; nova tentativa recupera a consulta",
   );
-  await click("Segurança");
+  await click("Usuários");
   await until(
-    'document.querySelector(".admin-page").textContent.includes("admin@example.invalid")',
+    'document.querySelector(".admin-page").textContent.includes("Perfil da conta")',
   );
-  await click("Configurações do sistema");
+  await evaluate("const n=await import('/src/navigation.ts');n.navigate('/administracao/configuracoes');");
   assert.ok(
     await evaluate(
-      'document.querySelector(".admin-page").textContent.includes("Controles administrativos")',
+      'document.querySelector(".admin-page").textContent.includes("Cadastro de instituições")',
     ),
   );
   assert.equal(
@@ -670,7 +666,7 @@ try {
     deviceScaleFactor: 1,
     mobile: true,
   });
-  for (const title of ["Professores", "Logs e auditoria", "Configurações do sistema"]) {
+  for (const title of ["Usuários", "Logs e auditoria"]) {
     await evaluate('document.querySelector(".v0-mobile-menu").click()');
     await click(title);
     await until(
@@ -1061,16 +1057,16 @@ try {
   await until(
     'window.fixtureEnabled===false&&window.fixtureAdmin===true&&document.querySelectorAll(".dashboard-stats strong")[0]?.textContent==="12"',
   );
-  await click("Professores");
+  await click("Usuários");
   await until(
-    'document.querySelector(".admin-page h1")?.textContent==="Professores"',
+    'document.querySelector(".admin-page h1")?.textContent==="Usuários"',
   );
   await evaluate("window.globalClassFixture=true");
   await evaluate("const n=await import('/src/navigation.ts');n.navigate('/administracao/turmas');");
   await until('document.body.textContent.includes("Gestão pedagógica institucional")');
   assert.equal(await evaluate('window.requests.some(r=>r.p==="/institutions/admin/classes")'),false);
-  await click("Notificações");
-  await until('document.body.textContent.includes("Nenhuma notificação")');
+  await evaluate("const n=await import('/src/navigation.ts');n.navigate('/administracao/notificacoes');");
+  await until('document.querySelector(".admin-page h1")?.textContent==="Logs e auditoria"');
   await click("Solicitações de cadastro");
   await until('document.body.textContent.includes("Curso de teste")');
   await click("Histórico de decisões e eventos");

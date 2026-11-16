@@ -1,5 +1,5 @@
 import { InstitutionRequest } from './institution-request';
-import { AdminAccountDeletion, EmailReuseRevocation } from './account-deletion';
+import { AdminAccountDeletion } from './account-deletion';
 import { institutionPendingFields, noWebsiteDeclaration } from '../../backend/src/institution-registration';
 import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "./api";
@@ -113,7 +113,7 @@ const sectionDescriptions: Record<AdminSectionId, string> = {
   requests:
     "Analise solicitações institucionais e registre decisões com justificativa.",
   users:
-    "Consulte contas, vínculos e permissões. Alterações dependem das proteções do servidor.",
+    "Pesquise alunos, professores e administradores. Consulte vínculos, situação da conta e acesso administrativo em um só lugar.",
   teachers:
     "Consulte contas de professores e seus vínculos institucionais, sem alterar o histórico acadêmico.",
   classes:
@@ -123,9 +123,9 @@ const sectionDescriptions: Record<AdminSectionId, string> = {
   security:
     "Confira a segurança da sua conta e consulte os eventos de autenticação registrados.",
   notifications:
-    "Consulte notificações institucionais destinadas à sua conta, quando o recurso estiver disponível.",
+    "Mensagens automáticas destinadas à sua conta. Não há envio de recados entre usuários; acessos e alterações ficam em Logs e auditoria.",
   settings:
-    "Consulte os serviços e as funcionalidades disponíveis.",
+    "Confira o acesso à plataforma e a disponibilidade do cadastro e dos painéis institucionais.",
 };
 const institutionalUnavailable: Partial<
   Record<AdminSectionId, { endpoint: string; message: string }>
@@ -358,7 +358,7 @@ export function InstitutionContext({ session }: { session: Session }) {
     </div>
   );
 }
-function Notifications({recent=false}:{recent?:boolean}={}) {
+function Notifications({recent=false,administrative=false}:{recent?:boolean;administrative?:boolean}={}) {
   const [page, setPage] = useState(1);
   const [expanded,setExpanded]=useState(false);
   const resource = useResource<
@@ -367,16 +367,16 @@ function Notifications({recent=false}:{recent?:boolean}={}) {
   if(recent&&!expanded&&resource.data?.items.length===0)return null;
   return (
     <section>
-      <h2>{recent&&!expanded?'Notificações recentes':'Notificações'}</h2>
+      <h2>{administrative?'Avisos para sua conta':recent&&!expanded?'Notificações recentes':'Notificações'}</h2>
       <ResourceState resource={resource} />
-      {resource.data?.items.length === 0 && <p>Nenhuma notificação.</p>}
+      {resource.data?.items.length === 0 && <div className={administrative?'panel admin-empty-state':undefined} role="status"><p>{administrative?'Você não tem avisos no momento.':'Nenhuma notificação.'}</p>{administrative&&<p>O sistema gera avisos para o destinatário de uma decisão institucional ou solicitação de turma. O ADMIN não recebe automaticamente todos esses avisos. Para analisar pedidos de instituições, abra Solicitações de cadastro.</p>}</div>}
       {(recent&&!expanded?resource.data?.items.slice(0,3):resource.data?.items)?.map((n) => (
         <article className="panel" key={n.id}>
           <time>{date(n.createdAt)}</time>
           <p>{n.message}</p>
         </article>
       ))}
-      {recent&&!expanded?((resource.data?.hasMore||(resource.data?.items.length??0)>3)&&<button className="text-button" onClick={()=>setExpanded(true)}>Ver todas as notificações</button>):<Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />}
+      {recent&&!expanded?((resource.data?.hasMore||(resource.data?.items.length??0)>3)&&<button className="text-button" onClick={()=>setExpanded(true)}>Ver todas as notificações</button>):((resource.data?.items.length??0)>0||page>1)&&<Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />}
     </section>
   );
 }
@@ -762,7 +762,7 @@ export function GeneralAdministration() {
               </div>
             </>
           ) : tab === "settings" ? (
-            <AdministrationSettings availability={availability.data} />
+            <AdministrationSettings availability={availability.data} refreshAvailability={availability.reload} />
           ) : tab === 'classes' ? (
             <section className="panel"><h2>Gestão pedagógica institucional</h2><p>Turmas e alunos são gerenciados pelos responsáveis e professores autorizados da própria instituição. A administração geral não possui acesso pedagógico rotineiro.</p></section>
           ) : tab === "security" ? (
@@ -798,8 +798,6 @@ export function GeneralAdministration() {
                 <UserAdministration />
               ) : tab === "teachers" ? (
                 <UserAdministration initialRole="PROFESSOR" />
-              ) : tab === "notifications" ? (
-                <Notifications />
               ) : null}
             </div>
           ) : null}
@@ -808,20 +806,12 @@ export function GeneralAdministration() {
     </section>
   );
 }
-function AdministrationSettings({ availability }: { availability?: AdministrationAvailability }) {
+function AdministrationSettings({ availability, refreshAvailability }: { availability?: AdministrationAvailability; refreshAvailability:()=>void }) {
   const health = useResource<{status: string}>("/health");
   return <div className="admin-settings">
-    <section className="panel"><h2>Estado do sistema</h2><ResourceState resource={health}/><dl>
-      <dt>Serviço</dt><dd>{health.loading ? 'Verificando…' : health.error ? 'Não foi possível verificar' : health.data?.status === 'ok' ? 'Disponível' : 'Indisponível'}</dd>
-      <dt>Serviço de e-mails</dt><dd>Não monitorado</dd>
-    </dl><button onClick={health.reload} disabled={health.loading}>Atualizar verificação</button></section>
-    <section className="panel"><h2>Funcionalidades</h2><dl>{[
-      ['Cadastro institucional', availability?.registrationEnabled],
-      ['Administração geral', availability?.administrationEnabled],
-      ['Operações institucionais completas', availability?.enabled],
-      ['Convites e vínculos institucionais', availability?.enabled],
-    ].map(([name, value]) => <div key={String(name)}><dt>{name}</dt><dd>{value === undefined ? 'Não foi possível verificar' : value ? 'Habilitada' : 'Desabilitada'}</dd></div>)}</dl></section>
-    <section className="panel"><h2>Controles administrativos</h2><p>As capacidades exibidas s\u00e3o definidas por configura\u00e7\u00e3o segura do servidor e da implanta\u00e7\u00e3o. Esta interface n\u00e3o altera essas configura\u00e7\u00f5es nem apresenta altera\u00e7\u00f5es locais como persistidas.</p></section>
+    <section className="panel"><h2>Conexão com a plataforma</h2><ResourceState resource={health}/><p>{health.loading ? 'Verificando a conexão…' : health.error ? 'Não foi possível consultar a plataforma agora. Tente atualizar a verificação.' : health.data?.status === 'ok' ? 'A plataforma está respondendo.' : 'A plataforma não confirmou sua disponibilidade.'}</p><p className="muted">Esta verificação confere a resposta da API; não testa o envio de e-mails nem todos os recursos.</p><button onClick={()=>{health.reload();refreshAvailability();}} disabled={health.loading}>Atualizar verificação</button></section>
+    <section className="panel"><h2>Cadastro de instituições</h2><p className="admin-status-label">{availability===undefined?'Aguardando consulta':registrationAvailable(availability)?'Recebendo solicitações':'Cadastro pausado'}</p><p>{availability===undefined?'Atualize a verificação para consultar a disponibilidade.':registrationAvailable(availability)?'Novas instituições podem enviar uma solicitação para análise do administrador.':'Novas instituições ainda não podem enviar solicitações. As instituições já registradas continuam disponíveis para consulta no ADMIN.'}</p><p className="muted">Essa configuração é independente do cadastro de alunos. A alteração é feita no ambiente de publicação pela equipe responsável.</p></section>
+    <section className="panel"><h2>Acesso aos painéis</h2><dl className="admin-availability-list"><div><dt>Administração geral</dt><dd>{availability===undefined?'Aguardando consulta':(availability.administrationEnabled??availability.enabled)?'Disponível':'Indisponível'}</dd></div><div><dt>Área das instituições</dt><dd>{availability===undefined?'Aguardando consulta':availability.enabled?'Disponível':'Aguardando ativação'}</dd></div></dl><p className="muted">A área institucional permite aos responsáveis gerenciar professores, convites e turmas. Liberar o ADMIN não ativa essa área automaticamente.</p></section>
   </div>;
 }
 type AdminSummary = {
@@ -1185,7 +1175,7 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
   return (
     <>
       <h2>{permissionsOnly?'Permissões administrativas':initialRole === 'PROFESSOR'?'Consulta de professores e vínculos':'Consulta de contas'}</h2>
-      {!permissionsOnly && <EmailReuseRevocation />}
+      {!permissionsOnly && <p className="muted">Para encontrar professores, selecione Professor no filtro Perfil da conta. A segurança da sua própria conta fica em Perfil e configurações.</p>}
       <form
         className="admin-form"
         onSubmit={(e) => {
@@ -1210,9 +1200,8 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
           />
         </label>
         <label>
-          Perfil global
+          Perfil da conta
           <select
-            disabled={initialRole === "PROFESSOR"}
             value={role}
             onChange={(e) => {
               setRole(e.target.value);
@@ -1287,7 +1276,7 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
               {u.suspended ? "Reativar" : "Suspender"}
             </button>}
             {!permissionsOnly && <AdminAccountDeletion userId={u.id} email={u.email} disabled={action.busy || u.id === currentUserId} onDone={resource.reload} />}
-            {permissionsOnly&&<button
+            {(u.role==='ADMIN'||u.role==='PROFESSOR'||u.memberships.some(m=>m.role==='INSTITUTION_ADMIN'))&&<details className="admin-permission-tools"><summary>Acesso de administrador</summary><p>Este acesso permite administrar a plataforma inteira. O vínculo de professor ou responsável institucional é separado.</p><button
               className="account-action-button"
               disabled={action.busy || u.id === currentUserId}
               onClick={() =>
@@ -1304,7 +1293,7 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
               {u.role === "ADMIN"
                 ? "Revogar administração geral"
                 : "Conceder administração geral"}
-            </button>}
+            </button></details>}
           </div>
         </article>
       ))}
