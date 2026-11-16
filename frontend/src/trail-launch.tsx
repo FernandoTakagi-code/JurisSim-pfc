@@ -19,7 +19,11 @@ export function TrailLaunchButton({ trail, completed = false, generated = false 
     setBusy(true);
     setError("");
     try {
-      const attempt = await apiRequest<{ id: string }>(`/trilhas/${encodeURIComponent(trail.id)}/gerar`, { method: "POST" });
+      // Recommendation IDs and attempt IDs are distinct. Use only the explicit
+      // persisted link to open an existing attempt/result without generation.
+      const existingAttemptId = trail.simuladoGeradoId;
+      const attempt = existingAttemptId ? { id: existingAttemptId }
+        : await apiRequest<{ id: string }>(`/trilhas/${encodeURIComponent(trail.id)}/gerar`, { method: "POST" });
       if (!active.current) return;
       if (!attempt || typeof attempt.id !== "string" || !attempt.id) throw new Error("A tentativa não foi confirmada pelo servidor. Tente novamente.");
       navigate(completed ? `/resultados/trilha/${encodeURIComponent(attempt.id)}` : `/diagnostico?trilha=${encodeURIComponent(attempt.id)}`);

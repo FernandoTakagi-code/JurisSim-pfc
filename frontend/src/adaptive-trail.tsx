@@ -42,7 +42,7 @@ export function AdaptiveTrail({ progress }: { progress: ReturnType<typeof useStu
           <h2>Exercícios da sua trilha</h2>
           {attempts.length ? <ul className="adaptive-attempts">{attempts.map(item => <li key={item.id}>
             <div><h3>{item.discipline}</h3><p className="muted">{item.topic ?? "Conteúdos gerais"}</p><p>{item.answered} de {item.total} respostas registradas · {item.completed ? "Concluída" : "Em andamento"}</p><progress aria-label={`Respostas registradas em ${item.discipline}`} max={Math.max(1, item.total)} value={item.answered} /></div>
-            <TrailLaunchButton trail={{ id: item.id }} generated completed={item.completed} />
+            <TrailLaunchButton trail={{ id: item.id, simuladoGeradoId: item.attemptId }} generated completed={item.completed} />
           </li>)}</ul> : <p className="muted">Nenhuma trilha de exercícios gerada. Use a recomendação acima quando estiver disponível.</p>}
         </article>
         <article className="panel"><h2>Evolução nos diagnósticos</h2><Evolution items={data?.evolution} /><button className="text-button" onClick={() => navigate("/desempenho")}>Ver meu desempenho</button></article>

@@ -54,7 +54,7 @@ type Overview = {
   recentActivities: Activity[];
   latestDiagnosticId: string | null;
   latestDiagnosticInitial?: boolean;
-  learning?: { disciplines: { discipline: string; total: number; correct: number; percentage: number | null }[]; priorityTopic: { discipline: string; topic: string; total: number; percentage: number } | null; trailProgress: { id: string; discipline: string; topic: string | null; finalizedAt: string | null; total: number; answered: number; completed: boolean }[] };
+  learning?: { disciplines: { discipline: string; total: number; correct: number; percentage: number | null }[]; priorityTopic: { discipline: string; topic: string; total: number; percentage: number } | null; trailProgress: { id: string; attemptId?: string | null; discipline: string; topic: string | null; finalizedAt: string | null; total: number; answered: number; completed: boolean }[] };
 };
 type StudyDashboard = { streak: { current: number; longest: number; lastActivityDate: string | null }; totalAnsweredQuestions: number; todayAnsweredQuestions: number; todayGoal: { targetQuestions: number; progressPercentage: number } | null; currentLevel: string | null };
 const formatDate = (value: string) =>
