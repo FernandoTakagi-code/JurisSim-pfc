@@ -19,24 +19,24 @@ it('keeps nonexistent accounts unavailable', async () => {
   await expect(new AuthRepository().findByEmail('missing@example.invalid')).resolves.toBeNull();
 });
 
-it('does not require the institutional registration column for a regular session while the module is disabled', async () => {
+it.each([null, 'INSTITUTION', 'TEACHER_INVITATION'])('preserves registration intent %s while institutional modules are disabled', async registrationIntent => {
   vi.stubEnv('INSTITUTIONS_ENABLED', 'false');
   vi.stubEnv('ADMINISTRATION_ENABLED', 'false');
   vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED', 'false');
   mocks.findUnique.mockResolvedValue({
     id: 'regular-session', nome: 'Pessoa', email: 'pessoa@local.test', role: 'ALUNO',
-    emailVerifiedAt: null, deletedAt: null,
+    emailVerifiedAt: null, deletedAt: null, registrationIntent,
   });
 
   await expect(new AuthRepository().findById('regular-session')).resolves.toEqual({
     id: 'regular-session', nome: 'Pessoa', email: 'pessoa@local.test', role: 'ALUNO',
-    emailVerifiedAt: null, deletedAt: null, registrationIntent: null,
+    emailVerifiedAt: null, deletedAt: null, registrationIntent,
   });
   expect(mocks.findUnique).toHaveBeenCalledWith({
     where: { id: 'regular-session' },
     select: {
       id: true, nome: true, email: true, role: true,
-      emailVerifiedAt: true, deletedAt: true,
+      emailVerifiedAt: true, deletedAt: true, registrationIntent: true,
     },
   });
 });
