@@ -44,7 +44,7 @@ function teacher(actor: Actor) {
     );
 }
 export class ClassActivityService {
-  async list(actor: Actor, classId: string | undefined, page = 1) {
+  async list(actor: Actor, classId: string | undefined, page = 1, filters: { search?: string; status?: 'ALL' | 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'CANCELLED' } = {}) {
     await ready();
     const student = actor.role === "ALUNO" && !actor.institutionAdmin;
     if (!student) teacher(actor);
@@ -59,16 +59,24 @@ export class ClassActivityService {
       }))
     )
       throw new ApiError(404, "Turma indisponível.");
-    const rows = await prisma.classActivity.findMany({
-      where: {
-        ...(classId ? { classId } : {}),
-        turma: scope,
-        ...(student
-          ? { cancelledAt: null, avaliacao: { publishedAt: { not: null } } }
-          : actor.institutionAdmin
-            ? {}
-            : { avaliacao: { autorId: actor.userId } }),
-      },
+    const baseWhere: Prisma.ClassActivityWhereInput = { AND: [
+      ...(classId ? [{ classId }] : []),
+      { turma: scope },
+      ...(student ? [{ cancelledAt: null }, { avaliacao: { publishedAt: { not: null } } }]
+        : actor.institutionAdmin ? [] : [{ avaliacao: { autorId: actor.userId } }]),
+      ...(filters.search ? [{ avaliacao: { titulo: { contains: filters.search, mode: 'insensitive' as const } } }] : []),
+    ] };
+    const now = new Date();
+    const byStatus: Record<NonNullable<typeof filters.status>, Prisma.ClassActivityWhereInput> = {
+      ALL: {},
+      DRAFT: { avaliacao: { publishedAt: null } },
+      PUBLISHED: { cancelledAt: null, closedAt: null, OR: [{ dueAt: null }, { dueAt: { gt: now } }], avaliacao: { publishedAt: { not: null } } },
+      CLOSED: { OR: [{ closedAt: { not: null } }, { closedAt: null, dueAt: { lte: now }, avaliacao: { publishedAt: { not: null } } }] },
+      CANCELLED: { cancelledAt: { not: null } },
+    };
+    const selectedWhere: Prisma.ClassActivityWhereInput = { AND: [baseWhere, byStatus[filters.status ?? 'ALL']] };
+    const rowsPromise = prisma.classActivity.findMany({
+      where: selectedWhere,
       orderBy: [{ avaliacao: { createdAt: "desc" } }, { id: "desc" }],
       skip: (page - 1) * 20,
       take: 21,
@@ -85,6 +93,7 @@ export class ClassActivityService {
             titulo: true,
             descricao: true,
             publishedAt: true,
+            autor: { select: { id: true, nome: true } },
             questoes: {
               orderBy: { posicao: "asc" },
               select: { questaoId: true },
@@ -98,6 +107,14 @@ export class ClassActivityService {
         },
       },
     });
+    const summaryPromise = student ? Promise.resolve(undefined) : Promise.all([
+      prisma.classActivity.count({ where: { AND: [baseWhere, byStatus.DRAFT] } }),
+      prisma.classActivity.count({ where: { AND: [baseWhere, byStatus.PUBLISHED] } }),
+      prisma.classActivity.count({ where: { AND: [baseWhere, byStatus.CLOSED] } }),
+      prisma.classActivity.count({ where: { AND: [baseWhere, byStatus.CANCELLED] } }),
+      prisma.simulado.count({ where: { tipo: 'AVALIACAO', finalizadoEm: { not: null }, avaliacao: { activity: { is: { ...baseWhere } } } } }),
+    ]);
+    const [rows, totals] = await Promise.all([rowsPromise, summaryPromise]);
     const delivered=student?[]:await prisma.simulado.groupBy({by:['avaliacaoId'],where:{avaliacaoId:{in:rows.map(r=>r.evaluationId)},finalizadoEm:{not:null}},_count:{_all:true}});
     return {
       items: rows
@@ -106,6 +123,7 @@ export class ClassActivityService {
           id: r.evaluationId,
           classId: r.classId,
           className: r.turma.nome,
+          teacherName: r.avaliacao.autor.nome,
           titulo: r.avaliacao.titulo,
           descricao: r.avaliacao.descricao,
           dueAt: r.dueAt,
@@ -139,6 +157,7 @@ export class ClassActivityService {
         })),
       page,
       hasMore: rows.length > 20,
+      ...(totals ? { summary: { drafts: totals[0], published: totals[1], closed: totals[2], cancelled: totals[3], deliveries: totals[4] } } : {}),
     };
   }
   async questions(actor: Actor, classId: string, page = 1) {

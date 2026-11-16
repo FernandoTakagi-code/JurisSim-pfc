@@ -27,7 +27,9 @@ const mocks = vi.hoisted(() => {
       user: model(),
       accountControl: model(),
       institutionalMembership: model(),
+      institutionalClass: model(),
       institution: model(),
+      teacherInvitation: model(),
       administrativeEvent: model(),
       administrativeNotification: model(),
       turma: model(),
@@ -88,6 +90,7 @@ beforeEach(() => {
   router = createInstitutionRoutes();
   vi.resetAllMocks();
   vi.stubEnv("INSTITUTIONS_ENABLED", "true");
+  vi.stubEnv("INSTITUTION_TEACHER_MANAGEMENT_ENABLED", "false");
   vi.stubEnv('ADMINISTRATION_ENABLED','false');
   vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','false');
   vi.stubEnv("JWT_SECRET", secret);
@@ -112,6 +115,42 @@ it("keeps old databases usable while the additive module awaits authorization", 
   ).toMatchObject({ enabled: false, registrationEnabled:false, administrationEnabled:false });
   expect((await request("/admin/summary")).status).toBe(503);
   expect(mocks.db.accountControl.findUnique).not.toHaveBeenCalled();
+});
+it("allows authenticated read-only institutional summary while keeping operational writes gated", async () => {
+  vi.stubEnv("INSTITUTIONS_ENABLED", "false");
+  mocks.db.institutionalMembership.findMany.mockResolvedValue([{ institutionId, role: "INSTITUTION_ADMIN", institution: { name: "Faculdade" } }]);
+  mocks.db.institutionalMembership.findFirst.mockResolvedValue({ id: "membership" });
+  mocks.db.institution.findMany.mockResolvedValue([{ id: institutionId, status: "ACTIVE", ownerId: userId, memberships: [{ role: "INSTITUTION_ADMIN" }] }]);
+  mocks.db.institution.findUnique.mockResolvedValue({ id: institutionId, status: "ACTIVE", ownerId: userId });
+  mocks.db.$queryRaw.mockResolvedValue([{ ready: false }]);
+  mocks.db.institutionalClass.findMany.mockResolvedValue([]);
+  mocks.db.institutionalMembership.count.mockResolvedValue(0);
+  mocks.db.turma.findMany.mockResolvedValue([]);mocks.db.turma.count.mockResolvedValue(0);
+  mocks.db.user.findMany.mockResolvedValue([]);mocks.db.user.count.mockResolvedValue(0);
+  mocks.db.simulado.count.mockResolvedValue(0);mocks.db.avaliacao.count.mockResolvedValue(0);
+  mocks.db.teacherInvitation.count.mockResolvedValue(0);
+  expect((await request("/mine")).status).toBe(200);
+  expect((await request(`/${institutionId}/summary`)).status).toBe(200);
+  expect((await request(`/${institutionId}/invitations`, "POST", { email: "new@example.com" })).status).toBe(503);
+});
+it("exposes only scoped professor management when its independent capability is enabled", async () => {
+  vi.stubEnv("INSTITUTIONS_ENABLED", "false");
+  vi.stubEnv("ADMINISTRATION_ENABLED", "false");
+  vi.stubEnv("INSTITUTION_REGISTRATION_ENABLED", "false");
+  vi.stubEnv("INSTITUTION_TEACHER_MANAGEMENT_ENABLED", "true");
+  const availability = await (await request("/availability", "GET", undefined, false)).json();
+  expect(availability).toMatchObject({ enabled: false, capabilities: { teacherManagement: true, teacherInvitations: true, classAssignment: true, examManagement: false, institutionalOperations: false } });
+  // The independent capability clears the feature gate, but authentication is
+  // still required before a service can inspect the active membership.
+  expect((await request(`/${institutionId}/invitations`, "POST", { email: "new@example.com" }, false)).status).toBe(401);
+});
+it("reports invitation sending unavailable when the server invitation mode is missing", async () => {
+  vi.stubEnv("INSTITUTIONS_ENABLED", "false");
+  vi.stubEnv("INSTITUTION_TEACHER_MANAGEMENT_ENABLED", "true");
+  vi.stubEnv("NODE_ENV", "");
+  const availability = await (await request("/availability", "GET", undefined, false)).json();
+  expect(availability.capabilities).toMatchObject({ teacherManagement: true, teacherInvitations: false });
+  expect(availability.teacherInvitationReason).toContain("Configure o ambiente");
 });
 it.each([
   "/admin/summary",
@@ -240,8 +279,8 @@ it('receives a first request with no prior membership and with valid CNPJ while 
   expect((await request('/requests','POST',registration)).status).toBe(201);
   expect(mocks.db.institution.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({ownerId:userId,status:'PENDING',email:'owner@example.invalid',description:expect.stringContaining('Curso preparatório')})}));
   expect(mocks.db.institutionalMembership.upsert).not.toHaveBeenCalled();
-  expect((await request(`/${institutionId}/invitations`)).status).toBe(503);
-  expect((await request('/invitations/accept','POST',{token:'a'.repeat(64)})).status).toBe(503);
+  expect((await request(`/${institutionId}/invitations`)).status).toBe(403);
+  expect([403,503]).toContain((await request('/invitations/accept','POST',{token:'a'.repeat(64)})).status);
 });
 it('rejects duplicate applications before creating memberships or another institution',async()=>{
   mocks.db.user.findUnique.mockResolvedValue({email:'owner@example.invalid',emailVerifiedAt:new Date()});

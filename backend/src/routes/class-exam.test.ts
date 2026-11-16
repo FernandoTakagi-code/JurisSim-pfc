@@ -76,6 +76,7 @@ describe('class and teacher-exam HTTP guards', () => {
   it.each([
     { ...input, questaoIds: [] }, { ...input, questaoIds: [id, id] }, { ...input, turmaIds: [id, id] },
     { ...input, duracaoSegundos: 0 }, { ...input, duracaoSegundos: 86401 }, { ...input, autorId: 'forged' },
+    { ...input, responsibleTeacherId: 'invalid-id' },
     { ...input, titulo: '' }, { ...input, turmaIds: [] },
   ])('rejects invalid/forged exam input', async body => {
     expect((await request('POST', '/avaliacoes', body)).status).toBe(422); expect(mocks.save).not.toHaveBeenCalled();
@@ -84,6 +85,26 @@ describe('class and teacher-exam HTTP guards', () => {
     const response = await request('POST', '/avaliacoes', input);
     expect(response.status).toBe(201); expect(response.headers.get('cache-control')).toBe('no-store');
     expect(mocks.save).toHaveBeenCalledWith({ userId: id, role: 'PROFESSOR' }, input);
+  });
+  it('accepts a validated optional institutional responsible teacher id for server-side authorization', async () => {
+    const body = { ...input, responsibleTeacherId: id };
+    expect((await request('POST', '/avaliacoes', body)).status).toBe(201);
+    expect(mocks.save).toHaveBeenCalledWith({ userId: id, role: 'PROFESSOR' }, body);
+  });
+  it('passes bounded search, class and status filters to the exam list service', async () => {
+    const response = await request('GET', '/avaliacoes?page=2&turmaId=00000000-0000-4000-8000-000000000072&search=Simulado%20teste&status=CLOSED');
+    expect(response.status).toBe(200);
+    expect(mocks.exams).toHaveBeenCalledWith(
+      { userId: id, role: 'PROFESSOR' },
+      2,
+      '00000000-0000-4000-8000-000000000072',
+      false,
+      { search: 'Simulado teste', status: 'CLOSED' },
+    );
+  });
+  it.each(['/avaliacoes?status=INVALID', '/avaliacoes?search=' + 'x'.repeat(151)])('rejects invalid exam list filters: %s', async path => {
+    expect((await request('GET', path)).status).toBe(422);
+    expect(mocks.exams).not.toHaveBeenCalled();
   });
   it.each(['?page=0', '?page=1001', '?page=abc', '?alunoId=other'])('rejects unbounded/tampered pagination %s', async query => {
     expect((await request('GET', '/turmas' + query)).status).toBe(422); expect(mocks.list).not.toHaveBeenCalled();

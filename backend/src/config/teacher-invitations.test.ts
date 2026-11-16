@@ -1,15 +1,20 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ manifest: true }));
-vi.mock('./institution-homologation', () => ({ homologationManifest: () => state.manifest ? {} : null }));
+vi.mock('./institution-homologation', () => ({ homologationManifest: () => state.manifest ? {} : null, restrictedOperationsEnabled: () => false }));
 import { teacherInvitationMode } from './teacher-invitations';
 beforeEach(() => {
   state.manifest = true;
-  for (const [key,value] of Object.entries({ NODE_ENV:'production', TEACHER_INVITATIONS_MODE:'production', INSTITUTIONS_ENABLED:'true', INSTITUTION_HOMOLOGATION_ENABLED:'false', APP_PUBLIC_URL:'https://jurissim.example.invalid', BREVO_EMAIL_TRANSPORT:'smtp', BREVO_SMTP_USER:'smtp@example.invalid', BREVO_SMTP_KEY:'isolated-test-key', JURISSIM_RUNTIME_DATA_SOURCE:'', LOCAL_EMAIL_CAPTURE_ENABLED:'false', LOCAL_DIAGNOSTIC_DEMO_MODE:'false' })) vi.stubEnv(key,value);
+  for (const [key,value] of Object.entries({ NODE_ENV:'production', TEACHER_INVITATIONS_MODE:'production', INSTITUTIONS_ENABLED:'true', INSTITUTION_TEACHER_MANAGEMENT_ENABLED:'false', INSTITUTION_HOMOLOGATION_ENABLED:'false', APP_PUBLIC_URL:'https://jurissim.example.invalid', BREVO_EMAIL_TRANSPORT:'smtp', BREVO_SMTP_USER:'smtp@example.invalid', BREVO_SMTP_KEY:'isolated-test-key', JURISSIM_RUNTIME_DATA_SOURCE:'', LOCAL_EMAIL_CAPTURE_ENABLED:'false', LOCAL_DIAGNOSTIC_DEMO_MODE:'false' })) vi.stubEnv(key,value);
 });
 afterEach(() => vi.unstubAllEnvs());
 it('production requires explicit server mode and is independent of a private development manifest', () => {
   expect(teacherInvitationMode()).toBe('production');
   state.manifest=false;expect(teacherInvitationMode()).toBe('production');
+});
+it('production invitations can use the narrow teacher-management capability without enabling all institutions', () => {
+  vi.stubEnv('INSTITUTIONS_ENABLED','false');
+  vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','true');
+  expect(teacherInvitationMode()).toBe('production');
 });
 it.each([
   ['TEACHER_INVITATIONS_MODE',''],['TEACHER_INVITATIONS_MODE','restricted'],['INSTITUTIONS_ENABLED','false'],
@@ -24,4 +29,4 @@ it('a globally enabled institution cannot override a restricted deployment', () 
   vi.stubEnv('NODE_ENV','development');vi.stubEnv('TEACHER_INVITATIONS_MODE','restricted');vi.stubEnv('INSTITUTION_HOMOLOGATION_ENABLED','true');expect(teacherInvitationMode).toThrow();
 });
 it('missing environment never falls back to production', () => { vi.stubEnv('NODE_ENV','');expect(teacherInvitationMode).toThrow(); });
-it('explicit institutional test mode remains isolated from production', () => { vi.stubEnv('NODE_ENV','test');vi.stubEnv('TEACHER_INVITATIONS_MODE','institutional');expect(teacherInvitationMode()).toBe('institutional'); });
+it('explicit institutional test mode remains isolated from production', () => { vi.stubEnv('NODE_ENV','test');vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','true');vi.stubEnv('TEACHER_INVITATIONS_MODE','institutional');expect(teacherInvitationMode()).toBe('institutional'); });

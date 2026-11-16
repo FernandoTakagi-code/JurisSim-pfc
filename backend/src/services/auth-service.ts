@@ -172,10 +172,10 @@ export class AuthService {
     return this.repository.exportData(userId, page);
   }
 
-  async session(userId: string, localDemoRequested = false):Promise<AuthSessionResult> {
+  async session(userId: string, localDemoRequested = false, institutionalReadOnly = false):Promise<AuthSessionResult> {
     const user = await this.repository.findById(userId);
     if (!user || user.deletedAt) throw new ApiError(401, 'Sessão inválida.');
-    const administration = await currentAccess(userId, user.role);
+    const administration = await currentAccess(userId, user.role, user.registrationIntent === 'INSTITUTION' || institutionalReadOnly);
     if (administration) user.role = administration.effectiveRole as typeof user.role;
     const emailVerificado = Boolean(user.emailVerifiedAt);
     if (user.role === 'ALUNO' && user.registrationIntent === 'TEACHER_INVITATION') return {

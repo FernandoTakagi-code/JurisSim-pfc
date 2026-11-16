@@ -21,8 +21,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}, option
   const institutionalView=window.location.pathname==='/instituicoes';
   const institution = institutionalView?(new URLSearchParams(window.location.search).get('instituicao')??sessionStorage.getItem('jurissim_administration_institution')):sessionStorage.getItem('jurissim_institution');
   const personalRole=sessionStorage.getItem('jurissim_personal_role');
-  if (authenticated && institution && academic && (institutionalView||personalRole==='PROFESSOR')) headers['X-Institution-Id'] = institution;
-  if(authenticated&&academic&&institutionalView)headers['X-Institution-Context']='administration';
+  if (authenticated && institution && ((academic && (institutionalView||personalRole==='PROFESSOR')) || (institutionalView && (path.startsWith('/institutions/') || path === '/auth/session')))) headers['X-Institution-Id'] = institution;
+  if(authenticated&&institutionalView&&(academic||path.startsWith('/institutions/')||path==='/auth/session'))headers['X-Institution-Context']='administration';
   if (authenticated && sessionStorage.getItem('jurissim_local_diagnostic_demo') === 'true') headers['X-JurisSim-Local-Demo'] = 'true';
   else delete headers['x-jurissim-local-demo'];
   let response: Response;

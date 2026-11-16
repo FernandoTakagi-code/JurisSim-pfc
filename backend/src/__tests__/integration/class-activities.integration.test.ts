@@ -68,6 +68,13 @@ it("creates a draft, lists authorized questions, publishes and records real stud
   const saved = await f.request("POST", "/atividades", f.input);
   expect(saved.status).toBe(201);
   const id = saved.corpo.id;
+  const draftList = await f.request("GET", `/atividades?classId=${f.turma.id}&status=DRAFT&search=t%C3%A9cnica`);
+  expect(draftList.status).toBe(200);
+  expect(draftList.corpo).toMatchObject({
+    summary: { drafts: 1, published: 0, closed: 0, cancelled: 0 },
+    items: [expect.objectContaining({ id, teacherName: f.teacher.nome, status: "DRAFT" })],
+  });
+  expect((await f.request("GET", `/atividades?classId=${f.turma.id}&search=sem%20correspond%C3%AAncia`)).corpo.items).toEqual([]);
   expect(
     await prisma.classActivity.findUnique({ where: { evaluationId: id } }),
   ).toMatchObject({ classId: f.turma.id, closedAt: null, cancelledAt: null });
@@ -75,7 +82,7 @@ it("creates a draft, lists authorized questions, publishes and records real stud
     (
       await f.request(
         "GET",
-        `/atividades?classId=${f.turma.id}`,
+        `/atividades?classId=${f.turma.id}&status=PUBLISHED`,
         undefined,
         f.student,
       )

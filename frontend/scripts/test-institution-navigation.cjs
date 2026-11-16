@@ -33,8 +33,14 @@ vm.runInNewContext(
 );
 const { institutionSections, canManageInstitution, institutionNavigate } =
   exportsObject;
-assert.equal(institutionSections.length, 12);
-assert.equal(new Set(institutionSections.map((s) => s.id)).size, 12);
+const dashboard = fs.readFileSync(path.join(root, "src/institution-dashboard.tsx"), "utf8");
+assert.equal(institutionSections.length, 11);
+assert.equal(new Set(institutionSections.map((s) => s.id)).size, 11);
+assert.equal(institutionSections.some((section) => section.id === "activities"), false);
+assert.match(dashboard, /params\.get\("secao"\) === "activities".*institutionNavigate\(id, "overview"\)/s);
+assert.doesNotMatch(dashboard, /Atividades publicadas|Entregas concluídas|go\("activities"\)/);
+assert.match(dashboard, /section !== "teachers" && section !== "invitations"\) setInvitationNotice\(""\)/);
+assert.match(dashboard, /invitationNotice && \(section === "teachers" \|\| section === "invitations"\)/);
 const session = (role) => ({
   user: { role, emailVerificado: true },
   administration: {
@@ -93,6 +99,7 @@ const css = postcss.parse(
   fs.readFileSync(path.join(root, "src/institution-dashboard.css"), "utf8"),
 );
 css.walkRules((rule) => {
+  if (rule.parent.type === "atrule" && /keyframes/i.test(rule.parent.name)) return;
   for (const selector of rule.selectors)
     assert.ok(selector.startsWith(".institution-workspace"), selector);
 });
@@ -116,5 +123,5 @@ assert.deepEqual(
   ["src"],
 );
 console.log(
-  "OK: doze módulos, papel pessoal preservado, autorização por vínculo, rotas contextualizadas e CSS isolado; sem rede ou banco.",
+  "OK: onze módulos, atividades fora da navegação institucional, papel pessoal preservado, autorização por vínculo, rotas contextualizadas e CSS isolado; sem rede ou banco.",
 );

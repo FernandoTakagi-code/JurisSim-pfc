@@ -17,6 +17,7 @@ import {
   type AdministrationAvailability,
   type AdministrativeCapability,
 } from "./administration-availability";
+import { institutionNavigate, canViewInstitution } from "./institution-navigation";
 
 type Page<T> = { items: T[]; page: number; hasMore: boolean };
 type Institution = {
@@ -238,7 +239,7 @@ export function ResourceState({
       {resource.error && (
         <div role="alert" className="error">
           <p>{resource.error}</p>
-          <button onClick={resource.reload}>Tentar novamente</button>
+          <button type="button" onClick={resource.reload}>Tentar novamente</button>
         </div>
       )}
     </>
@@ -1353,12 +1354,7 @@ export function InstitutionsPortal({ session }: { session: Session }) {
   const availability = useResource<AdministrationAvailability>(
     "/institutions/availability",
   );
-  const resource = useResource<Institution[]>(
-    registrationAvailable(availability.data) ||
-      availability.data?.administrationEnabled
-      ? "/institutions/mine"
-      : null,
-  );
+  const resource = useResource<Institution[]>("/institutions/mine");
   const adminIds =
     session.administration?.memberships
       .filter((m) => m.role === "INSTITUTION_ADMIN")
@@ -1385,12 +1381,10 @@ export function InstitutionsPortal({ session }: { session: Session }) {
       </header>
       <ResourceState resource={availability} />
       {availability.data &&
-      !registrationAvailable(availability.data) &&
-      !availability.data.administrationEnabled ? (
+      resource.error && !resource.data ? (
         <InstitutionalFeatureStatus status={session.institutionalStatus} />
       ) : (
-        (registrationAvailable(availability.data) ||
-          availability.data?.administrationEnabled) && (
+        (
           <>
             <ResourceState resource={resource} />
             {!resource.loading&&registrationAvailable(availability.data) && session.user.emailVerificado && !resource.data?.some(i=>i.ownerId===session.user.id) ? (
@@ -1417,11 +1411,11 @@ export function InstitutionsPortal({ session }: { session: Session }) {
                 {i.decisionReason?.trim() && <aside className="institution-review-note" aria-label="Observação registrada na análise"><span>{i.status === 'REJECTED' ? 'Orientação para revisão do cadastro' : 'Observação registrada na análise'}</span><p>{i.decisionReason}</p></aside>}
                 {i.status==='REJECTED'&&i.ownerId===session.user.id&&registrationAvailable(availability.data)&&session.user.emailVerificado&&<InstitutionRequest onCreated={resource.reload} contactEmail={session.user.email} responsibleName={session.user.nome} initial={i}/>}
                 {!availability.data?.enabled && i.status === "ACTIVE" && (
-                  <p className="institution-guidance">O cadastro foi aprovado. As operações institucionais serão disponibilizadas após a liberação correspondente.</p>
+                  <p className="institution-guidance">Acompanhamento em modo de leitura. As operações de gestão aguardam ativação autorizada.</p>
                 )}
-                {availability.data?.enabled && session.administration?.enabled && session.user.emailVerificado && i.status==='ACTIVE' && adminIds.includes(i.id) && (
-                  <button type="button" className="primary-button institution-manage-button" onClick={() => {sessionStorage.setItem('jurissim_administration_institution',i.id);window.history.replaceState({},'',`/instituicoes?instituicao=${encodeURIComponent(i.id)}`);window.dispatchEvent(new Event('jurissim-institution-context'));}}>
-                    Administrar instituição
+                {i.status==='ACTIVE' && canViewInstitution(session,i.id) && (
+                  <button type="button" className="primary-button institution-manage-button" onClick={() => institutionNavigate(i.id,'overview')}>
+                    {availability.data?.enabled ? 'Administrar instituição' : 'Acompanhar instituição'}
                   </button>
                 )}
               </article>

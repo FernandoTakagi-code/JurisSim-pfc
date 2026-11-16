@@ -48,10 +48,12 @@ activityRoutes.get("/", async (req: AuthenticatedRequest, res) => {
     .object({
       classId: z.string().uuid().optional(),
       page: z.coerce.number().int().min(1).max(1000).default(1),
+      search: z.string().trim().max(150).optional(),
+      status: z.enum(['ALL','DRAFT','PUBLISHED','CLOSED','CANCELLED']).default('ALL'),
     })
     .strict()
     .parse(req.query);
-  res.json(await service.list(req.auth!, q.classId, q.page));
+  res.json(await service.list(req.auth!, q.classId, q.page, { search: q.search, status: q.status }));
 });
 activityRoutes.get(
   "/questions",

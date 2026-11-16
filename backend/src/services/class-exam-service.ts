@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
 import { analyzeDiagnostic } from './adaptive-engine';
-import { institutionsEnabled } from '../config/institution-feature';
+import { institutionsEnabled, institutionalExamManagementEnabled } from '../config/institution-feature';
 import { administrativeEvent, institutionalTransaction, fixtureProvenance, type InstitutionActor } from './institution-service';
 import { homologationClassBoundary, assertRestrictedInstitution, assertRestrictedParticipant, restrictedInstitutionId, restrictedOperationsEnabled, homologationManifest } from '../config/institution-homologation';
 
@@ -11,14 +11,14 @@ import { classLifecycleReady, classActivitiesReady, examSettingsReady, visibleCl
 import { toEligibleCandidate } from '../repositories/prisma-initial-diagnostic-repository';
 import { questionAlternativesError } from '../question-alternatives';
 type Actor = InstitutionActor;
-export type ExamInput = { titulo: string; descricao: string; duracaoSegundos: number | null; turmaIds: string[]; questaoIds: string[]; expectedQuestions?:number };
+export type ExamInput = { titulo: string; descricao: string; duracaoSegundos: number | null; turmaIds: string[]; questaoIds: string[]; expectedQuestions?:number; responsibleTeacherId?:string };
 const classSelect = { id: true, nome: true, createdAt: true, archivedAt: true,
   professores:{select:{id:true,nome:true}},
   _count: { select: { alunos: { where: { deletedAt: null } } } } } satisfies Prisma.TurmaSelect;
 const examSelect = { id: true, titulo: true, descricao: true, duracaoSegundos: true, createdAt: true, publishedAt: true,
   autorId: true, turmas: { select: { id: true, nome: true, archivedAt: true } },
   questoes: { orderBy: { posicao: 'asc' }, select: { questaoId: true, posicao: true } },
-  _count: { select: { tentativas: true } } } satisfies Prisma.AvaliacaoSelect;
+  _count: { select: { tentativas: true, questoes: true } } } satisfies Prisma.AvaliacaoSelect;
 const attemptInclude = { avaliacao: { select: { id: true, titulo: true, turmas: { select: { id: true } } } },
   questoes: { orderBy: { posicao: 'asc' }, include: { questao: { include: { alternativas: true } }, resposta: true } },
   desempenhosDiagnostico: true } satisfies Prisma.SimuladoInclude;
@@ -55,6 +55,11 @@ export function staff(actor: Actor) {
   }
   if (actor.role === 'ADMIN' || !(actor.role === 'PROFESSOR' || (actor.institutionAdmin && actor.institutionId))) throw new ApiError(403, 'Acesso exclusivo de professores.');
 }
+function examStaff(actor: Actor) {
+  staff(actor);
+  if (actor.institutionAdmin && !institutionalExamManagementEnabled())
+    throw new ApiError(503, 'A gestão institucional de simulados está desativada neste ambiente.');
+}
 export const managedClass = async (actor: Actor,history=false): Promise<Prisma.TurmaWhereInput> => {
   const base: Prisma.TurmaWhereInput = actor.institutionAdmin && actor.institutionId ? {institutionalClass:{institutionId:actor.institutionId}} : { professores: { some: { id: actor.userId } }, ...(actor.allowedClassIds ? { AND: [{ id: { in: actor.allowedClassIds } }] } : {}) };
   const boundary=homologationClassBoundary();
@@ -82,7 +87,7 @@ async function classAdministrativeEvent(tx: Prisma.TransactionClient, event: str
 
 export class ClassExamService {
   async examDetails(actor:Actor,id:string,page=1,activity=false){
-    staff(actor);
+    examStaff(actor);
     return prisma.$transaction(async tx=>{
       const exam=await tx.avaliacao.findFirst({where:{id,...await managedExam(actor,true)},include:{turmas:{select:{id:true,nome:true}},questoes:{orderBy:{posicao:'asc'},include:{questao:{include:{alternativas:{orderBy:{letra:'asc'}}}}}}}});
       if(!exam)throw new ApiError(404,'Avaliação indisponível para esta conta.');
@@ -103,7 +108,7 @@ export class ClassExamService {
   }
 
   async manageExam(actor:Actor,id:string,operation:'close'|'archive'|'delete'){
-    staff(actor);
+    examStaff(actor);
     return transaction(async tx=>{
       await lock(tx,'Avaliacao',id);
       const exam=await tx.avaliacao.findFirst({where:{id,...await managedExam(actor)},select:examSelect});
@@ -125,7 +130,7 @@ export class ClassExamService {
     });
   }
   async eligibleQuestions(actor:Actor,classIds:string[],page=1,filters:{q?:string;disciplina?:string;assunto?:string;nivel?:'BASICO'|'INTERMEDIARIO'|'AVANCADO';pageSize?:number}={}){
-    staff(actor);
+    examStaff(actor);
     const ids=[...new Set(classIds)];
     if(!ids.length||ids.length>30||!Number.isInteger(page)||page<1||page>10000)throw new ApiError(422,'Selecione ao menos uma turma ativa para consultar as questões elegíveis.');
     return prisma.$transaction(async tx=>{
@@ -421,22 +426,52 @@ export class ClassExamService {
     return {...pageOf(items, page),class:turma};
   }
 
-  async listExams(actor: Actor, page: number,classId?:string,includeArchived=false) {
-    if(actor.role!=='ALUNO'||actor.institutionAdmin)staff(actor);
+  async listExams(actor: Actor, page: number,classId?:string,includeArchived=false,filters:{search?:string;status?:'ALL'|'DRAFT'|'PUBLISHED'|'CLOSED'|'ARCHIVED'}={}) {
+    if(actor.role!=='ALUNO'||actor.institutionAdmin)examStaff(actor);
     const personalStudent=actor.role==='ALUNO'&&!actor.institutionAdmin;
     const settingsReady=await examSettingsReady();
-    const items = await prisma.avaliacao.findMany({ where: { AND:[...(classId?[{turmas:{some:{id:classId}}}]:[]),...(settingsReady&&(!includeArchived||personalStudent)?[{OR:[{settings:null},{settings:{archivedAt:null}}]}]:[])], ...(personalStudent
+    const activitiesReady=await classActivitiesReady();
+    const scopeWhere:Prisma.AvaliacaoWhereInput=personalStudent
       ? { publishedAt: { not: null }, turmas: { some: { archivedAt: null, ...await enrolledClass(actor.userId) } } }
-      : await managedExam(actor)), ...(await classActivitiesReady()?{activity:null}:{}) }, select: personalStudent
+      : await managedExam(actor);
+    const commonAnd:Prisma.AvaliacaoWhereInput[]=[
+      ...(classId?[{turmas:{some:{id:classId}}}]:[]),
+      ...(activitiesReady?[{activity:null}]:[]),
+    ];
+    const commonWhere:Prisma.AvaliacaoWhereInput={
+      ...scopeWhere,
+      ...(filters.search?{titulo:{contains:filters.search,mode:'insensitive'}}:{}),
+      ...(commonAnd.length?{AND:commonAnd}:{}),
+    };
+    const statusAnd:Prisma.AvaliacaoWhereInput[]=personalStudent?[]:
+      filters.status==='DRAFT'?[{publishedAt:null}]:
+      filters.status==='PUBLISHED'?[{publishedAt:{not:null}},...(settingsReady?[{OR:[{settings:null},{settings:{closedAt:null,archivedAt:null}}]}]:[])]:
+      filters.status==='CLOSED'?settingsReady?[{publishedAt:{not:null}},{settings:{closedAt:{not:null},archivedAt:null}}]:[{id:'__closed_status_unavailable__'}]:
+      filters.status==='ARCHIVED'?settingsReady?[{settings:{archivedAt:{not:null}}}]:[{id:'__archived_status_unavailable__'}]:[];
+    const archiveGuard:Prisma.AvaliacaoWhereInput[]=
+      settingsReady&&!includeArchived&&filters.status!=='ARCHIVED'?[{OR:[{settings:null},{settings:{archivedAt:null}}]}]:[];
+    const listWhere:Prisma.AvaliacaoWhereInput={...scopeWhere,...(filters.search?{titulo:{contains:filters.search,mode:'insensitive'}}:{}),AND:[...commonAnd,...archiveGuard,...statusAnd]};
+    const items = await prisma.avaliacao.findMany({ where: listWhere, select: personalStudent
         ? { id: true, titulo: true, descricao: true, duracaoSegundos: true, publishedAt: true, _count: { select: { questoes: true } },
             tentativas: { where: { alunoId: actor.userId }, select: { id: true, finalizadoEm: true } } }
         : {...examSelect,...(settingsReady?{settings:{select:{expectedQuestions:true,closedAt:true,archivedAt:true}}}:{})},
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 51, skip: (page - 1) * 50 });
-    return pageOf(items, page);
+    if(personalStudent)return pageOf(items,page);
+    const ids=items.slice(0,50).map(item=>item.id);
+    const [participantRows,drafts,published,closed,archived]=await Promise.all([
+      ids.length?prisma.simulado.findMany({where:{avaliacaoId:{in:ids},tipo:'AVALIACAO'},distinct:['avaliacaoId','alunoId'],select:{avaliacaoId:true,alunoId:true}}):Promise.resolve([]),
+      prisma.avaliacao.count({where:{...scopeWhere,...(filters.search?{titulo:{contains:filters.search,mode:'insensitive'}}:{}),publishedAt:null,AND:[...commonAnd,...(settingsReady?[{OR:[{settings:null},{settings:{archivedAt:null}}]}]:[])]}}),
+      prisma.avaliacao.count({where:{...scopeWhere,...(filters.search?{titulo:{contains:filters.search,mode:'insensitive'}}:{}),publishedAt:{not:null},AND:[...commonAnd,...(settingsReady?[{OR:[{settings:null},{settings:{closedAt:null,archivedAt:null}}]}]:[])]}}),
+      settingsReady?prisma.avaliacao.count({where:{...commonWhere,publishedAt:{not:null},AND:[...commonAnd,{settings:{closedAt:{not:null},archivedAt:null}}]}}):Promise.resolve(0),
+      settingsReady?prisma.avaliacao.count({where:{...commonWhere,AND:[...commonAnd,{settings:{archivedAt:{not:null}}}]}}):Promise.resolve(0),
+    ]);
+    const participants=new Map<string,number>();
+    for(const row of participantRows)if(row.avaliacaoId)participants.set(row.avaliacaoId,(participants.get(row.avaliacaoId)??0)+1);
+    return {...pageOf(items.map(item=>({...item,participants:participants.get(item.id)??0})),page),summary:{drafts,published,closed,archived,settingsAvailable:settingsReady}};
   }
 
   async saveExam(actor: Actor, data: ExamInput, id?: string, activity?:{dueAt:Date|null;maxPoints?:number}) {
-    staff(actor);
+    examStaff(actor);
     const activitiesReady=await classActivitiesReady();
     const settingsReady=await examSettingsReady();
     const expected=data.expectedQuestions??data.questaoIds.length;
@@ -445,6 +480,13 @@ export class ClassExamService {
     if(activity&&!activitiesReady)throw new ApiError(503,'Atividades aguardam a migração segura do banco.');
     if(activity&&data.turmaIds.length!==1)throw new ApiError(422,'Atividades pertencem a uma única turma.');
     return transaction(async tx => {
+      const responsibleTeacherId = data.responsibleTeacherId;
+      if (responsibleTeacherId) {
+        if (!actor.institutionAdmin || !actor.institutionId) throw new ApiError(403, 'Somente a instituição pode designar o professor responsável.');
+        const membership = await tx.institutionalMembership.findFirst({ where: { institutionId: actor.institutionId, userId: responsibleTeacherId, role: 'TEACHER', active: true, institution: { status: 'ACTIVE' }, user: { role: 'PROFESSOR', deletedAt: null } }, select: { userId: true } });
+        const assignedClasses = await tx.turma.count({ where: { id: { in: data.turmaIds }, ...await managedClass(actor), professores: { some: { id: responsibleTeacherId } } } });
+        if (!membership || assignedClasses !== data.turmaIds.length) throw new ApiError(403, 'O professor responsável deve ter vínculo ativo e designação em todas as turmas selecionadas.');
+      }
       if (id) {
         await lock(tx, 'Avaliacao', id);
         const exam = await tx.avaliacao.findFirst({ where: { id, ...await managedExam(actor) }, select: { publishedAt: true, _count: { select: { tentativas: true } } } });
@@ -455,17 +497,17 @@ export class ClassExamService {
         if ((!activity&&exam.publishedAt) || exam._count.tentativas) throw new ApiError(409, 'Avaliações iniciadas não podem ser alteradas.');
       }
       await this.validateSelection(tx, actor, data,Boolean(activity));
-      const fields = { titulo: data.titulo, descricao: data.descricao, duracaoSegundos: data.duracaoSegundos,
+      const fields = { titulo: data.titulo, descricao: data.descricao, duracaoSegundos: data.duracaoSegundos, ...(responsibleTeacherId ? { autorId: responsibleTeacherId } : {}),
         turmas: { set: data.turmaIds.map(id => ({ id })) },
         questoes: { deleteMany: {}, create: data.questaoIds.map((questaoId, i) => ({ questaoId, posicao: i + 1 })) } };
       if (id) return tx.avaliacao.update({ where: { id }, data: {...fields,...(activity?{publishedAt:null,activity:{update:{dueAt:activity.dueAt,maxPoints:activity.maxPoints??10}}}:settingsReady?{settings:{upsert:{create:{expectedQuestions:expected},update:{expectedQuestions:expected}}}}:{})}, select: examSelect });
-      return tx.avaliacao.create({ data: { titulo: data.titulo, descricao: data.descricao, duracaoSegundos: data.duracaoSegundos, autorId: actor.userId,
+      return tx.avaliacao.create({ data: { titulo: data.titulo, descricao: data.descricao, duracaoSegundos: data.duracaoSegundos, autorId: responsibleTeacherId ?? actor.userId,
         turmas: { connect: data.turmaIds.map(id => ({ id })) }, ...(activity?{activity:{create:{classId:data.turmaIds[0],dueAt:activity.dueAt,maxPoints:activity.maxPoints??10}}}:settingsReady?{settings:{create:{expectedQuestions:expected}}}:{}), questoes: { create: data.questaoIds.map((questaoId, i) => ({ questaoId, posicao: i + 1 })) } }, select: examSelect });
     });
   }
 
   async publish(actor: Actor, id: string, activity=false) {
-    staff(actor);
+    examStaff(actor);
     return transaction(async tx => {
       await lock(tx, 'Avaliacao', id);
       const exam = await tx.avaliacao.findFirst({ where: { id, ...await managedExam(actor) }, select: examSelect });
