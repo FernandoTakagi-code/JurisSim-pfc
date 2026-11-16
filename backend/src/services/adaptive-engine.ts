@@ -53,7 +53,11 @@ export function analyzeDiagnostic(questions: AnsweredQuestion[]): AdaptiveResult
   const focusPercentage = focusTopic?.percentage ?? weakestDiscipline.percentage;
   const focusDescription = focusTopic ? `${focusTopic.discipline} — ${focusTopic.topic}` : weakestDiscipline.discipline;
   const recommendedLevel = getLevel(focusPercentage);
-  const reason = `Priorize ${focusDescription}: desempenho de ${focusPercentage}%.`;
+  // With no errors there is no weakness to "prioritize"; the trail still needs a
+  // target, so frame it as consolidation instead of remediation.
+  const reason = focusPercentage >= 100
+    ? `Você acertou todas as questões. Para consolidar, continue praticando ${focusDescription} em nível avançado.`
+    : `Priorize ${focusDescription}: desempenho de ${focusPercentage}%.`;
 
   return {
     correctAnswers, totalQuestions: questions.length, overallPercentage, level: getLevel(overallPercentage),

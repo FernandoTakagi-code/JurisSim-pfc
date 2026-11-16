@@ -110,6 +110,9 @@ export function IntegrationShell({
         { path: base + "/atividades", label: "Atividades", icon: "book" },
         { path: base + "/simulados", label: "Simulados", icon: "file" },
         { path: base + "/questoes", label: "Banco de questões", icon: "book" },
+        // Class data, not account settings: keep them with the teaching modules.
+        { path: base + "/desempenho", label: "Desempenho", icon: "chart" },
+        { path: base + "/relatorios", label: "Relatórios", icon: "file" },
       ]
     : [
         { path: "/dashboard", label: "Início", icon: "home" },
@@ -121,12 +124,7 @@ export function IntegrationShell({
         { path: "/trilha", label: "Minha Trilha Adaptativa", icon: "target" },
       ];
   if(sessionState.session?.administration?.restricted) primary=primary.filter(item=>!/(?:^|\/)questoes(?:\/|$)/.test(item.path));
-  const secondary: Item[] = admin || institutional ? [] : teacher
-    ? [
-        { path: base + "/desempenho", label: "Desempenho", icon: "chart" },
-        { path: base + "/relatorios", label: "Relatórios", icon: "file" },
-      ]
-    : [
+  const secondary: Item[] = admin || institutional || teacher ? [] : [
         { path: "/historico", label: "Histórico de atividades", icon: "chart" },
         { path: "/metas", label: "Metas de estudo", icon: "target" },
       ];

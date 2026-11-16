@@ -55,6 +55,17 @@ describe('motor adaptativo', () => {
     expect(result.trail.recommendedLevel).toBe('BASICO');
   });
 
+  it('nao pede para priorizar fraqueza quando todas as respostas estao corretas', () => {
+    const result = analyzeDiagnostic([
+      ...Array.from({ length: 3 }, () => ({ discipline: 'Administrativo', topic: 'Avocacao', difficulty: 'AVANCADO' as const, isCorrect: true })),
+      ...Array.from({ length: 3 }, () => ({ discipline: 'Penal', topic: 'Crimes', difficulty: 'AVANCADO' as const, isCorrect: true })),
+    ]);
+    expect(result.recommendation).not.toMatch(/Priorize/);
+    expect(result.recommendation).toContain('Você acertou todas as questões');
+    expect(result.recommendation).toContain('Administrativo');
+    expect(result.trail.recommendedLevel).toBe('AVANCADO');
+  });
+
   it('calcula o percentual a partir das respostas registradas', () => {
     expect(analyzeDiagnostic(questions(50)).overallPercentage).toBe(50);
   });

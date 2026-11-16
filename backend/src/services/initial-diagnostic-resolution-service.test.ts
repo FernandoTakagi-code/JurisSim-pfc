@@ -80,6 +80,14 @@ describe('initial diagnostic resolution service', () => {
     expect(repository.saveOrUpdateAnswer).toHaveBeenCalledWith(studentId, attemptId, 'question-2', 'alternative-2-C');
   });
 
+  it('returns the persisted answer without re-reading the whole attempt', async () => {
+    const respondedAt = new Date('2026-11-15T21:00:00.000Z');
+    const { repository, service } = setup({ saveOrUpdateAnswer: vi.fn().mockResolvedValue({ status: 'SAVED', selectedAlternativeId: 'alternative-2-C', respondedAt }) });
+    const saved = await service.saveAnswer(studentId, attemptId, 'question-2', 'alternative-2-C');
+    expect(saved).toEqual({ questionId: 'question-2', selectedOptionId: 'alternative-2-C', respondedAt });
+    expect(repository.findOwnedAttempt).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['NOT_FOUND', 404], ['FINALIZED', 409], ['QUESTION_NOT_FOUND', 404], ['ALTERNATIVE_NOT_FOUND', 422],
   ] as const)('maps answer outcome %s to a controlled error', async (status, expectedStatus) => {

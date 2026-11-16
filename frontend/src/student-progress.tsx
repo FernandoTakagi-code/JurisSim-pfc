@@ -194,7 +194,7 @@ export function Evolution({ items }: { items?: Activity[] }) {
           <button
             onClick={() => navigate(resultPath(item))}
           >
-            <span>{formatDate(item.finalizedAt!)}</span>
+            <span>Concluído em {formatDate(item.finalizedAt!)}</span>
             <strong>
               {item.overallPercentage === null
                 ? "Sem pontuação"
@@ -218,7 +218,10 @@ export function RecentActivities({ items }: { items?: Activity[] }) {
       {items.map((item) => (
         <li key={item.id}>
           <span>
-            {typeLabel(item.type)} · {formatDate(item.startedAt)}
+            {typeLabel(item.type)} ·{" "}
+            {item.finalizedAt
+              ? `Concluído em ${formatDate(item.finalizedAt)}`
+              : `Iniciado em ${formatDate(item.startedAt)}`}
           </span>
           {item.finalizedAt ? (
             <>

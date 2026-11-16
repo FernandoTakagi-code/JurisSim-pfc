@@ -453,7 +453,7 @@ function ReportMetrics({
         {cards.map(([label, value]) => (
           <div key={label}>
             <dt>{label}</dt>
-            <dd>{value}</dd>
+            <dd className={typeof value === "string" && !/\d/.test(value) ? "report-metric-text" : undefined}>{value}</dd>
           </div>
         ))}
       </dl>
@@ -672,8 +672,9 @@ export function TeacherReports({
           : "Relatórios por turma"}
       </h1>
       <p className="muted">
-        Participação e resultados nos simulados publicados para as matrículas
-        atuais de cada turma.
+        {mode === "performance"
+          ? "Participação e resultados nos simulados publicados para as matrículas atuais de cada turma."
+          : "Acompanhamento individual: escolha uma turma e, em seguida, consulte o relatório de cada aluno matriculado."}
       </p>
       <State {...classes} />
       <article className="panel report-class-selector">

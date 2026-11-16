@@ -107,6 +107,14 @@
   font-size: 25px;
   font-weight: 800;
 }
+/* Textual values ("Sem oportunidades", "Sem resultado") must wrap between
+   words, never inside one; the page-level overflow-wrap would split them. */
+.report-metrics dd.report-metric-text {
+  font-size: 17px;
+  line-height: 1.3;
+  overflow-wrap: normal;
+  word-break: normal;
+}
 .report-details {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -41,8 +41,11 @@ export type InitialDiagnosticFinalizeOutcome =
 
 export interface InitialDiagnosticResolutionRepository {
   findOwnedAttempt(studentId: string, attemptId: string): Promise<InitialDiagnosticResolutionAttempt | null>;
+  // 'SAVED' alone makes the service re-read the attempt; the object form carries the
+  // persisted values from the same write and avoids that second full read.
   saveOrUpdateAnswer(studentId: string, attemptId: string, questionId: string, alternativeId: string): Promise<
     'NOT_FOUND' | 'FINALIZED' | 'QUESTION_NOT_FOUND' | 'ALTERNATIVE_NOT_FOUND' | 'SAVED'
+    | { status: 'SAVED'; selectedAlternativeId: string | null; respondedAt: Date }
   >;
   finalizeAtomically(studentId: string, attemptId: string, analyze: (attempt: InitialDiagnosticResolutionAttempt) => AdaptiveResult): Promise<InitialDiagnosticFinalizeOutcome>;
 }
@@ -158,6 +161,9 @@ export class InitialDiagnosticResolutionService {
     if (status === 'FINALIZED') throw new ApiError(409, 'O diagnóstico inicial já foi finalizado.');
     if (status === 'QUESTION_NOT_FOUND') throw new ApiError(404, 'A questão não pertence a este diagnóstico inicial.');
     if (status === 'ALTERNATIVE_NOT_FOUND') throw new ApiError(422, 'A alternativa não pertence a esta questão.');
+    if (typeof status === 'object') {
+      return { questionId, selectedOptionId: status.selectedAlternativeId, respondedAt: status.respondedAt };
+    }
 
     const attempt = await this.getOwnedAttempt(studentId, attemptId);
     const question = attempt.questions.find(item => item.questionId === questionId)!;
