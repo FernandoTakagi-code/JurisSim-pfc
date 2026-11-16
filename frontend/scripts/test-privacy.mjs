@@ -67,7 +67,7 @@ try {
       throw Error('Unexpected isolated request: '+route);
     };
   ` });
-  await cdp('Page.navigate', { url: origin + '/perfil?aba=security' });
+  await cdp('Page.navigate', { url: origin + '/perfil?aba=personal' });
   await until('!!document.querySelector("[aria-labelledby=privacy-settings-title] button")');
   pass('profile shows personal export without another authentication system');
   const camera = await evaluate(`const policy=document.permissionsPolicy||document.featurePolicy;const allowed=policy.allowsFeature('camera');const media=await navigator.mediaDevices.getUserMedia({video:true,audio:false});const video=document.createElement('video');video.muted=true;video.srcObject=media;await video.play();const canvas=document.createElement('canvas');canvas.width=320;canvas.height=240;canvas.getContext('2d').drawImage(video,0,0,320,240);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));media.getTracks().forEach(track=>track.stop());return {allowed,microphone:policy.allowsFeature('microphone'),geolocation:policy.allowsFeature('geolocation'),size:blob.size,stopped:media.getTracks().every(track=>track.readyState==='ended')};`);

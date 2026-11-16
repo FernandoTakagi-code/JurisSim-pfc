@@ -201,7 +201,7 @@ try {
   await until('!!document.querySelector(".v0-sidebar nav button")');
   await evaluate(`[...document.querySelectorAll('.v0-sidebar nav button')].find(button => button.textContent.toLowerCase().includes('configura')).click()`);
   await until('!!document.querySelector(".v0-tabs")');
-  await evaluate(`[...document.querySelectorAll('.v0-tabs button')].find(button => button.textContent.includes('Preferências')).click()`);
+  await evaluate(`[...document.querySelectorAll('.v0-tabs button')].find(button => button.textContent.includes('Dados pessoais')).click()`);
   await until("!!document.querySelector('#privacy-settings-title')");
   assert.equal(await evaluate(`document.querySelectorAll('#privacy-settings-title ~ .legal-links a[href="#/termos"], #privacy-settings-title ~ .legal-links a[href="#/privacidade"]').length`), 2);
   assert.equal(await evaluate(`document.querySelector('#privacy-settings-title').parentElement.textContent.includes('Em breve')`), false);

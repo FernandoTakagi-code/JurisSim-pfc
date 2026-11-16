@@ -65,10 +65,15 @@ async function main() {
   pass('empty accounts return empty history and actual zero counts, with no artificial scores');
 
   // Real diagnostic and trail flows write the persistence used by history.
+  // Trails only draw editorially released questions (official discipline, A-D,
+  // legal and pedagogical review), so the fixtures carry that metadata.
+  const reviewedAt = new Date();
   for (let i = 0; i < 3; i++) await prisma.questao.create({ data: {
-    enunciado: `History fixture ${i}`, disciplina: 'History Civil', assunto: 'History Contratos', nivel: 'BASICO',
-    fundamentacaoJuridica: 'Local persistence test', autorId: teacher.id, publica: true,
-    alternativas: { create: [{ texto: 'Correct', correta: true }, { texto: 'Incorrect', correta: false }] },
+    enunciado: `History fixture ${i}`, disciplina: 'Direito Civil', assunto: 'History Contratos', nivel: 'BASICO',
+    fundamentacaoJuridica: 'Local persistence test', autorId: teacher.id, publica: true, origem: 'IA',
+    revisaoJuridicaEm: reviewedAt, revisorJuridicoId: teacher.id, revisaoPedagogicaEm: reviewedAt, revisorPedagogicoId: teacher.id,
+    liberadaAcervoEm: reviewedAt, liberadaAcervoPorId: teacher.id,
+    alternativas: { create: (['A', 'B', 'C', 'D'] as const).map((letra, index) => ({ letra, texto: index === 0 ? 'Correct' : `Incorrect ${letra}`, correta: index === 0 })) },
   } });
   const started = await request('/diagnostics', aliceToken, 'POST', { questionCount: 3 }); assert.equal(started.status, 201);
   const diagnosticId = (await started.json()).id;
