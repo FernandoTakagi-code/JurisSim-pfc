@@ -149,7 +149,7 @@ async function main() {
     load('tsx/cjs');
     const {prisma}=load('./src/lib/prisma.ts');
     const {StudentHistoryRepository}=load('./src/repositories/student-history-repository.ts');
-    const {ProfilePhotoService}=load('./src/services/profile-photo-service.ts');
+    const {ProfilePhotoService}=load('./src/services/accounts/profile-photo-service.ts');
     (async()=>{try{
       const repo=new StudentHistoryRepository();
       const blank=await repo.overview('synthetic-empty-account');

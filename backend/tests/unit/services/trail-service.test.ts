@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { TrailService } from "../../../src/services/trail-service";
+import { TrailService } from "../../../src/services/study/trail-service";
 
 function trilha(overrides: Record<string, unknown> = {}) {
   return {

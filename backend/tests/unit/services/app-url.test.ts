@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { isValidAppUrl } from "../../../src/services/app-url";
+import { isValidAppUrl } from "../../../src/services/email/app-url";
 
 afterEach(() => vi.unstubAllEnvs());
 

@@ -6,12 +6,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { assertDisposableDatabase } from "../tests/integration/disposable-database";
-import { getInitialDiagnosticComposition } from '../src/services/initial-diagnostic-composition';
+import { getInitialDiagnosticComposition } from '../src/services/diagnostics/initial-diagnostic-composition';
 import { PrismaInitialDiagnosticRepository } from '../src/repositories/prisma-initial-diagnostic-repository';
 import { PrismaInitialDiagnosticResolutionRepository } from '../src/repositories/prisma-initial-diagnostic-resolution-repository';
-import { InitialDiagnosticService } from '../src/services/initial-diagnostic-service';
-import { InitialDiagnosticResolutionService } from '../src/services/initial-diagnostic-resolution-service';
-import { importAuthorialPilot } from '../src/services/authorial-pilot-import';
+import { InitialDiagnosticService } from '../src/services/diagnostics/initial-diagnostic-service';
+import { InitialDiagnosticResolutionService } from '../src/services/diagnostics/initial-diagnostic-resolution-service';
+import { importAuthorialPilot } from '../src/services/questions/authorial-pilot-import';
 
 // Synthetic content only. No dotenv or arbitrary target. Identity is checked
 // before the first write; only the disposable harness can run this scenario.

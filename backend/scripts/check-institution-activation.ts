@@ -1,7 +1,7 @@
 // Read-only inspection: never changes the flag or approves a transition.
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
-import { inspectInstitutionActivation } from "../src/services/institution-activation";
+import { inspectInstitutionActivation } from "../src/services/institutions/institution-activation";
 dotenv.config({ quiet: true });
 const db = new PrismaClient();
 async function main() {

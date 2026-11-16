@@ -3,10 +3,10 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
 import { inventorySelect } from './prisma-initial-diagnostic-repository';
-import { individualExamInventoryWhere, isIndividualExamSelectable, isIndividualExamPilotQuestion } from '../services/individual-exam-pilot';
-import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
-import { PRACTICE_DISCIPLINES } from '../services/question-practice-service';
-import type { ExamCandidate, IndividualExamAttempt, IndividualExamRepository } from '../services/individual-exam-service';
+import { individualExamInventoryWhere, isIndividualExamSelectable, isIndividualExamPilotQuestion } from '../services/assessments/individual-exam-pilot';
+import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from '../services/diagnostics/diagnostic-question-snapshot';
+import { PRACTICE_DISCIPLINES } from '../services/questions/question-practice-service';
+import type { ExamCandidate, IndividualExamAttempt, IndividualExamRepository } from '../services/assessments/individual-exam-service';
 
 type Connection = Prisma.TransactionClient;
 async function activeId(db: Connection, studentId: string) {

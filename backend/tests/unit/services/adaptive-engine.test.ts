@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AnsweredQuestion } from "../../../src/types/diagnostic";
-import { analyzeDiagnostic, getLevel } from "../../../src/services/adaptive-engine";
+import { analyzeDiagnostic, getLevel } from "../../../src/services/diagnostics/adaptive-engine";
 
 function questions(correctAnswers: number, total = 100): AnsweredQuestion[] {
   return Array.from({ length: total }, (_, index) => ({

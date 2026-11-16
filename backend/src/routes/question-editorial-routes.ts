@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRoles, type AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { authRateLimit } from '../middlewares/auth-rate-limit';
-import { QuestionEditorialService } from '../services/question-editorial-service';
+import { QuestionEditorialService } from '../services/questions/question-editorial-service';
 
 export function createQuestionEditorialRoutes(service = new QuestionEditorialService()) {
   const router = Router();

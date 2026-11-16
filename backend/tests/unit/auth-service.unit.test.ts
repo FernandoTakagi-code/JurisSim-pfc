@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from "../../src/errors/api-error";
 import { GOOGLE_PASSWORD_SENTINEL } from "../../src/repositories/auth-repository";
-import { AuthService } from "../../src/services/auth-service";
+import { AuthService } from "../../src/services/accounts/auth-service";
 import versions from "../../src/legal-versions.json";
 
 // Teste unitário: o repositório é substituído por um dublê (vi.fn),
@@ -159,7 +159,7 @@ describe('AuthService.session() diagnostic routing', () => {
   it('allows an explicit local demo session without marking the initial diagnostic complete', async () => {
     vi.stubEnv('INITIAL_DIAGNOSTIC_REQUIRED', 'true');
     vi.stubEnv('INITIAL_DIAGNOSTIC_API_ENABLED', 'false');
-    const { localEmailVerificationCapture } = await import("../../src/services/local-email-capture");
+    const { localEmailVerificationCapture } = await import("../../src/services/email/local-email-capture");
     vi.spyOn(localEmailVerificationCapture, 'isLocalDiagnosticDemoEnabled', 'get').mockReturnValue(true);
     const repo = repository();
     const result = await new AuthService(repo as never).session(student.id, true);

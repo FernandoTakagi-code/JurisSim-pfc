@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
-import { importPracticeDrafts, preparePracticeDraftImport } from "../../../src/services/practice-draft-import";
+import { importPracticeDrafts, preparePracticeDraftImport } from "../../../src/services/questions/practice-draft-import";
 
 const input = () => JSON.parse(readFileSync(resolve(__dirname, "../../../scripts/drafts/authorial-practice-60.draft.json"), 'utf8'));
 function database(options: { role?: string; existing?: unknown; duplicates?: { enunciado: string; fingerprint: string | null }[] } = {}) {

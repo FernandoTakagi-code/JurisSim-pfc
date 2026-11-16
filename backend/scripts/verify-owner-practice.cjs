@@ -6,7 +6,7 @@ Object.assign(process.env,cfg,{QUESTION_PRACTICE_OWNER_AUTHORIZATION_ENABLED:'tr
 const url=new URL(cfg.DIRECT_URL||cfg.DATABASE_URL);url.searchParams.set('connection_limit','1');
 const db=new PrismaClient({datasourceUrl:url.toString()});
 const {PrismaQuestionPracticeRepository}=require('../dist/repositories/prisma-question-practice-repository');
-const {QuestionPracticeService}=require('../dist/services/question-practice-service');
+const {QuestionPracticeService}=require('../dist/services/questions/question-practice-service');
 const manifest=JSON.parse(fs.readFileSync(path.join(backend,'../docs/liberacao-administrativa-candidatas-2026-11-16.json'),'utf8'));
 const args=process.argv.slice(2);
 if(args.length && !(args.length===2&&args[0]==='--actor-email'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(args[1])))throw Error('Use only optional --actor-email');

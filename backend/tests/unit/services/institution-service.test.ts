@@ -39,10 +39,10 @@ import {
   InstitutionService,
   currentAccess,
   hashInvitation,
-} from "../../../src/services/institution-service";
+} from "../../../src/services/institutions/institution-service";
 import { institutionApplication } from "../../fixtures/institution-request";
-import { ClassExamService } from "../../../src/services/class-exam-service";
-import { EmailDeliveryFailure } from "../../../src/services/email-delivery-failure";
+import { ClassExamService } from "../../../src/services/assessments/class-exam-service";
+import { EmailDeliveryFailure } from "../../../src/services/email/email-delivery-failure";
 
 const global = { userId: "global", role: "ADMIN" },
   owner = { userId: "owner", role: "ALUNO" };

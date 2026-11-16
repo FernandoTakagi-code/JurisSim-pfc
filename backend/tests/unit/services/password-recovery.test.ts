@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import bcrypt from 'bcrypt';
-import { AuthService } from "../../../src/services/auth-service";
-import { PasswordRecoveryService } from "../../../src/services/password-recovery-service";
+import { AuthService } from "../../../src/services/accounts/auth-service";
+import { PasswordRecoveryService } from "../../../src/services/accounts/password-recovery-service";
 import { PasswordRecoveryRepository } from "../../../src/repositories/password-recovery-repository";
 import { GOOGLE_PASSWORD_SENTINEL } from "../../../src/repositories/auth-repository";
-import { EmailDeliveryFailure } from "../../../src/services/email-delivery-failure";
+import { EmailDeliveryFailure } from "../../../src/services/email/email-delivery-failure";
 
 const db = vi.hoisted(() => ({
   userFindUnique: vi.fn(), userUpdateMany: vi.fn(),

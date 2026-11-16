@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import { beforeAll, beforeEach, afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { prisma } from "../../src/lib/prisma";
 import { accountDeletionEnabled } from "../../src/account-deletion-availability";
-import { AccountDeletionService } from "../../src/services/account-deletion";
+import { AccountDeletionService } from "../../src/services/accounts/account-deletion";
 import { createAuthRoutes } from "../../src/routes/auth-routes";
 import { createInstitutionRoutes } from "../../src/routes/institution-routes";
 import { errorHandler } from "../../src/middlewares/error-handler";

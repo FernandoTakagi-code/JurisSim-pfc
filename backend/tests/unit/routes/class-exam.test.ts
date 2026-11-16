@@ -6,8 +6,8 @@ const mocks = vi.hoisted(() => ({ user: vi.fn(), list: vi.fn(), create: vi.fn(),
 vi.mock("../../../src/repositories/auth-repository", () => ({ AuthRepository: class { findByIdForAuth = mocks.user; } }));
 // This suite tests legacy HTTP role guards, not database-backed memberships.
 // Keep configured local flags from causing accidental Prisma calls in unit tests.
-vi.mock("../../../src/services/institution-service", () => ({ currentAccess: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("../../../src/services/class-exam-service", () => ({ ClassExamService: class {
+vi.mock("../../../src/services/institutions/institution-service", () => ({ currentAccess: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("../../../src/services/assessments/class-exam-service", () => ({ ClassExamService: class {
   listClasses = mocks.list; createClass = mocks.create; updateClass = mocks.update; rotateInvite = mocks.invite;
   join = mocks.join; students = mocks.students; listExams = mocks.exams; saveExam = mocks.save; publish = mocks.publish;
   eligibleQuestions=mocks.eligible; eligibleQuestionPreview=mocks.preview;

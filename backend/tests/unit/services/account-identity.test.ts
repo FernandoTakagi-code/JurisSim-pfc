@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import { afterEach, expect, it, vi } from 'vitest';
 const google = vi.hoisted(() => vi.fn());
 vi.mock('google-auth-library', () => ({ OAuth2Client: class { verifyIdToken = google; } }));
-import { confirmAccountIdentity } from "../../../src/services/account-identity";
+import { confirmAccountIdentity } from "../../../src/services/accounts/account-identity";
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 it('requires the current stored password rather than a password from another account', async () => {
   const user = { email: 'admin@example.invalid', senhaHash: await bcrypt.hash('Admin-fixture1!', 4) };

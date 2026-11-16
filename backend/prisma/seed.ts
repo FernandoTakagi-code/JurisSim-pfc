@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Nivel, PrismaClient, Role } from '@prisma/client';
-import { createSeedAccountIfMissing } from '../src/services/seed-account-upsert';
+import { createSeedAccountIfMissing } from '../src/services/accounts/seed-account-upsert';
 
 const prisma = new PrismaClient();
 

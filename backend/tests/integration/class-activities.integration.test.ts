@@ -10,7 +10,7 @@ import {
   questaoValida,
   requisicao,
 } from "./helpers";
-import { ClassExamService } from "../../src/services/class-exam-service";
+import { ClassExamService } from "../../src/services/assessments/class-exam-service";
 let server: Server, baseUrl: string;
 beforeAll(async () => {
   ({ server, baseUrl } = await iniciarServidor());

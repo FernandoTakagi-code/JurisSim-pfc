@@ -3,9 +3,9 @@ import { InitialDiagnosticController } from '../controllers/initial-diagnostic-c
 import { requireAuth, requireRoles } from '../middlewares/auth-middleware';
 import { PrismaInitialDiagnosticRepository } from '../repositories/prisma-initial-diagnostic-repository';
 import { PrismaInitialDiagnosticResolutionRepository } from '../repositories/prisma-initial-diagnostic-resolution-repository';
-import { InitialDiagnosticService } from '../services/initial-diagnostic-service';
-import { InitialDiagnosticResolutionService } from '../services/initial-diagnostic-resolution-service';
-import { parseInitialDiagnosticCompositionMode } from '../services/initial-diagnostic-composition';
+import { InitialDiagnosticService } from '../services/diagnostics/initial-diagnostic-service';
+import { InitialDiagnosticResolutionService } from '../services/diagnostics/initial-diagnostic-resolution-service';
+import { parseInitialDiagnosticCompositionMode } from '../services/diagnostics/initial-diagnostic-composition';
 import { initialDiagnosticPilotBatchId } from '../config/initial-diagnostic-pilot';
 
 const FEATURE_FLAG = 'INITIAL_DIAGNOSTIC_API_ENABLED';

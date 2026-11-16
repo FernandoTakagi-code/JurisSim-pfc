@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BrevoSmtpClient } from "../../../src/services/brevo-smtp";
-import { EmailDeliveryFailure } from "../../../src/services/email-delivery-failure";
-import { BrevoEmailVerificationSender } from "../../../src/services/email-verification-sender";
-import { BrevoRecoveryEmailSender } from "../../../src/services/recovery-email-sender";
+import { BrevoSmtpClient } from "../../../src/services/email/brevo-smtp";
+import { EmailDeliveryFailure } from "../../../src/services/email/email-delivery-failure";
+import { BrevoEmailVerificationSender } from "../../../src/services/email/email-verification-sender";
+import { BrevoRecoveryEmailSender } from "../../../src/services/email/recovery-email-sender";
 
 const mocks = vi.hoisted(() => ({ createTransport: vi.fn(), sendMail: vi.fn(), verify: vi.fn() }));
 vi.mock('nodemailer', () => ({ default: { createTransport: mocks.createTransport } }));

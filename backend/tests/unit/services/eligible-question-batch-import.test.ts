@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { INITIAL_DIAGNOSTIC_COMPOSITION, INITIAL_DIAGNOSTIC_DISCIPLINES } from "../../../src/services/initial-diagnostic-composition";
-import { validateQuestionBatch } from "../../../src/services/eligible-question-batch";
+import { INITIAL_DIAGNOSTIC_COMPOSITION, INITIAL_DIAGNOSTIC_DISCIPLINES } from "../../../src/services/diagnostics/initial-diagnostic-composition";
+import { validateQuestionBatch } from "../../../src/services/questions/eligible-question-batch";
 
 function validBatch() {
   const questions = INITIAL_DIAGNOSTIC_COMPOSITION.flatMap((slot, slotIndex) =>

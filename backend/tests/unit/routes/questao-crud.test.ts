@@ -338,7 +338,7 @@ describe('autoria, privacidade e isolamento entre turmas', () => {
     (classes.get('turma-a') as any).institutionalClass={institutionId:'institution-a',institution:{status:'ACTIVE'}};
     (classes.get('turma-b') as any).institutionalClass={institutionId:'institution-b',institution:{status:'ACTIVE'}};
     db.institutionalMembership.findFirst.mockImplementation(async({where})=>where.userId==='owner'&&where.institutionId==='institution-a'?{id:'membership'}:null);
-    const {QuestaoService}=await import("../../../src/services/QuestaoService");
+    const {QuestaoService}=await import("../../../src/services/questions/QuestaoService");
     const catalog=await QuestaoService.listar({},role,'owner',false,'institution-a');
     expect(catalog.map(q=>q.id)).toEqual([own.id]);
     expect(catalog[0].alternativas[0]).toHaveProperty('correta');
@@ -347,7 +347,7 @@ describe('autoria, privacidade e isolamento entre turmas', () => {
   });
   it('escopo institucional não permite ADMIN global nem leitura sem vínculo administrativo',async()=>{
     db.institutionalMembership.findFirst.mockResolvedValue(null);
-    const {QuestaoService}=await import("../../../src/services/QuestaoService");
+    const {QuestaoService}=await import("../../../src/services/questions/QuestaoService");
     await expect(QuestaoService.listar({},'ADMIN','global',false,'institution-a')).rejects.toMatchObject({statusCode:403});
     await expect(QuestaoService.buscarPorId('anything','ALUNO','student','institution-a')).rejects.toMatchObject({statusCode:403});
     expect(db.questao.findMany).not.toHaveBeenCalled();

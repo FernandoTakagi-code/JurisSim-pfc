@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { individualExamInventoryWhere, isIndividualExamPilotQuestion, isIndividualExamSelectable } from "../../../src/services/individual-exam-pilot";
+import { individualExamInventoryWhere, isIndividualExamPilotQuestion, isIndividualExamSelectable } from "../../../src/services/assessments/individual-exam-pilot";
 import { toEligibleCandidate, type InventoryRow } from "../../../src/repositories/prisma-initial-diagnostic-repository";
-import { isPracticeSelectable } from "../../../src/services/question-practice-pilot";
+import { isPracticeSelectable } from "../../../src/services/questions/question-practice-pilot";
 
 const batchId = '9218bdec-f4e3-43a1-8b54-cdc40720dea5';
 function row(): InventoryRow {

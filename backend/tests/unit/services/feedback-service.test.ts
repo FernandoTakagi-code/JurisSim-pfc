@@ -14,7 +14,7 @@ describe('Feedback IA: fallback e confidencialidade dos logs', () => {
   it('mantém fallback local sem chamar provedor quando não há configuração', async () => {
     vi.stubEnv('GROQ_API_KEY', '');
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { gerarJustificativaComIA } = await import("../../../src/services/feedback-service");
+    const { gerarJustificativaComIA } = await import("../../../src/services/study/feedback-service");
     expect(await gerarJustificativaComIA(trail)).toBeNull();
     expect(mocks.create).not.toHaveBeenCalled();
   });
@@ -26,7 +26,7 @@ describe('Feedback IA: fallback e confidencialidade dos logs', () => {
     });
     mocks.create.mockRejectedValue(error);
     const logger = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { gerarJustificativaComIA } = await import("../../../src/services/feedback-service");
+    const { gerarJustificativaComIA } = await import("../../../src/services/study/feedback-service");
     expect(await gerarJustificativaComIA(trail)).toBeNull();
     expect(logger).toHaveBeenCalledExactlyOnceWith('Erro ao gerar feedback com IA.');
   });
@@ -35,7 +35,7 @@ describe('Feedback IA: fallback e confidencialidade dos logs', () => {
     vi.stubEnv('GROQ_API_KEY', 'fixture-only-not-a-real-key');
     mocks.create.mockResolvedValueOnce({ choices: [{ message: { content: '  Revise Civil.  ' } }] })
       .mockResolvedValueOnce({ choices: [] });
-    const { gerarJustificativaComIA } = await import("../../../src/services/feedback-service");
+    const { gerarJustificativaComIA } = await import("../../../src/services/study/feedback-service");
     expect(await gerarJustificativaComIA(trail)).toBe('Revise Civil.');
     expect(await gerarJustificativaComIA(trail)).toBeNull();
   });

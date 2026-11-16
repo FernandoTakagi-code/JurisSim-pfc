@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { prepareAuthorialDraftBatch } from "../../../src/services/authorial-draft-batch";
-import { getInitialDiagnosticComposition } from "../../../src/services/initial-diagnostic-composition";
-import { validateQuestionBatch } from "../../../src/services/eligible-question-batch";
+import { prepareAuthorialDraftBatch } from "../../../src/services/questions/authorial-draft-batch";
+import { getInitialDiagnosticComposition } from "../../../src/services/diagnostics/initial-diagnostic-composition";
+import { validateQuestionBatch } from "../../../src/services/questions/eligible-question-batch";
 
 function drafts() {
   return { questions: getInitialDiagnosticComposition('AUTORAL_30').flatMap((slot, i) => [0, 1].map(n => ({

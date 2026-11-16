@@ -18,8 +18,8 @@ vi.mock("../../../src/repositories/auth-repository", async importOriginal => ({
   hasCompletedDiagnostic = mocks.hasCompletedDiagnostic;
 } }));
 // Keep the real diagnostic router/controller; isolate database/business operations.
-vi.mock("../../../src/services/diagnostic-service", () => ({ DiagnosticService: class { start = mocks.start; } }));
-vi.mock("../../../src/services/QuestaoService", () => ({ QuestaoService: class { static criar = mocks.createQuestion; } }));
+vi.mock("../../../src/services/diagnostics/diagnostic-service", () => ({ DiagnosticService: class { start = mocks.start; } }));
+vi.mock("../../../src/services/questions/QuestaoService", () => ({ QuestaoService: class { static criar = mocks.createQuestion; } }));
 
 const secret = 'chave-exclusiva-de-testes-jwt-com-mais-de-32-caracteres';
 const userId = '00000000-0000-4000-8000-000000000001';

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { QuestionPracticeService, type PracticeAttempt, type PracticeQuestion, type QuestionPracticeRepository } from "../../../src/services/question-practice-service";
+import { QuestionPracticeService, type PracticeAttempt, type PracticeQuestion, type QuestionPracticeRepository } from "../../../src/services/questions/question-practice-service";
 
 const question = (id: string, correctId = `${id}-a`): PracticeQuestion => ({
   id, discipline: 'Direito Civil', topic: 'Contratos', level: 'BASICO', statement: `Enunciado original da questão ${id}`,

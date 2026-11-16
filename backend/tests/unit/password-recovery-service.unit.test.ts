@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from "../../src/errors/api-error";
 import { GOOGLE_PASSWORD_SENTINEL } from "../../src/repositories/auth-repository";
-import { PasswordRecoveryService, PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from "../../src/services/password-recovery-service";
-import {EmailDeliveryFailure} from "../../src/services/email-delivery-failure";
+import { PasswordRecoveryService, PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } from "../../src/services/accounts/password-recovery-service";
+import {EmailDeliveryFailure} from "../../src/services/email/email-delivery-failure";
 
 // Teste unitário: repositório e envio de e-mail são dublês injetados pelo construtor.
 const APP_URL = 'http://localhost:5173';

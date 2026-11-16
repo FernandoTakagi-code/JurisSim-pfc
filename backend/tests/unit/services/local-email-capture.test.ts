@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LocalEmailVerificationCapture } from "../../../src/services/local-email-capture";
+import { LocalEmailVerificationCapture } from "../../../src/services/email/local-email-capture";
 import { AuthController } from "../../../src/controllers/auth-controller";
 import { ApiError } from "../../../src/errors/api-error";
 

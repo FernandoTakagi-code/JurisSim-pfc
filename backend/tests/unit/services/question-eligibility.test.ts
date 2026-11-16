@@ -5,7 +5,7 @@ import {
   planQuestionSelection,
   type QuestionCandidate,
   type SelectionRequest,
-} from "../../../src/services/question-eligibility";
+} from "../../../src/services/questions/question-eligibility";
 
 function candidate(id: string, overrides: Partial<QuestionCandidate> = {}): QuestionCandidate {
   return {

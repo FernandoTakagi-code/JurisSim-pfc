@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import bcrypt from 'bcrypt';
 import { passwordError, validPasswordConfirmation } from "../../../src/password-policy";
-import { passwordSchema } from "../../../src/services/password-policy";
-import { PasswordRecoveryService } from "../../../src/services/password-recovery-service";
-import { AuthService } from "../../../src/services/auth-service";
+import { passwordSchema } from "../../../src/services/accounts/password-policy";
+import { PasswordRecoveryService } from "../../../src/services/accounts/password-recovery-service";
+import { AuthService } from "../../../src/services/accounts/auth-service";
 import { AuthController } from "../../../src/controllers/auth-controller";
 
 vi.mock("../../../src/lib/prisma", () => ({ prisma: {} }));

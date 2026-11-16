@@ -4,9 +4,9 @@ import { PrismaClient } from '@prisma/client';
 import { assertDisposableDatabase } from "../tests/integration/disposable-database";
 import { PrismaInitialDiagnosticRepository } from '../src/repositories/prisma-initial-diagnostic-repository';
 import { PrismaInitialDiagnosticResolutionRepository } from '../src/repositories/prisma-initial-diagnostic-resolution-repository';
-import { INITIAL_DIAGNOSTIC_COMPOSITION } from '../src/services/initial-diagnostic-composition';
-import { InitialDiagnosticService } from '../src/services/initial-diagnostic-service';
-import { InitialDiagnosticResolutionService } from '../src/services/initial-diagnostic-resolution-service';
+import { INITIAL_DIAGNOSTIC_COMPOSITION } from '../src/services/diagnostics/initial-diagnostic-composition';
+import { InitialDiagnosticService } from '../src/services/diagnostics/initial-diagnostic-service';
+import { InitialDiagnosticResolutionService } from '../src/services/diagnostics/initial-diagnostic-resolution-service';
 
 // This script is intentionally reachable only through the disposable-database
 // harness. It never loads dotenv or accepts an arbitrary database URL.

@@ -3,7 +3,7 @@ import {
   inspectInstitutionActivation,
   assertInstitutionActivationReady,
   InstitutionActivationBlocked,
-} from "../../../src/services/institution-activation";
+} from "../../../src/services/institutions/institution-activation";
 const findMany = vi.fn();
 const db = { user: { findMany } } as never;
 const teacher = (extra = {}) => ({

@@ -15,12 +15,12 @@ import { assertDisposableDatabase } from "./disposable-database";
 import { createQuestionReviewRoutes } from "../../src/routes/question-review-routes";
 import { errorHandler } from "../../src/middlewares/error-handler";
 import { StudentPerformanceRepository } from "../../src/repositories/student-performance-repository";
-import { importPracticeDrafts } from "../../src/services/practice-draft-import";
-import { createDiagnosticQuestionSnapshot } from "../../src/services/diagnostic-question-snapshot";
+import { importPracticeDrafts } from "../../src/services/questions/practice-draft-import";
+import { createDiagnosticQuestionSnapshot } from "../../src/services/diagnostics/diagnostic-question-snapshot";
 import {
   QuestionReviewService,
   reviewQuantities,
-} from "../../src/services/question-review-service";
+} from "../../src/services/questions/question-review-service";
 
 let server: Server,
   base: string,

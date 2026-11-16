@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
 import { assertDisposableDatabase } from "../../tests/integration/disposable-database";
-import { INITIAL_DIAGNOSTIC_DISCIPLINES } from '../../src/services/initial-diagnostic-config';
+import { INITIAL_DIAGNOSTIC_DISCIPLINES } from '../../src/services/diagnostics/initial-diagnostic-config';
 import versions from '../../src/legal-versions.json';
 
 const stages = [{ name: 'smoke', vus: 1 }, { name: 'five', vus: 5 }, { name: 'ten', vus: 10 },

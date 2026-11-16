@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from "../../../src/services/diagnostic-question-snapshot";
+import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from "../../../src/services/diagnostics/diagnostic-question-snapshot";
 
 describe('diagnostic question content snapshots', () => {
   it('preserves question text, the four labeled choices, answer key and rationale', () => {

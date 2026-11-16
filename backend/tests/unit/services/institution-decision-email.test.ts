@@ -4,8 +4,8 @@ const db = vi.hoisted(() => ({
   institution: { findUnique: vi.fn() }, user: { findUnique: vi.fn() }, $transaction: vi.fn(), $executeRaw: vi.fn(),
 }));
 vi.mock("../../../src/lib/prisma", () => ({ prisma: db }));
-import { InstitutionDecisionEmail, decisionEmailEvent, decisionEmailTransitionEvent } from "../../../src/services/institution-decision-email";
-import { EmailDeliveryFailure } from "../../../src/services/email-delivery-failure";
+import { InstitutionDecisionEmail, decisionEmailEvent, decisionEmailTransitionEvent } from "../../../src/services/institutions/institution-decision-email";
+import { EmailDeliveryFailure } from "../../../src/services/email/email-delivery-failure";
 const mail = { isConfigured: true, send: vi.fn() };
 let root: { id: string; institutionId: string; actorId: string; event: string; result: string };
 let transitions: { result: string }[];

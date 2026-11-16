@@ -11,11 +11,11 @@ import {
   type InitialDiagnosticResult,
   type InitialDiagnosticShortage,
 } from "./initial-diagnostic-api";
-import { INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT, INITIAL_DIAGNOSTIC_QUESTIONS_PER_DISCIPLINE } from "../../backend/src/services/initial-diagnostic-config";
+import { INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT, INITIAL_DIAGNOSTIC_QUESTIONS_PER_DISCIPLINE } from "../../backend/src/services/diagnostics/initial-diagnostic-config";
 import { DiagnosticReview } from './diagnostic-review';
 import "./initial-diagnostic.css";
 
-export { INITIAL_DIAGNOSTIC_DISCIPLINES } from "../../backend/src/services/initial-diagnostic-config";
+export { INITIAL_DIAGNOSTIC_DISCIPLINES } from "../../backend/src/services/diagnostics/initial-diagnostic-config";
 
 export type InitialDiagnosticDiscipline = typeof INITIAL_DIAGNOSTIC_DISCIPLINES[number];
 export type AlternativeLetter = "A" | "B" | "C" | "D";

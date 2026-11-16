@@ -2,7 +2,7 @@ import type {Server} from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {beforeAll,beforeEach,afterAll,it,expect} from 'vitest';
 import {iniciarServidor,encerrar,limparBanco,criarUsuario,tokenPara,prisma,questaoValida,requisicao} from './helpers';
-import {ClassExamService} from "../../src/services/class-exam-service";
+import {ClassExamService} from "../../src/services/assessments/class-exam-service";
 let server:Server,baseUrl:string;
 beforeAll(async()=>{({server,baseUrl}=await iniciarServidor());});
 beforeEach(async()=>{process.env.INSTITUTIONS_ENABLED='false';await limparBanco();});

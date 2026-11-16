@@ -5,9 +5,9 @@ import type { Server } from 'node:http';
 const mocks = vi.hoisted(() => ({ user: vi.fn(), goals: vi.fn(), create: vi.fn(), update: vi.fn(), complete: vi.fn(), classes: vi.fn(), report: vi.fn(), individual: vi.fn(), overview: vi.fn() }));
 vi.mock("../../../src/repositories/auth-repository", () => ({ AuthRepository: class { findByIdForAuth = mocks.user; } }));
 // Legacy HTTP guards have no database-backed institutional context in this suite.
-vi.mock("../../../src/services/institution-service", () => ({ currentAccess: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("../../../src/services/study-goal-service", () => ({ StudyGoalService: class { list = mocks.goals; create = mocks.create; update = mocks.update; complete = mocks.complete; } }));
-vi.mock("../../../src/services/class-report-service", () => ({ ClassReportService: class { classes = mocks.classes; report = mocks.report; individual = mocks.individual; overview = mocks.overview; } }));
+vi.mock("../../../src/services/institutions/institution-service", () => ({ currentAccess: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("../../../src/services/study/study-goal-service", () => ({ StudyGoalService: class { list = mocks.goals; create = mocks.create; update = mocks.update; complete = mocks.complete; } }));
+vi.mock("../../../src/services/assessments/class-report-service", () => ({ ClassReportService: class { classes = mocks.classes; report = mocks.report; individual = mocks.individual; overview = mocks.overview; } }));
 import { goalRoutes, reportRoutes } from "../../../src/routes/goals-reports-routes";
 import { errorHandler } from "../../../src/middlewares/error-handler";
 const id = '00000000-0000-4000-8000-000000000081', otherId = '00000000-0000-4000-8000-000000000082';

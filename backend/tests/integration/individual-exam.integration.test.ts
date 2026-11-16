@@ -5,12 +5,12 @@ import { createIndividualExamRoutes } from "../../src/routes/individual-exam-rou
 import { errorHandler } from "../../src/middlewares/error-handler";
 import { criarUsuario, prisma, tokenPara, encerrar, limparBanco } from './helpers';
 import { assertDisposableDatabase } from './disposable-database';
-import { PRACTICE_DISCIPLINES } from "../../src/services/question-practice-service";
+import { PRACTICE_DISCIPLINES } from "../../src/services/questions/question-practice-service";
 import { StudentHistoryRepository } from "../../src/repositories/student-history-repository";
 import { TrailRepository } from "../../src/repositories/trail-repository";
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { importPracticeDrafts } from "../../src/services/practice-draft-import";
+import { importPracticeDrafts } from "../../src/services/questions/practice-draft-import";
 import { PrismaQuestionPracticeRepository } from "../../src/repositories/prisma-question-practice-repository";
 
 let server: Server, base: string;

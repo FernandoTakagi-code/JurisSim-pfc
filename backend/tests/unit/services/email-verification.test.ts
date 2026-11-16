@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EmailVerificationService } from "../../../src/services/email-verification-service";
+import { EmailVerificationService } from "../../../src/services/accounts/email-verification-service";
 import { AuthRepository } from "../../../src/repositories/auth-repository";
-import { EmailDeliveryFailure } from "../../../src/services/email-delivery-failure";
+import { EmailDeliveryFailure } from "../../../src/services/email/email-delivery-failure";
 
 const db = vi.hoisted(() => ({ findFirst: vi.fn(), updateMany: vi.fn(), userUpdate: vi.fn(), transaction: vi.fn(), institutionUpdate: vi.fn() }));
 vi.mock("../../../src/lib/prisma", () => ({ prisma: {

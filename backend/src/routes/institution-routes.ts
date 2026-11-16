@@ -7,17 +7,17 @@ import {
 } from "../middlewares/auth-middleware";
 import { administrativeCapabilities } from "../config/institution-feature";
 import { authRateLimit } from '../middlewares/auth-rate-limit';
-import { InstitutionService } from "../services/institution-service";
+import { InstitutionService } from "../services/institutions/institution-service";
 import { ApiError } from "../errors/api-error";
-import { institutionRequestSchema } from '../services/institution-registration-validation';
-import { InvitationOnboardingService } from '../services/invitation-onboarding';
+import { institutionRequestSchema } from '../services/institutions/institution-registration-validation';
+import { InvitationOnboardingService } from '../services/institutions/invitation-onboarding';
 import { homologationManifest, homologationParticipant, restrictedInstitutionId } from '../config/institution-homologation';
 import { institutionsGloballyEnabled } from '../config/institution-feature';
 import { teacherInvitationMode } from '../config/teacher-invitations';
-import { InstitutionDecisionEmail } from '../services/institution-decision-email';
-import { requireGlobal } from '../services/institution-service';
-import { emailFrontendContext } from '../services/email-frontend';
-import { AccountDeletionService } from '../services/account-deletion';
+import { InstitutionDecisionEmail } from '../services/institutions/institution-decision-email';
+import { requireGlobal } from '../services/institutions/institution-service';
+import { emailFrontendContext } from '../services/email/email-frontend';
+import { AccountDeletionService } from '../services/accounts/account-deletion';
 
 const invitationToken = z.string().regex(/^[a-f0-9]{64}$/);
 const page = z.coerce.number().int().min(1).max(10000).default(1);

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { BrevoSmtpClient } from '../src/services/brevo-smtp';
-import { isValidAppUrl } from '../src/services/app-url';
+import { BrevoSmtpClient } from '../src/services/email/brevo-smtp';
+import { isValidAppUrl } from '../src/services/email/app-url';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env'), quiet: true });
 

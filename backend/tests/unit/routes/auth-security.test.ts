@@ -26,19 +26,19 @@ vi.mock("../../../src/lib/prisma", () => ({ prisma: {
 } }));
 vi.mock('nodemailer', () => ({ default: { createTransport: () => ({ sendMail: mocks.sendMail }) } }));
 vi.mock('google-auth-library', () => ({ OAuth2Client: class { verifyIdToken = mocks.googleVerify; } }));
-vi.mock("../../../src/services/QuestaoService", () => ({ QuestaoService: class {
+vi.mock("../../../src/services/questions/QuestaoService", () => ({ QuestaoService: class {
   static listar = mocks.questionList;
   static buscarPorId = mocks.questionGet;
   static criar = mocks.questionCreate;
   static atualizar = mocks.questionUpdate;
   static remover = mocks.questionDelete;
 } }));
-vi.mock("../../../src/services/diagnostic-service", () => ({ DiagnosticService: class {
+vi.mock("../../../src/services/diagnostics/diagnostic-service", () => ({ DiagnosticService: class {
   start = mocks.diagnosticStart; getQuestions = mocks.diagnosticQuestions;
   answer = mocks.diagnosticAnswer; finalize = mocks.diagnosticFinalize;
   getResult = mocks.diagnosticResult; getTrail = mocks.diagnosticTrail;
 } }));
-vi.mock("../../../src/services/trail-service", () => ({ TrailService: class {
+vi.mock("../../../src/services/study/trail-service", () => ({ TrailService: class {
   generate = mocks.trailGenerate; getQuestions = mocks.trailQuestions;
   answer = mocks.trailAnswer; finalize = mocks.trailFinalize;
 } }));

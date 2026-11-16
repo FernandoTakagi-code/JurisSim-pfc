@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AuthService } from "../../../src/services/auth-service";
+import { AuthService } from "../../../src/services/accounts/auth-service";
 import { AuthController } from "../../../src/controllers/auth-controller";
 
 describe('personal data boundaries', () => {

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BrevoApiTransport, BREVO_API_SEND_DEADLINE_MS } from "../../../src/services/brevo-email-transport";
-import { BrevoEmailVerificationSender } from "../../../src/services/email-verification-sender";
-import { BrevoRecoveryEmailSender } from "../../../src/services/recovery-email-sender";
+import { BrevoApiTransport, BREVO_API_SEND_DEADLINE_MS } from "../../../src/services/email/brevo-email-transport";
+import { BrevoEmailVerificationSender } from "../../../src/services/email/email-verification-sender";
+import { BrevoRecoveryEmailSender } from "../../../src/services/email/recovery-email-sender";
 
 const message = {
   to: 'recipient@example.test',

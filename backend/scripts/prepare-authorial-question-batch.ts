@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { prepareAuthorialDraftBatch } from '../src/services/authorial-draft-batch';
+import { prepareAuthorialDraftBatch } from '../src/services/questions/authorial-draft-batch';
 
 function main() {
   const args = process.argv.slice(2);

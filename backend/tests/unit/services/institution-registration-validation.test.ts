@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { validRegistrationNumber, institutionRequestSchema } from "../../../src/services/institution-registration-validation";
+import { validRegistrationNumber, institutionRequestSchema } from "../../../src/services/institutions/institution-registration-validation";
 import { institutionApplication } from "../../fixtures/institution-request";
 
 it.each(['12ABC34501DE35', '11222333000181'])('accepts a valid numeric/alphanumeric check digit: %s', value => {

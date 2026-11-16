@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { EmailReusePolicy, normalizeReusableEmail } from "../../../src/services/email-reuse-policy";
+import { EmailReusePolicy, normalizeReusableEmail } from "../../../src/services/accounts/email-reuse-policy";
 
 describe('EmailReusePolicy', () => {
   const store = () => ({ active: vi.fn().mockResolvedValue(false), block: vi.fn(), revoke: vi.fn().mockResolvedValue(true) });

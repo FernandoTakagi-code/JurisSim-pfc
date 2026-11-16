@@ -2,13 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { inventorySelect, toEligibleCandidate, type InventoryRow } from './prisma-initial-diagnostic-repository';
-import { practiceInventoryWhere, isPracticePilotQuestion, isPracticeSelectable } from '../services/question-practice-pilot';
-import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
+import { practiceInventoryWhere, isPracticePilotQuestion, isPracticeSelectable } from '../services/questions/question-practice-pilot';
+import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from '../services/diagnostics/diagnostic-question-snapshot';
 import { ApiError } from '../errors/api-error';
-import type { PracticeAttempt, PracticeQuestion, QuestionPracticeRepository } from '../services/question-practice-service';
+import type { PracticeAttempt, PracticeQuestion, QuestionPracticeRepository } from '../services/questions/question-practice-service';
 import type { Level } from '../types/diagnostic';
-import { analyzeDiagnostic } from '../services/adaptive-engine';
-import { ownerPracticeEnabled, ownerPracticeScope, ownerPracticeAuthorizedIds } from '../services/owner-practice-release';
+import { analyzeDiagnostic } from '../services/diagnostics/adaptive-engine';
+import { ownerPracticeEnabled, ownerPracticeScope, ownerPracticeAuthorizedIds } from '../services/questions/owner-practice-release';
 
 const selectableInventoryWhere = (): Prisma.QuestaoWhereInput => ownerPracticeEnabled()
   ? { OR:[practiceInventoryWhere(), ownerPracticeScope] } : practiceInventoryWhere();

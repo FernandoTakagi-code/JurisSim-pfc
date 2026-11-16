@@ -19,11 +19,11 @@ const db=vi.hoisted(()=>{
 vi.mock("../../../src/lib/prisma",()=>({prisma:db}));
 import {homologationManifest,institutionRequestScope,restrictedInstitutionId,homologationClassBoundary,assertRestrictedParticipant} from "../../../src/config/institution-homologation";
 import {institutionsEnabled,institutionsGloballyEnabled} from "../../../src/config/institution-feature";
-import {currentAccess,InstitutionService,institutionAdmin} from "../../../src/services/institution-service";
-import {ClassExamService} from "../../../src/services/class-exam-service";
-import {ClassReportService} from "../../../src/services/class-report-service";
-import {validInvitation} from "../../../src/services/invitation-onboarding";
-import {institutionRequestSchema} from "../../../src/services/institution-registration-validation";
+import {currentAccess,InstitutionService,institutionAdmin} from "../../../src/services/institutions/institution-service";
+import {ClassExamService} from "../../../src/services/assessments/class-exam-service";
+import {ClassReportService} from "../../../src/services/assessments/class-report-service";
+import {validInvitation} from "../../../src/services/institutions/invitation-onboarding";
+import {institutionRequestSchema} from "../../../src/services/institutions/institution-registration-validation";
 import {institutionApplication} from "../../fixtures/institution-request";
 import {requireAuth,type AuthenticatedRequest} from "../../../src/middlewares/auth-middleware";
 import type {Response} from 'express';

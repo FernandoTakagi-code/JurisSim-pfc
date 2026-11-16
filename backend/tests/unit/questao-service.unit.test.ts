@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from "../../src/errors/api-error";
 import { QuestaoRepository } from "../../src/repositories/QuestaoRepository";
-import { QuestaoService } from "../../src/services/QuestaoService";
+import { QuestaoService } from "../../src/services/questions/QuestaoService";
 
 // Teste unitário: o QuestaoRepository (acesso ao banco via Prisma) é substituído por mocks.
 vi.mock("../../src/repositories/QuestaoRepository", () => ({

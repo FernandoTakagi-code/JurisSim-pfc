@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
-import { editorialDigest, editorialIssues, QuestionEditorialService } from "../../../src/services/question-editorial-service";
+import { editorialDigest, editorialIssues, QuestionEditorialService } from "../../../src/services/questions/question-editorial-service";
 import type { InventoryRow } from "../../../src/repositories/prisma-initial-diagnostic-repository";
 const question = () => ({ id:'q', enunciado:'Questão de conteúdo completo para revisão.', disciplina:'Direito Civil', assunto:'Contratos', nivel:'BASICO',
   fundamentacaoJuridica:'Justificativa preenchida.', publica:false, turmaId:null, origem:'IA', fonteNome:'Fonte', fonteReferencia:'Referência',

@@ -10,9 +10,9 @@ import { prisma, criarUsuario, tokenPara, limparBanco, encerrar } from './helper
 import { assertDisposableDatabase } from './disposable-database';
 import { createQuestionEditorialRoutes } from "../../src/routes/question-editorial-routes";
 import { errorHandler } from "../../src/middlewares/error-handler";
-import { QuestionPracticeService } from "../../src/services/question-practice-service";
+import { QuestionPracticeService } from "../../src/services/questions/question-practice-service";
 import { PrismaQuestionPracticeRepository } from "../../src/repositories/prisma-question-practice-repository";
-import { QuestionEditorialService } from "../../src/services/question-editorial-service";
+import { QuestionEditorialService } from "../../src/services/questions/question-editorial-service";
 
 let server: Server, base: string;
 beforeAll(async () => {

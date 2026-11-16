@@ -6,8 +6,8 @@ const db=vi.hoisted(()=>{
   return {teacherInvitation:model(),invitationOnboarding:model(),institution:model(),user:model(),accountControl:model(),institutionalMembership:model(),teacherInvitationClass:model(),administrativeEvent:model(),$transaction:vi.fn(),$queryRaw:vi.fn()};
 });
 vi.mock("../../../src/lib/prisma",()=>({prisma:db}));
-import {InvitationOnboardingService,escapeMail} from "../../../src/services/invitation-onboarding";
-import {EmailDeliveryFailure} from "../../../src/services/email-delivery-failure";
+import {InvitationOnboardingService,escapeMail} from "../../../src/services/institutions/invitation-onboarding";
+import {EmailDeliveryFailure} from "../../../src/services/email/email-delivery-failure";
 const mail={isConfigured:true,send:vi.fn()},token='a'.repeat(64),proof='b'.repeat(64);
 const digest=(v:string)=>createHash('sha256').update(v).digest('hex');
 const service=new InvitationOnboardingService(mail);

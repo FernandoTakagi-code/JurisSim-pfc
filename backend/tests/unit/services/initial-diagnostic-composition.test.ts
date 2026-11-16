@@ -4,7 +4,7 @@ import {
   INITIAL_DIAGNOSTIC_DISCIPLINES,
   composeInitialDiagnostic,
   type InitialDiagnosticCandidate,
-} from "../../../src/services/initial-diagnostic-composition";
+} from "../../../src/services/diagnostics/initial-diagnostic-composition";
 
 function makeInventory(extraPerSlot = 2): InitialDiagnosticCandidate[] {
   const questions: InitialDiagnosticCandidate[] = [];

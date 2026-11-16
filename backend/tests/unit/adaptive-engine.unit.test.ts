@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeDiagnostic, buildTrailFilters, getLevel } from "../../src/services/adaptive-engine";
+import { analyzeDiagnostic, buildTrailFilters, getLevel } from "../../src/services/diagnostics/adaptive-engine";
 import type { AnsweredQuestion, Level } from "../../src/types/diagnostic";
 
 // Gera respostas de uma disciplina/assunto com uma quantidade exata de acertos.

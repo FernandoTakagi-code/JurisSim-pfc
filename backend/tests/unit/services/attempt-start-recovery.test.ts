@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from "../../../src/errors/api-error";
-import { DiagnosticService } from "../../../src/services/diagnostic-service";
-import { TrailService } from "../../../src/services/trail-service";
+import { DiagnosticService } from "../../../src/services/diagnostics/diagnostic-service";
+import { TrailService } from "../../../src/services/study/trail-service";
 
 describe('start recovery after concurrent commits', () => {
   it('returns the diagnostic committed by another request even if the inventory query returned empty', async () => {

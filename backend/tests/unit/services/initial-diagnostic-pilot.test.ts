@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { composeInitialDiagnostic, getInitialDiagnosticComposition, type InitialDiagnosticCandidate } from "../../../src/services/initial-diagnostic-composition";
-import { isEligiblePublicQuestion } from "../../../src/services/question-eligibility";
+import { composeInitialDiagnostic, getInitialDiagnosticComposition, type InitialDiagnosticCandidate } from "../../../src/services/diagnostics/initial-diagnostic-composition";
+import { isEligiblePublicQuestion } from "../../../src/services/questions/question-eligibility";
 import { initialDiagnosticPilotBatchId } from "../../../src/config/initial-diagnostic-pilot";
-import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from "../../../src/services/diagnostic-question-snapshot";
+import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from "../../../src/services/diagnostics/diagnostic-question-snapshot";
 
 const batchId='00000000-0000-4000-8000-000000000001';
 const inventory=(): InitialDiagnosticCandidate[] => getInitialDiagnosticComposition('AUTORAL_30').flatMap((slot,index)=>[0,1].map(n=>({

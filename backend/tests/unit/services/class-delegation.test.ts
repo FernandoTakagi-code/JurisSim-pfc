@@ -10,7 +10,7 @@ vi.mock("../../../src/config/institution-homologation", async importOriginal => 
   homologationClassBoundary: () => undefined,
   restrictedInstitutionId: () => undefined,
 }));
-import {ClassExamService} from "../../../src/services/class-exam-service";
+import {ClassExamService} from "../../../src/services/assessments/class-exam-service";
 const service=new ClassExamService();
 const professor={userId:'teacher-1',role:'PROFESSOR',institutionId:'institution-a',allowedClassIds:['class-a']};
 const replacement={...professor,userId:'teacher-2'};

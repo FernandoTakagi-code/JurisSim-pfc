@@ -6,8 +6,8 @@ import type {
   InitialDiagnosticFinalizeOutcome,
   InitialDiagnosticResolutionAttempt,
   InitialDiagnosticResolutionRepository,
-} from '../services/initial-diagnostic-resolution-service';
-import { readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
+} from '../services/diagnostics/initial-diagnostic-resolution-service';
+import { readDiagnosticQuestionSnapshot } from '../services/diagnostics/diagnostic-question-snapshot';
 
 const attemptInclude = {
   simulado: {

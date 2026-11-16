@@ -7,8 +7,8 @@ const db = vi.hoisted(() => {
 // Test-only module double. Production availability remains hard-disabled.
 vi.mock("../../../src/account-deletion-availability", () => ({ accountDeletionEnabled: () => true, studentSelfDeletionEnabled: () => true, accountDeletionUnavailableMessage: 'fixture only' }));
 vi.mock("../../../src/lib/prisma", () => ({ prisma: db }));
-vi.mock("../../../src/services/institution-service", async original => ({ ...await original<typeof import("../../../src/services/institution-service")>(), institutionalTransaction: async (work: (tx: any) => unknown) => work(db) }));
-import { AccountDeletionService } from "../../../src/services/account-deletion";
+vi.mock("../../../src/services/institutions/institution-service", async original => ({ ...await original<typeof import("../../../src/services/institutions/institution-service")>(), institutionalTransaction: async (work: (tx: any) => unknown) => work(db) }));
+import { AccountDeletionService } from "../../../src/services/accounts/account-deletion";
 const service = new AccountDeletionService();
 const actor = { userId: 'admin', role: 'ADMIN' };
 let admin: any, target: any;

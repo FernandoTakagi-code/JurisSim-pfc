@@ -2,7 +2,7 @@ import type { Request } from 'express';
 import { Prisma } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PasswordRecoveryService } from "../../../src/services/password-recovery-service";
+import { PasswordRecoveryService } from "../../../src/services/accounts/password-recovery-service";
 import { PasswordRecoveryRepository } from "../../../src/repositories/password-recovery-repository";
 import { errorHandler } from "../../../src/middlewares/error-handler";
 

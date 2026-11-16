@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ count: vi.fn(), question: vi.fn(), transaction: vi.fn() }));
 vi.mock("../../../src/lib/prisma", () => ({prisma:{$transaction:mocks.transaction}}));
-vi.mock("../../../src/services/class-lifecycle", () => ({visibleClasses:vi.fn(async()=>({}))}));
-import { ClassExamService } from "../../../src/services/class-exam-service";
+vi.mock("../../../src/services/assessments/class-lifecycle", () => ({visibleClasses:vi.fn(async()=>({}))}));
+import { ClassExamService } from "../../../src/services/assessments/class-exam-service";
 const service = new ClassExamService();
 const actor = {userId:'owner',role:'ALUNO',institutionAdmin:true,institutionId:'institution-a'};
 beforeEach(()=>{

@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
-import { INITIAL_DIAGNOSTIC_COMPOSITION } from "../../../src/services/initial-diagnostic-composition";
-import { InitialDiagnosticService } from "../../../src/services/initial-diagnostic-service";
+import { INITIAL_DIAGNOSTIC_COMPOSITION } from "../../../src/services/diagnostics/initial-diagnostic-composition";
+import { InitialDiagnosticService } from "../../../src/services/diagnostics/initial-diagnostic-service";
 import { PrismaInitialDiagnosticRepository } from "../../../src/repositories/prisma-initial-diagnostic-repository";
 
 function questionIds(): string[] {

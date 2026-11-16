@@ -1,6 +1,6 @@
 import { AuditAction, AuthTokenType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { acceptanceData } from '../services/legal-acceptance';
+import { acceptanceData } from '../services/accounts/legal-acceptance';
 import { ApiError } from '../errors/api-error';
 import { institutionsEnabled, institutionRegistrationEnabled, administrationEnabled } from '../config/institution-feature';
 

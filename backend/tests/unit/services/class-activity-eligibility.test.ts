@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {afterEach,expect,it,vi} from 'vitest';
-import {activityQuestionSelectable,activityPilotQuestion,activityQuestionWhere,activityDescription,ACTIVITY_PILOT_NOTICE} from "../../../src/services/class-activity-eligibility";
+import {activityQuestionSelectable,activityPilotQuestion,activityQuestionWhere,activityDescription,ACTIVITY_PILOT_NOTICE} from "../../../src/services/assessments/class-activity-eligibility";
 import {toEligibleCandidate,type InventoryRow} from "../../../src/repositories/prisma-initial-diagnostic-repository";
 const batch='9218bdec-f4e3-43a1-8b54-cdc40720dea5';
 function row():InventoryRow {

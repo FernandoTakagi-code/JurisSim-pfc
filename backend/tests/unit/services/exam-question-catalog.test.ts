@@ -2,7 +2,7 @@ import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 const db=vi.hoisted(()=>({turma:{count:vi.fn()},questao:{findMany:vi.fn()},$transaction:vi.fn()}));
 vi.mock("../../../src/lib/prisma",()=>({prisma:db}));
 vi.mock("../../../src/config/institution-homologation",async original=>({...await original<typeof import("../../../src/config/institution-homologation")>(),homologationClassBoundary:()=>undefined,restrictedInstitutionId:()=>undefined}));
-import {ClassExamService} from "../../../src/services/class-exam-service";
+import {ClassExamService} from "../../../src/services/assessments/class-exam-service";
 const actor={userId:'teacher',role:'PROFESSOR',institutionId:'institution-a',allowedClassIds:['class-a','class-b']};
 afterEach(()=>vi.unstubAllEnvs());
 const question=(id:string,fields={})=>({id,enunciado:'Enunciado',disciplina:'Civil',assunto:'Tema',nivel:'BASICO',publica:false,turmaId:null,autorId:'teacher',alternativas:[{correta:true},{correta:false}],...fields});

@@ -5,9 +5,9 @@ const db=vi.hoisted(()=>{
 });
 vi.mock("../../../src/lib/prisma",()=>({prisma:db}));
 vi.mock('bcrypt',()=>({default:{hash:vi.fn(async()=> 'isolated-test-hash'),compare:vi.fn()}}));
-import {AuthService} from "../../../src/services/auth-service";
-import {InstitutionService} from "../../../src/services/institution-service";
-import {institutionAccountRegistrationSchema} from "../../../src/services/institution-account-registration";
+import {AuthService} from "../../../src/services/accounts/auth-service";
+import {InstitutionService} from "../../../src/services/institutions/institution-service";
+import {institutionAccountRegistrationSchema} from "../../../src/services/institutions/institution-account-registration";
 import {institutionApplication} from "../../fixtures/institution-request";
 import versions from "../../../src/legal-versions.json";
 import {AuthController} from "../../../src/controllers/auth-controller";

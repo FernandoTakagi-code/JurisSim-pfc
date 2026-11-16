@@ -6,8 +6,8 @@ import {
   type AuthenticatedRequest,
 } from "../middlewares/auth-middleware";
 import { denyGlobalAcademicAccess } from "../middlewares/academic-access";
-import { ClassActivityService } from "../services/class-activity-service";
-import {ClassExamService} from '../services/class-exam-service';
+import { ClassActivityService } from "../services/assessments/class-activity-service";
+import {ClassExamService} from '../services/assessments/class-exam-service';
 const service = new ClassActivityService();
 const exams=new ClassExamService();
 export const activityRoutes = Router();

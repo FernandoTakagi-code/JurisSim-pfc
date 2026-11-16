@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import type { Server } from 'node:http';
-import { acceptanceData } from "../../../src/services/legal-acceptance";
+import { acceptanceData } from "../../../src/services/accounts/legal-acceptance";
 import versions from "../../../src/legal-versions.json";
-import { AuthService } from "../../../src/services/auth-service";
+import { AuthService } from "../../../src/services/accounts/auth-service";
 import { errorHandler } from "../../../src/middlewares/error-handler";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';

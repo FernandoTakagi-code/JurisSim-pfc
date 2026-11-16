@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSeedAccountIfMissing } from "../../../src/services/seed-account-upsert";
+import { createSeedAccountIfMissing } from "../../../src/services/accounts/seed-account-upsert";
 
 describe('createSeedAccountIfMissing', () => {
   it('preserves an existing account and its password hash when a seed is rerun', async () => {

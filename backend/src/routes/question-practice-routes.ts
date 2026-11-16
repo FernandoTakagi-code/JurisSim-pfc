@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireRoles } from '../middlewares/auth-middleware';
 import { PrismaQuestionPracticeRepository } from '../repositories/prisma-question-practice-repository';
 import { QuestionPracticeController } from '../controllers/question-practice-controller';
-import { QuestionPracticeService } from '../services/question-practice-service';
+import { QuestionPracticeService } from '../services/questions/question-practice-service';
 import { isQuestionPracticeApiEnabled } from '../config/question-practice-feature';
 
 export const QUESTION_PRACTICE_FLAG = 'QUESTION_PRACTICE_API_ENABLED';

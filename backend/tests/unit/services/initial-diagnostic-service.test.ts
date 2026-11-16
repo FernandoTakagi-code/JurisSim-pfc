@@ -3,12 +3,12 @@ import {
   INITIAL_DIAGNOSTIC_COMPOSITION,
   composeInitialDiagnostic,
   type InitialDiagnosticCandidate,
-} from "../../../src/services/initial-diagnostic-composition";
+} from "../../../src/services/diagnostics/initial-diagnostic-composition";
 import {
   InitialDiagnosticService,
   type InitialDiagnosticAttempt,
   type InitialDiagnosticRepository,
-} from "../../../src/services/initial-diagnostic-service";
+} from "../../../src/services/diagnostics/initial-diagnostic-service";
 
 const studentId = 'student-1';
 const fixedRandom = () => 0.5;

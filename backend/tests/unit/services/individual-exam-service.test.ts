@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { IndividualExamService, type IndividualExamAttempt, type IndividualExamRepository } from "../../../src/services/individual-exam-service";
-import { PRACTICE_DISCIPLINES } from "../../../src/services/question-practice-service";
+import { IndividualExamService, type IndividualExamAttempt, type IndividualExamRepository } from "../../../src/services/assessments/individual-exam-service";
+import { PRACTICE_DISCIPLINES } from "../../../src/services/questions/question-practice-service";
 
 const pool = () => PRACTICE_DISCIPLINES.flatMap(discipline => Array.from({ length: 7 }, (_, i) => ({ id: `${discipline}-${i}`, discipline })));
 const attempt = (completed = false): IndividualExamAttempt => ({ id: 'exam', completed, questions: pool().filter(q => !q.id.endsWith('-6')).map((q, i) => ({ id: q.id, position: i + 1, selectedOptionId: completed ? `${q.id}-A` : null,

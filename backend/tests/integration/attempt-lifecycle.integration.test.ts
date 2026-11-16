@@ -1,12 +1,12 @@
 import { beforeEach, afterAll, describe, expect, it } from 'vitest';
 import { Prisma, type PrismaClient } from '@prisma/client';
-import { DiagnosticService } from "../../src/services/diagnostic-service";
-import { TrailService } from "../../src/services/trail-service";
+import { DiagnosticService } from "../../src/services/diagnostics/diagnostic-service";
+import { TrailService } from "../../src/services/study/trail-service";
 import { TrailRepository } from "../../src/repositories/trail-repository";
 import { DiagnosticRepository } from "../../src/repositories/diagnostic-repository";
 import { PrismaQuestionPracticeRepository } from "../../src/repositories/prisma-question-practice-repository";
 import { PrismaInitialDiagnosticResolutionRepository } from "../../src/repositories/prisma-initial-diagnostic-resolution-repository";
-import { analyzeDiagnostic } from "../../src/services/adaptive-engine";
+import { analyzeDiagnostic } from "../../src/services/diagnostics/adaptive-engine";
 import { StudentHistoryRepository } from "../../src/repositories/student-history-repository";
 import { criarUsuario, limparBanco, prisma, encerrar } from './helpers';
 

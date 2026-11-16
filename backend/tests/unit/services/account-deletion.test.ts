@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { accountDeletionEnabled, studentSelfDeletionEnabled } from "../../../src/account-deletion-availability";
-import { AccountDeletionService, assertEmailReusable } from "../../../src/services/account-deletion";
-import { AuthService } from "../../../src/services/auth-service";
+import { AccountDeletionService, assertEmailReusable } from "../../../src/services/accounts/account-deletion";
+import { AuthService } from "../../../src/services/accounts/auth-service";
 import versions from "../../../src/legal-versions.json";
 
 const db = vi.hoisted(() => ({ user: { findUnique: vi.fn() }, emailReuseBlock: { findFirst: vi.fn() }, $transaction: vi.fn() }));

@@ -6,7 +6,7 @@ import { prisma, criarUsuario, limparBanco, encerrar, tokenPara } from './helper
 import { assertDisposableDatabase } from './disposable-database';
 import { classRoutes, examRoutes } from "../../src/routes/class-exam-routes";
 import { errorHandler } from "../../src/middlewares/error-handler";
-import { ClassExamService } from "../../src/services/class-exam-service";
+import { ClassExamService } from "../../src/services/assessments/class-exam-service";
 let server: Server, base: string;
 beforeAll(async () => {
   await assertDisposableDatabase(prisma);

@@ -3,7 +3,7 @@ import {
   InitialDiagnosticResolutionService,
   type InitialDiagnosticResolutionAttempt,
   type InitialDiagnosticResolutionRepository,
-} from "../../../src/services/initial-diagnostic-resolution-service";
+} from "../../../src/services/diagnostics/initial-diagnostic-resolution-service";
 
 const studentId = 'student-owner';
 const attemptId = 'attempt-initial';
@@ -106,7 +106,7 @@ describe('initial diagnostic resolution service', () => {
 
   it('finalizes idempotently and returns discipline metrics and adaptive data', async () => {
     let stored = makeAttempt();
-    const finalizeAtomically = vi.fn(async (_studentId: string, _attemptId: string, analyze: (attempt: InitialDiagnosticResolutionAttempt) => ReturnType<typeof import("../../../src/services/adaptive-engine").analyzeDiagnostic>) => {
+    const finalizeAtomically = vi.fn(async (_studentId: string, _attemptId: string, analyze: (attempt: InitialDiagnosticResolutionAttempt) => ReturnType<typeof import("../../../src/services/diagnostics/adaptive-engine").analyzeDiagnostic>) => {
       const wasComplete = stored.state === 'COMPLETED';
       const result = analyze(stored);
       stored = { ...stored, state: 'COMPLETED', finalizedAt: stored.finalizedAt ?? new Date('2026-10-20T12:30:00Z') };

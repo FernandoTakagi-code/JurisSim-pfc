@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { getInitialDiagnosticComposition, parseInitialDiagnosticCompositionMode, INITIAL_DIAGNOSTIC_DISCIPLINES } from '../src/services/initial-diagnostic-composition';
+import { getInitialDiagnosticComposition, parseInitialDiagnosticCompositionMode, INITIAL_DIAGNOSTIC_DISCIPLINES } from '../src/services/diagnostics/initial-diagnostic-composition';
 import { PrismaInitialDiagnosticRepository } from '../src/repositories/prisma-initial-diagnostic-repository';
 import { PrismaQuestionPracticeRepository } from '../src/repositories/prisma-question-practice-repository';
-import type { PracticeQuestion } from '../src/services/question-practice-service';
+import type { PracticeQuestion } from '../src/services/questions/question-practice-service';
 import { resolveInventoryCheckDatabaseUrl } from '../src/config/inventory-check-database-url';
 import { diagnoseInventoryCheckError } from '../src/config/inventory-check-error';
 

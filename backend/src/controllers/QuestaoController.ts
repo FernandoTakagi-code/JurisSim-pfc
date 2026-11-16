@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { QuestaoService } from '../services/QuestaoService';
+import { QuestaoService } from '../services/questions/QuestaoService';
 import { AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { criarQuestaoSchema } from '../schemas/questao-schemas';
 import { z } from 'zod';

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRoles, requireAcademicStaff, type AuthenticatedRequest } from '../middlewares/auth-middleware';
-import { ClassExamService } from '../services/class-exam-service';
+import { ClassExamService } from '../services/assessments/class-exam-service';
 import { institutionsEnabled, institutionalTeacherManagementEnabled } from '../config/institution-feature';
 import { ApiError } from '../errors/api-error';
 import {denyGlobalAcademicAccess} from '../middlewares/academic-access';

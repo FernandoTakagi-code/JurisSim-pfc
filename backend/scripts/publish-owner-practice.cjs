@@ -22,7 +22,7 @@ async function main(){try{
   const url=new URL(cfg.DIRECT_URL||cfg.DATABASE_URL);url.searchParams.set('connection_limit','1');
   if(!url.hostname.endsWith('.supabase.com')&&!url.hostname.endsWith('.supabase.co'))throw Error('Unexpected configured target');
   db=new PrismaClient({datasourceUrl:url.toString()});
-  const {publishOwnerPractice,revokeOwnerPractice}=require('../dist/services/owner-practice-publication');
+  const {publishOwnerPractice,revokeOwnerPractice}=require('../dist/services/questions/owner-practice-publication');
   const result=args[0]==='--apply'
     ? await publishOwnerPractice(db,manifest,email,evidence)
     : await revokeOwnerPractice(db,args[1],email,evidence);

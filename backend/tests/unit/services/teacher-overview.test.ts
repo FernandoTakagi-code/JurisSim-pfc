@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 const db = vi.hoisted(() => ({ turma: { count: vi.fn() }, user: { count: vi.fn() }, avaliacao: { count: vi.fn() }, $transaction: vi.fn() }));
 vi.mock("../../../src/lib/prisma", () => ({ prisma: db }));
 vi.mock("../../../src/config/institution-homologation", () => ({ homologationClassBoundary: () => undefined }));
-import { ClassReportService } from "../../../src/services/class-report-service";
+import { ClassReportService } from "../../../src/services/assessments/class-report-service";
 beforeEach(() => {
   vi.clearAllMocks(); db.$transaction.mockImplementation(work => work(db));
   db.turma.count.mockResolvedValueOnce(42).mockResolvedValueOnce(40); db.user.count.mockResolvedValue(101); db.avaliacao.count.mockResolvedValue(30);

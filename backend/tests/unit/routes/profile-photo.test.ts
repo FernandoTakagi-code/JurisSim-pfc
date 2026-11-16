@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({ account: vi.fn(), read: vi.fn(), write: vi.fn(
 vi.mock("../../../src/repositories/auth-repository", () => ({ AuthRepository: class { findByIdForAuth = mocks.account; } }));
 vi.mock("../../../src/lib/prisma", () => ({ prisma: { profilePhoto: { findUnique: mocks.read, deleteMany: mocks.remove }, user: { update: mocks.write }, $transaction: mocks.transaction } }));
 import { profilePhotoRoutes } from "../../../src/routes/profile-photo-routes";
-import { normalizePhoto, MAX_PHOTO_BYTES } from "../../../src/services/profile-photo-service";
+import { normalizePhoto, MAX_PHOTO_BYTES } from "../../../src/services/accounts/profile-photo-service";
 import { errorHandler } from "../../../src/middlewares/error-handler";
 let server: Server, base: string, token: string;
 const secret = 'profile-photo-unit-test-secret-over-32-chars';

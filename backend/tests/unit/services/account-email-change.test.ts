@@ -5,10 +5,10 @@ const db = vi.hoisted(() => {
   return { user: model(), authToken: model(), passwordRecoveryToken: model(), $queryRaw: vi.fn(), $transaction: vi.fn() };
 });
 vi.mock("../../../src/lib/prisma", () => ({ prisma: db }));
-vi.mock("../../../src/services/account-identity", () => ({ confirmAccountIdentity: vi.fn() }));
+vi.mock("../../../src/services/accounts/account-identity", () => ({ confirmAccountIdentity: vi.fn() }));
 
-import { AccountEmailChangeService } from "../../../src/services/account-email-change";
-import type { AccountEmailChangeSender } from "../../../src/services/account-email-change-sender";
+import { AccountEmailChangeService } from "../../../src/services/accounts/account-email-change";
+import type { AccountEmailChangeSender } from "../../../src/services/email/account-email-change-sender";
 
 let deliveredUrl = '';
 const sender: AccountEmailChangeSender = {

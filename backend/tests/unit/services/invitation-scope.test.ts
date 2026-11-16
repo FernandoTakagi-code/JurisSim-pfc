@@ -14,9 +14,9 @@ vi.mock("../../../src/config/institution-homologation", async original => {
     assertRestrictedParticipant: () => { fixture.participantCheck(); if (fixture.restricted && !fixture.authorized) throw new ApiError(403, 'Conta fora do escopo autorizado.'); },
   };
 });
-import { InstitutionService } from "../../../src/services/institution-service";
-import { EmailDeliveryFailure } from "../../../src/services/email-delivery-failure";
-import { emailFrontendContext } from "../../../src/services/email-frontend";
+import { InstitutionService } from "../../../src/services/institutions/institution-service";
+import { EmailDeliveryFailure } from "../../../src/services/email/email-delivery-failure";
+import { emailFrontendContext } from "../../../src/services/email/email-frontend";
 import type { Request, Response } from 'express';
 const mail = { isConfigured: true, send: vi.fn() };
 beforeEach(() => {

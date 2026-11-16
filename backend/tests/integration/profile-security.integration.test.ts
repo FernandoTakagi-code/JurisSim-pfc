@@ -13,11 +13,11 @@ import { assertDisposableDatabase } from './disposable-database';
 import { AuthController } from "../../src/controllers/auth-controller";
 import { createAuthRoutes } from "../../src/routes/auth-routes";
 import { errorHandler } from "../../src/middlewares/error-handler";
-import { AccountEmailChangeService } from "../../src/services/account-email-change";
-import { BrevoAccountEmailChangeSender, type AccountEmailChangeSender } from "../../src/services/account-email-change-sender";
-import { PasswordRecoveryService } from "../../src/services/password-recovery-service";
-import { BrevoRecoveryEmailSender, type RecoveryEmailSender } from "../../src/services/recovery-email-sender";
-import { BrevoApiTransport, createBrevoSmtpTransport, type TransactionalEmailTransport } from "../../src/services/brevo-email-transport";
+import { AccountEmailChangeService } from "../../src/services/accounts/account-email-change";
+import { BrevoAccountEmailChangeSender, type AccountEmailChangeSender } from "../../src/services/email/account-email-change-sender";
+import { PasswordRecoveryService } from "../../src/services/accounts/password-recovery-service";
+import { BrevoRecoveryEmailSender, type RecoveryEmailSender } from "../../src/services/email/recovery-email-sender";
+import { BrevoApiTransport, createBrevoSmtpTransport, type TransactionalEmailTransport } from "../../src/services/email/brevo-email-transport";
 
 const password = 'Profile-test-password1!';
 const newPassword = 'New-profile-password2!';

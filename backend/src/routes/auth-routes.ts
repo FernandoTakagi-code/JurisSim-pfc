@@ -4,7 +4,7 @@ import { requireAuth, requireLimitedAuth } from '../middlewares/auth-middleware'
 import { authRateLimit } from '../middlewares/auth-rate-limit';
 import { ApiError } from '../errors/api-error';
 import { isAllowedCorsOrigin } from '../config/cors-policy';
-import { emailFrontendContext } from '../services/email-frontend';
+import { emailFrontendContext } from '../services/email/email-frontend';
 
 export function createAuthRoutes(controller = new AuthController()) {
   const authRoutes = Router();

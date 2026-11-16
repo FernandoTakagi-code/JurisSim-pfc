@@ -2,7 +2,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { isQuestionPracticeSchemaEnabled } from "../config/question-practice-feature";
 import { isIndividualExamSchemaEnabled } from "../config/individual-exam-feature";
-import { QuestionReviewService } from "../services/question-review-service";
+import { QuestionReviewService } from "../services/questions/question-review-service";
 
 export const PERFORMANCE_KINDS = [
   "diagnostic",

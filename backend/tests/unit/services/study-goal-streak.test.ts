@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { studyStreak } from "../../../src/services/study-goal-service";
+import { studyStreak } from "../../../src/services/study/study-goal-service";
 
 describe('study streak calendar rules', () => {
   it('counts consecutive local days, unique active dates and the longest record', () => {

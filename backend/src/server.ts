@@ -28,9 +28,9 @@ import { localReadOnlyNavigation } from './middlewares/local-read-only-navigatio
 import { createQuestionEditorialRoutes } from './routes/question-editorial-routes';
 import {denyGlobalAcademicAccess} from './middlewares/academic-access';
 import { prisma } from './lib/prisma';
-import { isLocalDiagnosticDemoRequested, isLocalEmailCaptureRequested, localEmailVerificationCapture } from './services/local-email-capture';
+import { isLocalDiagnosticDemoRequested, isLocalEmailCaptureRequested, localEmailVerificationCapture } from './services/email/local-email-capture';
 import { setDefaultAutoSelectFamily } from 'node:net';
-import { assertInstitutionActivationReady, InstitutionActivationBlocked } from './services/institution-activation';
+import { assertInstitutionActivationReady, InstitutionActivationBlocked } from './services/institutions/institution-activation';
 setDefaultAutoSelectFamily(false);
 
 const app = express();

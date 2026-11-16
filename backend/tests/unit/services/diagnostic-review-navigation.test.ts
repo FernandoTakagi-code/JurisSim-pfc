@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampDiagnosticReviewIndex, diagnosticReviewStatus } from "../../../src/services/diagnostic-review-navigation";
+import { clampDiagnosticReviewIndex, diagnosticReviewStatus } from "../../../src/services/diagnostics/diagnostic-review-navigation";
 
 describe('diagnostic review navigation and answer states', () => {
   it('moves between first, middle and last questions without leaving the available range', () => {

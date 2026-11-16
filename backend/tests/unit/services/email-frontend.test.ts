@@ -1,8 +1,8 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import express from 'express';
-import {emailFrontendContext,emailFrontendUrl} from "../../../src/services/email-frontend";
+import {emailFrontendContext,emailFrontendUrl} from "../../../src/services/email/email-frontend";
 import {errorHandler} from "../../../src/middlewares/error-handler";
-import {isValidAppUrl} from "../../../src/services/app-url";
+import {isValidAppUrl} from "../../../src/services/email/app-url";
 beforeEach(()=>{vi.stubEnv('NODE_ENV','development');vi.stubEnv('APP_PUBLIC_URL','http://localhost:5173');vi.stubEnv('CORS_ORIGINS','http://localhost:5173,http://127.0.0.1:5180,https://app.example.invalid');});
 afterEach(()=>vi.unstubAllEnvs());
 async function request(origin?:string,extra:Record<string,string>={}){

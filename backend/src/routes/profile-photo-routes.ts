@@ -2,7 +2,7 @@ import express, { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRoles, type AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { ApiError } from '../errors/api-error';
-import { AVATAR_IDS, MAX_PHOTO_BYTES, ProfilePhotoService } from '../services/profile-photo-service';
+import { AVATAR_IDS, MAX_PHOTO_BYTES, ProfilePhotoService } from '../services/accounts/profile-photo-service';
 
 const service = new ProfilePhotoService();
 export const profilePhotoRoutes = Router();

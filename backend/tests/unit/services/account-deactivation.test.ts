@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { describe, expect, it, vi } from 'vitest';
-import { AuthService } from "../../../src/services/auth-service";
+import { AuthService } from "../../../src/services/accounts/auth-service";
 import { GOOGLE_PASSWORD_SENTINEL } from "../../../src/repositories/auth-repository";
 
 describe('non-destructive account deactivation', () => {

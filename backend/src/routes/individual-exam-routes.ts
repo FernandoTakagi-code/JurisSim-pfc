@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRoles, type AuthenticatedRequest } from '../middlewares/auth-middleware';
-import { IndividualExamService } from '../services/individual-exam-service';
+import { IndividualExamService } from '../services/assessments/individual-exam-service';
 import { PrismaIndividualExamRepository } from '../repositories/prisma-individual-exam-repository';
 import { isIndividualExamEnabled } from '../config/individual-exam-feature';
 

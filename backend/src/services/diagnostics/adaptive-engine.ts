@@ -1,0 +1,80 @@
+import type { AdaptiveResult, AnsweredQuestion, Level, MetricType, PerformanceMetric, TrailFilter } from '../../types/diagnostic';
+export function getLevel(percentage: number): Level {
+  if (percentage < 50) return 'BASICO';
+  if (percentage < 80) return 'INTERMEDIARIO';
+  return 'AVANCADO';
+}
+
+function percentage(correctAnswers: number, totalQuestions: number): number {
+  return Number(((correctAnswers / totalQuestions) * 100).toFixed(2));
+}
+
+function createMetric(metricType: MetricType, discipline: string, topic: string | null, difficulty: Level | null, questions: AnsweredQuestion[]): PerformanceMetric {
+  const correctAnswers = questions.filter((question) => question.isCorrect).length;
+  return { metricType, discipline, topic, difficulty, correctAnswers, totalQuestions: questions.length, percentage: percentage(correctAnswers, questions.length) };
+}
+
+function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
+  return items.reduce((groups, item) => {
+    const groupKey = key(item);
+    groups.set(groupKey, [...(groups.get(groupKey) ?? []), item]);
+    return groups;
+  }, new Map<string, T[]>());
+}
+
+function compareByWeakness(left: PerformanceMetric, right: PerformanceMetric): number {
+  return left.percentage - right.percentage || left.discipline.localeCompare(right.discipline, 'pt-BR') || (left.topic ?? '').localeCompare(right.topic ?? '', 'pt-BR');
+}
+
+function recommendedQuantity(level: Level): number {
+  if (level === 'BASICO') return 15;
+  if (level === 'INTERMEDIARIO') return 10;
+  return 5;
+}
+
+export function analyzeDiagnostic(questions: AnsweredQuestion[]): AdaptiveResult {
+  if (questions.length === 0) throw new Error('Nao e possivel analisar um diagnostico sem respostas.');
+
+  const disciplineMetrics = [...groupBy(questions, (question) => question.discipline)].map(([discipline, group]) => createMetric('DISCIPLINA', discipline, null, null, group));
+  const topicMetrics = [...groupBy(questions, (question) => JSON.stringify([question.discipline, question.topic]))].map(([, group]) => {
+    const { discipline, topic } = group[0];
+    return createMetric('ASSUNTO', discipline, topic, null, group);
+  });
+  const difficultyMetrics = [...groupBy(questions, (question) => question.difficulty)].map(([difficulty, group]) => createMetric('NIVEL', 'TODAS', null, difficulty as Level, group));
+  const topicAndDifficultyMetrics = [...groupBy(questions, (question) => JSON.stringify([question.discipline, question.topic, question.difficulty]))].map(([, group]) => {
+    const { discipline, topic, difficulty } = group[0];
+    return createMetric('ASSUNTO_E_NIVEL', discipline, topic, difficulty, group);
+  });
+
+  const correctAnswers = questions.filter((question) => question.isCorrect).length;
+  const overallPercentage = percentage(correctAnswers, questions.length);
+  const weakestDiscipline = [...disciplineMetrics].sort(compareByWeakness)[0];
+  const focusTopic = topicMetrics.filter(metric => metric.discipline === weakestDiscipline.discipline).sort(compareByWeakness)[0] ?? null;
+  const focusPercentage = focusTopic?.percentage ?? weakestDiscipline.percentage;
+  const focusDescription = focusTopic ? `${focusTopic.discipline} — ${focusTopic.topic}` : weakestDiscipline.discipline;
+  const recommendedLevel = getLevel(focusPercentage);
+  // With no errors there is no weakness to "prioritize"; the trail still needs a
+  // target, so frame it as consolidation instead of remediation.
+  const reason = focusPercentage >= 100
+    ? `Você acertou todas as questões. Para consolidar, continue praticando ${focusDescription} em nível avançado.`
+    : `Priorize ${focusDescription}: desempenho de ${focusPercentage}%.`;
+
+  return {
+    correctAnswers, totalQuestions: questions.length, overallPercentage, level: getLevel(overallPercentage),
+    weakestDiscipline: weakestDiscipline.discipline, weakestTopic: focusTopic?.topic ?? null, recommendation: reason,
+    trail: { priorityDiscipline: weakestDiscipline.discipline, priorityTopic: focusTopic?.topic ?? null, recommendedLevel, recommendedQuantity: recommendedQuantity(recommendedLevel), reason },
+    performances: [...disciplineMetrics, ...topicMetrics, ...difficultyMetrics, ...topicAndDifficultyMetrics],
+  };
+}
+
+
+export function buildTrailFilters(priorityDiscipline: string, priorityTopic: string | null, recommendedLevel: Level): TrailFilter[] {
+  const filters: TrailFilter[] = [];
+  if (priorityTopic) {
+    filters.push({ disciplina: priorityDiscipline, assunto: priorityTopic, nivel: recommendedLevel });
+    filters.push({ disciplina: priorityDiscipline, assunto: priorityTopic, nivel: null });
+  }
+  filters.push({ disciplina: priorityDiscipline, assunto: null, nivel: recommendedLevel });
+  filters.push({ disciplina: priorityDiscipline, assunto: null, nivel: null });
+  return filters;
+}

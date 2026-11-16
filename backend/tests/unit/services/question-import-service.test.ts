@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { QuestionImportRepository, type QuestionImportDatabase, type QuestionImportTransaction } from "../../../src/repositories/question-import-repository";
-import { QUESTION_CSV_HEADERS, previewQuestionCsv } from "../../../src/services/question-csv-preview";
-import { QuestionImportService } from "../../../src/services/question-import-service";
+import { QUESTION_CSV_HEADERS, previewQuestionCsv } from "../../../src/services/questions/question-csv-preview";
+import { QuestionImportService } from "../../../src/services/questions/question-import-service";
 
 const adminId = '00000000-0000-4000-8000-000000000001';
 const otherId = '00000000-0000-4000-8000-000000000002';
@@ -81,7 +81,7 @@ describe('persistência preparada da importação CSV', () => {
     const database = new MockImportDatabase();
     const preview = previewQuestionCsv(csv(row));
     const question = preview.rows[0].question!;
-    const fingerprint = (await import("../../../src/services/question-csv-preview")).questionFingerprint(question);
+    const fingerprint = (await import("../../../src/services/questions/question-csv-preview")).questionFingerprint(question);
     database.state.questions.push({ id: 'existing', fingerprint, enunciado: question.enunciado, preserved: true });
     const { service } = harness(database);
     await expect(service.confirm(csv(row), adminId)).rejects.toMatchObject({ statusCode: 409 });

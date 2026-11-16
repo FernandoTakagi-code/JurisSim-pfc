@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { PrismaClient, Role } from '@prisma/client';
-import { fingerprintQuestionContent } from '../src/services/question-fingerprint';
-import { getInitialDiagnosticComposition, parseInitialDiagnosticCompositionMode } from '../src/services/initial-diagnostic-composition';
-import { validateQuestionBatch, type Manifest, type Question, type QuestionBatchScope } from '../src/services/eligible-question-batch';
+import { fingerprintQuestionContent } from '../src/services/questions/question-fingerprint';
+import { getInitialDiagnosticComposition, parseInitialDiagnosticCompositionMode } from '../src/services/diagnostics/initial-diagnostic-composition';
+import { validateQuestionBatch, type Manifest, type Question, type QuestionBatchScope } from '../src/services/questions/eligible-question-batch';
 
 async function apply(manifest: Manifest, questions: Question[], fileBytes: Buffer) {
   if (process.env.NODE_ENV === 'production' || !['development', 'homologation'].includes(process.env.JURISSIM_QUESTION_IMPORT_STAGE ?? '')) {

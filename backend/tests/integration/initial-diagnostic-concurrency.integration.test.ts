@@ -1,8 +1,8 @@
 import { afterAll, beforeEach, expect, it } from 'vitest';
 import { criarUsuario, encerrar, limparBanco, prisma } from './helpers';
-import { InitialDiagnosticService } from "../../src/services/initial-diagnostic-service";
-import { InitialDiagnosticResolutionService } from "../../src/services/initial-diagnostic-resolution-service";
-import { getInitialDiagnosticComposition } from "../../src/services/initial-diagnostic-composition";
+import { InitialDiagnosticService } from "../../src/services/diagnostics/initial-diagnostic-service";
+import { InitialDiagnosticResolutionService } from "../../src/services/diagnostics/initial-diagnostic-resolution-service";
+import { getInitialDiagnosticComposition } from "../../src/services/diagnostics/initial-diagnostic-composition";
 import { PrismaInitialDiagnosticRepository } from "../../src/repositories/prisma-initial-diagnostic-repository";
 import { PrismaInitialDiagnosticResolutionRepository } from "../../src/repositories/prisma-initial-diagnostic-resolution-repository";
 

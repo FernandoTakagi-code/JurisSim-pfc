@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { composeInitialDiagnostic, getInitialDiagnosticComposition, parseInitialDiagnosticCompositionMode, type InitialDiagnosticCandidate } from "../../../src/services/initial-diagnostic-composition";
-import { InitialDiagnosticService } from "../../../src/services/initial-diagnostic-service";
-import { validateQuestionBatch } from "../../../src/services/eligible-question-batch";
+import { composeInitialDiagnostic, getInitialDiagnosticComposition, parseInitialDiagnosticCompositionMode, type InitialDiagnosticCandidate } from "../../../src/services/diagnostics/initial-diagnostic-composition";
+import { InitialDiagnosticService } from "../../../src/services/diagnostics/initial-diagnostic-service";
+import { validateQuestionBatch } from "../../../src/services/questions/eligible-question-batch";
 
 const mode = 'AUTORAL_30' as const;
 function inventory(extra = 0): InitialDiagnosticCandidate[] {

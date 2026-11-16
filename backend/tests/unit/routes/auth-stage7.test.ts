@@ -11,7 +11,7 @@ vi.mock("../../../src/repositories/auth-repository", () => ({ GOOGLE_PASSWORD_SE
 } }));
 vi.mock('google-auth-library', () => ({ OAuth2Client: class { verifyIdToken = mocks.google; } }));
 import { AuthController } from "../../../src/controllers/auth-controller";
-import { AuthService } from "../../../src/services/auth-service";
+import { AuthService } from "../../../src/services/accounts/auth-service";
 import { createAuthRoutes } from "../../../src/routes/auth-routes";
 import { errorHandler } from "../../../src/middlewares/error-handler";
 import { authRateLimit } from "../../../src/middlewares/auth-rate-limit";

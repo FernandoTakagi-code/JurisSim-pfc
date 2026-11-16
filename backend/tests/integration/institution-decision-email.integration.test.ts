@@ -6,10 +6,10 @@ const smtp = vi.hoisted(() => ({ createTransport: vi.fn(), sendMail: vi.fn() }))
 vi.mock('nodemailer', () => ({ default: { createTransport: smtp.createTransport } }));
 import { prisma } from "../../src/lib/prisma";
 import { assertDisposableDatabase } from './disposable-database';
-import { InstitutionService } from "../../src/services/institution-service";
-import { InstitutionDecisionEmail, decisionEmailEvent, decisionEmailTransitionEvent } from "../../src/services/institution-decision-email";
-import { createBrevoSmtpTransport } from "../../src/services/brevo-email-transport";
-import { institutionRequestSchema, representationDeclarationVersion } from "../../src/services/institution-registration-validation";
+import { InstitutionService } from "../../src/services/institutions/institution-service";
+import { InstitutionDecisionEmail, decisionEmailEvent, decisionEmailTransitionEvent } from "../../src/services/institutions/institution-decision-email";
+import { createBrevoSmtpTransport } from "../../src/services/email/brevo-email-transport";
+import { institutionRequestSchema, representationDeclarationVersion } from "../../src/services/institutions/institution-registration-validation";
 import { institutionApplication } from '../fixtures/institution-request';
 import { noWebsiteDeclaration, validRegistrationNumber } from "../../src/institution-registration";
 

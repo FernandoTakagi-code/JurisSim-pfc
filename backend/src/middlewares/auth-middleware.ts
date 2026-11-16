@@ -1,8 +1,8 @@
 import type { NextFunction, Request, Response } from 'express';
-import { AuthService } from '../services/auth-service';
+import { AuthService } from '../services/accounts/auth-service';
 import { AuthRepository } from '../repositories/auth-repository';
 import { ApiError } from '../errors/api-error';
-import { currentAccess } from '../services/institution-service';
+import { currentAccess } from '../services/institutions/institution-service';
 import { prisma } from '../lib/prisma';
 import { homologationParticipant, institutionRequestScope } from '../config/institution-homologation';
 import { institutionsGloballyEnabled, institutionalTeacherManagementEnabled, institutionalExamManagementEnabled } from '../config/institution-feature';

@@ -1,15 +1,15 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
-import { INITIAL_DIAGNOSTIC_DISCIPLINES, type InitialDiagnosticCandidate } from '../services/initial-diagnostic-composition';
+import { INITIAL_DIAGNOSTIC_DISCIPLINES, type InitialDiagnosticCandidate } from '../services/diagnostics/initial-diagnostic-composition';
 import {
   type CreateInitialDiagnosticInput,
   type CreateOrGetInitialDiagnosticResult,
   type InitialDiagnosticAttempt,
   type InitialDiagnosticRepository,
-} from '../services/initial-diagnostic-service';
-import { createDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
-import { readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
+} from '../services/diagnostics/initial-diagnostic-service';
+import { createDiagnosticQuestionSnapshot } from '../services/diagnostics/diagnostic-question-snapshot';
+import { readDiagnosticQuestionSnapshot } from '../services/diagnostics/diagnostic-question-snapshot';
 
 const initialInclude = {
   simulado: {

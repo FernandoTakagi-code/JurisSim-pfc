@@ -3,12 +3,12 @@ import 'dotenv/config';
 import { performance } from 'node:perf_hooks';
 import { prisma } from '../src/lib/prisma';
 import { inventoryWhere, inventorySelect, toEligibleCandidate } from '../src/repositories/prisma-initial-diagnostic-repository';
-import { QuestionPracticeService } from '../src/services/question-practice-service';
+import { QuestionPracticeService } from '../src/services/questions/question-practice-service';
 import { PrismaQuestionPracticeRepository } from '../src/repositories/prisma-question-practice-repository';
-import { IndividualExamService } from '../src/services/individual-exam-service';
+import { IndividualExamService } from '../src/services/assessments/individual-exam-service';
 import { PrismaIndividualExamRepository } from '../src/repositories/prisma-individual-exam-repository';
-import { DiagnosticService } from '../src/services/diagnostic-service';
-import { InitialDiagnosticResolutionService } from '../src/services/initial-diagnostic-resolution-service';
+import { DiagnosticService } from '../src/services/diagnostics/diagnostic-service';
+import { InitialDiagnosticResolutionService } from '../src/services/diagnostics/initial-diagnostic-resolution-service';
 import { PrismaInitialDiagnosticResolutionRepository } from '../src/repositories/prisma-initial-diagnostic-resolution-repository';
 
 async function measure(name: string, run: () => Promise<unknown>) {

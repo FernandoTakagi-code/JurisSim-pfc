@@ -3,7 +3,7 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../src/lib/prisma';
-import { ClassExamService } from '../src/services/class-exam-service';
+import { ClassExamService } from '../src/services/assessments/class-exam-service';
 
 async function main() {
   const turma = await prisma.turma.findFirst({ where: { nome: 'Teste 1' }, select: { id: true, archivedAt: true,

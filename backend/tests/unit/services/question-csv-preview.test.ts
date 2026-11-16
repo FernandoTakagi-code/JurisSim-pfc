@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { QUESTION_CSV_HEADERS, QUESTION_CSV_LIMITS, previewQuestionCsv } from "../../../src/services/question-csv-preview";
+import { QUESTION_CSV_HEADERS, QUESTION_CSV_LIMITS, previewQuestionCsv } from "../../../src/services/questions/question-csv-preview";
 
 const validRow = [
   '"Uma pergunta original com vírgula, e detalhes."', 'Direito Civil', 'Contratos', 'BASICO',

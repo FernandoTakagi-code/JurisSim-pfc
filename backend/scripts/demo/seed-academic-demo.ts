@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import bcrypt from 'bcrypt';
 import { PrismaClient, Nivel, OrigemQuestao, SituacaoDireitos, SituacaoQuestaoOficial, Role } from '@prisma/client';
 import versions from '../../src/legal-versions.json';
-import { INITIAL_DIAGNOSTIC_COMPOSITION, INITIAL_DIAGNOSTIC_DISCIPLINES } from '../../src/services/initial-diagnostic-composition';
+import { INITIAL_DIAGNOSTIC_COMPOSITION, INITIAL_DIAGNOSTIC_DISCIPLINES } from '../../src/services/diagnostics/initial-diagnostic-composition';
 
 const DATABASE_NAME = 'jurissim_demo';
 const DATABASE_PORT = 55432;

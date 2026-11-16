@@ -1,10 +1,10 @@
 import { prisma } from '../config/prisma';
 import { AuditAction, Nivel, Prisma } from '@prisma/client';
 import { ApiError } from '../errors/api-error';
-import { fingerprintQuestionContent } from '../services/question-fingerprint';
+import { fingerprintQuestionContent } from '../services/questions/question-fingerprint';
 import { institutionsEnabled } from '../config/institution-feature';
 import { QUESTION_LETTERS } from '../question-alternatives';
-import { visibleClasses } from '../services/class-lifecycle';
+import { visibleClasses } from '../services/assessments/class-lifecycle';
 const institutionalVisibility = async (): Promise<Prisma.TurmaWhereInput> => ({ AND: [await visibleClasses(), institutionsEnabled()
   ? { OR: [{ institutionalClass: null }, { institutionalClass: { institution: { status: 'ACTIVE' } } }] } : {}] });
 

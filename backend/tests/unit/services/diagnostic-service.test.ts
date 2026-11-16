@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
-import { DiagnosticService } from "../../../src/services/diagnostic-service";
+import { DiagnosticService } from "../../../src/services/diagnostics/diagnostic-service";
 
 function attempt(overrides: Record<string, unknown> = {}) {
   return {
@@ -147,7 +147,7 @@ describe('regras do diagnostico', () => {
   });
 
   it('calculo direto com lista vazia lança erro generico', async () => {
-    const { analyzeDiagnostic } = await import("../../../src/services/adaptive-engine");
+    const { analyzeDiagnostic } = await import("../../../src/services/diagnostics/adaptive-engine");
 
     expect(() => analyzeDiagnostic([])).toThrow('Nao e possivel analisar um diagnostico sem respostas.');
   });
