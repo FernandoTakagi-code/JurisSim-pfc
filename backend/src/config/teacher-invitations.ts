@@ -1,6 +1,6 @@
 import { ApiError } from '../errors/api-error';
 import { homologationManifest } from './institution-homologation';
-import { institutionalTeacherManagementEnabled } from './institution-feature';
+import { institutionalTeacherManagementEnabled, institutionsGloballyEnabled } from './institution-feature';
 
 export type TeacherInvitationMode = 'restricted' | 'institutional' | 'production';
 const unavailable = () => new ApiError(503, 'Convites docentes indisponíveis neste ambiente. Procure o responsável pela plataforma.');
@@ -12,7 +12,7 @@ export function teacherInvitationMode(): TeacherInvitationMode {
   const institutional = institutionalTeacherManagementEnabled();
   const configured = env.TEACHER_INVITATIONS_MODE;
   if (restricted) {
-    if (!['development', 'test'].includes(env.NODE_ENV ?? '') || institutional || (configured && configured !== 'restricted') || !homologationManifest()) throw unavailable();
+    if (!['development', 'test'].includes(env.NODE_ENV ?? '') || institutionsGloballyEnabled() || env.INSTITUTION_TEACHER_MANAGEMENT_ENABLED === 'true' || (configured && configured !== 'restricted') || !homologationManifest()) throw unavailable();
     return 'restricted';
   }
   if (env.NODE_ENV === 'production') {

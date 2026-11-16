@@ -7,6 +7,7 @@ const db=vi.hoisted(()=>{
 });
 vi.mock('../lib/prisma',()=>({prisma:db}));
 import {InvitationOnboardingService,escapeMail} from './invitation-onboarding';
+import {InstitutionService} from './institution-service';
 import {EmailDeliveryFailure} from './email-delivery-failure';
 const mail={isConfigured:true,send:vi.fn()},token='a'.repeat(64),proof='b'.repeat(64);
 const digest=(v:string)=>createHash('sha256').update(v).digest('hex');
@@ -22,18 +23,20 @@ beforeEach(()=>{
   db.user.create.mockResolvedValue({id:'new-user'});
   db.teacherInvitationClass.findMany.mockResolvedValue([]);
 });
-afterEach(()=>vi.unstubAllEnvs());
+afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
 it('inspects the invited identity for the bearer without consuming the invitation',async()=>{
   const details=await service.inspect(token);
   expect(details.maskedEmail).toBe('i***@example.invalid');expect(details.email).toBe('invited@example.invalid');expect(details.accountExists).toBe(false);expect(details).not.toHaveProperty('tokenHash');expect(db.user.create).not.toHaveBeenCalled();expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();
 });
-it('new recipient proves the invited email and creates only a pending identity, never accepts on registration',async()=>{
+it('valid invited recipient creates a professor and accepts within the registration transaction',async()=>{
+  const accept=vi.spyOn(InstitutionService.prototype,'acceptInTransaction').mockResolvedValue({} as never);
   db.user.findMany.mockResolvedValue([]);
   db.user.findUnique.mockResolvedValue({id:'new-user',email:'invited@example.invalid',role:'ALUNO',emailVerifiedAt:new Date(),deletedAt:null});
   await expect(service.register(token,'New Teacher','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).resolves.toMatchObject({nextStep:'LOGIN'});
-  expect(db.user.create.mock.calls[0][0].data).toMatchObject({email:'invited@example.invalid',role:'ALUNO',registrationIntent:'TEACHER_INVITATION',emailVerifiedAt:expect.any(Date)});
+  expect(db.user.create.mock.calls[0][0].data).toMatchObject({email:'invited@example.invalid',role:'PROFESSOR',registrationIntent:null,emailVerifiedAt:expect.any(Date)});
   expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();
   expect(mail.send).not.toHaveBeenCalled();
+  expect(accept).toHaveBeenCalledWith(db,{userId:'new-user',role:'PROFESSOR'},token);accept.mockRestore();
 });
 it('registration cannot overwrite an existing account or its credentials',async()=>{
   db.user.findMany.mockResolvedValue([{id:'existing',role:'ALUNO',emailVerifiedAt:new Date()}]);
@@ -76,7 +79,7 @@ it('requires explicit legal acceptance before creating an identity',async()=>{
 });
 it('H4.12 direct registration never bypasses the disabled institutional runtime',async()=>{
   vi.stubEnv('INSTITUTIONS_ENABLED','false');
-  await expect(service.register(token,'Professor','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).rejects.toMatchObject({statusCode:403});
+  await expect(service.register(token,'Professor','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).rejects.toMatchObject({statusCode:503});
   expect(db.user.create).not.toHaveBeenCalled();expect(mail.send).not.toHaveBeenCalled();
 });
 it('H4.12 an untouched legacy provisional identity can decline without a second proof or changing credentials',async()=>{

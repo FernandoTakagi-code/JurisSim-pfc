@@ -72,9 +72,9 @@ describe('isolated reset failures through the service and repository', () => {
     const result = new PasswordRecoveryService(new PasswordRecoveryRepository()).resetPassword(input, input, input);
     await expect(result).rejects.toBe(error);
     const response = http(await result.catch(value => value));
-    expect(response.status).toHaveBeenCalledWith(500);
-    expect(console.error).toHaveBeenCalledExactlyOnceWith({ tipo: 'PrismaClientKnownRequestError', codigo: code });
-    expect(response.json).toHaveBeenCalledWith({ message: 'Erro interno do servidor.' });
+    expect(response.status).toHaveBeenCalledWith(code==='P2024'?503:500);
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(code==='P2024'?{type:'database_unavailable',method:'POST',route:'unmatched',prismaCode:code}:{ tipo: 'PrismaClientKnownRequestError', codigo: code });
+    if(code!=='P2024')expect(response.json).toHaveBeenCalledWith({ message: 'Erro interno do servidor.' });
     if (method === 'lookup') expect(bcrypt.hash).not.toHaveBeenCalled();
     if (['lookup', 'transaction', 'token', 'lock', 'account', 'claim'].includes(method)) {
       expect(db.update).not.toHaveBeenCalled();
@@ -86,8 +86,8 @@ describe('isolated reset failures through the service and repository', () => {
     const error = new Prisma.PrismaClientInitializationError('synthetic private detail', 'fixture', 'P1001');
     db.lookup.mockRejectedValue(error);
     await expect(new PasswordRecoveryService().resetPassword(input, input, input)).rejects.toBe(error);
-    expect(http(error).status).toHaveBeenCalledWith(500);
-    expect(console.error).toHaveBeenCalledExactlyOnceWith({ tipo: 'PrismaClientInitializationError', codigo: 'P1001' });
+    expect(http(error).status).toHaveBeenCalledWith(503);
+    expect(console.error).toHaveBeenCalledExactlyOnceWith({type:'database_unavailable',method:'POST',route:'unmatched',prismaCode:'P1001'});
     expect(db.transaction).not.toHaveBeenCalled();
   });
 

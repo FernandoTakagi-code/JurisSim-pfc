@@ -232,6 +232,25 @@ afterAll(async () => {
 });
 
 describe("institutional flows with real isolated PostgreSQL", () => {
+  it('activates only administration with real counts and denies non-admin identities', async () => {
+    vi.stubEnv('INSTITUTIONS_ENABLED', 'false');
+    vi.stubEnv('ADMINISTRATION_ENABLED', 'true');
+    const admin = await account('ADMIN'), student = await account(), teacher = await account('PROFESSOR');
+    const availability = await request('GET', '/institutions/availability', admin.token);
+    expect(availability.body.enabled).toBe(false);
+    expect(availability.body.administrationEnabled).toBe(true);
+    const summary = await request('GET', '/institutions/admin/summary', admin.token);
+    expect(summary.status).toBe(200);
+    expect(summary.body.users).toBe(await prisma.user.count({where:{deletedAt:null}}));
+    expect(summary.body.institutions).toBe(await prisma.institution.count());
+    expect((await request('GET', '/institutions/admin/users?page=1', admin.token)).status).toBe(200);
+    for (const user of [student, teacher]) {
+      expect((await request('GET', '/institutions/admin/summary', user.token)).status).toBe(403);
+      expect((await request('GET', '/institutions/admin/users?page=1', user.token)).status).toBe(403);
+    }
+    expect((await request('GET', '/institutions/admin/summary')).status).toBe(401);
+    expect(delivered).toHaveLength(0);
+  });
   it.each(['ALUNO','PROFESSOR','ADMIN'] as const)('login, refresh and logout preserve profile %s', async role => {
     const user = await account(role);
     for (let refresh = 0; refresh < 2; refresh++) {

@@ -171,7 +171,9 @@ it('H4.32 inspection is read-only; first access creates a professor and accepts 
   expect(await prisma.invitationOnboarding.count({where:{userId:user.id}})).toBe(0);
   expect(await prisma.institutionalMembership.count({where:{userId:user.id,institutionId:item.id,role:'TEACHER',active:true}})).toBe(1);
   const login=await post('/auth/login',{email:item.email,senha:password});expect(login.status).toBe(200);
-  const session=await post('/auth/session',{},login.body.token);expect(session.status).toBe(200);expect(session.body.user.role).toBe('PROFESSOR');
+  const sessionResponse=await fetch(base+'/auth/session',{headers:{Authorization:`Bearer ${login.body.token}`}});
+  expect(sessionResponse.headers.get('content-type')).toContain('application/json');
+  const session={status:sessionResponse.status,body:await sessionResponse.json()};expect(session.status).toBe(200);expect(session.body.user.role).toBe('PROFESSOR');
   const invitation=await prisma.teacherInvitation.findFirstOrThrow({where:{institutionId:item.id}});expect(invitation.status).toBe('ACCEPTED');expect(invitation.acceptedById).toBe(user.id);
   expect(await prisma.institutionalMembership.count({where:{userId:user.id,institutionId:item.id,role:'TEACHER',active:true}})).toBe(1);
   expect((await post('/institutions/invitations/register',registration(item.token))).status).toBe(409);expect(messages).toHaveLength(1);
@@ -237,8 +239,10 @@ it('H4.12 resumes only an untouched legacy provisional account from the same inv
   const pending=await prisma.user.findUniqueOrThrow({where:{email:item.email}});
   await service.register(item.token,'Professor',password,password,acceptance);
   const current=await prisma.user.findUniqueOrThrow({where:{email:item.email}});
-  expect(current.id).toBe(pending.id);expect(current.role).toBe('ALUNO');expect(current.registrationIntent).toBe('TEACHER_INVITATION');
-  expect(await prisma.institutionalMembership.count({where:{userId:current.id}})).toBe(0);
-  await item.service.accept({userId:current.id,role:'ALUNO'},item.token);
+  expect(current.id).toBe(pending.id);expect(current.role).toBe('PROFESSOR');expect(current.registrationIntent).toBeNull();
+  expect(await prisma.institutionalMembership.count({where:{userId:current.id,institutionId:item.id,role:'TEACHER',active:true}})).toBe(1);
+  expect((await prisma.teacherInvitation.findFirstOrThrow({where:{institutionId:item.id}})).status).toBe('ACCEPTED');
+  await expect(item.service.accept({userId:current.id,role:'PROFESSOR'},item.token)).resolves.toMatchObject({message:expect.any(String)});
+  expect(await prisma.institutionalMembership.count({where:{userId:current.id,institutionId:item.id,role:'TEACHER'}})).toBe(1);
   expect((await prisma.user.findUniqueOrThrow({where:{id:current.id}})).role).toBe('PROFESSOR');expect(messages).toHaveLength(2);
 });

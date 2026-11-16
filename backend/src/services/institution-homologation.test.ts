@@ -42,6 +42,7 @@ const {registrationNumber: _unusedRegistrationNumber, ...fixtureInput}=instituti
 const scoped=<T>(fn:()=>T,userId=owner,operational=true)=>institutionRequestScope.run({userId,institutionId:institution,operational},fn);
 beforeEach(()=>{
   vi.resetAllMocks();state.manifest=JSON.stringify(manifest);
+  vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','false');vi.stubEnv('TEACHER_INVITATIONS_MODE','restricted');
   vi.stubEnv('INSTITUTION_HOMOLOGATION_ENABLED','true');vi.stubEnv('INSTITUTIONS_ENABLED','false');
   vi.stubEnv('ADMINISTRATION_ENABLED','true');vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','true');
   vi.stubEnv('HOST','127.0.0.1');vi.stubEnv('JWT_SECRET','homologation-test-secret-with-more-than-32-characters');
@@ -299,7 +300,8 @@ it('HTTP availability reflects the authenticated scope and gates invitations con
     expect((await fetch(base+'/invitations/inspect',{method:'POST',headers,body:JSON.stringify({token:'a'.repeat(64)})})).status).toBe(403);
     db.user.findUnique.mockResolvedValue({id:foreign,role:'ALUNO',emailVerifiedAt:new Date(),sessionVersion:0});
     expect((await (await fetch(base+'/availability',{headers})).json()).enabled).toBe(false);
-    expect((await fetch(base+`/${institution}/summary`,{headers})).status).toBe(503);
+    db.institutionalMembership.findFirst.mockResolvedValue(null);
+    expect((await fetch(base+`/${institution}/summary`,{headers})).status).toBe(403);
     expect(mail.send).not.toHaveBeenCalled();
   } finally {await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });

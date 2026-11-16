@@ -74,7 +74,7 @@ describe('diagnóstico temporário de redefinição', () => {
 
   it('reconhece errorCode de inicialização sem expor detalhes da conexão', () => {
     handle(new Prisma.PrismaClientInitializationError(privateFixture, privateFixture, 'P1001'));
-    expect(console.error).toHaveBeenCalledExactlyOnceWith({ tipo: 'PrismaClientInitializationError', codigo: 'P1001' });
+    expect(console.error).toHaveBeenCalledExactlyOnceWith({ type: 'database_unavailable', method: 'POST', route: 'unmatched', prismaCode: 'P1001' });
   });
 
   it('omite código que não pertença à lista permitida', () => {

@@ -1,11 +1,12 @@
-import {beforeEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 const db=vi.hoisted(()=>({turma:{count:vi.fn()},questao:{findMany:vi.fn()},$transaction:vi.fn()}));
 vi.mock('../lib/prisma',()=>({prisma:db}));
 vi.mock('../config/institution-homologation',async original=>({...await original<typeof import('../config/institution-homologation')>(),homologationClassBoundary:()=>undefined,restrictedInstitutionId:()=>undefined}));
 import {ClassExamService} from './class-exam-service';
 const actor={userId:'teacher',role:'PROFESSOR',institutionId:'institution-a',allowedClassIds:['class-a','class-b']};
 const question=(id:string,fields={})=>({id,enunciado:'Enunciado',disciplina:'Civil',assunto:'Tema',nivel:'BASICO',publica:false,turmaId:null,autorId:'teacher',alternativas:[{correta:true},{correta:false}],...fields});
-beforeEach(()=>{vi.clearAllMocks();db.$transaction.mockImplementation(work=>work(db));db.turma.count.mockResolvedValue(1);db.questao.findMany.mockResolvedValue([]);});
+afterEach(()=>vi.unstubAllEnvs());
+beforeEach(()=>{vi.stubEnv('INSTITUTION_EXAM_MANAGEMENT_ENABLED','true');vi.clearAllMocks();db.$transaction.mockImplementation(work=>work(db));db.turma.count.mockResolvedValue(1);db.questao.findMany.mockResolvedValue([]);});
 it('reads the existing bank for assigned classes without exposing answer keys or administrative fields',async()=>{
   db.questao.findMany.mockResolvedValue([question('public',{publica:true,autorId:'other'}),question('own'),question('class',{autorId:'other',turmaId:'class-a'})]);
   const result=await new ClassExamService().eligibleQuestions(actor,['class-a']);

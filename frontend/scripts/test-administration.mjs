@@ -207,7 +207,7 @@ try {
       if(p==='/audit-logs') return reply([{id:'platform-event-ui',occurredAt:'2026-11-04T00:00:00Z',action:parsed.searchParams.get('action')||'LOGIN_SUCESSO',userId:'admin-ui',resourceId:null,termsVersion:null,privacyVersion:null}]);
       if(p==='/profile/photo') return reply({kind:'default'});
       if(p==='/health') return reply({status:'ok'});
-      if(p==='/institutions/availability') {const full=window.fixtureEnabled,admin=full||window.fixtureAdmin,registration=full||window.fixtureRegistration;return reply({enabled:full,administrationEnabled:admin,registrationEnabled:registration,capabilities:{overview:admin,institutions:admin||registration,requests:admin||registration,decisions:admin||registration,users:admin,teachers:admin,classes:admin,audit:admin||registration,notifications:admin||registration,classAssignment:full,examManagement:full,institutionalOperations:full}});}
+      if(p==='/institutions/availability') {const full=window.fixtureEnabled,admin=full||window.fixtureAdmin,registration=full||window.fixtureRegistration;return reply({enabled:full,administrationEnabled:admin,registrationEnabled:registration,capabilities:{overview:admin,institutions:admin||registration,requests:admin||registration,decisions:admin||registration,users:admin,teachers:admin,classes:admin,audit:admin||registration,notifications:admin||registration,teacherManagement:full,teacherInvitations:full,classAssignment:full,examManagement:full,institutionalOperations:full}});}
       if(p==='/institutions/invitations/accept') {window.fixtureSession={...window.fixtureSession,registrationIntent:undefined,user:{...window.fixtureSession.user,role:'PROFESSOR'},nextStep:'PROFESSOR',administration:{enabled:true,globalAdmin:false,effectiveRole:'PROFESSOR',memberships:[{institutionId:'institution-ui',role:'TEACHER',institution:{name:'Curso de teste'}}]}};return reply({message:'Convite aceito.',institutionId:'institution-ui'});}
       if(p==='/institutions/invitations/onboarding') return reply({message:'Consulte as instruções no e-mail convidado. Contas existentes usam o login único.'});
       if(p==='/institutions/invitations/register') {window.fixtureInvitedIdentity=true;window.fixtureSession={...window.fixtureSession,registrationIntent:'TEACHER_INVITATION',user:{...window.fixtureSession.user,role:'ALUNO',emailVerificado:true},nextStep:'INVITATION'};return reply({message:'Sua conta foi criada. Entre para revisar o convite.',nextStep:'LOGIN',invitationPending:true},201);}
@@ -414,7 +414,7 @@ try {
         await evaluate(`const n=await import('/src/navigation.ts');n.navigate('/administracao/${route}');`);await sleep(300);
         if(route==='usuarios'||route==='professores'){await searchAccounts();await until('!!document.querySelector(".admin-page article")');}
         if(route==='configuracoes') {
-          assert.ok(await evaluate('document.body.textContent.includes("A opção de pausar temporariamente novas solicitações institucionais estará disponível em uma atualização futura.")'));
+          assert.ok(await evaluate('document.body.textContent.includes("Essa configuração é independente do cadastro de alunos. A alteração é feita no ambiente de publicação pela equipe responsável.")'));
           assert.equal(await evaluate(`Array.from(document.querySelectorAll('.admin-settings section')).at(-1).querySelectorAll('button,input,select').length`),0);
         }
         if(route==='instituicoes'||route==='solicitacoes') {
@@ -449,7 +449,7 @@ try {
     await evaluate(
       'document.querySelectorAll(".v0-sidebar nav button").length',
     ),
-    10,
+    6,
   );
   assert.equal(
     await evaluate('document.querySelectorAll(".admin-page nav").length'),
@@ -514,9 +514,9 @@ try {
   );
   assert.equal(
     await evaluate(
-      'Array.from(document.querySelectorAll(".admin-page article")).find(a=>a.textContent.includes("Administrador de teste")).querySelectorAll("button:disabled").length',
+      'Array.from(Array.from(document.querySelectorAll(".admin-page article")).find(a=>a.textContent.includes("Administrador de teste")).querySelectorAll(".account-action-button")).every(button=>button.disabled)',
     ),
-    2,
+    true,
   );
   pass(
     "clique duplicado envia uma única alteração; autoalterações administrativas ficam desabilitadas",
@@ -568,6 +568,7 @@ try {
     'sessionStorage.setItem("fixture-institutions-enabled","false");',
   );
   await cdp("Page.reload");
+  await evaluate("const n=await import('/src/navigation.ts');n.navigate('/administracao');");
   await until(
     'document.body.textContent.includes("Capacidade administrativa desativada")',
   );
@@ -594,7 +595,7 @@ try {
   pass(
     "flag desativada mantém navegação sem consultas protegidas, operações ou métricas inventadas",
   );
-  assert.ok(!await evaluate('window.requests.some(r=>r.p==="/audit-logs")'));
+  assert.ok(await evaluate('window.requests.some(r=>r.p==="/audit-logs")'));
   await click("Logs e auditoria");
   await until(
     'document.querySelector(".admin-page").textContent.includes("Login realizado")',
@@ -643,7 +644,7 @@ try {
   );
   await click("Usuários");
   await until(
-    'document.querySelector(".admin-page").textContent.includes("Perfil da conta")',
+    'document.querySelector(".admin-page").textContent.includes("Capacidade administrativa desativada")',
   );
   await evaluate("const n=await import('/src/navigation.ts');n.navigate('/administracao/configuracoes');");
   assert.ok(

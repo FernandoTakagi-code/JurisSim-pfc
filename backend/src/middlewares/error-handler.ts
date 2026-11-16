@@ -8,7 +8,9 @@ const databaseUnavailableCodes = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P
 const databaseConnectionFailure = /can't reach database server|connection (?:timed out|refused)|connect(?:ion)? timed out|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH/i;
 
 function databaseUnavailableCode(error: unknown): string | undefined {
-  if (error instanceof Prisma.PrismaClientKnownRequestError && databaseUnavailableCodes.has(error.code)) return error.code;
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    try { if (databaseUnavailableCodes.has(error.code)) return error.code; } catch { return undefined; }
+  }
   if (error instanceof Prisma.PrismaClientInitializationError) {
     if (error.errorCode && databaseUnavailableCodes.has(error.errorCode)) return error.errorCode;
     if (databaseConnectionFailure.test(error.message)) return error.errorCode;

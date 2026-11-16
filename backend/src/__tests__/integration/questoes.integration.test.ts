@@ -194,3 +194,44 @@ describe('Fluxo completo: login -> cadastro de questão -> consulta (API + Servi
     expect(await prisma.auditLog.count({ where: { userId: aluno.id, action: 'LOGIN_SUCESSO' } })).toBe(0);
   });
 });
+
+  it('deveAcessarQuestaoPrivadaSomentePelaTentativaAutorizada', async () => {
+    // Arrange
+    const professor = await criarUsuario('PROFESSOR', 'senha-do-professor');
+    const aluno = await criarUsuario('ALUNO');
+    const classId=await turmaDoProfessor(tokenPara(professor));
+    await prisma.turma.update({where:{id:classId},data:{alunos:{connect:{id:aluno.id}}}});
+    const turma={id:classId};
+
+    // Act 1 - login pela API (opção Professor)
+    const login = await requisicao(baseUrl, 'POST', '/auth/login', {
+      corpo: { email: professor.email, senha: 'senha-do-professor', perfil: 'PROFESSOR' },
+    });
+    // Act 2 - cadastro com o token emitido pelo login
+    const criacao = await requisicao(baseUrl, 'POST', '/questoes', { token: login.corpo.token, corpo: questaoValida({publica:false,turmaId:turma.id}) });
+    // Act 3 - consultas
+    const minhas = await requisicao(baseUrl, 'GET', '/questoes?minhas=true', { token: login.corpo.token });
+    const visaoAluno = await requisicao(baseUrl, 'GET', `/questoes?turmaId=${turma.id}`, { token: tokenPara(aluno) });
+
+    // Assert
+    expect(login.status).toBe(200);
+    expect(login.corpo.usuario).toMatchObject({ id: professor.id, role: 'PROFESSOR' });
+    expect(criacao.status).toBe(201);
+    expect(minhas.status).toBe(200);
+    expect(minhas.corpo.map((q: { id: string }) => q.id)).toEqual([criacao.corpo.id]);
+    expect(visaoAluno.status).toBe(200);
+    expect(visaoAluno.corpo).toHaveLength(0);
+    const exam=await requisicao(baseUrl,'POST','/avaliacoes',{token:login.corpo.token,corpo:{titulo:'Simulado privado',descricao:'Teste de acesso',duracaoSegundos:null,turmaIds:[turma.id],questaoIds:[criacao.corpo.id]}});
+    expect(exam.status).toBe(201);
+    expect((await requisicao(baseUrl,'POST',`/avaliacoes/${exam.corpo.id}/publish`,{token:login.corpo.token,corpo:{}})).status).toBe(200);
+    const start=await requisicao(baseUrl,'POST',`/avaliacoes/${exam.corpo.id}/attempts`,{token:tokenPara(aluno),corpo:{}});
+    expect(start.status).toBe(200);
+    const attempt=await requisicao(baseUrl,'GET',`/avaliacoes/attempts/${start.corpo.id}`,{token:tokenPara(aluno)});
+    expect(attempt.status).toBe(200);expect(attempt.corpo.questions).toHaveLength(1);
+    for(const question of attempt.corpo.questions){
+      expect(question).not.toHaveProperty('correctAnswer');
+      for(const alternative of question.alternatives){expect(alternative).not.toHaveProperty('correta');expect(alternative).not.toHaveProperty('correct');}
+    }
+    const acoes = (await prisma.auditLog.findMany({ where: { userId: professor.id } })).map((log) => log.action);
+    expect(acoes).toEqual(expect.arrayContaining(['LOGIN_SUCESSO', 'QUESTAO_CRIADA']));
+  });
