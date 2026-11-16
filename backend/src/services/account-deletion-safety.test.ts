@@ -5,7 +5,7 @@ const db = vi.hoisted(() => {
   return { user: model(), accountControl: model(), institution: model(), institutionalMembership: model(), emailReuseBlock: model(), authToken: model(), passwordRecoveryToken: model(), administrativeEvent: model(), $queryRaw: vi.fn(), $executeRaw: vi.fn() };
 });
 // Test-only module double. Production availability remains hard-disabled.
-vi.mock('../account-deletion-availability', () => ({ accountDeletionEnabled: () => true, accountDeletionUnavailableMessage: 'fixture only' }));
+vi.mock('../account-deletion-availability', () => ({ accountDeletionEnabled: () => true, studentSelfDeletionEnabled: () => true, accountDeletionUnavailableMessage: 'fixture only' }));
 vi.mock('../lib/prisma', () => ({ prisma: db }));
 vi.mock('./institution-service', async original => ({ ...await original<typeof import('./institution-service')>(), institutionalTransaction: async (work: (tx: any) => unknown) => work(db) }));
 import { AccountDeletionService } from './account-deletion';

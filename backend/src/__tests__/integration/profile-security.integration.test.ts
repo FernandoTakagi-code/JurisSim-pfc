@@ -7,7 +7,7 @@ import { parse } from 'dotenv';
 import bcrypt from 'bcrypt';
 // The production deletion gate stays hard-disabled. This double exists only in
 // this test process, after the disposable database identity is checked.
-vi.mock('../../account-deletion-availability', () => ({ accountDeletionEnabled: () => true, accountDeletionUnavailableMessage: 'isolated test only' }));
+vi.mock('../../account-deletion-availability', () => ({ accountDeletionEnabled: () => true, studentSelfDeletionEnabled: () => true, accountDeletionUnavailableMessage: 'isolated test only' }));
 import { prisma, criarUsuario, limparBanco, encerrar, tokenPara } from './helpers';
 import { assertDisposableDatabase } from './disposable-database';
 import { AuthController } from '../../controllers/auth-controller';

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { accountDeletionEnabled } from '../account-deletion-availability';
+import { accountDeletionEnabled, studentSelfDeletionEnabled } from '../account-deletion-availability';
 import { AccountDeletionService, assertEmailReusable } from './account-deletion';
 import { AuthService } from './auth-service';
 import versions from '../legal-versions.json';
@@ -8,17 +8,24 @@ const db = vi.hoisted(() => ({ user: { findUnique: vi.fn() }, emailReuseBlock: {
 vi.mock('../lib/prisma', () => ({ prisma: db }));
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
-it('cannot enable unvalidated deletion through environment variables', async () => {
+it('cannot enable unvalidated administrative deletion through environment variables', async () => {
   vi.stubEnv('EMAIL_REUSE_BLOCKS_ENABLED', 'true');
   vi.stubEnv('ACCOUNT_DELETION_ENABLED', 'true');
   expect(accountDeletionEnabled()).toBe(false);
   const service = new AccountDeletionService();
-  await expect(service.self('student', { senhaAtual: 'unverified' })).rejects.toMatchObject({ statusCode: 503 });
   await expect(service.admin({ userId: 'admin', role: 'ADMIN' }, 'target', true, 'review')).rejects.toMatchObject({ statusCode: 503 });
   await expect(service.revoke({ userId: 'admin', role: 'ADMIN' }, 'fixture@example.invalid', 'review')).rejects.toMatchObject({ statusCode: 503 });
   expect(db.user.findUnique).not.toHaveBeenCalled();
   expect(db.$transaction).not.toHaveBeenCalled();
   expect(db.emailReuseBlock.findFirst).not.toHaveBeenCalled();
+});
+
+it('keeps student self-deletion unavailable until the environment enables the email-reuse policy', async () => {
+  expect(studentSelfDeletionEnabled()).toBe(true);
+  vi.stubEnv('EMAIL_REUSE_BLOCKS_ENABLED', 'false');
+  await expect(new AccountDeletionService().self('student', { senhaAtual: 'unverified' })).rejects.toMatchObject({ statusCode: 503 });
+  expect(db.user.findUnique).not.toHaveBeenCalled();
+  expect(db.$transaction).not.toHaveBeenCalled();
 });
 
 it.each(['ALUNO', 'PROFESSOR'])('does not grant global deletion or revocation to %s', async role => {

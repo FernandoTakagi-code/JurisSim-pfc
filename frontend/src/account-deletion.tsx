@@ -3,7 +3,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { apiRequest } from './api';
 import { endSession, useSession } from './auth-session';
 import { navigate } from './navigation';
-import { accountDeletionEnabled, accountDeletionUnavailableMessage } from '../../backend/src/account-deletion-availability';
+import { accountDeletionEnabled, accountDeletionUnavailableMessage, studentSelfDeletionEnabled } from '../../backend/src/account-deletion-availability';
 import './account-actions.css';
 
 function IdentityFields({ password, setPassword, google, setGoogle, busy, ready, onGoogle, onError }: {
@@ -23,7 +23,7 @@ export function AccountDeletion({ embedded = false }: { embedded?: boolean } = {
   const [open, setOpen] = useState(false), [password, setPassword] = useState(''), [confirmation, setConfirmation] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [google, setGoogle] = useState(false);
   const pending = useRef(false);
   if (session?.user.role !== 'ALUNO') return null;
-  const available = accountDeletionEnabled();
+  const available = studentSelfDeletionEnabled();
   async function remove(googleCredential?: string) {
     if (!available || pending.current || confirmation !== 'EXCLUIR' || (!googleCredential && !password)) return;
     pending.current = true; setBusy(true); setError('');

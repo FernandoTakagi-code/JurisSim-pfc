@@ -61,7 +61,7 @@ describe('PrismaQuestionPracticeRepository isolation contract', () => {
     expect([...result]).toEqual(['answered']);
     expect(fakeDb.questao.findMany).not.toHaveBeenCalled();
     expect(fakeDb.resposta.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {
-      simulado: { alunoId: 'owner' }, questao: expect.objectContaining({ disciplina: 'Direito Civil', assunto: 'Contratos', publica: true }),
+      simulado: { alunoId: 'owner', diagnosticoInicial: { is: null } }, questao: expect.objectContaining({ disciplina: 'Direito Civil', assunto: 'Contratos', publica: true }),
     } }));
   });
 
