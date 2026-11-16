@@ -173,7 +173,7 @@ export class AuthController {
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {
-    response.json(await this.service.session(request.auth!.userId, request.get('x-jurissim-local-demo') === 'true'));
+    response.json(await this.service.session(request.auth!.userId, request.get('x-jurissim-local-demo') === 'true', request.get('x-institution-context') === 'administration'));
   };
 
   atualizarNome = async (request: AuthenticatedRequest, response: Response) => {

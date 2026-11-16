@@ -281,7 +281,6 @@ try {
     "students",
     "performance",
     "exams",
-    "activities",
     "reports",
     "notifications",
     "settings",
@@ -311,20 +310,41 @@ try {
       true,
     );
     if (section === "invitations") {
-      // Exercise the exact modal that loads /turmas?page=1. This must carry
-      // institutional administration context through the real API, even when
-      // the institution has no classes. Opening it must not send an invitation.
+      // Exercise the modal using institution-scoped classes from the
+      // authorized summary. Opening it must not submit or send an invitation.
       await evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Convidar professor').click()");
       await until('!!document.querySelector("[role=dialog] input[type=email]")');
       await until('!document.querySelector("[role=dialog] [role=alert]")&&!Array.from(document.querySelectorAll("[role=dialog] p")).some(e=>/^Carregando/.test(e.textContent))');
       assert.equal(await evaluate('document.querySelector("[role=dialog] select[name=classId]").options[0].text'), "Sem designação inicial");
       assert.equal(await evaluate('document.querySelector("[role=dialog] button[type=submit], [role=dialog] .primary-button").disabled'), false);
+      for (const width of [1440, 768, 390]) {
+        await cdp("Emulation.setDeviceMetricsOverride", { width, height: 1000, deviceScaleFactor: 1, mobile: width < 500 });
+        const layout = await evaluate('(()=>{const d=document.querySelector(".institution-invitation-dialog");const r=d.getBoundingClientRect();return {right:r.right,viewport:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth,form:!!d.querySelector("#institution-teacher-invitation-form"),submit:!!d.querySelector("button[type=submit]")}})()');
+        assert.ok(layout && layout.form && layout.submit && layout.right <= layout.viewport + 1, `invitation modal fits at ${width}px`);
+        assert.equal(layout.overflow, false, `invitation modal overflow at ${width}px`);
+      }
+      await cdp("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
       await evaluate("document.querySelector('[role=dialog] button[aria-label=Fechar]').click()");
       await until('!document.querySelector("[role=dialog]")');
-      console.log("PASS REAL DB INVITATION MODAL: class query and institution context accepted; no invitation submitted.");
+      console.log("PASS REAL DB INVITATION MODAL: institution context, real form, responsive layouts and enabled submit; no invitation submitted.");
     }
-    if (section === "activities") {
-      assert.equal(await evaluate('Array.from(document.querySelectorAll(".institution-workspace h1")).some(e=>e.textContent.trim()==="Atividades")'), true);
+    if (section === "teachers") {
+      for (const width of [1440, 768, 390]) {
+        await cdp("Emulation.setDeviceMetricsOverride", {
+          width, height: 1000, deviceScaleFactor: 1, mobile: width < 500,
+        });
+        const layout = await evaluate(`(()=>{const h=document.querySelector('.teacher-management-heading');const b=h?.querySelector('.institution-invite-button');if(!h||!b)return null;const r=b.getBoundingClientRect();return {buttonWidth:r.width,buttonRight:r.right,buttonTextFits:b.scrollWidth<=b.clientWidth,whiteSpace:getComputedStyle(b).whiteSpace,overflow:document.documentElement.scrollWidth>innerWidth};})()`);
+        assert.ok(layout && layout.buttonWidth >= 190, `invite button width at ${width}px`);
+        assert.equal(layout.buttonTextFits, true, `invite button text wraps at ${width}px`);
+        assert.equal(layout.whiteSpace, "nowrap");
+        assert.equal(layout.overflow, false, `horizontal overflow at ${width}px`);
+        if (width >= 768) {
+          const header = await evaluate(`(()=>{const r=document.querySelector('.teacher-management-heading').getBoundingClientRect();const b=document.querySelector('.teacher-management-heading .institution-invite-button').getBoundingClientRect();return b.right<=r.right+1;})()`);
+          assert.equal(header, true, `invite button exceeds heading at ${width}px`);
+        }
+      }
+      await cdp("Emulation.setDeviceMetricsOverride", { width:1440, height:1000, deviceScaleFactor:1, mobile:false });
+      console.log("PASS REAL DB TEACHERS HEADER: invite action fits at 1440, 768 and 390px.");
     }
     await evaluate(
       `{let e=document.querySelector('#db-review-label');if(!e){e=document.createElement('div');e.id='db-review-label';e.style.cssText='position:fixed;bottom:0;right:0;z-index:9999;background:#fff1b8;color:#352400;padding:6px;font:11px sans-serif';document.body.append(e);}e.textContent='POSTGRESQL REAL ISOLADO · CONTAS DE TESTE · SEM SUPABASE';}`,
@@ -412,7 +432,7 @@ try {
     );
   }
   console.log(
-    "PASS REAL DB UI: login verdadeiro, sessão do backend e doze módulos com PostgreSQL descartável; nenhum fetch/sessão substituído.",
+    "PASS REAL DB UI: login verdadeiro, sessão do backend e onze módulos com PostgreSQL descartável; nenhum fetch/sessão substituído.",
   );
 } catch (error) {
   const diagnosticPath = path.join(process.cwd(), '.artifacts/institution-real-db/diagnostics.json');

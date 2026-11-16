@@ -5,7 +5,7 @@ import { IntegrationShell } from "./integration-shell";
 import { EmailConfirmationGate } from "./email-confirmation-gate";
 import {
   useInstitutionLocation,
-  canManageInstitution,
+  canViewInstitution,
 } from "./institution-navigation";
 import { InstitutionDashboard } from "./institution-dashboard";
 
@@ -20,7 +20,7 @@ export function InstitutionArea({
   const id = new URL(location, window.location.origin).searchParams.get(
     "instituicao",
   );
-  const authorized = !!id && canManageInstitution(session, id);
+  const authorized = !!id && canViewInstitution(session, id);
   useEffect(() => {
     if (authorized && id)
       sessionStorage.setItem("jurissim_administration_institution", id);
@@ -34,6 +34,7 @@ export function InstitutionArea({
         id={id}
         session={session}
         onSair={onSair}
+        readOnly={session.administration?.enabled !== true}
       />
     );
   return (

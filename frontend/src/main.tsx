@@ -101,7 +101,7 @@ function App() {
   if(emailChangeLink) return <ConfirmAccountEmailChange />;
   if(path === '/convite-professor') return <TeacherInvitationLanding/>;
   if (authLink || (auth.status === 'anonymous' && !sessionStorage.getItem('jurissim_token'))) return <AuthGate />;
-  if (auth.status === 'error') return <main className="page"><p className="error" role="alert">{auth.message}</p><button onClick={() => void refreshSession().catch(() => {})}>Tentar novamente</button><button onClick={() => void logoutSession()}>Sair</button></main>;
+  if (auth.status === 'error') return <main className="session-validation session-validation-error" role="alert" aria-live="assertive"><section className="session-validation-card"><span className="session-validation-mark" aria-hidden="true">!</span><strong>Não foi possível confirmar sua sessão</strong><p>{auth.message || 'O serviço está temporariamente indisponível. Tente novamente em instantes.'}</p><div className="session-validation-actions"><button type="button" className="primary-button" onClick={() => void refreshSession().catch(() => {})}>Tentar novamente</button><button type="button" className="outline-button" onClick={() => void logoutSession()}>Sair</button></div></section></main>;
   if (auth.status !== 'ready' || !auth.session || redirectTarget) return <SessionValidationScreen />;
   const { user } = auth.session;
   const sair = async () => { if (!await logoutSession()) return; window.location.assign('/'); };

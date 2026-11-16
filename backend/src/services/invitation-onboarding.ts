@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
 import { assertTeacherInvitationsAvailable } from '../config/teacher-invitations';
-import { administrativeEvent, hashInvitation, institutionalTransaction, fixtureProvenance, type Tx } from './institution-service';
+import { administrativeEvent, hashInvitation, institutionalTransaction, InstitutionService, fixtureProvenance, type Tx } from './institution-service';
 import { acceptanceData, acceptanceSchema } from './legal-acceptance';
 import { assertValidPassword } from './password-policy';
 import { createBrevoEmailTransport, type TransactionalEmailTransport } from './brevo-email-transport';
@@ -60,8 +60,6 @@ export class InvitationOnboardingService {
     });
   }
   async register(token:string,nome:string,password:string,confirmation:string,acceptance:unknown) {
-    // The exceptional H3 runtime still requires pre-existing authorized accounts.
-    if(!institutionsGloballyEnabled()) throw new ApiError(403,'Use uma conta individual previamente cadastrada e confirmada.');
     nome=nome.trim();
     if(nome.length<2||nome.length>120)throw new ApiError(422,'Informe seu nome completo.');
     acceptanceSchema.parse(acceptance);assertValidPassword(password);
@@ -77,11 +75,14 @@ export class InvitationOnboardingService {
       if(existing&&!resumable)throw new ApiError(409,'Já existe uma conta para este convite. Entre com sua senha ou Google para aceitar o vínculo.');
       if(existing&&(await tx.accountControl.findUnique({where:{userId:existing.id}}))?.suspended)throw new ApiError(403,'Conta indisponível. Procure o suporte.');
       const legal=acceptanceData(acceptance);
-      const data={nome,senhaHash,emailVerifiedAt:new Date(),registrationIntent:'TEACHER_INVITATION',...legal,auditLogs:{create:[legal.auditLogs.create,{action:'EMAIL_CONFIRMADO' as const}]}};
-      const user=existing?await tx.user.update({where:{id:existing.id},data:{...data,sessionVersion:{increment:1}}}):await tx.user.create({data:{...data,email:invitation.email.toLowerCase(),role:'ALUNO'}});
+      const data={nome,senhaHash,emailVerifiedAt:new Date(),registrationIntent:null,...legal,auditLogs:{create:[legal.auditLogs.create,{action:'EMAIL_CONFIRMADO' as const}]}};
+      const user=existing
+        ? await tx.user.update({where:{id:existing.id},data:{...data,role:'PROFESSOR',sessionVersion:{increment:1}}})
+        : await tx.user.create({data:{...data,email:invitation.email.toLowerCase(),role:'PROFESSOR'}});
       if(legacy)await tx.invitationOnboarding.update({where:{id:legacy.id},data:{completedAt:new Date()}});
       await administrativeEvent(tx,'INVITATION_IDENTITY_CREATED',user.id,invitation.institutionId,invitation.id);
-      return {message:'Sua conta foi criada. Entre com a senha que definiu para revisar e aceitar ou recusar o convite.',nextStep:'LOGIN',invitationPending:true};
+      await new InstitutionService().acceptInTransaction(tx,{userId:user.id,role:'PROFESSOR'},token);
+      return {message:'Conta criada e convite aceito. Entre com sua nova senha para acessar o painel do professor.',nextStep:'LOGIN',invitationAccepted:true};
     });
   }
   /** Legacy compatibility for isolated regression fixtures. No public route calls this method. */

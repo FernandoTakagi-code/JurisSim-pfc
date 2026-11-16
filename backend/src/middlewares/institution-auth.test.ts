@@ -65,11 +65,22 @@ it('derives institutional administration from the active backend membership, wit
   const {req,next}=await authenticate('first','/turmas',true);
   expect(next).toHaveBeenCalledWith();expect(req.auth).toMatchObject({role:'ALUNO',institutionId:'first',institutionAdmin:true});
 });
+it('allows only invitations and teacher-class assignment through the narrow read-only capability',async()=>{
+  vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('ADMINISTRATION_ENABLED','false');vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','false');vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','true');
+  mocks.user.mockResolvedValue({id:userId,role:'ALUNO',registrationIntent:'INSTITUTION',emailVerifiedAt:new Date(),sessionVersion:0});
+  mocks.memberships.mockResolvedValue([{institutionId:'first',role:'INSTITUTION_ADMIN',institution:{name:'Primeira'}}]);
+  const invitation=await authenticate('first',`/institutions/${userId}/invitations`,true,'POST');
+  expect(invitation.next).toHaveBeenCalledWith();expect(invitation.req.auth).toMatchObject({role:'ALUNO',institutionId:'first',institutionAdmin:true});
+  const assignment=await authenticate('first',`/turmas/${userId}/teachers/${userId}`,true,'PUT');
+  expect(assignment.next).toHaveBeenCalledWith();
+  const unrelated=await authenticate('first','/turmas',true,'POST');
+  expect(unrelated.next).toHaveBeenCalledWith(expect.objectContaining({statusCode:503}));
+});
 it('does not infer academic delegation from ADMIN or a requested institution header',async()=>{
   mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(),sessionVersion:0});
   const {req}=await authenticate('first');expect(req.auth?.institutionAdmin).toBeUndefined();expect(req.auth?.allowedClassIds).toBeUndefined();
 });
-async function authenticate(institution?: string, originalUrl = "/turmas", administrative=false) {
+async function authenticate(institution?: string, originalUrl = "/turmas", administrative=false, method='GET') {
   const token = jwt.sign(
     { id: userId, role: "ALUNO", sessionVersion: 0 },
     secret,
@@ -77,6 +88,7 @@ async function authenticate(institution?: string, originalUrl = "/turmas", admin
   );
   const req = {
     originalUrl,
+    method,
     header: (key: string) =>
       key === "authorization" ? `Bearer ${token}` : key==='x-institution-id'?institution:key==='x-institution-context'&&administrative?'administration':undefined,
   } as AuthenticatedRequest;

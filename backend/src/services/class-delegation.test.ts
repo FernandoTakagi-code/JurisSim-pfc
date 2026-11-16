@@ -1,7 +1,7 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 const db=vi.hoisted(()=>{
   const model=()=>Object.fromEntries(['findFirst','findMany','findUnique','create','update','count'].map(k=>[k,vi.fn()]));
-  return {turma:model(),avaliacao:model(),institutionalMembership:model(),institutionalClass:model(),administrativeEvent:model(),$queryRaw:vi.fn(),$transaction:vi.fn()};
+  return {turma:model(),avaliacao:model(),simulado:model(),institutionalMembership:model(),institutionalClass:model(),administrativeEvent:model(),$queryRaw:vi.fn(),$transaction:vi.fn()};
 });
 vi.mock('../lib/prisma',()=>({prisma:db}));
 // Isolate authorization scenarios from any private local homologation registry.
@@ -43,6 +43,7 @@ beforeEach(()=>{
     return turma;
   });
   db.avaliacao.findMany.mockImplementation(({where})=>exams.filter(e=>matches(e,where)));
+  db.simulado.findMany.mockResolvedValue([]);
   db.avaliacao.findFirst.mockImplementation(({where})=>exams.find(e=>matches(e,where))??null);
   db.institutionalMembership.findFirst.mockImplementation(({where})=>where.institutionId==='institution-a'?{id:'active-membership'}:null);
   db.turma.create.mockImplementation(({data})=>{const turma={id:'created-class',...data};classes.push(turma);return turma;});

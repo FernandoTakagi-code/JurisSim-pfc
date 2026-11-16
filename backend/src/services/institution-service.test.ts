@@ -153,7 +153,10 @@ describe('institution-owned class delegation',()=>{
     db.turma.findMany.mockResolvedValue([]);db.user.findMany.mockResolvedValue([]);db.user.count.mockResolvedValue(8);db.simulado.count.mockResolvedValue(3);
     db.institutionalMembership.count.mockResolvedValue(2);db.teacherInvitation.count.mockResolvedValue(1);db.turma.count.mockResolvedValue(1);db.avaliacao.count.mockResolvedValue(4);
     const result=await service.institutionSummary(owner,'institution',1);
-    expect(result.indicators).toMatchObject({classes:1,students:8,completedAttempts:3,activeTeachers:2,pendingInvitations:1,activeClasses:1,publishedExams:4,activitiesAvailable:false,publishedActivities:null,completedActivities:null,participatingStudents:null,participationRate:null,accuracy:null});
+    expect(result.indicators).toMatchObject({classes:1,students:8,completedAttempts:3,activeTeachers:2,pendingInvitations:1,activeClasses:1,publishedExams:4});
+    expect(result.indicators).not.toHaveProperty("publishedActivities");
+    expect(result.indicators).not.toHaveProperty("completedActivities");
+    expect(result.indicators).not.toHaveProperty("participationRate");
     expect(db.teacherInvitation.count).toHaveBeenCalledWith({where:{institutionId:'institution',status:'PENDING',expiresAt:{gt:expect.any(Date)}}});
   });
   const admin={userId:'owner',role:'ALUNO',institutionId:'institution',institutionAdmin:true,allowedClassIds:['class']};
@@ -237,6 +240,15 @@ describe("institutional approval and global authorization", () => {
     expect(await currentAccess("student", "ALUNO")).toBeUndefined();
     expect(db.accountControl.findUnique).not.toHaveBeenCalled();
     expect(db.institutionalMembership.findMany).not.toHaveBeenCalled();
+  });
+  it("returns only active administrative links for an explicitly requested read-only institutional context", async () => {
+    vi.stubEnv("INSTITUTIONS_ENABLED", "false");
+    vi.stubEnv("ADMINISTRATION_ENABLED", "false");
+    vi.stubEnv("INSTITUTION_REGISTRATION_ENABLED", "false");
+    db.institutionalMembership.findMany.mockResolvedValue([{ institutionId: "institution", role: "INSTITUTION_ADMIN", institution: { name: "Faculdade" } }]);
+    const access = await currentAccess("owner", "ALUNO", true);
+    expect(access).toMatchObject({ enabled: false, readOnly: true, memberships: [{ institutionId: "institution", role: "INSTITUTION_ADMIN" }] });
+    expect(db.institutionalMembership.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ userId: "owner", active: true, institution: { status: "ACTIVE" }, role: "INSTITUTION_ADMIN" }) }));
   });
   it("denies global indicators to regular users and institutional administrators", async () => {
     await expect(service.summary(owner)).rejects.toMatchObject({
@@ -379,8 +391,16 @@ describe("teacher invitation lifecycle", () => {
       owner,
       "institution",
       "teacher@example.com",
+      undefined,
+      { message: "Mensagem da instituição" },
     );
     const sent = mail.send.mock.calls[0][0];
+    expect(sent.html).toContain("Juris");
+    expect(sent.html).toContain("Aceitar convite");
+    expect(sent.html).toContain("48 horas");
+    expect(sent.html).toContain('href="https://jurissim.example/#/convite-professor?token=');
+    expect(sent.text).toContain("Mensagem da instituição:");
+    expect(sent.html).toContain("Mensagem da instituição:");
     const token = sent.text.match(/token=([a-f0-9]{64})/)[1];
     expect(db.teacherInvitation.create.mock.calls[0][0].data.tokenHash).toBe(
       hashInvitation(token),

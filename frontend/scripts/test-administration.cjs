@@ -73,6 +73,7 @@ vm.runInNewContext(compiled, {
         },
       };
     if (name === "./admin-navigation") return navigation;
+    if (name === "./institution-navigation") return { institutionNavigate() {}, canViewInstitution: () => true };
     if (name === "./navigation") return { usePath: () => route, navigate() {} };
     if (name === "./auth-session")
       return {

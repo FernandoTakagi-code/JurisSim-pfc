@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { ApiError } from "../errors/api-error";
 import { assertTeacherInvitationsAvailable, teacherInvitationMode } from '../config/teacher-invitations';
-import { institutionsGloballyEnabled, administrationEnabled, institutionRegistrationEnabled } from "../config/institution-feature";
+import { institutionsGloballyEnabled, administrationEnabled, institutionRegistrationEnabled, institutionalTeacherManagementEnabled } from "../config/institution-feature";
 import { homologationParticipant, assertRestrictedInstitution, assertRestrictedParticipant, restrictedInstitutionId } from '../config/institution-homologation';
 import {
   createBrevoEmailTransport,
@@ -120,9 +120,12 @@ export async function institutionAdmin(
   if (!member)
     throw new ApiError(403, "Administração institucional não autorizada.");
 }
-export async function currentAccess(userId: string, originalRole: string) {
+export async function currentAccess(userId: string, originalRole: string, institutionalReadOnly = false) {
   const restricted = !institutionsGloballyEnabled() ? homologationParticipant(userId) : null;
-  if (!administrationEnabled() && !institutionRegistrationEnabled() && !restricted) return undefined;
+  // Read-only institutional identity is safe to resolve while write operations
+  // await explicit activation. Every consumer still checks ACTIVE membership.
+  const readOnlyInstitutionAccess = !institutionsGloballyEnabled() && institutionalReadOnly;
+  if (!administrationEnabled() && !institutionRegistrationEnabled() && !restricted && !readOnlyInstitutionAccess) return undefined;
   const restriction = await prisma.accountControl.findUnique({
     where: { userId },
   });
@@ -132,8 +135,29 @@ export async function currentAccess(userId: string, originalRole: string) {
       "Conta suspensa. Procure o responsável pela plataforma.",
     );
   // Global controls must not activate institutional membership requirements.
+  if (!institutionsGloballyEnabled() && !restricted && institutionalReadOnly) {
+    const memberships = await prisma.institutionalMembership.findMany({
+      where: { ...institutionMemberWhere(userId), role: 'INSTITUTION_ADMIN' },
+      select: { institutionId: true, role: true, institution: { select: { name: true } } },
+      orderBy: { institutionId: 'asc' },
+    });
+    return {
+      // Membership resolution permits identity and authorized read access only;
+      // operational permissions remain disabled until explicit feature activation.
+      enabled: false,
+      readOnly: true,
+      teacherManagementEnabled: institutionalTeacherManagementEnabled(),
+      restricted: false,
+      globalAdmin: originalRole === 'ADMIN',
+      needsInstitutionLink: originalRole === 'PROFESSOR',
+      memberships,
+      effectiveRole: originalRole,
+    };
+  }
+  // Existing global-only flags must not activate membership-dependent auth
+  // checks for unrelated ADMIN, teacher, and student sessions.
   if (!institutionsGloballyEnabled() && !restricted) return undefined;
-  if(restricted && !await fixtureProvenance(prisma,restricted)) return {enabled:false,restricted:true,globalAdmin:originalRole==='ADMIN',needsInstitutionLink:originalRole==='PROFESSOR',memberships:[],effectiveRole:originalRole};
+  if(restricted && !await fixtureProvenance(prisma,restricted)) return {enabled:false,restricted:true,teacherManagementEnabled:false,globalAdmin:originalRole==='ADMIN',needsInstitutionLink:originalRole==='PROFESSOR',memberships:[],effectiveRole:originalRole};
   const memberships = await prisma.institutionalMembership.findMany({
     where: {...institutionMemberWhere(userId), ...(restricted ? {institutionId: restricted.institutionId} : {})},
     select: {
@@ -147,6 +171,7 @@ export async function currentAccess(userId: string, originalRole: string) {
   const studentLink = restricted && originalRole === 'ALUNO' && !memberships.length ? await prisma.user.findFirst({where:{id:userId,deletedAt:null,emailVerifiedAt:{not:null},OR:[{turmasComoAluno:{some:studentClass}},{classJoinRequests:{some:{status:'PENDING',turma:studentClass}}}]},select:{id:true}}) : null;
   return {
     enabled: !restricted || memberships.length > 0 || !!studentLink,
+    teacherManagementEnabled: institutionalTeacherManagementEnabled(),
     ...(restricted ? {restricted:true} : {}),
     globalAdmin: originalRole === "ADMIN",
     needsInstitutionLink: originalRole === 'PROFESSOR' && !memberships.some(m=>m.role==='TEACHER'),
@@ -319,17 +344,24 @@ export class InstitutionService {
   }
 
   async myInstitutions(actor: InstitutionActor) {
-    return prisma.institution.findMany({
+    const institutions = await prisma.institution.findMany({
       where: {
         ...(restrictedInstitutionId() ? {id:restrictedInstitutionId()} : {}),
         OR: [
           { ownerId: actor.userId },
-          { memberships: { some: { userId: actor.userId, active: true } } },
+          { status: 'ACTIVE', memberships: { some: { userId: actor.userId, active: true } } },
         ],
       },
-      select: institutionSelect,
+      select: {
+        ...institutionSelect,
+        memberships: { where: { userId: actor.userId, active: true }, select: { role: true } },
+      },
       orderBy: { createdAt: "desc" },
     });
+    return institutions.map(({ memberships, ...institution }) => ({
+      ...institution,
+      myRole: memberships[0]?.role ?? (institution.ownerId === actor.userId ? 'OWNER' : null),
+    }));
   }
 
   async institutions(actor: InstitutionActor, page: number, status?: string) {
@@ -781,30 +813,12 @@ export class InstitutionService {
           },
         }),
       ]);
-    const activityPerformanceQuery = activitiesReady && activeClassIds.length
-      ? prisma.$queryRaw<Array<{participatingStudents:number;answers:number;correct:number}>>`
-          SELECT COUNT(DISTINCT s."alunoId")::int AS "participatingStudents",
-            COUNT(r."id")::int AS answers,
-            COUNT(r."id") FILTER (WHERE r."correta" = true)::int AS correct
-          FROM "ClassActivity" ca
-          JOIN "Avaliacao" a ON a.id = ca."evaluationId"
-          JOIN "Simulado" s ON s."avaliacaoId" = a.id AND s."finalizadoEm" IS NOT NULL
-          LEFT JOIN "Resposta" r ON r."simuladoId" = s.id
-          WHERE ca."classId" = ANY(${activeClassIds}::text[])
-            AND ca."cancelledAt" IS NULL AND a."publishedAt" IS NOT NULL`
-      : Promise.resolve([{participatingStudents:0,answers:0,correct:0}]);
-    const [activeTeachers,pendingInvitations,activeClasses,publishedExams,publishedActivities,completedActivities,activityPerformance]=await Promise.all([
+    const [activeTeachers,pendingInvitations,activeClasses,publishedExams]=await Promise.all([
       prisma.institutionalMembership.count({where:{institutionId:id,role:'TEACHER',active:true,user:{deletedAt:null}}}),
       prisma.teacherInvitation.count({where:{institutionId:id,status:'PENDING',expiresAt:{gt:new Date()}}}),
       prisma.turma.count({where:{id:{in:activeClassIds},archivedAt:null,...classVisibility}}),
       prisma.avaliacao.count({where:{publishedAt:{not:null},turmas:{some:{id:{in:activeClassIds}}},...(activitiesReady?{activity:null}:{})}}),
-      activitiesReady?prisma.classActivity.count({where:{classId:{in:activeClassIds},cancelledAt:null,avaliacao:{publishedAt:{not:null}}}}):Promise.resolve(null),
-      activitiesReady?prisma.simulado.count({where:{tipo:'AVALIACAO',finalizadoEm:{not:null},avaliacao:{activity:{is:{classId:{in:activeClassIds}}}},aluno:{turmasComoAluno:{some:{id:{in:activeClassIds}}}}}}):Promise.resolve(null),
-      activityPerformanceQuery,
     ]);
-    const activityResult=activityPerformance[0];
-    const participationRate=activitiesReady&&students>0?Math.round((activityResult.participatingStudents/students)*1000)/10:null;
-    const accuracy=activitiesReady&&activityResult.answers>0?Math.round((activityResult.correct/activityResult.answers)*1000)/10:null;
     return {
       institution,
       teachers: pageResult(
@@ -817,9 +831,7 @@ export class InstitutionService {
       classes: pageResult(classes, page),
       indicators: {
         classes: classIds.length, students, completedAttempts, activeTeachers, pendingInvitations, activeClasses,
-        publishedExams, publishedActivities, completedActivities,
-        participatingStudents: activitiesReady ? activityResult.participatingStudents : null,
-        participationRate, accuracy, activitiesAvailable: activitiesReady,
+        publishedExams,
       },
     };
   }
@@ -872,13 +884,14 @@ export class InstitutionService {
     institutionId: string,
     email: string,
     replacingId?: string,
-    details: {name?:string;classIds?:string[]} = {},
+    details: {name?:string;message?:string;classIds?:string[]} = {},
   ) {
     const invitationMode = teacherInvitationMode();
     if (!replacingId && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new ApiError(422, 'Informe um e-mail válido.');
     const publicAppUrl=invitationMode === 'institutional' ? emailFrontendUrl() : process.env.APP_PUBLIC_URL;
     email=email.trim().toLowerCase();
     const token = randomBytes(32).toString("hex");
+    const message = details.message?.trim().slice(0, 2000);
     const invitation = await institutionalTransaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Institution" WHERE id = ${institutionId} FOR UPDATE`;
       await institutionAdmin(tx, actor, institutionId);
@@ -970,9 +983,22 @@ export class InstitutionService {
     try {
       await this.mail.send({
         to: invitation.email,
-        subject: "Convite para professor — JurisSim",
-        text: `Você recebeu um convite institucional para atuar como professor no JurisSim. Abra o convite para confirmar seu e-mail e definir sua senha no primeiro acesso, ou entre com sua conta existente: ${url}\nValidade: 48 horas. Se não reconhecer, ignore.`,
-        html: `<h1>JurisSim · Educação Jurídica</h1><p>Olá, ${escapeMail(invitation.invitedName??'professor')}.</p><p>${escapeMail(invitation.institutionName??'Sua instituição')} convidou você para atuar como professor.</p><p>Defina sua própria senha e aceite os termos para ativar seu acesso, sem outro e-mail de confirmação. Se já possui conta, entre pelo login único.</p><p><a href="${escapeMail(url)}">Aceitar convite</a></p><p>Validade: 48 horas. Abrir o link não aceita o convite automaticamente. Se não reconhecer, ignore. Nunca enviamos senhas.</p>`,
+        subject: "Convite para professor \u2014 JurisSim",
+        text: `Voc\u00ea recebeu um convite institucional para atuar como professor no JurisSim. Abra o convite: ${url}${message ? `\n\nMensagem da institui\u00e7\u00e3o:\n${message}` : ''}\nValidade: 48 horas. Se n\u00e3o reconhecer, ignore.`,
+        html: `<!doctype html>
+<html lang="pt-BR"><body style="margin:0;padding:0;background:#f2f5f9;font-family:Arial,Helvetica,sans-serif;color:#132744">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">Convite para integrar ${escapeMail(invitation.institutionName ?? 'sua institui\u00e7\u00e3o')} no JurisSim.</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f2f5f9;padding:28px 12px"><tr><td align="center">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;background:#fff;border:1px solid #dce3ec;border-radius:16px;overflow:hidden">
+<tr><td style="padding:24px 32px;background:#10284b;border-bottom:4px solid #d7b45e"><div style="font-size:22px;font-weight:800;letter-spacing:-.5px;color:#fff">Juris<span style="color:#e4c36f">Sim</span></div><div style="margin-top:4px;font-size:10px;letter-spacing:1.5px;color:#c5d0df">EDUCA&Ccedil;&Atilde;O JUR&Iacute;DICA</div></td></tr>
+<tr><td style="padding:32px"><p style="margin:0 0 12px;color:#9a762c;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase">Convite institucional</p><h1 style="margin:0 0 18px;color:#10284b;font-size:25px;line-height:1.25">Ol&aacute;${invitation.invitedName ? `, ${escapeMail(invitation.invitedName)}` : ''}!</h1>
+<p style="margin:0 0 16px;color:#34465d;font-size:15px;line-height:1.65"><strong>${escapeMail(invitation.institutionName ?? 'Sua institui\u00e7\u00e3o')}</strong> convidou voc&ecirc; para integrar sua equipe docente no JurisSim.</p>
+${message ? `<div style="margin:22px 0;padding:16px 18px;border-left:3px solid #d7b45e;border-radius:0 8px 8px 0;background:#f7f8fa"><p style="margin:0 0 6px;color:#66758a;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px">Mensagem da institui\u00e7\u00e3o:</p><p style="margin:0;color:#34465d;font-size:14px;line-height:1.6">${escapeMail(message).replace(/\r?\n/g, '<br>')}</p></div>` : ''}
+<p style="margin:0 0 24px;color:#34465d;font-size:14px;line-height:1.65">Entre com sua conta existente para aceitar. Se ainda n&atilde;o tiver cadastro, voc&ecirc; poder&aacute; criar uma conta pelo link. O v&iacute;nculo s&oacute; ser&aacute; ativado ap&oacute;s sua confirma&ccedil;&atilde;o. Sua conta e seu hist&oacute;rico acad&ecirc;mico permanecem preservados.</p>
+<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto 24px"><tr><td align="center" bgcolor="#d7b45e" style="border-radius:9px"><a href="${escapeMail(url)}" style="display:inline-block;padding:14px 28px;color:#10284b;font-size:15px;font-weight:700;text-decoration:none">Aceitar convite</a></td></tr></table>
+<p style="margin:0;color:#738198;font-size:12px;line-height:1.6;text-align:center">Este link expira em 48 horas. Abrir o link n&atilde;o aceita o convite automaticamente. Nunca enviaremos sua senha por e-mail.</p></td></tr>
+<tr><td style="padding:18px 32px;border-top:1px solid #e5eaf0;color:#8491a2;font-size:11px;line-height:1.5;text-align:center">JurisSim &middot; Educa&ccedil;&atilde;o Jur&iacute;dica<br>Se voc&ecirc; n&atilde;o esperava este convite, pode ignorar esta mensagem.</td></tr>
+</table></td></tr></table></body></html>`,
       });
       emailAccepted('teacher_invitation',invitation.id);
     } catch (error) {

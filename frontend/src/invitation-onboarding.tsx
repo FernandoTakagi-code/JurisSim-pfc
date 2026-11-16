@@ -23,19 +23,14 @@ export function TeacherInvitationLanding(){
   const [firstAccess,setFirstAccess]=useState(!!proof);
   const [declinePath,setDeclinePath]=useState<string>(),[declined,setDeclined]=useState(false);
   const pending=useRef(false);
-  const [needsAuthentication,setNeedsAuthentication]=useState(false),[errorCode,setErrorCode]=useState(''),[retry,setRetry]=useState(0);
+  const [errorCode,setErrorCode]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{const update=()=>{setLogin(false);setFirstAccess(!!pendingInvitationProof());setDeclinePath(undefined);setDeclined(false);setNotice('');setCompletedEmail('');setPassword('');setConfirmation('');setAccepted(false);setRevision(v=>v+1);};window.addEventListener('jurissim-invitation',update);return()=>window.removeEventListener('jurissim-invitation',update);},[]);
-  useEffect(()=>{let active=true;setError('');setErrorCode('');setDetails(undefined);setNeedsAuthentication(false);
+  useEffect(()=>{let active=true;setError('');setErrorCode('');setDetails(undefined);
     async function inspect(){
       if(!token||session.status==='loading')return;
       if(session.status==='ready'&&!session.session?.user.emailVerificado)return;
       if(session.status==='error'){setError(session.message??'Não foi possível verificar sua sessão. Tente novamente.');setErrorCode('COMMUNICATION_ERROR');return;}
       try{
-        if(session.status!=='ready'){
-          const availability=await apiRequest<{enabled:boolean}>('/institutions/availability',{}, {authenticated:false});
-          if(!active)return;
-          if(!availability.enabled){setNeedsAuthentication(true);return;}
-        }
         const data=await apiRequest<Details>('/institutions/invitations/inspect',{method:'POST',body:JSON.stringify({token})},{authenticated:session.status==='ready'});
         if(active){setDetails(data);setNome(data.invitedName??'');}
       }catch(e){if(active){setError(e instanceof Error?e.message:'Não foi possível validar o convite. Tente novamente.');setErrorCode(e instanceof ApiError?e.code??'INVITATION_UNAVAILABLE':'COMMUNICATION_ERROR');}}
@@ -54,22 +49,20 @@ export function TeacherInvitationLanding(){
     if(problem||password!==confirmation){setError(problem??'As senhas não coincidem.');return;}
     if(!proof&&!accepted){setError('Aceite os Termos de Uso e a Política de Privacidade.');return;}
     const body=proof?{token,proof,password,confirmation}:{token,nome,password,confirmation,acceptance:legalAcceptance};
-    void run(proof?'/institutions/invitations/complete':'/institutions/invitations/register',body,false,async()=>{setCompletedEmail(details?.email??'');clearInvitationProof();setDetails(undefined);setPassword('');setConfirmation('');setFirstAccess(false);setLogin(true);setRetry(v=>v+1);});
+    void run(proof?'/institutions/invitations/complete':'/institutions/invitations/register',body,false,async()=>{setCompletedEmail(details?.email??'');clearInvitation();clearInvitationProof();setDetails(undefined);setPassword('');setConfirmation('');setFirstAccess(false);setLogin(true);setRetry(v=>v+1);});
   }
   if(login&&session.status!=='ready')return <AuthGate initialEmail={completedEmail||details?.email||''} initialNotice={notice} invitationLogin onInvitationBack={()=>{setLogin(false);setRetry(v=>v+1);}}/>;
   if(token&&session.status==='ready'&&!session.session?.user.emailVerificado)return <EmailConfirmationGate invitationPending email={session.session!.user.email} onSair={()=>void logoutSession().then(ok=>{if(ok)setLogin(true);})}/>;
   const matching=!!details&&session.session?.user.email.toLowerCase()===details.email?.toLowerCase()&&session.session.user.role!=='ADMIN';
-  const status=declined?'Convite recusado':busy?'Operação em andamento':errorCode==='INVITATION_ACCEPTED'?'Convite aceito':errorCode==='INVITATION_EXPIRED'?'Convite expirado':errorCode==='INVITATION_REVOKED'?'Convite revogado':errorCode==='INVITATION_DECLINED'?'Convite recusado':errorCode==='INVITATION_WRONG_ACCOUNT'||(details&&session.status==='ready'&&!matching)?'Conta incorreta':error?'Não foi possível validar':!token?'Contexto indisponível':needsAuthentication?'Autenticação necessária':details?'Convite válido':'Verificando convite';
+  const status=declined?'Convite recusado':busy?'Operação em andamento':errorCode==='INVITATION_ACCEPTED'?'Convite aceito':errorCode==='INVITATION_EXPIRED'?'Convite expirado':errorCode==='INVITATION_REVOKED'?'Convite revogado':errorCode==='INVITATION_DECLINED'?'Convite recusado':errorCode==='INVITATION_WRONG_ACCOUNT'||(details&&session.status==='ready'&&!matching)?'Conta incorreta':error?'Não foi possível validar':!token?'Contexto indisponível':details?'Convite válido':'Verificando convite';
   const askDecline=(path:string,button:HTMLButtonElement)=>{button.focus();setError('');setDeclinePath(path);};
   return <main className="auth-layout teacher-invitation"><section className="auth-pitch"><img className="auth-brand-logo" src="/brand/jurissim-logo.png" alt="JurisSim — Educação Jurídica"/><div className="auth-pitch-copy"><h1>Ensine com o JurisSim</h1><p>Um convite exclusivo para fazer parte da sua instituição.</p></div></section>
     <section className="auth-content"><div className="auth-form-wrap invitation-card"><div className="invitation-heading"><span className="invitation-emblem"><Icon name="building"/></span><span>Convite de professor</span></div><h1>Você foi convidado para ensinar no JurisSim!</h1><p className={`invitation-status${error?' invitation-status-error':''}`} role="status"><span aria-hidden="true"/>{status}</p>
       {!token&&!notice&&<p role="status">{invitationContextState()==='invalid'?'O link do convite está incompleto ou inválido.':invitationContextState()==='expired'?'O contexto desta aba expirou.':'O convite não está disponível nesta aba.'} Reabra o link original enviado pela instituição. O convite não é salvo no navegador; login em outra aba ou uma recarga não recupera essa prova automaticamente.</p>}
-      {token&&!details&&!error&&!needsAuthentication&&<p role="status">{session.status==='loading'?'Verificando sua sessão…':'Validando convite…'}</p>}
-      {token&&needsAuthentication&&<div role="status"><h2>Entre para validar seu convite</h2><p>Neste ambiente, a validação exige autenticação na conta que recebeu o e-mail. Abrir o link não aceita o convite nem altera sua conta.</p><p>Uma sessão aberta em 127.0.0.1 não é compartilhada automaticamente com localhost.</p></div>}
+      {token&&!details&&!error&&<p role="status">{session.status==='loading'?'Verificando sua sessão…':'Validando convite…'}</p>}
       {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status">{notice}</p>}
       {token&&!details&&error&&['COMMUNICATION_ERROR','INVITATION_UNAVAILABLE'].includes(errorCode)&&<button type="button" disabled={busy} onClick={()=>{if(session.status==='error')void refreshSession(true).catch(()=>{});setRetry(v=>v+1);}}>Tentar novamente</button>}
-      {token&&session.status!=='ready'&&<nav aria-label="Acesso ao convite"><button type="button" disabled={busy||session.status==='loading'} onClick={()=>setLogin(true)}>Já tenho conta — Entrar</button><button type="button" disabled={busy||!details||needsAuthentication||details.accountExists} onClick={()=>setFirstAccess(true)}>Primeiro acesso — Criar minha conta</button></nav>}
-      {token&&needsAuthentication&&<p>Primeiro acesso não está disponível neste ambiente restrito. Procure o responsável pela homologação; não é necessário criar uma conta de Aluno para contornar esse bloqueio.</p>}
+      {token&&session.status!=='ready'&&<nav aria-label="Acesso ao convite"><button type="button" disabled={busy||session.status==='loading'} onClick={()=>setLogin(true)}>Já tenho conta — Entrar</button><button type="button" disabled={busy||!details||details.accountExists} onClick={()=>setFirstAccess(true)}>Primeiro acesso — Criar minha conta</button></nav>}
       {token&&!details&&session.status==='ready'&&<><p>Conta atual: {session.session?.user.email}. Use a conta que recebeu o convite.</p>{errorCode==='INVITATION_ACCEPTED'?<button type="button" onClick={()=>navigate(sessionDestination(session.session!))}>Acessar minha área</button>:<button type="button" disabled={busy} onClick={()=>void logoutSession().then(ok=>{if(ok)setLogin(true);})}>Entrar com outra conta</button>}</>}
       {details&&<><section className="invitation-details" aria-label="Dados do convite"><h2>{details.institution.name}</h2><dl><div><dt>E-mail destinatário</dt><dd data-invitation-email>{details.email??details.maskedEmail}</dd></div><div><dt>Papel oferecido</dt><dd>Professor</dd></div><div><dt>Válido até</dt><dd>{new Date(details.expiresAt).toLocaleString('pt-BR')}</dd></div></dl></section>
         {session.status==='ready'&&!proof?<>
@@ -80,14 +73,15 @@ export function TeacherInvitationLanding(){
           {!matching&&<button disabled={busy} onClick={()=>void logoutSession().then(ok=>{if(ok)setLogin(true);})}>Entrar com outra conta</button>}
         </>:<>
           {details.accountExists&&!proof?<p>Sua conta foi preservada. Entre com sua senha ou Google para aceitar ou recusar este vínculo.</p>:<>
-            {(firstAccess||proof)&&<><p>Crie sua conta do JurisSim com o e-mail convidado. O link recebido comprova esse endereço. Depois, entre para revisar e aceitar ou recusar o convite; criar a conta não ativa o vínculo.</p>
+            {(firstAccess||proof)&&<><p>{proof?'Defina uma senha para concluir a confirmação do seu e-mail.':'Crie sua conta de professor com o endereço convidado. Ao concluir, o convite será aceito e o vínculo com '+details.institution.name+' será ativado.'}</p>
             <form className="auth-card" onSubmit={submit} aria-busy={busy}>
               {!proof&&<label>Nome completo<input name="nome" autoComplete="name" required minLength={2} maxLength={120} value={nome} onChange={e=>setNome(e.target.value)}/></label>}
+              {!proof&&<label>E-mail profissional<input name="email" type="email" autoComplete="email" value={details.email} readOnly aria-readonly="true"/></label>}
               <label>Nova senha<input name="password" type="password" autoComplete="new-password" required maxLength={128} aria-describedby="invitation-password-rules" value={password} onChange={e=>setPassword(e.target.value)}/></label>
               <ul id="invitation-password-rules" aria-label="Requisitos da senha">{passwordRequirements.map(rule=><li key={rule.id}>{rule.test(password)?'✓':'○'} {rule.label}</li>)}</ul>
               <label>Confirmar senha<input name="confirmation" type="password" autoComplete="new-password" required maxLength={128} aria-invalid={confirmation.length>0&&password!==confirmation} value={confirmation} onChange={e=>setConfirmation(e.target.value)}/></label>
               {confirmation&&password!==confirmation&&<p role="status">As senhas não coincidem.</p>}
-              {!proof&&<><label><input name="acceptance" type="checkbox" required checked={accepted} onChange={e=>setAccepted(e.target.checked)}/>Li e aceito os Termos de Uso e a Política de Privacidade.</label><LegalLinks/></>}
+              {!proof&&<><label className="invitation-consent"><input name="acceptance" type="checkbox" required checked={accepted} onChange={e=>setAccepted(e.target.checked)}/><span>Li e aceito os Termos de Uso e a Política de Privacidade.</span></label><LegalLinks/></>}
               {proof&&<button type="button" disabled={busy} onClick={event=>askDecline('/institutions/invitations/decline-proof',event.currentTarget)}>Recusar sem ativar vínculo</button>}
               <button className="auth-submit" disabled={busy||(!proof&&!accepted)}>{busy?'Concluindo…':proof?'Definir minha senha':'Criar minha conta'}</button>
               {!proof&&<button type="button" disabled={busy} onClick={()=>setFirstAccess(false)}>Voltar às opções de acesso</button>}

@@ -157,33 +157,32 @@ async function directInvite(){
   return {...item,email,token:rawToken(messages[0]!)};
 }
 const registration=(token:string)=>({token,nome:'Professor novo',password,confirmation:password,acceptance});
-it('H4.32 inspection is read-only; registration, login and explicit acceptance remain separate without another email',async()=>{
+it('H4.32 inspection is read-only; first access creates a professor and accepts the invite atomically',async()=>{
   const item=await directInvite();const before=await prisma.user.count();
   for(let n=0;n<2;n++){const inspected=await post('/institutions/invitations/inspect',{token:item.token});expect(inspected.status).toBe(200);expect(inspected.body).toMatchObject({email:item.email,accountExists:false});}
   expect(await prisma.user.count()).toBe(before);
-  smtp.sendMail.mockRejectedValue(new Error('SMTP unavailable during acceptance'));
+  // Teacher invitations are an independent capability; the full institutions
+  // switch remains off while the invite itself authorizes this first access.
+  vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','true');vi.stubEnv('TEACHER_INVITATIONS_MODE','institutional');
   expect((await post('/institutions/invitations/register',registration(item.token))).status).toBe(201);
   const user=await prisma.user.findUniqueOrThrow({where:{email:item.email}});
-  expect(user.role).toBe('ALUNO');expect(user.registrationIntent).toBe('TEACHER_INVITATION');expect(user.emailVerifiedAt).not.toBeNull();expect(user.legalAcceptedAt).not.toBeNull();
+  expect(user.role).toBe('PROFESSOR');expect(user.registrationIntent).toBeNull();expect(user.emailVerifiedAt).not.toBeNull();expect(user.legalAcceptedAt).not.toBeNull();
   expect(await bcrypt.compare(password,user.senhaHash!)).toBe(true);
   expect(await prisma.invitationOnboarding.count({where:{userId:user.id}})).toBe(0);
-  expect(await prisma.institutionalMembership.count({where:{userId:user.id,institutionId:item.id,role:'TEACHER',active:true}})).toBe(0);
+  expect(await prisma.institutionalMembership.count({where:{userId:user.id,institutionId:item.id,role:'TEACHER',active:true}})).toBe(1);
   const login=await post('/auth/login',{email:item.email,senha:password});expect(login.status).toBe(200);
-  expect((await prisma.teacherInvitation.findFirstOrThrow({where:{institutionId:item.id}})).status).toBe('PENDING');
-  expect((await post('/institutions/invitations/accept',{token:item.token},login.body.token)).status).toBe(200);
-  expect((await prisma.user.findUniqueOrThrow({where:{id:user.id}})).role).toBe('PROFESSOR');
+  const session=await post('/auth/session',{},login.body.token);expect(session.status).toBe(200);expect(session.body.user.role).toBe('PROFESSOR');
+  const invitation=await prisma.teacherInvitation.findFirstOrThrow({where:{institutionId:item.id}});expect(invitation.status).toBe('ACCEPTED');expect(invitation.acceptedById).toBe(user.id);
   expect(await prisma.institutionalMembership.count({where:{userId:user.id,institutionId:item.id,role:'TEACHER',active:true}})).toBe(1);
   expect((await post('/institutions/invitations/register',registration(item.token))).status).toBe(409);expect(messages).toHaveLength(1);
 });
-it('H4.32 concurrent registration creates one pending identity; explicit acceptance grants one membership',async()=>{
+it('H4.32 concurrent first access creates one professor, one accepted invite and one membership',async()=>{
   const item=await directInvite();
   const outcomes=await Promise.all([post('/institutions/invitations/register',registration(item.token)),post('/institutions/invitations/register',registration(item.token))]);
   expect(outcomes.map(r=>r.status).sort()).toEqual([201,409]);
   expect(await prisma.user.count({where:{email:item.email}})).toBe(1);
   const user=await prisma.user.findUniqueOrThrow({where:{email:item.email}});
-  expect(user.role).toBe('ALUNO');expect(await prisma.institutionalMembership.count({where:{userId:user.id}})).toBe(0);
-  expect(await prisma.teacherInvitation.count({where:{institutionId:item.id,status:'PENDING'}})).toBe(1);
-  await item.service.accept({userId:user.id,role:'ALUNO'},item.token);
+  expect(user.role).toBe('PROFESSOR');expect(await prisma.institutionalMembership.count({where:{userId:user.id}})).toBe(1);
   expect(await prisma.institutionalMembership.count({where:{userId:user.id,institutionId:item.id,active:true,role:'TEACHER'}})).toBe(1);
   expect(await prisma.teacherInvitation.count({where:{institutionId:item.id,status:'ACCEPTED'}})).toBe(1);expect(messages).toHaveLength(1);
 });
@@ -213,7 +212,7 @@ it('H4.12 missing acceptance or mismatch cannot create an account; retired endpo
   expect((await post('/institutions/invitations/onboarding',{token:item.token,nome:'Professor',acceptance})).status).toBe(410);
   expect(await prisma.user.count({where:{email:item.email}})).toBe(0);expect(messages).toHaveLength(1);
 });
-it('H4.32 transaction failure after identity insertion rolls back identity and keeps invitation pending',async()=>{
+it('H4.32 transaction failure after identity insertion rolls back identity, acceptance and membership',async()=>{
   const item=await directInvite();
   const original=prisma.$transaction.bind(prisma);
   const failure=vi.spyOn(prisma,'$transaction').mockImplementationOnce(async work=>{

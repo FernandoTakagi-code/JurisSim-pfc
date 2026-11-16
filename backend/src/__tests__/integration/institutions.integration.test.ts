@@ -214,6 +214,8 @@ beforeEach(async () => {
   resetAuthRoutes(); // Each test owns a fresh rate-limit window; production limits remain intact.
   resetInstitutionRoutes();
   vi.stubEnv("INSTITUTIONS_ENABLED", "true");
+  vi.stubEnv("INSTITUTION_TEACHER_MANAGEMENT_ENABLED", "false");
+  vi.stubEnv("INSTITUTION_EXAM_MANAGEMENT_ENABLED", "false");
   vi.stubEnv("ADMINISTRATION_ENABLED", "false");
   vi.stubEnv("INSTITUTION_REGISTRATION_ENABLED", "false");
   vi.stubEnv("APP_PUBLIC_URL", "http://127.0.0.1:5173");
@@ -242,7 +244,7 @@ describe("institutional flows with real isolated PostgreSQL", () => {
     expect((await request('GET','/auth/session',relogin.body.token)).body.user.role).toBe(role);
   });
 
-  it('keeps an approved institutional owner in the institution area when operations are disabled, without granting access', async () => {
+  it('allows approved institutional read access while keeping all operational writes disabled', async () => {
     const { owner, id } = await approved();
     owner.token = (await request('POST','/auth/login',undefined,{email:owner.email,senha:password})).body.token;
     vi.stubEnv('INSTITUTIONS_ENABLED','false');
@@ -252,9 +254,56 @@ describe("institutional flows with real isolated PostgreSQL", () => {
     const session = await request('GET','/auth/session',owner.token);
     expect(session.status).toBe(200);
     expect(session.body).toMatchObject({registrationIntent:'INSTITUTION',institutionalStatus:'ACTIVE',nextStep:'DASHBOARD',user:{role:'ALUNO'}});
-    expect(session.body.administration).toBeUndefined();
+    expect(session.body.administration).toMatchObject({enabled:false,readOnly:true,memberships:[{institutionId:id,role:'INSTITUTION_ADMIN'}]});
     expect((await request('GET','/institutions/availability',owner.token)).body.enabled).toBe(false);
-    expect((await request('GET',`/institutions/${id}/summary?page=1`,owner.token)).status).toBe(503);
+    expect((await request('GET',`/institutions/${id}/summary?page=1`,owner.token)).status).toBe(200);
+    const before = await prisma.turma.count();
+    expect((await request('POST','/turmas',owner.token,{nome:'Must not be created'},id)).status).toBe(503);
+    expect(await prisma.turma.count()).toBe(before);
+    expect((await request('POST',`/institutions/${id}/invitations`,owner.token,{email:'blocked@example.invalid'},id)).status).toBe(503);
+  });
+
+  it('enables isolated teacher invitations and class assignment without the global institutions flag', async () => {
+    const { owner, id } = await approved();
+    const other = await approved('11222333000181');
+    const classResult = await request('POST','/turmas',owner.token,{nome:'Scoped teacher operations class'},id);
+    expect(classResult.status).toBe(201);
+    const classId = classResult.body.turma.id as string;
+    const teacher = await account();
+    vi.stubEnv('INSTITUTIONS_ENABLED','false');
+    vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','true');
+    vi.stubEnv('INSTITUTION_HOMOLOGATION_ENABLED','false');
+    vi.stubEnv('TEACHER_INVITATIONS_MODE','institutional');
+    vi.stubEnv('ADMINISTRATION_ENABLED','false');
+    vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','false');
+    resetInstitutionRoutes();
+    const availability = await request('GET','/institutions/availability');
+    expect(availability.body).toMatchObject({enabled:false,capabilities:{teacherManagement:true,teacherInvitations:true,examManagement:false,institutionalOperations:false}});
+    const sent = await request('POST',`/institutions/${id}/invitations`,owner.token,{email:teacher.email,message:'Convite de teste isolado'},id);
+    expect(sent.status).toBe(201);
+    expect(delivered[delivered.length - 1]?.text).toContain('Convite de teste isolado');
+    const pending = await request('GET',`/institutions/${id}/invitations?page=1&status=PENDING`,owner.token,undefined,id);
+    expect(pending.status).toBe(200);
+    expect(pending.body.items).toHaveLength(1);
+    expect(pending.body.items[0].email).toBe(teacher.email);
+    expect((await request('POST',`/institutions/${other.id}/invitations`,owner.token,{email:randomUUID()+'@example.invalid'},other.id)).status).toBe(403);
+    const invitationTokenValue = invitationToken();
+    expect((await request('POST','/institutions/invitations/accept',teacher.token,{token:invitationTokenValue})).status).toBe(200);
+    const membership = await prisma.institutionalMembership.findUniqueOrThrow({where:{institutionId_userId_role:{institutionId:id,userId:teacher.id,role:'TEACHER'}}});
+    expect(membership.active).toBe(true);
+    expect((await request('PUT',`/turmas/${classId}/teachers/${teacher.id}`,owner.token,{assigned:true},id)).status).toBe(200);
+    expect((await prisma.turma.findUniqueOrThrow({where:{id:classId},select:{professores:{select:{id:true}}} })).professores.map(person=>person.id)).toContain(teacher.id);
+    vi.stubEnv('INSTITUTION_EXAM_MANAGEMENT_ENABLED','true');
+    const examCapability = await request('GET','/institutions/availability');
+    expect(examCapability.body.capabilities).toMatchObject({examManagement:true,teacherManagement:true,institutionalOperations:false});
+    const question = await request('POST','/questoes',teacher.token,questaoValida({turmaId:classId,publica:false}));
+    expect(question.status).toBe(201);
+    const exam = await request('POST','/avaliacoes',owner.token,{titulo:'Institutional assessment',descricao:'One authorized question',duracaoSegundos:1800,turmaIds:[classId],questaoIds:[question.body.id],responsibleTeacherId:teacher.id},id);
+    expect(exam.status,JSON.stringify(exam.body)).toBe(201);
+    expect(exam.body.autorId).toBe(teacher.id);
+    expect((await request('POST',`/avaliacoes/${exam.body.id}/publish`,owner.token,{},id)).status).toBe(200);
+    expect((await request('GET','/avaliacoes?page=1',owner.token,undefined,id)).body.items).toEqual(expect.arrayContaining([expect.objectContaining({id:exam.body.id,publishedAt:expect.any(String)})]));
+    expect((await request('POST','/avaliacoes',owner.token,{titulo:'Cross institution',descricao:'',duracaoSegundos:null,turmaIds:[classId],questaoIds:[question.body.id]},other.id)).status).toBe(403);
   });
 
   it('returns pending application status without exposing student or administrative operations', async () => {
@@ -270,7 +319,7 @@ describe("institutional flows with real isolated PostgreSQL", () => {
     resetInstitutionRoutes();
     const session = await request('GET','/auth/session',owner.token);
     expect(session.body).toMatchObject({registrationIntent:'INSTITUTION',institutionalStatus:'PENDING',user:{role:'ALUNO'}});
-    expect(session.body.administration).toBeUndefined();
+    expect(session.body.administration).toMatchObject({enabled:false,readOnly:true,memberships:[]});
   });
 
   it('rejects an application by ADMIN without granting institutional privileges', async () => {
@@ -526,7 +575,9 @@ describe("institutional flows with real isolated PostgreSQL", () => {
     const email = randomUUID() + "@example.invalid";
     await institutionService.invite(actor, id, email, undefined, {
       name: "Invited isolated teacher",
+      message: "Mensagem institucional de teste isolado",
     });
+    expect(delivered[delivered.length - 1]?.text).toContain("Mensagem institucional de teste isolado");
     const token = invitationToken();
     await onboarding.start(token, "Invited isolated teacher", acceptance);
     const proof = delivered[delivered.length - 1]!.text.match(
@@ -613,6 +664,33 @@ describe("institutional flows with real isolated PostgreSQL", () => {
         .role,
     ).toBe("ALUNO");
   });
+  it("rotates expired invitation tokens, rejects duplicates and foreign identities, and preserves an existing professor account", async () => {
+    const { id, actor, owner } = await approved();
+    const existing = await account('PROFESSOR'), foreign = await account();
+    const original = await prisma.user.findUniqueOrThrow({where:{id:existing.id}});
+    await institutionService.invite(actor,id,existing.email);
+    const first = invitationToken();
+    const record = await prisma.teacherInvitation.findUniqueOrThrow({where:{tokenHash:createHash('sha256').update(first).digest('hex')}});
+    await expect(institutionService.invite(actor,id,existing.email)).rejects.toMatchObject({statusCode:409});
+    expect((await request('POST','/institutions/invitations/accept',foreign.token,{token:first})).status).toBe(403);
+    await prisma.teacherInvitation.update({where:{id:record.id},data:{expiresAt:new Date(0),createdAt:new Date(Date.now()-120_000)}});
+    expect((await request('POST','/institutions/invitations/accept',existing.token,{token:first})).status).toBe(409);
+    expect((await request('POST',`/institutions/${id}/invitations/${record.id}/resend`,owner.token)).status).toBe(200);
+    const second = invitationToken();
+    expect(second).not.toBe(first);
+    expect((await request('POST','/institutions/invitations/accept',existing.token,{token:first})).status).toBe(409);
+    const replacement = await prisma.teacherInvitation.findUniqueOrThrow({where:{tokenHash:createHash('sha256').update(second).digest('hex')}});
+    expect((await request('DELETE',`/institutions/${id}/invitations/${replacement.id}`,owner.token)).status).toBe(200);
+    expect((await request('POST','/institutions/invitations/accept',existing.token,{token:second})).status).toBe(409);
+    await institutionService.invite(actor,id,existing.email);
+    const usable = invitationToken();
+    expect((await request('POST','/institutions/invitations/accept',existing.token,{token:usable})).status).toBe(200);
+    const saved=await prisma.user.findUniqueOrThrow({where:{id:existing.id}});
+    expect(saved).toMatchObject({id:original.id,email:original.email,senhaHash:original.senhaHash,role:'PROFESSOR'});
+    expect(await prisma.institutionalMembership.count({where:{userId:existing.id,institutionId:id,role:'TEACHER',active:true}})).toBe(1);
+    await institutionService.accept({userId:existing.id,role:'PROFESSOR'},usable);
+    expect(await prisma.institutionalMembership.count({where:{userId:existing.id,institutionId:id,role:'TEACHER',active:true}})).toBe(1);
+  });
   it("creates institutional classes/exams, approves a student and revokes the teacher without losing history", async () => {
     const { id, actor, owner } = await approved(),
       teacher = await account(),
@@ -678,10 +756,12 @@ describe("institutional flows with real isolated PostgreSQL", () => {
         duracaoSegundos: null,
         turmaIds: [classId],
         questaoIds: [question.body.id],
+        responsibleTeacherId: teacher.id,
       },
       id,
     );
     expect(exam.status).toBe(201);
+    expect(exam.body.autorId).toBe(teacher.id);
     expect(
       (
         await request(
@@ -771,13 +851,11 @@ describe("institutional flows with real isolated PostgreSQL", () => {
     const liveInstitutionSummary = await request("GET", `/institutions/${id}/summary?page=1`, owner.token, undefined, id);
     expect(liveInstitutionSummary.status).toBe(200);
     expect(liveInstitutionSummary.body.indicators).toMatchObject({
-      publishedActivities: 1,
-      completedActivities: 1,
-      participatingStudents: 1,
-      participationRate: 100,
-      accuracy: 100,
-      activitiesAvailable: true,
+      publishedExams: 1,
     });
+    expect(liveInstitutionSummary.body.indicators).not.toHaveProperty("publishedActivities");
+    expect(liveInstitutionSummary.body.indicators).not.toHaveProperty("completedActivities");
+    expect(liveInstitutionSummary.body.indicators).not.toHaveProperty("participationRate");
     expect(
       (
         await request(

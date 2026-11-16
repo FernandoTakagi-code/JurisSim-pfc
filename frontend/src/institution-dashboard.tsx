@@ -12,16 +12,14 @@ import {
   AuditPanel,
 } from "./administration";
 import { ClassesPage, ClassStudents, ExamsPage } from "./class-exams";
-import { TeacherActivities } from "./teacher-activities";
 import { TeacherReports, StudentClassReport } from "./goals-reports";
-import { AuthorizedContext } from "./integration-shell";
 import { PhotoProvider, ProfileAvatar } from "./profile-photo";
 import { Icon } from "./ui-icon";
 import {
   institutionSections,
   institutionNavigate,
   useInstitutionLocation,
-  canManageInstitution,
+  canViewInstitution,
   type InstitutionSection,
 } from "./institution-navigation";
 import "./institution-dashboard.css";
@@ -64,12 +62,6 @@ type Summary = {
     pendingInvitations?: number;
     activeClasses?: number;
     publishedExams?: number | null;
-    publishedActivities?: number | null;
-    completedActivities?: number | null;
-    participatingStudents?: number | null;
-    participationRate?: number | null;
-    accuracy?: number | null;
-    activitiesAvailable?: boolean;
   };
 };
 type Invitation = {
@@ -112,44 +104,38 @@ function Notice({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function ReadOnlyNotice({ title, text }: { title: string; text: string }) {
+  return <article className="panel institution-readonly-card"><h2>{title}</h2><p>{text}</p></article>;
+}
+
+function ReadOnlyClasses({ classes, onStudentsSelected }: { classes: Class[]; onStudentsSelected: (id: string) => void }) {
+  return <section className="panel table-panel"><div className="table-toolbar"><div><h2>Turmas vinculadas</h2><p>Consulta das turmas associadas à sua instituição.</p></div></div><div className="table-scroll"><table><thead><tr><th>Turma</th><th>Situação</th><th>Alunos matriculados</th><th>Consulta</th></tr></thead><tbody>{classes.map(item => <tr key={item.id}><td><strong>{item.nome}</strong></td><td>{item.archivedAt ? "Arquivada" : "Ativa"}</td><td>{item._count.alunos}</td><td><button className="outline-button" onClick={() => onStudentsSelected(item.id)}>Ver alunos</button></td></tr>)}</tbody></table></div>{classes.length === 0 && <p>Nenhuma turma vinculada disponível para consulta.</p>}</section>;
+}
+
 export function InstitutionDashboard({
   id,
   session,
   onSair,
+  readOnly = false,
 }: {
   id: string;
   session: Session;
   onSair: () => void;
+  readOnly?: boolean;
 }) {
-  const availability = useResource<{ enabled: boolean }>(
+  const availability = useResource<{ enabled: boolean; teacherInvitationReason?: string; capabilities?: { teacherManagement?: boolean; teacherInvitations?: boolean; examManagement?: boolean } }>(
     "/institutions/availability",
   );
-  const authorized = canManageInstitution(session, id);
+  const authorized = canViewInstitution(session, id);
   if (!authorized)
     return (
       <main className="page">
         <h1>Acesso institucional não autorizado</h1>
       </main>
     );
-  if (!availability.data?.enabled)
-    return (
-      <main className="page">
-        <h1>Administração institucional</h1>
-        <ResourceState resource={availability} />
-        {availability.data && (
-          <p>
-            Operações institucionais aguardam ativação autorizada. O cadastro e
-            acompanhamento permanecem separados.
-          </p>
-        )}
-        <button onClick={() => navigate("/instituicoes")}>
-          Voltar ao acompanhamento
-        </button>
-      </main>
-    );
   return (
     <PhotoProvider>
-      <InstitutionWorkspace id={id} session={session} onSair={onSair} />
+      <InstitutionWorkspace id={id} session={session} onSair={onSair} readOnly={readOnly || availability.data?.enabled !== true} explicitReadOnly={readOnly} teacherManagementAvailable={availability.data?.capabilities?.teacherManagement === true} examManagementAvailable={availability.data?.capabilities?.examManagement === true} teacherInvitationsAvailable={availability.data?.capabilities?.teacherInvitations === true} teacherInvitationReason={availability.data?.teacherInvitationReason} />
     </PhotoProvider>
   );
 }
@@ -158,20 +144,36 @@ function InstitutionWorkspace({
   id,
   session,
   onSair,
+  readOnly,
+  explicitReadOnly,
+  examManagementAvailable,
+  teacherManagementAvailable,
+  teacherInvitationsAvailable,
+  teacherInvitationReason,
 }: {
   id: string;
   session: Session;
   onSair: () => void;
+  readOnly: boolean;
+  explicitReadOnly: boolean;
+  examManagementAvailable: boolean;
+  teacherManagementAvailable: boolean;
+  teacherInvitationsAvailable: boolean;
+  teacherInvitationReason?: string;
 }) {
   const location = useInstitutionLocation();
   const params = new URL(location, window.location.origin).searchParams;
   const current = institutionSections.find(
     (s) => s.id === (params.get("secao") ?? "overview"),
-  );
-  const section = current?.id ?? "overview";
+  ) ?? institutionSections[0];
+  const section = current.id;
+  useEffect(() => {
+    if (params.get("secao") === "activities") institutionNavigate(id, "overview");
+  }, [location, id]);
   const [page, setPage] = useState(1);
   const [classRevision, setClassRevision] = useState(0);
   const [dialogBusy, setDialogBusy] = useState(false);
+  const [invitationNotice, setInvitationNotice] = useState("");
   const summary = useResource<Summary>(
     `/institutions/${id}/summary?page=${page}`,
   );
@@ -203,6 +205,9 @@ function InstitutionWorkspace({
     setProfile(false);
     setDialog(undefined);
   }, [location]);
+  useEffect(() => {
+    if (section !== "teachers" && section !== "invitations") setInvitationNotice("");
+  }, [section]);
   useEffect(() => {
     if (!mobile) return;
     const escape = (e: KeyboardEvent) => {
@@ -272,7 +277,6 @@ function InstitutionWorkspace({
                   ? (statusNames[institution.status] ?? institution.status)
                   : "Validando acesso"}
               </span>
-              <AuthorizedContext session={session} compact />
             </div>
           )}
         </div>
@@ -383,15 +387,10 @@ function InstitutionWorkspace({
         </header>
         <div className="page-body">
           <ResourceState resource={summary} />
-          {!current ? (
-            <Notice title="Seção não encontrada">
-              Escolha um dos onze módulos no menu.
-            </Notice>
-          ) : (
-            summary.data && (
+          {summary.data && (
               <>
-                {section !== "overview" && section !== "settings" && (
-                  <div className="welcome-row section-title">
+                {section !== "overview" && section !== "settings" && section !== "exams" && (
+                  <div className={`welcome-row section-title${section === "teachers" || section === "invitations" ? " teacher-management-heading" : ""}`}>
                     <div>
                       <div className="section-icon">
                         <Icon name={current.icon} />
@@ -400,11 +399,12 @@ function InstitutionWorkspace({
                       <p>{descriptions[section]}</p>
                     </div>
                     <div className="header-actions">
-                      {(section === "teachers" ||
-                        section === "invitations") && (
+                      {(section === "teachers" || section === "invitations") && (
                         <button
-                          className="primary-button"
-                          onClick={event => { event.currentTarget.focus(); setDialog("invite"); }}
+                          className="primary-button institution-invite-button"
+                          disabled={!teacherInvitationsAvailable}
+                          title={!teacherInvitationsAvailable ? teacherInvitationReason : undefined}
+                          onClick={event => { event.currentTarget.focus(); setInvitationNotice(""); setDialog("invite"); }}
                         >
                           <Icon name="plus" />
                           Convidar professor
@@ -413,18 +413,25 @@ function InstitutionWorkspace({
                     </div>
                   </div>
                 )}
+                {(section === "teachers" || section === "invitations") && !teacherInvitationsAvailable && <p className="institution-teacher-status" role="status">{teacherInvitationReason ?? "Teacher invitations are unavailable in this backend."}</p>}
+                {invitationNotice && (section === "teachers" || section === "invitations") && <p className="institution-invite-success" role="status">{invitationNotice}</p>}
                 {section === "overview" && (
                   <Overview
                     id={id}
                     summary={summary.data}
                     go={go}
                     open={setDialog}
+                    readOnly={readOnly}
+                    teacherManagementAvailable={teacherManagementAvailable}
+                    teacherInvitationsAvailable={teacherInvitationsAvailable}
+                    teacherInvitationReason={teacherInvitationReason}
                   />
                 )}
                 {section === "institution" && (
                   <InstitutionCard
                     institution={summary.data.institution}
                     reload={summary.reload}
+                    readOnly={readOnly}
                   />
                 )}
                 {section === "teachers" && (
@@ -434,16 +441,18 @@ function InstitutionWorkspace({
                     page={page}
                     setPage={setPage}
                     reload={summary.reload}
+                    canManageTeachers={teacherManagementAvailable}
                   />
                 )}
                 {section === "invitations" && (
                   <InvitationsTable
                     id={id}
                     revision={dialog ? "open" : "closed"}
+                    canManageTeachers={teacherManagementAvailable}
                   />
                 )}
                 {section === "classes" && (
-                  <ClassesPage
+                  readOnly ? <ReadOnlyClasses classes={summary.data?.classes.items ?? []} onStudentsSelected={classId => go("students", { turma: classId })} /> : <ClassesPage
                     key={classRevision}
                     teacher
                     onStudentsSelected={(turma) => go("students", { turma })}
@@ -481,33 +490,42 @@ function InstitutionWorkspace({
                       }
                     />
                   ))}
-                {section === "exams" && <ExamsPage teacher institutional />}
-                {section === "activities" && <TeacherActivities onNavigate={(target, classId) => go(target as InstitutionSection, classId ? { turma: classId } : {})} />}
+                {section === "exams" && <ExamsPage teacher institutional readOnly={explicitReadOnly || !examManagementAvailable} />}
                 {section === "notifications" && <Notifications />}
-                {section === "settings" && (
-                  <AuditPanel institutionId={id} />
-                )}
+                {section === "settings" && <AuditPanel institutionId={id} />}
               </>
-            )
           )}
         </div>
       </main>
-      {dialog && (
+      {dialog && (dialog === "invite" ? teacherInvitationsAvailable : !readOnly) && (
         <Dialog
           busy={dialogBusy}
           title={
             dialog === "invite" ? "Convidar professor" : "Criar nova turma"
           }
+          subtitle={dialog === "invite" ? "Convide um profissional para integrar sua institui\u00e7\u00e3o." : undefined}
+          icon={dialog === "invite" ? "mail" : undefined}
+          className={dialog === "invite" ? "institution-invitation-dialog" : undefined}
+          footer={dialog === "invite" ? <>
+            <button type="button" className="outline-button" disabled={dialogBusy} onClick={() => setDialog(undefined)}>Cancelar</button>
+            <button type="submit" form="institution-teacher-invitation-form" className="primary-button institution-invite-submit" disabled={dialogBusy || !teacherInvitationsAvailable}>
+              {dialogBusy ? <><span className="institution-invite-spinner" aria-hidden="true" />Enviando convite…</> : <><Icon name="mail" />Enviar convite</>}
+            </button>
+          </> : undefined}
           close={() => setDialog(undefined)}
         >
           {dialog === "invite" ? (
             <InvitationForm
               id={id}
+              institutionName={institution?.name ?? ""}
+              classes={summary.data?.classes.items ?? []}
               restricted={session.administration?.restricted === true}
               onBusyChange={setDialogBusy}
               done={() => {
+                setInvitationNotice("Convite enviado ao servi\u00e7o de e-mail. A lista de convites foi atualizada.");
                 summary.reload();
                 setDialog(undefined);
+                if (section === "teachers") go("invitations");
               }}
             />
           ) : (
@@ -534,7 +552,6 @@ const descriptions: Record<InstitutionSection, string> = {
   students: "Consulte alunos das turmas autorizadas da instituição.",
   performance: "Consulte resultados reais por turma, disciplina e avaliação.",
   exams: "Crie e acompanhe avaliações das turmas da instituição.",
-  activities: "Crie atividades para turmas autorizadas e acompanhe entregas e resultados.",
   reports: "Acesse os relatórios das turmas e de seus alunos autorizados.",
   notifications: "Consulte mensagens reais destinadas à sua conta.",
   settings: "Consulte a auditoria institucional.",
@@ -545,49 +562,57 @@ function Overview({
   summary,
   go,
   open,
+  readOnly = false,
+  teacherManagementAvailable = false,
+  teacherInvitationsAvailable = false,
+  teacherInvitationReason,
 }: {
   id: string;
   summary: Summary;
   go: (section: InstitutionSection, extra?: Record<string, string>) => void;
   open: (dialog: "invite" | "class") => void;
+  readOnly?: boolean;
+  teacherManagementAvailable?: boolean;
+  teacherInvitationsAvailable?: boolean;
+  teacherInvitationReason?: string;
 }) {
   const metrics: [string, number | string | null | undefined, string][] = [
     ["Professores ativos", summary.indicators.activeTeachers, "graduation"],
     ["Turmas em andamento", summary.indicators.activeClasses, "book"],
     ["Alunos vinculados", summary.indicators.students, "users"],
     ["Simulados publicados", summary.indicators.publishedExams, "file"],
-    ["Atividades publicadas", summary.indicators.publishedActivities, "book"],
-    ["Entregas conclu\u00eddas", summary.indicators.completedActivities, "check"],
-    ["Participa\u00e7\u00e3o", summary.indicators.participationRate === null ? "N\u00e3o dispon\u00edvel" : summary.indicators.participationRate !== undefined ? `${summary.indicators.participationRate}%` : "\u2014", "chart"],
-    ["Desempenho correto", summary.indicators.accuracy === null ? "N\u00e3o dispon\u00edvel" : summary.indicators.accuracy !== undefined ? `${summary.indicators.accuracy}%` : "\u2014", "chart"],
   ];
   return (
     <div className="institution-overview" data-institution-id={id}>
       <div className="welcome-row overview-hero">
-        <div><p className="eyebrow">PAINEL INSTITUCIONAL</p><h1>{summary.institution.name}</h1><p>Equipe, turmas e acompanhamento da sua institui\u00e7\u00e3o.</p></div>
-        <span className="status success"><i />Opera\u00e7\u00f5es dispon\u00edveis</span>
+        <div><p className="eyebrow">PAINEL INSTITUCIONAL</p><h1>{summary.institution.name}</h1><p>Equipe, turmas e acompanhamento da sua instituição.</p></div>
+        <span className={`status ${readOnly ? "warning" : "success"}`}><i />{readOnly ? teacherManagementAvailable ? "Gestão de professores ativa" : "Acompanhamento institucional" : "Operações disponíveis"}</span>
       </div>
       <div className="metric-grid institution-key-metrics">
-        {metrics.map(([label, value, icon]) => (
-          <div className="metric-card" key={label}>
-            <div className="metric-icon gold"><Icon name={icon} /></div>
-            <div className="metric-copy"><span>{label}</span><strong>{typeof value === "number" ? value.toLocaleString("pt-BR") : value ?? "\u2014"}</strong></div>
-          </div>
-        ))}
+        {metrics.map(([label, value, icon]) => {
+          const unavailable = value == null || value === "Não disponível" || value === "—";
+          return (
+            <article className={`metric-card${unavailable ? " is-unavailable" : ""}`} key={label}>
+              <div className="metric-icon gold" aria-hidden="true"><Icon name={icon} /></div>
+              <div className="metric-copy"><span>{label}</span><strong>{typeof value === "number" ? value.toLocaleString("pt-BR") : value ?? "—"}</strong></div>
+            </article>
+          );
+        })}
       </div>
-      <section className="panel institution-actions">
-        <div><p className="eyebrow">A\u00c7\u00d5ES ESSENCIAIS</p><h2>Gerenciar institui\u00e7\u00e3o</h2></div>
+      {!readOnly && <section className="panel institution-actions">
+        <div><p className="eyebrow">AÇÕES ESSENCIAIS</p><h2>Gerenciar instituição</h2></div>
         <div className="header-actions">
-          <button className="primary-button" onClick={() => open("invite")}>Convidar professor</button>
+          <button className="primary-button" disabled={!teacherInvitationsAvailable} title={!teacherInvitationsAvailable ? teacherInvitationReason : undefined} onClick={() => open("invite")}>Convidar professor</button>
           <button className="outline-button" onClick={() => open("class")}>Criar nova turma</button>
           <button className="outline-button" onClick={() => go("teachers")}>Meus professores</button>
-          <button className="outline-button" onClick={() => go("institution")}>{"Configura\u00e7\u00f5es da institui\u00e7\u00e3o"}</button>
+          <button className="outline-button" onClick={() => go("institution")}>Configurações da instituição</button>
           <button className="outline-button" onClick={() => go("students")}>Alunos matriculados</button>
           <button className="outline-button" onClick={() => go("exams")}>Simulados</button>
-          <button className="outline-button" onClick={() => go("activities")}>Atividades</button>
-          <button className="text-button" onClick={() => go("reports")}>Relat\u00f3rios</button>
+          <button className="text-button" onClick={() => go("reports")}>Relatórios</button>
         </div>
-      </section>
+      </section>}
+      {readOnly && teacherManagementAvailable && <section className="panel institution-actions"><div><p className="eyebrow">GESTÃO DE PROFESSORES</p><h2>Convites e vínculos autorizados</h2><p>Convide professores e gerencie suas designações nas turmas vinculadas.</p></div><div className="header-actions"><button className="primary-button institution-invite-button" disabled={!teacherInvitationsAvailable} title={!teacherInvitationsAvailable ? teacherInvitationReason : undefined} onClick={() => open("invite")}>Convidar professor</button><button className="outline-button" onClick={() => go("teachers")}>Gerenciar professores</button><button className="outline-button" onClick={() => go("invitations")}>Ver convites</button></div></section>}
+      {readOnly && <ReadOnlyNotice title="Acompanhamento seguro" text={teacherManagementAvailable ? (teacherInvitationsAvailable ? "Indicadores e consultas refletem os vínculos ativos. Convites e designações docentes estão liberados; os demais módulos aguardam suas capacidades específicas." : `Indicadores e consultas estão disponíveis. ${teacherInvitationReason ?? "O envio de convites está indisponível."}`) : "Indicadores e consultas institucionais estão disponíveis para este perfil."} />}
       <Notifications recent />
     </div>
   );
@@ -596,9 +621,11 @@ function Overview({
 function InstitutionCard({
   institution,
   reload,
+  readOnly = false,
 }: {
   institution: Institution;
   reload: () => void;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const action = useMutation(reload);
@@ -643,11 +670,11 @@ function InstitutionCard({
             <strong>{institution.registrationNumber ?? "Não informado"}</strong>
           </div>
         </div>
-        <button className="primary-button" aria-label="Editar dados autorizados" onClick={() => setEditing(!editing)}>
+        {!readOnly && <button className="primary-button" aria-label="Editar dados autorizados" onClick={() => setEditing(!editing)}>
           {editing ? "Cancelar edição" : "Administrar instituição"}
-        </button>
+        </button>}
         {action.feedback}
-        {editing && (
+        {editing && !readOnly && (
           <form
             className="admin-form"
             onSubmit={(e) => {
@@ -730,15 +757,19 @@ function Teachers({
   page,
   setPage,
   reload,
+  canManageTeachers = false,
 }: {
   id: string;
   summary: Summary;
   page: number;
   setPage: (page: number) => void;
   reload: () => void;
+  canManageTeachers?: boolean;
 }) {
   const [search, setSearch] = useState(""),
-    [selected, setSelected] = useState<Member>();
+    [selected, setSelected] = useState<Member>(),
+    [detail, setDetail] = useState<Member>(),
+    [assign, setAssign] = useState<Member>();
   const action = useMutation(reload);
   const teachers = summary.teachers.items.filter((m) =>
     `${m.user?.nome ?? ""} ${m.user?.email ?? ""}`
@@ -797,15 +828,11 @@ function Teachers({
                 <td>Designação pela instituição</td>
                 <td>Não informada</td>
                 <td>
-                  {member.active && (
-                    <button
-                      className="outline-button"
-                      disabled={action.busy}
-                      onClick={() => setSelected(member)}
-                    >
-                      Desvincular
-                    </button>
-                  )}
+                  <div className="institution-row-actions">
+                    <button className="outline-button" onClick={() => setDetail(member)}>Ver detalhes</button>
+                    {canManageTeachers && member.active && <button className="outline-button" disabled={action.busy} onClick={() => setAssign(member)}>Gerenciar vínculo / turmas</button>}
+                    {canManageTeachers && member.active && <button className="outline-button" disabled={action.busy} onClick={() => setSelected(member)}>Desvincular</button>}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -841,11 +868,26 @@ function Teachers({
           </button>
         </Dialog>
       )}
+      {detail && (
+        <Dialog title="Detalhes do professor" close={() => setDetail(undefined)}>
+          <div className="institution-teacher-details">
+            <p><strong>Nome:</strong> {detail.user?.nome ?? "Conta indisponível"}</p>
+            <p><strong>E-mail:</strong> {detail.user?.email ?? "E-mail indisponível"}</p>
+            <p><strong>Vínculo:</strong> {detail.active ? "Ativo nesta instituição" : "Desvinculado"}</p>
+            <p>O acesso às turmas depende de designação específica; o vínculo institucional não concede acesso a outras instituições.</p>
+          </div>
+        </Dialog>
+      )}
+      {assign && (
+        <Dialog title={`Designar turmas — ${assign.user?.nome ?? "Professor"}`} close={() => setAssign(undefined)}>
+          <TeacherClassAssignments id={id} member={assign} onDone={() => { setAssign(undefined); reload(); }} />
+        </Dialog>
+      )}
     </div>
   );
 }
 
-function InvitationsTable({ id, revision }: { id: string; revision: string }) {
+function InvitationsTable({ id, revision, canManageTeachers = false }: { id: string; revision: string; canManageTeachers?: boolean }) {
   const [page, setPage] = useState(1),
     [status, setStatus] = useState(""),
     [cancel, setCancel] = useState<Invitation>();
@@ -862,7 +904,7 @@ function InvitationsTable({ id, revision }: { id: string; revision: string }) {
         <div>
           <div className="eyebrow">CONVITES INSTITUCIONAIS</div>
           <h2>Acompanhe suas solicitações</h2>
-          <p>Tokens seguros, uso único e validade informada em cada convite.</p>
+          <p>{canManageTeachers ? "Tokens seguros, uso único e validade informada em cada convite." : "Convites e estados registrados para esta instituição."}</p>
         </div>
         <label>
           Estado
@@ -891,7 +933,7 @@ function InvitationsTable({ id, revision }: { id: string; revision: string }) {
           <thead>
             <tr>
               <th>Professor</th>
-              <th>Criado em</th>
+              <th>Enviado em</th>
               <th>Expira em</th>
               <th>Status</th>
               <th>Ações</th>
@@ -913,7 +955,7 @@ function InvitationsTable({ id, revision }: { id: string; revision: string }) {
                     </div>
                   </div>
                 </td>
-                <td>{date(invite.createdAt)}</td>
+                <td>{date(invite.sentAt ?? invite.createdAt)}</td>
                 <td>{date(invite.expiresAt)}</td>
                 <td>
                   <span
@@ -925,7 +967,7 @@ function InvitationsTable({ id, revision }: { id: string; revision: string }) {
                   {invite.status === 'PENDING' && invite.deliveryState === 'UNCONFIRMED' && <p role="status">Envio não confirmado. Verifique a entrega antes de reenviar.</p>}
                 </td>
                 <td>
-                  {["PENDING", "EXPIRED", "CANCELLED"].includes(invite.status) && (
+                  {canManageTeachers && ["PENDING", "EXPIRED", "CANCELLED"].includes(invite.status) && (
                     <>
                       <button
                         className="outline-button"
@@ -978,62 +1020,77 @@ function InvitationsTable({ id, revision }: { id: string; revision: string }) {
   );
 }
 
-function InvitationForm({ id, done, restricted, onBusyChange }: { id: string; done: () => void; restricted: boolean; onBusyChange: (busy: boolean) => void }) {
-  const [page, setPage] = useState(1);
-  const [selectedClass, setSelectedClass] = useState<{ id: string; nome: string }>();
+function InvitationForm({ id, institutionName, classes, done, restricted, onBusyChange }: { id: string; institutionName: string; classes: Class[]; done: () => void; restricted: boolean; onBusyChange: (busy: boolean) => void }) {
+  const [selectedClass, setSelectedClass] = useState<string>("");
   const pending = useRef(false);
-  const classes = useResource<Page<Class>>(`/turmas?page=${page}`);
   const action = useMutation(done);
+  const availableClasses = classes.filter((turma) => !turma.archivedAt);
   return (
     <form
+      id="institution-teacher-invitation-form"
       className="admin-form institution-invitation-form"
       aria-busy={action.busy}
       onSubmit={(e) => {
         e.preventDefault();
         if (pending.current) return;
         const data = new FormData(e.currentTarget);
-        pending.current = true; onBusyChange(true);
+        pending.current = true;
+        onBusyChange(true);
         void action.run(`/institutions/${id}/invitations`, "POST", {
-          name: data.get("name"),
           email: data.get("email"),
-          classIds: selectedClass ? [selectedClass.id] : [],
+          message: data.get("message"),
+          classIds: selectedClass ? [selectedClass] : [],
         }).finally(() => { pending.current = false; onBusyChange(false); });
       }}
     >
-      <p>
-        Uma conta já cadastrada como Aluno pode receber convite. O envio não altera a conta; ao aceitar, ela passa a Professor e preserva seu histórico. Para manter o perfil Aluno separado, use outra conta.
-      </p>
-      {restricted && <p className="institution-invitation-scope" role="note">Neste ambiente de testes, os convites dependem de autorização prévia. Se não puder convidar uma pessoa, procure o responsável pela homologação.</p>}
-      {!restricted && <p>Para quem ainda não tem conta, o link oferece primeiro acesso protegido por token e aceite dos termos. O cadastro público não atribui o papel Professor.</p>}
-      <label>
-        Nome completo
-        <input name="name" data-dialog-autofocus disabled={action.busy} required minLength={2} maxLength={120} />
+      <div className="institution-invite-context">
+        <span className="institution-invite-context-icon"><Icon name="building" /></span>
+        <span><small>Institui&ccedil;&atilde;o selecionada</small><strong title={institutionName}>{institutionName}</strong></span>
+        <span className="institution-invite-context-status">Atual</span>
+      </div>
+      <label className="institution-invite-email-label">
+        <span className="institution-invite-label-row">E-mail profissional <span className="institution-required">Obrigat&oacute;rio</span></span>
+        <span className="institution-invite-email-field">
+          <Icon name="mail" />
+          <input type="email" name="email" data-dialog-autofocus disabled={action.busy} required maxLength={254} autoComplete="email" placeholder="nome@instituicao.com.br" />
+        </span>
       </label>
       <label>
-        E-mail profissional
-        <input type="email" name="email" disabled={action.busy} required maxLength={254} />
+        Mensagem <span className="institution-optional">Opcional</span>
+        <textarea name="message" disabled={action.busy} rows={3} maxLength={2000} placeholder="Escreva uma mensagem para acompanhar o convite." />
       </label>
-      <label>
-        Turma inicial (opcional)
-        <select name="classId" value={selectedClass?.id ?? ''} disabled={action.busy || classes.loading || !!classes.error} onChange={event => setSelectedClass(classes.data?.items.find(turma => turma.id === event.target.value))}>
-          <option value="">Sem designação inicial</option>
-          {selectedClass && !classes.data?.items.some(turma => turma.id === selectedClass.id) && <option value={selectedClass.id}>{selectedClass.nome} (selecionada)</option>}
-          {classes.data?.items
-            .filter((c) => !c.archivedAt)
-            .map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
+      <label className="institution-invite-class-label">
+        Turma inicial <span className="institution-optional">Opcional</span>
+        <select name="classId" value={selectedClass} disabled={action.busy || availableClasses.length === 0} onChange={(event) => setSelectedClass(event.target.value)}>
+          <option value="">Sem designa&ccedil;&atilde;o inicial</option>
+          {availableClasses.map((turma) => <option key={turma.id} value={turma.id}>{turma.nome}</option>)}
         </select>
       </label>
-      <ResourceState resource={classes} />
-      {(page > 1 || classes.data?.hasMore) && <nav className="institution-class-pagination" aria-label="Páginas das turmas disponíveis"><button type="button" className="outline-button" disabled={action.busy || classes.loading || page <= 1} onClick={() => setPage(value => value - 1)}>Turmas anteriores</button><span>Página {page}</span><button type="button" className="outline-button" disabled={action.busy || classes.loading || !classes.data?.hasMore} onClick={() => setPage(value => value + 1)}>Mais turmas</button></nav>}
+      {restricted && <p className="institution-invitation-scope" role="note">Neste ambiente, convide somente profissionais previamente autorizados.</p>}
+      <p className="institution-invite-privacy"><Icon name="lock" /> {"O v\u00ednculo s\u00f3 \u00e9 criado ap\u00f3s o aceite. Contas existentes e hist\u00f3rico acad\u00eamico s\u00e3o preservados."}</p>
       {action.feedback}
-      <button className="primary-button" disabled={action.busy}>
-        {action.busy ? 'Enviando convite...' : 'Enviar convite'}
-      </button>
     </form>
+  );
+}
+function TeacherClassAssignments({ id, member, onDone }: { id: string; member: Member; onDone: () => void }) {
+  const [page, setPage] = useState(1);
+  const classes = useResource<Page<Class>>(`/turmas?page=${page}`);
+  const action = useMutation(onDone);
+  const assigned = new Set(classes.data?.items.filter(item => item.professores?.some(teacher => teacher.id === member.userId)).map(item => item.id) ?? []);
+  return (
+    <div className="institution-teacher-assignments">
+      <p>As designações afetam somente turmas desta instituição e preservam o histórico acadêmico.</p>
+      <ResourceState resource={classes} />
+      {classes.data?.items.map(item => {
+        const isAssigned = assigned.has(item.id);
+        return <div className="institution-assignment-row" key={item.id}>
+          <span><strong>{item.nome}</strong><small>{item.archivedAt ? "Arquivada" : "Ativa"}</small></span>
+          <button className="outline-button" disabled={action.busy || !!item.archivedAt} onClick={() => void action.run(`/turmas/${item.id}/teachers/${member.userId}`, "PUT", { assigned: !isAssigned })}>{isAssigned ? "Retirar designação" : "Designar professor"}</button>
+        </div>;
+      })}
+      <Pages page={page} hasMore={classes.data?.hasMore} change={setPage} />
+      {action.feedback}
+    </div>
   );
 }
 function CreateClass({ done }: { done: () => void }) {
@@ -1187,11 +1244,19 @@ function Notifications({recent=false}:{recent?:boolean}={}) {
 }
 function Dialog({
   title,
+  subtitle,
+  icon,
+  className,
+  footer,
   close,
   children,
   busy = false,
 }: {
   title: string;
+  subtitle?: string;
+  icon?: string;
+  className?: string;
+  footer?: ReactNode;
   close: () => void;
   children: ReactNode;
   busy?: boolean;
@@ -1245,16 +1310,19 @@ function Dialog({
     <div className={`institution-workspace institution-dialog-layer${dark ? ' dark-mode' : ''}`}><div className="modal-backdrop" role="presentation">
       <div
         ref={dialog}
-        className="modal"
+        className={`modal${className ? ` ${className}` : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby="institution-modal-title"
+        aria-describedby={subtitle ? "institution-modal-subtitle" : undefined}
         aria-busy={busy}
         tabIndex={-1}
       >
         <div className="modal-head">
+          {icon && <span className="modal-title-icon"><Icon name={icon} /></span>}
           <div>
-            <h2>{title}</h2>
+            <h2 id="institution-modal-title">{title}</h2>
+            {subtitle && <p id="institution-modal-subtitle">{subtitle}</p>}
           </div>
           <button type="button" className="icon-button" aria-label="Fechar" disabled={busy} onClick={close}>
             <Icon name="close" />
@@ -1262,10 +1330,8 @@ function Dialog({
         </div>
         <div className="institution-dialog-body">{children}</div>
         <div className="modal-footer">
-          {busy && <p role="status">Aguarde a confirmação do envio.</p>}
-          <button type="button" className="outline-button" disabled={busy} onClick={close}>
-            Fechar
-          </button>
+          {busy && <p role="status">Aguarde a confirma??o do envio.</p>}
+          {footer ?? <button type="button" className="outline-button" disabled={busy} onClick={close}>Fechar</button>}
         </div>
       </div>
     </div></div>, document.body

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRoles, requireAcademicStaff, type AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { ClassExamService } from '../services/class-exam-service';
-import { institutionsEnabled } from '../config/institution-feature';
+import { institutionsEnabled, institutionalTeacherManagementEnabled } from '../config/institution-feature';
 import { ApiError } from '../errors/api-error';
 import {denyGlobalAcademicAccess} from '../middlewares/academic-access';
 
@@ -12,6 +12,7 @@ const page = (request: AuthenticatedRequest) => z.object({ page: z.coerce.number
 const examSchema = z.object({ titulo: z.string().trim().min(2).max(150), descricao: z.string().trim().max(3000).default(''),
   duracaoSegundos: z.number().int().min(60).max(86400).nullable().default(null),
   turmaIds: z.array(z.string().uuid()).min(1).max(30), questaoIds: z.array(z.string().uuid()).min(1).max(80),
+  responsibleTeacherId: z.string().uuid().optional(),
   expectedQuestions:z.number().int().min(1).max(80).optional(),
 }).strict().refine(value => new Set(value.turmaIds).size === value.turmaIds.length && new Set(value.questaoIds).size === value.questaoIds.length, 'Não repita turmas ou questões.');
 
@@ -20,7 +21,7 @@ for (const router of [classRoutes, examRoutes]) router.use((_request, response, 
 const staff = requireAcademicStaff, student = requireRoles('ALUNO');
 classRoutes.get('/requests', student, async (request: AuthenticatedRequest, response) => { response.json(await service.joinRequests(request.auth!, undefined, page(request))); });
 classRoutes.put('/:id/teachers/:teacherId',staff,async(req:AuthenticatedRequest,res)=>{
-  if(!institutionsEnabled())throw new ApiError(503,'Gestão institucional não ativada.');
+  if(!institutionsEnabled()&&!institutionalTeacherManagementEnabled())throw new ApiError(503,'Gestão institucional não ativada.');
   const {assigned}=z.object({assigned:z.boolean()}).strict().parse(req.body);
   res.json(await service.assignTeacher(req.auth!,id(req),id(req,'teacherId'),assigned));
 });
@@ -67,7 +68,7 @@ examRoutes.get('/eligible-questions',staff,async(request:AuthenticatedRequest,re
     ? await service.eligibleQuestions(request.auth!,turmaIds,current,filters)
     : await service.eligibleQuestions(request.auth!,turmaIds,current));
 });
-examRoutes.get('/', async (request: AuthenticatedRequest, response) => {const query=z.object({page:z.coerce.number().int().min(1).max(1000).default(1),turmaId:z.string().uuid().optional(),archived:z.enum(['true','false']).optional()}).strict().parse(request.query);response.json(await service.listExams(request.auth!,query.page,query.turmaId,query.archived==='true')); });
+examRoutes.get('/', async (request: AuthenticatedRequest, response) => {const query=z.object({page:z.coerce.number().int().min(1).max(1000).default(1),turmaId:z.string().uuid().optional(),archived:z.enum(['true','false']).optional(),search:z.string().trim().max(150).optional(),status:z.enum(['ALL','DRAFT','PUBLISHED','CLOSED','ARCHIVED']).optional()}).strict().parse(request.query);response.json(await service.listExams(request.auth!,query.page,query.turmaId,query.archived==='true',{search:query.search,status:query.status})); });
 examRoutes.get('/:id/details',staff,async(request:AuthenticatedRequest,response)=>response.json(await service.examDetails(request.auth!,id(request),page(request))));
 examRoutes.post('/:id/close',staff,async(request:AuthenticatedRequest,response)=>response.json(await service.manageExam(request.auth!,id(request),'close')));
 examRoutes.post('/:id/archive',staff,async(request:AuthenticatedRequest,response)=>response.json(await service.manageExam(request.auth!,id(request),'archive')));

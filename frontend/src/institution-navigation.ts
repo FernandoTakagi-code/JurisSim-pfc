@@ -8,6 +8,12 @@ export const canManageInstitution = (session: Session, id: string) =>
   session.administration.memberships.some(
     (m) => m.institutionId === id && m.role === "INSTITUTION_ADMIN",
   );
+export const canViewInstitution = (session: Session, id: string) =>
+  session.user.role !== "ADMIN" &&
+  session.user.emailVerificado &&
+  session.administration?.memberships.some(
+    (m) => m.institutionId === id && m.role === "INSTITUTION_ADMIN",
+  ) === true;
 export const institutionSections = [
   { id: "overview", label: "Visão geral", group: "Gestão", icon: "home" },
   {
@@ -27,7 +33,6 @@ export const institutionSections = [
     icon: "chart",
   },
   { id: "exams", label: "Simulados", group: "Acompanhamento", icon: "file" },
-  { id: "activities", label: "Atividades", group: "Acompanhamento", icon: "book" },
   {
     id: "reports",
     label: "Relatórios",
