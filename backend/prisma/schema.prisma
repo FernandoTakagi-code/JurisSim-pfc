@@ -48,6 +48,11 @@ model User {
   accountControl AccountControl?
   administrativeEvents AdministrativeEvent[]
   administrativeNotifications AdministrativeNotification[]
+  questoesDocentesCriadas          QuestaoDocente[]
+  materiaisDocentes                MaterialTurma[]
+  avisosDocentes                   AvisoTurma[]
+  atividadesCriadas                Atividade[]
+  entregasAtividade                EntregaAtividade[]
 }
 
 // At most one private photo per user (primary key). List relation allows atomic
@@ -104,6 +109,10 @@ model Turma {
   professores   User[]    @relation("ProfessorTurmas")
   institutionalClass InstitutionalClass?
   joinRequests ClassJoinRequest[]
+  questoesDocentes      QuestaoDocenteTurma[]
+  atividades            AtividadeTurma[]
+  materiais             MaterialTurma[]
+  avisos                AvisoTurma[]
 }
 
 // Separate optional metadata keeps deployments compatible before migration.
@@ -163,6 +172,7 @@ model Questao {
   avaliacoes            AvaliacaoQuestao[]
 
   @@index([origem, disciplina, nivel], map: "Questao_origem_disciplina_nivel_idx")
+  atividades               AtividadeQuestao[]
 }
 
 model LoteImportacao {
@@ -212,6 +222,7 @@ model Simulado {
   @@unique([avaliacaoId, alunoId])
   // Supports a composite FK that guarantees the initial diagnostic belongs to its recorded student.
   @@unique([id, alunoId], map: "Simulado_id_alunoId_key")
+  questoesDocentes       QuestaoSimuladoDocente[]
 }
 
 model DiagnosticoInicial {
@@ -280,6 +291,7 @@ model Avaliacao {
   tentativas Simulado[]
 
   @@index([autorId, createdAt, id])
+  questoesDocentes AvaliacaoQuestaoDocente[]
 }
 
 // Activity scheduling/lifecycle is distinct; assessment questions and attempts
@@ -316,6 +328,7 @@ model AvaliacaoQuestao {
   @@unique([avaliacaoId, questaoId])
   @@unique([avaliacaoId, posicao])
   @@index([questaoId])
+  conteudoSnapshot Json? @db.JsonB
 }
 
 model Resposta {
@@ -640,4 +653,204 @@ enum AuditAction {
   SENHA_REDEFINIDA
   CONTA_EXCLUIDA
   RECUPERACAO_SENHA_SOLICITADA
+}
+
+model QuestaoDocente {
+  id            String                    @id @default(uuid())
+  autorId       String
+  institutionId String?
+  tipo          String
+  enunciado     String
+  disciplina    String
+  assunto       String
+  nivel         Nivel?
+  fundamentacao String?
+  arquivadaEm   DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  autor         User                      @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  alternativas  AlternativaDocente[]
+  turmas        QuestaoDocenteTurma[]
+  atividades    AtividadeQuestao[]
+  avaliacoes    AvaliacaoQuestaoDocente[]
+  tentativas    QuestaoSimuladoDocente[]
+
+  @@index([autorId, arquivadaEm, updatedAt])
+  @@index([institutionId, arquivadaEm])
+}
+
+model AlternativaDocente {
+  id        String         @id @default(uuid())
+  questaoId String
+  letra     String
+  texto     String
+  correta   Boolean        @default(false)
+  questao   QuestaoDocente @relation(fields: [questaoId], references: [id], onDelete: Restrict)
+
+  @@unique([questaoId, letra])
+  @@index([questaoId])
+}
+
+model QuestaoDocenteTurma {
+  questaoId String
+  classId   String
+  questao   QuestaoDocente @relation(fields: [questaoId], references: [id], onDelete: Restrict)
+  turma     Turma          @relation(fields: [classId], references: [id], onDelete: Restrict)
+
+  @@id([questaoId, classId])
+  @@index([classId])
+}
+
+model MaterialTurma {
+  id          String   @id @default(uuid())
+  classId     String
+  professorId String
+  titulo      String
+  descricao   String   @default("")
+  url         String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  turma       Turma    @relation(fields: [classId], references: [id], onDelete: Restrict)
+  professor   User     @relation(fields: [professorId], references: [id], onDelete: Restrict)
+
+  @@index([classId, createdAt, id])
+  @@index([professorId, updatedAt])
+}
+
+model AvisoTurma {
+  id          String   @id @default(uuid())
+  classId     String
+  professorId String
+  titulo      String
+  conteudo    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  turma       Turma    @relation(fields: [classId], references: [id], onDelete: Restrict)
+  professor   User     @relation(fields: [professorId], references: [id], onDelete: Restrict)
+
+  @@index([classId, createdAt, id])
+  @@index([professorId, updatedAt])
+}
+
+model Atividade {
+  id            String             @id @default(uuid())
+  professorId   String
+  institutionId String?
+  titulo        String
+  descricao     String             @default("")
+  status        String             @default("RASCUNHO")
+  prazo         DateTime?
+  publicadaEm   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  professor     User               @relation(fields: [professorId], references: [id], onDelete: Restrict)
+  turmas        AtividadeTurma[]
+  questoes      AtividadeQuestao[]
+  entregas      EntregaAtividade[]
+
+  @@index([professorId, status, updatedAt])
+  @@index([institutionId, status])
+}
+
+model AtividadeTurma {
+  atividadeId String
+  classId     String
+  atividade   Atividade @relation(fields: [atividadeId], references: [id], onDelete: Restrict)
+  turma       Turma     @relation(fields: [classId], references: [id], onDelete: Restrict)
+
+  @@id([atividadeId, classId])
+  @@index([classId])
+}
+
+model AtividadeQuestao {
+  id               String              @id @default(uuid())
+  atividadeId      String
+  questaoId        String?
+  questaoDocenteId String?
+  posicao          Int
+  pontos           Decimal             @default(1) @db.Decimal(8, 2)
+  conteudoSnapshot Json                @db.JsonB
+  atividade        Atividade           @relation(fields: [atividadeId], references: [id], onDelete: Restrict)
+  questao          Questao?            @relation(fields: [questaoId], references: [id], onDelete: Restrict)
+  questaoDocente   QuestaoDocente?     @relation(fields: [questaoDocenteId], references: [id], onDelete: Restrict)
+  respostas        RespostaAtividade[]
+
+  @@unique([atividadeId, posicao])
+  @@unique([atividadeId, questaoId])
+  @@unique([atividadeId, questaoDocenteId])
+  @@index([questaoId])
+  @@index([questaoDocenteId])
+}
+
+model EntregaAtividade {
+  id          String              @id @default(uuid())
+  atividadeId String
+  alunoId     String
+  status      String              @default("RASCUNHO")
+  iniciadaEm  DateTime            @default(now())
+  enviadaEm   DateTime?
+  corrigidaEm DateTime?
+  liberadaEm  DateTime?
+  atividade   Atividade           @relation(fields: [atividadeId], references: [id], onDelete: Restrict)
+  aluno       User                @relation(fields: [alunoId], references: [id], onDelete: Restrict)
+  respostas   RespostaAtividade[]
+
+  @@unique([atividadeId, alunoId])
+  @@index([atividadeId, status, enviadaEm])
+  @@index([alunoId, iniciadaEm])
+}
+
+model RespostaAtividade {
+  id                   String           @id @default(uuid())
+  entregaId            String
+  atividadeQuestaoId   String
+  respostaObjetiva     String?
+  respostaDissertativa String?
+  correta              Boolean?
+  pontos               Decimal?         @db.Decimal(8, 2)
+  feedback             String?
+  respondidaEm         DateTime         @updatedAt
+  entrega              EntregaAtividade @relation(fields: [entregaId], references: [id], onDelete: Restrict)
+  atividadeQuestao     AtividadeQuestao @relation(fields: [atividadeQuestaoId], references: [id], onDelete: Restrict)
+
+  @@unique([entregaId, atividadeQuestaoId])
+  @@index([atividadeQuestaoId])
+}
+
+model AvaliacaoQuestaoDocente {
+  id               String         @id @default(uuid())
+  avaliacaoId      String
+  questaoDocenteId String
+  posicao          Int
+  conteudoSnapshot Json?          @db.JsonB
+  avaliacao        Avaliacao      @relation(fields: [avaliacaoId], references: [id], onDelete: Restrict)
+  questaoDocente   QuestaoDocente @relation(fields: [questaoDocenteId], references: [id], onDelete: Restrict)
+
+  @@unique([avaliacaoId, questaoDocenteId])
+  @@unique([avaliacaoId, posicao])
+  @@index([questaoDocenteId])
+}
+
+model QuestaoSimuladoDocente {
+  id               String                   @id @default(uuid())
+  posicao          Int
+  simuladoId       String
+  questaoDocenteId String
+  conteudoSnapshot Json                     @db.JsonB
+  questaoDocente   QuestaoDocente           @relation(fields: [questaoDocenteId], references: [id], onDelete: Restrict)
+  simulado         Simulado                 @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
+  resposta         RespostaSimuladoDocente?
+
+  @@unique([simuladoId, questaoDocenteId])
+  @@unique([simuladoId, posicao])
+  @@index([questaoDocenteId])
+}
+
+model RespostaSimuladoDocente {
+  id                       String                 @id @default(uuid())
+  questaoSimuladoDocenteId String                 @unique
+  alternativaEscolhidaId   String?
+  correta                  Boolean
+  respondidoEm             DateTime               @default(now())
+  questaoSimuladoDocente   QuestaoSimuladoDocente @relation(fields: [questaoSimuladoDocenteId], references: [id], onDelete: Restrict)
 }

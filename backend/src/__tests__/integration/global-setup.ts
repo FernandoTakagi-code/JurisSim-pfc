@@ -27,6 +27,9 @@ export default async function setup() {
       '20261113000100_email_reuse_block',
       '20261113000200_email_reuse_registration_guard',
     '20261113010000_question_review_sessions',
+    '20261113200000_teacher_academic_activities',
+    '20261113210000_class_materials_announcements',
+    '20261113220000_teacher_questions_in_exams',
     '20261115193000_class_lifecycle',
   '20261115203000_class_activities',
     ];
