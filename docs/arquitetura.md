@@ -8,6 +8,10 @@
 
 Algumas validações puras são compartilhadas por imports do frontend para arquivos do backend, como senha, alternativas A–D e cadastro institucional. Mover esses arquivos exige atualizar imports e verificar os dois builds.
 
+## Organização do painel institucional
+
+`frontend/src/institution-dashboard.tsx` coordena a sessão, a navegação e as capacidades do painel. Os componentes de visão geral, dados institucionais, professores, convites, turmas, notificações e modais ficam em `frontend/src/institution/`, com tipos e formatação compartilhados. Essa separação mantém as regras de acesso e os contratos da API existentes.
+
 ## Organização dos testes
 
 `backend/src` contém somente a aplicação. A estrutura de testes é:
