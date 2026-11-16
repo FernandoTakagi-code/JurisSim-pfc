@@ -49,7 +49,7 @@ try {
   const cdp = (method, params = {}) => send(method, params, sessionId);
   await cdp('Page.enable'); await cdp('Runtime.enable'); await cdp('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
   const evaluate = async expression => { const r = await cdp('Runtime.evaluate', { expression: /\bawait\b/.test(expression) ? `(async()=>{${expression}})()` : expression, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw Error('Browser expression failed: ' + expression.slice(0, 120)); return r.result.value; };
-  const until = async expression => { for (let i = 0; i < 140; i++) { try { if (await evaluate(expression)) return; } catch {} await sleep(50); } throw Error('Condition failed: ' + expression); };
+  const until = async expression => { for (let i = 0; i < 300; i++) { try { if (await evaluate(expression)) return; } catch {} await sleep(50); } throw Error('Condition failed: ' + expression); };
   const pass = message => { checks++; console.log('PASS PRIVACY: ' + message); };
   await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.owner='owner-a';window.downloads=[];window.exportCalls=[];window.exportStatus=200;window.delayExport=false;

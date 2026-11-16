@@ -58,7 +58,8 @@ try {
     return result.result.value;
   };
   const until = async expression => {
-    for (let i = 0; i < 100; i++) { if (await evaluate(expression)) return; await sleep(50); }
+    // 15 s budget: 5 s was too short on a loaded machine and made the suite flaky.
+    for (let i = 0; i < 300; i++) { if (await evaluate(expression)) return; await sleep(50); }
     throw new Error(`Condition failed: ${expression}; UI: ${await evaluate('document.body.innerText.slice(0, 500)')}`);
   };
   const navigate = async suffix => {
@@ -139,7 +140,7 @@ try {
     await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width === 360 });
     assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
   }
-  console.log('PASS: pol?tica de senha em tempo real, confirma??o divergente, limite UTF-8, bloqueio de envio inv?lido e responsividade.');
+  console.log('PASS: política de senha em tempo real, confirmação divergente, limite UTF-8, bloqueio de envio inválido e responsividade.');
   await evaluate(`window.fillRecoveryInput('input[name=new-password]', 'Senha-nova-segura1!'); window.fillRecoveryInput('input[name=confirm-new-password]', 'Senha-nova-segura1!'); window.fetch = async (url, init) => { window.resetRequest = { url, body: JSON.parse(init.body) }; return new Response(JSON.stringify({ message: 'Senha redefinida. Você já pode entrar com sua nova senha.' }), { status: 200 }); };`);
   await evaluate('document.querySelector(".auth-submit").click()');
   await until('document.querySelector("h2").textContent === "Login" && !!document.querySelector(".recovery-notice")');

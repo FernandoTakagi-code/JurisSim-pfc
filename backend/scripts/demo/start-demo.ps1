@@ -55,7 +55,9 @@ try {
   Invoke-Checked (Join-Path $PostgresBin 'psql.exe') @($postgresUrl, '-v', 'ON_ERROR_STOP=1', '-c', 'CREATE ROLE authenticated NOLOGIN;')
   Invoke-Checked (Join-Path $PostgresBin 'psql.exe') @($postgresUrl, '-v', 'ON_ERROR_STOP=1', '-c', "CREATE DATABASE $Database;")
 
-  $connection = "postgresql://postgres@127.0.0.1:$Port/$Database?schema=public"
+  # Braces are required: '?' is a valid variable-name character in PowerShell, so
+  # "$Database?schema" would expand an undefined variable and drop the database name.
+  $connection = "postgresql://postgres@127.0.0.1:$Port/${Database}?schema=public"
   $env:DATABASE_URL = $connection
   $env:DIRECT_URL = $connection
   $env:INVENTORY_CHECK_DATABASE_URL = $connection

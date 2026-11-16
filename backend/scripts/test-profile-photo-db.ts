@@ -15,7 +15,7 @@ import { errorHandler } from '../src/middlewares/error-handler';
 let server: Server | undefined, base: string, checks = 0;
 const pass = (message: string) => { checks++; console.log(`PASS PHOTO DB: ${message}`); };
 async function call(route: string, token?: string, method = 'GET', body?: string | Buffer, type = 'application/json', status = 200) {
-  const response = await fetch(base + route, { method, headers: { 'Content-Type': type, ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body });
+  const response = await fetch(base + route, { method, headers: { 'Content-Type': type, ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: typeof body === "string" || body === undefined ? body : new Uint8Array(body) });
   assert.equal(response.status, status, `${method} ${route}: expected ${status}, got ${response.status}`);
   assert.ok(!response.headers.get('cache-control') || response.headers.get('cache-control') === 'no-store');
   if (status === 404 && !response.headers.get('content-type')?.includes('application/json')) return {};
