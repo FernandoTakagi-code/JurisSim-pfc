@@ -1,0 +1,31 @@
+{
+  "recuperadoEm": "2026-11-16",
+  "observacao": "Capturas históricas recuperadas sem edição. Não representam nova execução nem necessariamente a interface atual.",
+  "imagens": [
+    {
+      "arquivo": "historico/atividade-publicada-desktop.png",
+      "origem": "docs/evidence/teacher-management-live/activities-1440.png",
+      "sha256": "3008d39b822313806fddf8532489ea57e7c7127c34f6c3fb644afca8bffa5716"
+    },
+    {
+      "arquivo": "historico/resultado-atividade-mobile.png",
+      "origem": "docs/evidence/teacher-management-live/student-result.png",
+      "sha256": "07ec52895b0fb233ddf6c4eb3bbc664b96da87269b47d063435d3254de53e14a"
+    },
+    {
+      "arquivo": "historico/cadastro-questao-desktop.png",
+      "origem": "docs/evidence/teacher-questions/class-question-1440.png",
+      "sha256": "9864d7af691cc96f7887368c981446932d15c04de45499a510cde5e05344692f"
+    },
+    {
+      "arquivo": "historico/cadastro-questao-mobile.png",
+      "origem": "docs/evidence/teacher-questions/class-question-390.png",
+      "sha256": "b66081d20307e3b7baf9b696a5c3adc1217d1085fa19aaec4c06a83daa728a79"
+    },
+    {
+      "arquivo": "historico/desempenho-aluno-desktop.png",
+      "origem": "docs/evidence/performance-contrast/dark-1440.png",
+      "sha256": "a1f8506950d6c8ecc9993995dc4c8d7ee0f039b1dcf937b2df626c2e27eb3f3d"
+    }
+  ]
+}

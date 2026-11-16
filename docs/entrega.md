@@ -19,7 +19,7 @@ Registrar o link do repositório, a branch e o commit apresentados. Confirmar qu
 
 ## Evidências
 
-- Capturas de tela devem ser produzidas para a versão apresentada. Os testes visuais gravam seus artefatos locais em `frontend/.artifacts/evidence`, fora do Git; imagens antigas foram retiradas da árvore atual.
+- Consulte o [índice de evidências](evidence/README.md): reúne cinco capturas históricas selecionadas, sua origem e os registros de testes disponíveis. Capturas históricas não substituem a conferência da versão final. Os testes visuais gravam novos artefatos locais em `frontend/.artifacts/evidence`, fora do Git.
 - [Teste de carga](testes-de-carga.md) e [resultado de 14/11](relatorios/carga-2026-11-14.md): evidência local vinculada à versão registrada no relatório; não comprova capacidade do Render/Supabase.
 - Testes automatizados registram seu próprio escopo. Testes com mocks não comprovam gravação, envio de e-mail ou funcionamento da publicação.
 

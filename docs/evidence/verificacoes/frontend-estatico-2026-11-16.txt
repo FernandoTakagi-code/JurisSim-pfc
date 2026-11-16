@@ -1,0 +1,37 @@
+
+> jurissim-frontend@1.0.0 test:delivery-static
+> node tests/test-admin-routing.cjs && node tests/test-teacher-access.cjs && node tests/test-account-deletion.cjs && node tests/test-institution-navigation.cjs && node tests/test-institution-visual.cjs && node tests/test-administration.cjs && node tests/test-institution-exam-access.cjs && node tests/test-trail-launch.cjs && node tests/test-exam-actions.cjs && node tests/test-question-editorial.cjs && node tests/test-teacher-workspace.cjs && node tests/test-activity-editor.cjs
+
+OK: cinco menus administrativos e rotas antigas preservadas; destinos por papel. Sem rede.
+OK: editorial route aliases retain ADMIN access and reject teacher navigation.
+OK: acesso do Professor, vínculo pendente, seleção única/múltipla, contexto revogado e isolamento por papel; sem rede ou banco.
+OK: exclusão pelo Aluno habilitada; exclusão ADMIN e revogação desativadas; zero requisições na renderização.
+OK: dez módulos, atividades fora da navegação institucional, papel pessoal preservado, autorização por vínculo, rotas contextualizadas e CSS isolado; sem rede ou banco.
+OK: 10 tokens iguais ao tema atual, CSS isolado, tipografia sem serifa e contraste AA dos indicadores; sem rede ou banco.
+OK cinco seções acessíveis sem módulo ativo; nenhuma consulta protegida
+OK indicadores reais e ausência das métricas fictícias do v0
+OK activity indicators stay hidden until their real counters are available
+OK contrato existente: institutions
+OK contrato existente: requests
+OK contrato existente: audit
+OK ADMIN has no academic class query
+OK account searches do not load users before a search
+OK consulta de usuários reúne professores e remove a revogação indisponível
+OK estado do sistema explica cadastro pausado sem prometer controles futuros
+OK a rota antiga de avisos abre auditoria sem consultar notificações do ADMIN
+OK carregamento e erro com opção de tentar novamente
+OK lista vazia não apresenta registros inventados
+OK segurança e configurações não criam endpoints
+OK auditoria independente não desaparece quando a flag ou sua consulta falham
+OK mensagens de bloqueio são específicas e notificações não usam endpoint inexistente
+OK auditoria separa históricos e mantém IDs apenas nos detalhes
+OK visão geral prioriza decisões administrativas e atalhos úteis
+OK solicitações do professor respeitam a disponibilidade mesmo em requestsOnly
+OK novos estilos restritos ao painel administrativo
+20 verificações direcionadas aprovadas; sem rede e sem banco.
+OK: capacidade específica não é anulada pelo módulo completo desligado; vínculo e confirmação continuam obrigatórios.
+OK: resume/result use persisted attempt IDs without writes; generation uses recommendation ID.
+OK: queries remain available; no empty action menu; draft/published/archived/read-only capabilities preserved.
+OK: editorial readonly, explicit attestation, blockers, published immutability and safe text rendering; no API effects.
+OK: navegação única do professor, links antigos, relatórios individuais e módulos acadêmicos preservados; sem rede.
+OK: questão integrada, seleção automática, rascunho preservado e envio da atividade sem navegação, rede ou banco.
