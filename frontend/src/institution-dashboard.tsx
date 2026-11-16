@@ -576,7 +576,7 @@ function Overview({
         ))}
       </div>
       <section className="panel institution-actions">
-        <div><p className="eyebrow">A\u00c7\u00d5ES ESSENCIAIS</p><h2>Gerenciar institui\u00e7\u00e3o</h2><p>Use somente recursos autorizados para esta institui\u00e7\u00e3o.</p></div>
+        <div><p className="eyebrow">A\u00c7\u00d5ES ESSENCIAIS</p><h2>Gerenciar institui\u00e7\u00e3o</h2></div>
         <div className="header-actions">
           <button className="primary-button" onClick={() => open("invite")}>Convidar professor</button>
           <button className="outline-button" onClick={() => open("class")}>Criar nova turma</button>

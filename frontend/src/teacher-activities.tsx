@@ -185,7 +185,7 @@ function ActivityManager({
         </button>
         {archived && (
           <p role="status">
-            Turma arquivada: atividades disponíveis somente para consulta.
+            Turma arquivada. Consulte as atividades registradas.
           </p>
         )}
       </div>
