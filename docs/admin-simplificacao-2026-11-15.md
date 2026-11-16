@@ -14,3 +14,9 @@ Esta mudança não ativa cadastro institucional, convites, operações acadêmic
 A entrega do João contém melhorias adicionais de indicadores e autenticação, além de atividades e migrations. Ao integrá-la, preservar esta navegação simplificada e conciliar os componentes compartilhados, sem restaurar menus duplicados ou descartar os indicadores novos. Não há garantia de merge automático de arquivos editados pelas duas entregas.
 
 Validação: build do frontend e test:delivery-static aprovados; 16 verificações direcionadas de renderização administrativa, incluindo estados de erro/indisponibilidade, contratos de consulta e ausência de menus duplicados. Scripts de navegador existentes foram alinhados aos rótulos novos e passaram na análise sintática; sua execução por CLI não foi usada como evidência visual desta etapa.
+
+## Ajuste posterior solicitado pelo responsável
+
+Estado do sistema foi retirado do menu, que passa a ter seis entradas. A URL antiga de configurações permanece compatível. A descrição de Avisos esclarece que são mensagens automáticas para destinatários específicos, não recados entre usuários nem uma caixa global de todos os acontecimentos. A análise estática administrativa passou a incluir uma verificação dessa explicação e da ausência de paginação em caixa vazia.
+
+Foi autorizada uma solicitação de instituição fictícia no site publicado para o titular analisar como ADMIN. O cadastro foi feito por manutenção com o serviço normal e validação de dados, vinculado a uma conta individual existente e confirmada. Nome e descrição identificam DEMONSTRAÇÃO, com o CNPJ alfanumérico de exemplo das fixtures, endereço/telefone sintéticos e contato example.invalid; não representam uma instituição real. Ficou PENDING, sem vínculo concedido nem envio de e-mail. A aprovação cabe ao titular na interface e não ativa automaticamente as operações institucionais desligadas. Nenhuma dispensa de validação ou regra de autorização foi adicionada ao código.

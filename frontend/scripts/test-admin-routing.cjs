@@ -39,7 +39,9 @@ for (const path of [
 ]) {
   assert.equal(sessionRedirectTarget(session("ADMIN"), path), "/administracao");
 }
-assert.equal(new Set(adminSections.map((section) => section.path)).size, 7);
+assert.equal(new Set(adminSections.map((section) => section.path)).size, 6);
+assert.ok(!adminSections.some(section=>section.id==='settings'));
+assert.equal(adminSection('/administracao/configuracoes').id,'settings');
 assert.ok(!adminSections.some(section=>['teachers','security'].includes(section.id)));
 assert.equal(adminSection('/administracao/professores').id,'teachers');
 assert.equal(adminSection('/administracao/seguranca').id,'security');
@@ -88,5 +90,5 @@ assert.equal(
   "/instituicoes",
 );
 console.log(
-  "OK: sete menus administrativos sem duplicação e rotas antigas preservadas; destinos por papel. Sem rede.",
+  "OK: seis menus administrativos e rotas antigas preservadas; destinos por papel. Sem rede.",
 );

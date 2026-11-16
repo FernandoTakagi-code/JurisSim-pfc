@@ -123,7 +123,7 @@ const sectionDescriptions: Record<AdminSectionId, string> = {
   security:
     "Confira a segurança da sua conta e consulte os eventos de autenticação registrados.",
   notifications:
-    "Acompanhe os comunicados destinados à sua conta administrativa. Para consultar acessos e alterações, use Logs e auditoria.",
+    "Mensagens automáticas destinadas à sua conta. Não há envio de recados entre usuários; acessos e alterações ficam em Logs e auditoria.",
   settings:
     "Confira o acesso à plataforma e a disponibilidade do cadastro e dos painéis institucionais.",
 };
@@ -369,7 +369,7 @@ function Notifications({recent=false,administrative=false}:{recent?:boolean;admi
     <section>
       <h2>{administrative?'Avisos para sua conta':recent&&!expanded?'Notificações recentes':'Notificações'}</h2>
       <ResourceState resource={resource} />
-      {resource.data?.items.length === 0 && <div className={administrative?'panel admin-empty-state':undefined} role="status"><p>{administrative?'Você não tem avisos no momento.':'Nenhuma notificação.'}</p>{administrative&&<p>Os avisos aparecem aqui quando há um comunicado destinado a você. As solicitações de instituições ficam em Solicitações de cadastro.</p>}</div>}
+      {resource.data?.items.length === 0 && <div className={administrative?'panel admin-empty-state':undefined} role="status"><p>{administrative?'Você não tem avisos no momento.':'Nenhuma notificação.'}</p>{administrative&&<p>O sistema gera avisos para o destinatário de uma decisão institucional ou solicitação de turma. O ADMIN não recebe automaticamente todos esses avisos. Para analisar pedidos de instituições, abra Solicitações de cadastro.</p>}</div>}
       {(recent&&!expanded?resource.data?.items.slice(0,3):resource.data?.items)?.map((n) => (
         <article className="panel" key={n.id}>
           <time>{date(n.createdAt)}</time>

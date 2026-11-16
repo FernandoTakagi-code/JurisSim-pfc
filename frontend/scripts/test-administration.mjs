@@ -546,7 +546,6 @@ try {
     ["Solicitações de cadastro", "Pendente"],
     ["Usuários", "Professor de teste"],
     ["Avisos", "Você não tem avisos no momento"],
-    ["Estado do sistema", "Cadastro de instituições"],
     ["Visão geral", "Seu painel administrativo"],
   ]) {
     await click(title);
@@ -564,7 +563,7 @@ try {
     ),
   );
   pass(
-    "sete seções navegam por URLs reais; professores usam o filtro de usuários",
+    "seis seções navegam por URLs reais; professores usam o filtro de usuários",
   );
   await evaluate(
     'sessionStorage.setItem("fixture-institutions-enabled","false");',
@@ -579,7 +578,6 @@ try {
     "Usuários",
     "Logs e auditoria",
     "Avisos",
-    "Estado do sistema",
     "Visão geral",
   ])
     await click(title);
@@ -631,7 +629,7 @@ try {
   await until(
     `window.requests.filter(r=>r.p==="/audit-logs").length>${previousAuditCalls}`,
   );
-  await click("Estado do sistema");
+  await evaluate("const n=await import('/src/navigation.ts');n.navigate('/administracao/configuracoes');");
   await evaluate('window.fixtureFailure={path:"/audit-logs",network:true}');
   await click("Logs e auditoria");
   await until(
@@ -649,7 +647,7 @@ try {
   await until(
     'document.querySelector(".admin-page").textContent.includes("Perfil da conta")',
   );
-  await click("Estado do sistema");
+  await evaluate("const n=await import('/src/navigation.ts');n.navigate('/administracao/configuracoes');");
   assert.ok(
     await evaluate(
       'document.querySelector(".admin-page").textContent.includes("Cadastro de instituições")',
@@ -670,7 +668,7 @@ try {
     deviceScaleFactor: 1,
     mobile: true,
   });
-  for (const title of ["Usuários", "Logs e auditoria", "Estado do sistema"]) {
+  for (const title of ["Usuários", "Logs e auditoria"]) {
     await evaluate('document.querySelector(".v0-mobile-menu").click()');
     await click(title);
     await until(

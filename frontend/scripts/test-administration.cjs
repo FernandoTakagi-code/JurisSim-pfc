@@ -86,7 +86,7 @@ vm.runInNewContext(compiled, {
 });
 function render(tab, enabled, extra = {}) {
   route =
-    ({classes:'/administracao/turmas',teachers:'/administracao/professores',security:'/administracao/seguranca'}[tab]??navigation.adminSections.find((section) => section.id === tab)?.path) ??
+    ({classes:'/administracao/turmas',teachers:'/administracao/professores',security:'/administracao/seguranca',settings:'/administracao/configuracoes'}[tab]??navigation.adminSections.find((section) => section.id === tab)?.path) ??
     "/administracao/inexistente";
   stateIndex = 0;
   dependencies = [];
@@ -109,7 +109,6 @@ const sections = [
   "Usuários",
   "Logs e auditoria",
   "Avisos",
-  "Estado do sistema",
 ];
 let checks = 0;
 function check(name, fn) {
@@ -118,7 +117,7 @@ function check(name, fn) {
   console.log(`OK ${name}`);
 }
 check(
-  "sete seções acessíveis sem módulo ativo; nenhuma consulta protegida",
+  "seis seções acessíveis sem módulo ativo; nenhuma consulta protegida",
   () => {
     const { html, paths } = render("overview", false);
     assert.deepEqual(
@@ -177,6 +176,12 @@ check('estado do sistema explica cadastro pausado sem prometer controles futuros
   assert.ok(!html.includes('atualização futura'));
   assert.ok(!html.includes('Não monitorado'));
 });
+check('avisos explicam a origem automática e não paginam uma caixa vazia',()=>{
+  const html=render('notifications',true,{6:{items:[],hasMore:false,page:1}}).html;
+  assert.ok(html.includes('Não há envio de recados entre usuários'));
+  assert.ok(html.includes('O ADMIN não recebe automaticamente todos esses avisos'));
+  assert.ok(!html.includes('Anterior'));
+});
 check("carregamento e erro com opção de tentar novamente", () => {
   assert.ok(
     render("overview", undefined, { 2: true }).html.includes("Carregando"),
@@ -221,7 +226,7 @@ check(
       assert.ok(html.includes(tab==="classes"?"Gestão pedagógica institucional":"Capacidade administrativa desativada"));
     }
     assert.ok(!render('notifications', false).paths.includes('/notifications'));
-    assert.ok(render("settings", false).html.includes("Estado do sistema"));
+    assert.ok(render("settings", false).html.includes("Disponibilidade da plataforma"));
   },
 );
 check("novos estilos restritos ao painel administrativo", () => {
