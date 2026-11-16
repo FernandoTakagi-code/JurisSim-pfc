@@ -52,6 +52,7 @@ const startupDiagnosticOnly = process.argv[3] === '--startup-diagnostic-only';
 // Same disposable cluster and migration checks, but only the Vitest integration suite
 // (skips the standalone scripts/test-*-db.ts scenario runners).
 const functionalSuite = process.argv[3] === '--functional-suite';
+const editorialSuite = process.argv[3] === '--question-editorial-only';
 
 const institutionSuite = process.argv[3] === '--institution-suite-only';
 const institutionEmailSuite = process.argv[3] === '--institution-email-suite-only';
@@ -69,6 +70,7 @@ const loadOnly = process.argv[3] === '--load-only';
 const integrationSuiteOnly =
   process.argv[3] === '--integration-suite-only' ||
   functionalSuite ||
+  editorialSuite ||
   institutionSuite ||
   institutionEmailSuite ||
   emailSystemSuite ||
@@ -570,7 +572,9 @@ async function main() {
     assert.equal(result.status, 0, 'Isolated load test failed; inspect backend/.local/load-* reports.');
     console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', 'src/__tests__/integration/initial-diagnostic-concurrency.integration.test.ts']));
   } else if (!accountPrivacyOnly) {
-    const selectedTests = teacherManagementOnly
+    const selectedTests = editorialSuite
+      ? ['src/__tests__/integration/question-editorial.integration.test.ts', 'src/__tests__/integration/question-practice.integration.test.ts', 'src/__tests__/integration/question-review.integration.test.ts']
+      : teacherManagementOnly
       ? ['src/__tests__/integration/teacher-management.integration.test.ts', 'src/__tests__/integration/class-activities.integration.test.ts', 'src/__tests__/integration/teacher-management-browser.integration.test.ts', 'src/__tests__/integration/teacher-class-questions.integration.test.ts', 'src/__tests__/integration/student-class-details.integration.test.ts', 'src/__tests__/integration/turma-routes.integration.test.ts']
       : teacherQuestionsOnly
       ? ['src/__tests__/integration/teacher-class-questions.integration.test.ts', 'src/__tests__/integration/student-class-details.integration.test.ts', 'src/__tests__/integration/questao-controller.integration.test.ts', 'src/__tests__/integration/turma-questao-fluxo.integration.test.ts']

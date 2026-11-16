@@ -24,6 +24,8 @@ import { goalRoutes, reportRoutes } from './routes/goals-reports-routes';
 import { profilePhotoRoutes } from './routes/profile-photo-routes';
 import { institutionRoutes } from './routes/institution-routes';
 import { administrationAudit } from './middlewares/administration-audit';
+import { localReadOnlyNavigation } from './middlewares/local-read-only-navigation';
+import { createQuestionEditorialRoutes } from './routes/question-editorial-routes';
 import {denyGlobalAcademicAccess} from './middlewares/academic-access';
 import { prisma } from './lib/prisma';
 import { isLocalDiagnosticDemoRequested, isLocalEmailCaptureRequested, localEmailVerificationCapture } from './services/local-email-capture';
@@ -55,12 +57,14 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(administrationAudit);
+app.use(localReadOnlyNavigation);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', message: 'JurisSim API rodando' });
 });
 app.use('/auth', authRoutes);
 app.use('/institutions', institutionRoutes);
+app.use('/question-editorial', createQuestionEditorialRoutes());
 app.use(['/questoes','/trilhas','/diagnostics','/initial-diagnostic','/students/me','/turmas','/atividades', '/avaliacoes','/goals','/reports','/question-practice','/individual-exams','/question-review'],requireAuth,denyGlobalAcademicAccess);
 // These study routes are behind a server-side initial-diagnostic gate. Auth is
 // checked here before the gate; route-level authorization remains in place.

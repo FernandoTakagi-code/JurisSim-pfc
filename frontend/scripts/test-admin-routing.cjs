@@ -105,3 +105,11 @@ assert.equal(sessionRedirectTarget(session("ALUNO"), "/dashboard"), null);
 console.log(
   "OK: cinco menus administrativos e rotas antigas preservadas; destinos por papel. Sem rede.",
 );
+
+for (const path of ['/administracao/acervo', '/administracao/acervo/', '/administracao/acervo//']) {
+  assert.equal(adminSection(path).id, 'editorial');
+  assert.equal(sessionRedirectTarget(session('ADMIN'), path), null);
+  assert.equal(sessionRedirectTarget(session('PROFESSOR'), path), '/professor');
+}
+assert.equal(adminSection('/administracao/acervo-falso'), undefined);
+console.log('OK: editorial route aliases retain ADMIN access and reject teacher navigation.');

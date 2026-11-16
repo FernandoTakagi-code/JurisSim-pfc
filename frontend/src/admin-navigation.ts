@@ -31,11 +31,12 @@ export const adminSections = [
     icon: "chart",
   },
 ] as const;
-export type AdminSectionId = (typeof adminSections)[number]["id"] | 'classes' | 'teachers' | 'security' | 'settings' | 'notifications';
+export type AdminSectionId = (typeof adminSections)[number]["id"] | 'classes' | 'teachers' | 'security' | 'settings' | 'notifications' | 'editorial';
 export const isAdministrationPath = (path: string) =>
   path === "/administracao" || path.startsWith("/administracao/");
 export const adminSection = (path: string) =>
-  path.replace(/\/$/,'')==='/administracao/notificacoes' ? {id:'audit' as const,path:'/administracao/notificacoes',label:'Logs e auditoria',icon:'chart'}
+  path.replace(/\/+$/, '') === '/administracao/acervo' ? {id:'editorial' as const,path:'/administracao/acervo',label:'Revisão editorial do acervo',icon:'book'}
+  : path.replace(/\/$/,'')==='/administracao/notificacoes' ? {id:'audit' as const,path:'/administracao/notificacoes',label:'Logs e auditoria',icon:'chart'}
   : path.replace(/\/$/,'')==='/administracao/turmas' ? {id:'classes' as const,path:'/administracao/turmas',label:'Gestão pedagógica institucional',icon:'book'}
   : path.replace(/\/$/,'')==='/administracao/professores' ? {id:'teachers' as const,path:'/administracao/professores',label:'Usuários — professores',icon:'users'}
   : path.replace(/\/$/,'')==='/administracao/seguranca' ? {id:'security' as const,path:'/administracao/seguranca',label:'Acesso administrativo',icon:'users'}

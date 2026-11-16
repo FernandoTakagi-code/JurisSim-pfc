@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import type { AuthenticatedRequest } from "./auth-middleware";
 import { administrationEnabled, institutionRegistrationEnabled } from "../config/institution-feature";
 import { prisma } from "../lib/prisma";
+import { localReadOnlyNavigationEnabled } from './local-read-only-navigation';
 
 // Security/operational events never contain URLs, query strings, bodies, IPs,
 // tokens, email addresses, stack traces or arbitrary exception messages.
@@ -31,6 +32,10 @@ export const administrationAudit: RequestHandler = (
               : undefined;
       }
       if (!event) return;
+      if (localReadOnlyNavigationEnabled()) {
+        console.info({ type: 'local_read_only_audit', event, status, actorId: request.auth?.userId });
+        return;
+      }
       void prisma.administrativeEvent
         .create({
           data: {

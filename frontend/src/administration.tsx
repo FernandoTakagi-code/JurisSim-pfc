@@ -1,7 +1,7 @@
 import { InstitutionRequest } from './institution-request';
 import { AdminAccountDeletion } from './account-deletion';
 import { institutionPendingFields, noWebsiteDeclaration } from '../../backend/src/institution-registration';
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { apiRequest } from "./api";
 import { refreshSession, useSession, type Session } from "./auth-session";
 import { navigate, usePath } from "./navigation";
@@ -106,7 +106,9 @@ const platformAuditActions = [
   "CONTA_EXCLUIDA",
   "RECUPERACAO_SENHA_SOLICITADA",
 ] as const;
+const QuestionEditorialPage = lazy(() => import('./question-editorial').then(module => ({ default: module.QuestionEditorialPage })));
 const sectionDescriptions: Record<AdminSectionId, string> = {
+  editorial: 'Consulte o conteúdo e o histórico editorial das questões.',
   overview:
     "Consulte os eventos reais da plataforma e os indicadores disponíveis para sua conta administrativa.",
   institutions:
@@ -718,6 +720,7 @@ export function GeneralAdministration() {
   const tab = current?.id;
   const setTab = (id: AdminSectionId) =>
     navigate(adminSections.find((section) => section.id === id)!.path);
+  if (current?.id === 'editorial') return <Suspense fallback={<section className="page" role="status">Carregando revisão editorial…</section>}><QuestionEditorialPage /></Suspense>;
   return (
     <section className="page dashboard-page admin-page admin-workspace admin-integrated">
       <div className="dashboard-heading">
@@ -898,7 +901,10 @@ function GlobalIndicators({ enabled }: { enabled: boolean }) {
     <>
       <ResourceState resource={resource} />
       <div className="dashboard-stats">
-        {titles.map(([key, title, description]) => (
+        {titles.filter(([key]) =>
+          (key !== "publishedActivities" && key !== "completedActivities") ||
+          typeof data?.[key] === "number"
+        ).map(([key, title, description]) => (
           <article key={key}>
             <span>{title}</span>
             <strong>{typeof data?.[key] === "number" ? (data[key] as number).toLocaleString("pt-BR") : data?.[key] === null ? "Indisponível" : "—"}</strong>
@@ -933,6 +939,7 @@ function GlobalIndicators({ enabled }: { enabled: boolean }) {
               <button onClick={() => navigate("/administracao/solicitacoes")}>Analisar solicitações</button>
               <button onClick={() => navigate("/administracao/usuarios")}>Consultar usuários</button>
               <button onClick={() => navigate("/administracao/auditoria")}>Logs e auditoria</button>
+              <button onClick={() => navigate("/administracao/acervo")}>Revisão editorial do acervo</button>
             </div>
             <p>O gerenciamento pedagógico de turmas continua restrito à instituição e aos professores autorizados.</p>
           </div>

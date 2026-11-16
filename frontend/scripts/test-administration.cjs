@@ -142,6 +142,25 @@ check("indicadores reais e ausência das métricas fictícias do v0", () => {
   assert.ok(!html.includes("12.438"));
   assert.ok(html.includes("Sem registros no per"));
 });
+check('activity indicators stay hidden until their real counters are available', () => {
+  for (const activityData of [
+    { publishedActivities: null, completedActivities: null },
+    {},
+  ]) {
+    const { html } = render('overview', true, { 4: { users: 15, ...activityData } });
+    assert.ok(!html.includes('Atividades publicadas'));
+    assert.ok(!html.includes('Atividades concluídas'));
+    assert.ok(html.includes('Contas cadastradas'));
+    assert.ok(html.includes('>15</strong>'));
+  }
+  const { html } = render('overview', true, {
+    4: { publishedActivities: 0, completedActivities: 3 },
+  });
+  assert.ok(html.includes('Atividades publicadas'));
+  assert.ok(html.includes('Atividades concluídas'));
+  assert.ok(html.includes('>0</strong>'));
+  assert.ok(html.includes('>3</strong>'));
+});
 for (const [tab, expected] of [
   ["institutions", "/institutions/admin/institutions?page=1"],
   ["requests", "/institutions/admin/institutions?page=1&status=PENDING"],
