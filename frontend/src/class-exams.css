@@ -354,7 +354,7 @@
 :is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-exams-toolbar label > div { position:relative; }
 :is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-exams-toolbar svg { position:absolute; z-index:1; top:50%; left:12px; width:17px; height:17px; transform:translateY(-50%); color:#aebdd0; pointer-events:none; }
 :is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-exams-toolbar input,:is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-exams-toolbar select { box-sizing:border-box; width:100%; min-height:43px; padding:0 12px; border:1px solid #465a75; border-radius:9px; background:#101e32; color:#f1f5fa; font:inherit; }
-:is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-exams-toolbar input { padding-left:38px; }
+:is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-exams-toolbar .teacher-exams-search input[type="search"] { padding-left:38px; }
 :is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-exams-toolbar input::placeholder { color:#aab8ca; }
 :is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-exams-toolbar select option { background:#101e32; color:#f1f5fa; }
 :is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-class-picker-pages { display:flex; align-items:center; justify-content:flex-end; gap:9px; color:#c0ccda; font-size:13px; }
@@ -428,3 +428,8 @@
 .exam-question-catalog .exam-question-option { display:grid; gap:8px; padding:12px; border:1px solid var(--v0-border,#526179); border-radius:10px; }
 .exam-question-catalog .exam-question-option label { display:flex; gap:10px; align-items:flex-start; cursor:pointer; }
 .exam-question-catalog .exam-question-option button { justify-self:start; }
+.teacher-exams-grid[hidden] { display: none !important; }
+:is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-exams-create { flex-shrink:0; white-space:nowrap; }
+@media(max-width:900px) {
+  :is(.teacher-workspace,.institution-workspace) .teacher-exams-premium .teacher-exam-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}

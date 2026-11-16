@@ -574,7 +574,7 @@ export function ExamsPage({ teacher, institutional = false, readOnly = false }: 
     () => location.search,
   );
   const selectedClass = teacher ? new URLSearchParams(query).get("turma") : null;
-  const premium = teacher && (institutional || readOnly);
+  const premium = teacher;
   const [includeArchived, setIncludeArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -594,7 +594,7 @@ export function ExamsPage({ teacher, institutional = false, readOnly = false }: 
   useEffect(() => { list.setPage(1); }, [classId, status, searchTerm, list.setPage]);
   const [details, setDetails] = useState<{ id: string; section: "summary" | "questions" | "results" }>();
   const management = useMutation(list.reload);
-  const [editing, setEditing] = useState<Exam | "new">();
+  const [editing, setEditing] = useState<Exam | "new" | undefined>(() => new URLSearchParams(query).get("acao") === "novo" && !readOnly ? "new" : undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const publish = async (exam: Exam) => {
@@ -616,19 +616,19 @@ export function ExamsPage({ teacher, institutional = false, readOnly = false }: 
     <section className={`page class-exams-page${premium ? " teacher-exams-premium" : ""}`}>
       {premium ? (
         <header className="teacher-exams-header">
-          <div><p className="gold">{institutional ? "PAINEL INSTITUCIONAL" : "ÁREA DOCENTE"}</p><h1>Simulados</h1><p className="muted">Organize avaliações, turmas e resultados em um só lugar.</p></div>
+          <div><p className="gold">{institutional ? "PAINEL INSTITUCIONAL" : "ÁREA DOCENTE"}</p><h1>Simulados</h1><p className="muted">{institutional ? "Organize avaliações, turmas e resultados em um só lugar." : "Crie avaliações para suas turmas e gerencie os simulados de sua autoria."}</p></div>
           {!editing && !readOnly && <button type="button" className="teacher-exams-create" onClick={() => setEditing("new")}><Icon name="plus"/>Criar simulado</button>}
         </header>
       ) : (
-        <><p className="gold">SIMULADOS</p><h1>{teacher ? institutional ? "Simulados da institui\u00e7\u00e3o" : "Simulados do professor" : "Simulados"}</h1><p className="muted">{teacher ? "Selecione quest\u00f5es autorizadas e publique para suas turmas. Publicados ficam bloqueados para edi\u00e7\u00e3o." : "Escolha seu simulado individual ou acesse as avalia\u00e7\u00f5es das suas turmas."}</p></>
+        <><p className="gold">SIMULADOS</p><h1>{teacher ? institutional ? "Simulados da instituição" : "Simulados do professor" : "Simulados"}</h1><p className="muted">{teacher ? "Selecione questões autorizadas e publique para suas turmas. Publicados ficam bloqueados para edição." : "Escolha seu simulado individual ou acesse as avaliações das suas turmas."}</p></>
       )}
       {!teacher && <IndividualExamLobby/>}
       {teacher && !premium && <><label className="checkbox-row"><input type="checkbox" checked={includeArchived} onChange={(event) => setIncludeArchived(event.target.checked)}/>Incluir simulados arquivados</label>{selectedClass && <p>Simulados da turma selecionada. <button className="outline-button" onClick={() => navigate("/professor/simulados")}>Ver todas as turmas</button></p>}{management.feedback}</>}
-      {!teacher && <div className="class-section-heading"><p className="gold">AVALIA\u00c7\u00d5ES DE TURMA</p><h2>Simulados das minhas turmas</h2><p className="muted">Somente avalia\u00e7\u00f5es publicadas nas turmas em que voc\u00ea est\u00e1 matriculado.</p></div>}
+      {!teacher && <div className="class-section-heading"><p className="gold">AVALIAÇÕES DE TURMA</p><h2>Simulados das minhas turmas</h2><p className="muted">Somente avaliações publicadas nas turmas em que você está matriculado.</p></div>}
       {teacher && !premium && !readOnly && !editing && <button className="primary" onClick={() => setEditing("new")}>Criar simulado</button>}
-      {premium && <>
+      {premium && !editing && <>
         <div className="teacher-exams-stats" aria-label="Resumo dos simulados">
-          {([["published", "Publicados"], ["drafts", "Rascunhos"], ["closed", "Encerrados"], ["archived", "Arquivados"]] as const).map(([key, label]) => <article key={key}><span>{label}</span><strong>{typeof summary?.[key] === "number" ? summary[key].toLocaleString("pt-BR") : "\u2014"}</strong></article>)}
+          {([["published", "Publicados"], ["drafts", "Rascunhos"], ["closed", "Encerrados"], ["archived", "Arquivados"]] as const).map(([key, label]) => <article key={key}><span>{label}</span><strong>{typeof summary?.[key] === "number" ? summary[key].toLocaleString("pt-BR") : "—"}</strong></article>)}
         </div>
         <section className="teacher-exams-toolbar" aria-label="Pesquisa e filtros de simulados">
           <label className="teacher-exams-search"><span>Pesquisar simulado</span><div><Icon name="search"/><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome do simulado"/></div></label>
@@ -639,45 +639,45 @@ export function ExamsPage({ teacher, institutional = false, readOnly = false }: 
         <Feedback loading={classOptions.loading} error={classOptions.error} retry={classOptions.reload}/>
         {classOptions.data && !classOptions.data.items.length && !classOptions.loading && !classOptions.error && <p className="teacher-exams-inline-empty">Nenhuma turma autorizada foi encontrada.</p>}
       </>}
-      {editing && teacher && !readOnly && <ExamForm key={editing === "new" ? "new" : editing.id} exam={editing === "new" ? undefined : editing} institutional={institutional} settingsAvailable={list.data?.summary?.settingsAvailable === true} onCancel={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); list.reload(); }}/>}
+      {editing && teacher && !readOnly && <ExamForm key={editing === "new" ? "new" : editing.id} exam={editing === "new" ? undefined : editing} institutional={institutional} initialClassId={selectedClass ?? undefined} settingsAvailable={list.data?.summary?.settingsAvailable === true} onCancel={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); list.reload(); }}/>}
       {details && teacher && <AssessmentDetails key={details.id + details.section} id={details.id} section={details.section} onClose={() => setDetails(undefined)}/>}
       {error && <p className="error" role="alert">{error}</p>}
       <Feedback loading={list.loading} error={list.error} retry={list.reload}/>
-      {list.data?.items.length === 0 && (premium
+      {!editing && list.data?.items.length === 0 && (premium
         ? <article className="panel teacher-exams-empty"><div className="teacher-exams-empty-icon"><Icon name="file"/></div><h2>{searchTerm || classId || status !== "ALL" ? "Nenhum resultado para estes filtros" : "Nenhum simulado cadastrado"}</h2><p className="muted">{searchTerm || classId || status !== "ALL" ? "Ajuste a pesquisa ou os filtros para ver outros simulados." : "Crie um simulado para acompanhar avaliações e resultados."}</p>{!readOnly && !searchTerm && !classId && status === "ALL" && <button type="button" className="teacher-exams-create" onClick={() => setEditing("new")}><Icon name="plus"/>Criar simulado</button>}</article>
-        : <article className="panel"><h2>Nenhum simulado dispon\u00edvel</h2><p className="muted">{teacher ? "Crie uma turma e prepare seu primeiro simulado." : "Os simulados aparecer\u00e3o ap\u00f3s publica\u00e7\u00e3o pelo professor para suas turmas ativas."}</p></article>)}
-      <div className={premium ? "teacher-exams-grid" : "class-list"}>
+        : <article className="panel"><h2>Nenhum simulado disponível</h2><p className="muted">{teacher ? "Crie uma turma e prepare seu primeiro simulado." : "Os simulados aparecerão após publicação pelo professor para suas turmas ativas."}</p></article>)}
+      <div hidden={Boolean(editing)} className={premium ? "teacher-exams-grid" : "class-list"}>
         {list.data?.items.map((exam) => <article className={`panel exam-card${premium ? " teacher-exam-card" : ""}`} key={exam.id}>
           {premium ? <>
             <div className="teacher-exam-title-row"><div><span className="teacher-exam-kicker">AVALIA&Ccedil;&Atilde;O</span><h2>{exam.titulo}</h2></div><span className={`teacher-exam-status is-${exam.settings?.archivedAt ? "archived" : exam.settings?.closedAt ? "closed" : exam.publishedAt ? "published" : "draft"}`}>{exam.settings?.archivedAt ? "Arquivado" : exam.settings?.closedAt ? "Encerrado" : exam.publishedAt ? "Publicado" : "Rascunho"}</span></div>
-            <p className="teacher-exam-description" title={exam.descricao}>{exam.descricao || "Sem descri\u00e7\u00e3o informada."}</p>
+            <p className="teacher-exam-description" title={exam.descricao}>{exam.descricao || "Sem descrição informada."}</p>
             {institutional && (() => { const declared = /(\d{1,3})\s+quest(?:ões|oes|ão|ao)\b/i.exec(exam.descricao); const actual = exam._count.questoes ?? exam.questoes?.length ?? 0; return declared && Number(declared[1]) !== actual ? <p className="institution-exam-question-mismatch" role="note">A descrição menciona {declared[1]} questões; o cadastro contém {actual}. A quantidade exibida considera os vínculos reais.</p> : null; })()}
-            <div className="teacher-exam-class"><Icon name="building"/><span>{exam.turmas?.length ? exam.turmas.map((turma) => turma.nome).join(", ") : "Turma n\u00e3o informada"}</span></div>
+            <div className="teacher-exam-class"><Icon name="building"/><span>{exam.turmas?.length ? exam.turmas.map((turma) => turma.nome).join(", ") : "Turma não informada"}</span></div>
             <div className="teacher-exam-metrics">
               <div><Icon name="file"/><span>Quest&otilde;es</span><strong>{exam._count.questoes ?? exam.questoes?.length ?? 0}</strong></div>
-              <div><Icon name="chart"/><span>Dura\u00e7\u00e3o</span><strong>{exam.duracaoSegundos ? `${Math.round(exam.duracaoSegundos / 60)} min` : "Sem limite"}</strong></div>
+              <div><Icon name="chart"/><span>Duração</span><strong>{exam.duracaoSegundos ? `${Math.round(exam.duracaoSegundos / 60)} min` : "Sem limite"}</strong></div>
               <div><Icon name="right"/><span>Tentativas</span><strong>{exam._count.tentativas ?? 0}</strong></div>
-              <div><Icon name="users"/><span>Participantes</span><strong>{typeof exam.participants === "number" ? exam.participants : "\u2014"}</strong></div>
+              <div><Icon name="users"/><span>Participantes</span><strong>{typeof exam.participants === "number" ? exam.participants : "—"}</strong></div>
             </div>
-            <div className="teacher-exam-published-date">{exam.publishedAt ? <><Icon name="file"/><span>Publicado em {new Date(exam.publishedAt).toLocaleDateString("pt-BR")}</span></> : <span>Criado em {exam.createdAt ? new Date(exam.createdAt).toLocaleDateString("pt-BR") : "data indispon\u00edvel"}</span>}</div>
+            <div className="teacher-exam-published-date">{exam.publishedAt ? <><Icon name="file"/><span>Publicado em {new Date(exam.publishedAt).toLocaleDateString("pt-BR")}</span></> : <span>Criado em {exam.createdAt ? new Date(exam.createdAt).toLocaleDateString("pt-BR") : "data indisponível"}</span>}</div>
             {exam.publishedAt && <p className="teacher-exam-lock-note"><Icon name="lock"/>Conte&uacute;do publicado bloqueado para edi&ccedil;&atilde;o.</p>}
             <div className="teacher-exam-actions"><div className="teacher-exam-primary-actions"><button type="button" onClick={() => setDetails({ id: exam.id, section: "summary" })}>Ver detalhes</button><button type="button" onClick={() => setDetails({ id: exam.id, section: "questions" })}>Ver quest&otilde;es</button><button type="button" onClick={() => setDetails({ id: exam.id, section: "results" })}>Ver resultados</button></div>
-              {!readOnly && <details className="teacher-exam-more"><summary>Mais a\u00e7\u00f5es</summary><div className="teacher-exam-more-menu">
+              {!readOnly && (!exam.publishedAt || (list.data?.summary?.settingsAvailable && (!exam.settings?.closedAt || !exam.settings?.archivedAt))) && <details className="teacher-exam-more"><summary>Mais ações</summary><div className="teacher-exam-more-menu">
                 {!exam.publishedAt && <button type="button" disabled={busy} onClick={() => setEditing(exam)}>Editar rascunho</button>}
-                {!exam.publishedAt && <button type="button" className="is-danger" disabled={management.busy} onClick={() => { if (window.confirm("Excluir este rascunho? Questões e hist?ricos ser?o preservados.")) void management.run(`/avaliacoes/${exam.id}`, "DELETE"); }}>Excluir rascunho</button>}
+                {!exam.publishedAt && <button type="button" className="is-danger" disabled={management.busy} onClick={() => { if (window.confirm("Excluir este rascunho? Questões e históricos serão preservados.")) void management.run(`/avaliacoes/${exam.id}`, "DELETE"); }}>Excluir rascunho</button>}
                 {exam.publishedAt && list.data?.summary?.settingsAvailable && !exam.settings?.closedAt && <button type="button" disabled={management.busy} onClick={() => { if (window.confirm("Encerrar novos inícios? Tentativas iniciadas e resultados serão preservados.")) void management.run(`/avaliacoes/${exam.id}/close`, "POST"); }}>Encerrar simulado</button>}
                 {exam.publishedAt && list.data?.summary?.settingsAvailable && !exam.settings?.archivedAt && <button type="button" className="is-danger" disabled={management.busy} onClick={() => { if (window.confirm("Arquivar este simulado? Registros e resultados serão preservados.")) void management.run(`/avaliacoes/${exam.id}/archive`, "POST"); }}>Arquivar simulado</button>}
                 {!exam.publishedAt && <button type="button" disabled={busy} onClick={() => { if (window.confirm("Publicar este simulado para os alunos matriculados?")) void publish(exam); }}>Publicar simulado</button>}
               </div></details>}
             </div>
-            {institutional && exam.publishedAt && !list.data?.summary?.settingsAvailable && <p className="teacher-exam-lock-note">Encerramento e arquivamento aguardam a estrutura segura de ciclo de vida dos simulados.</p>}
+            {exam.publishedAt && !list.data?.summary?.settingsAvailable && <p className="teacher-exam-lock-note">Encerramento e arquivamento aguardam a estrutura segura de ciclo de vida dos simulados.</p>}
           </> : <>
-            <h2>{exam.titulo}</h2><p>{exam.descricao}</p><p className="muted">{exam._count.questoes ?? exam.questoes?.length ?? 0} quest\u00f5es  ? {exam.duracaoSegundos ? `${exam.duracaoSegundos / 60} minutos` : "Sem limite de tempo"} ? {exam.publishedAt ? "Publicado" : "Rascunho"}</p>
+            <h2>{exam.titulo}</h2><p>{exam.descricao}</p><p className="muted">{exam._count.questoes ?? exam.questoes?.length ?? 0} questões  ? {exam.duracaoSegundos ? `${exam.duracaoSegundos / 60} minutos` : "Sem limite de tempo"} ? {exam.publishedAt ? "Publicado" : "Rascunho"}</p>
             <button className="primary" disabled={busy} onClick={() => void start(exam)}>{exam.tentativas?.[0]?.finalizadoEm ? "Ver resultado" : exam.tentativas?.length ? "Continuar simulado" : "Realizar simulado"}</button>
           </>}
         </article>)}
       </div>
-      {list.data && <Pagination page={list.page} hasMore={list.data.hasMore} change={list.setPage}/>}
+      {list.data && !editing && (list.page>1 || list.data.hasMore) && <Pagination page={list.page} hasMore={list.data.hasMore} change={list.setPage}/>}
     </section>
   );
 }
@@ -686,12 +686,14 @@ function ExamForm({
   exam,
   institutional = false,
   settingsAvailable = false,
+  initialClassId,
   onCancel,
   onSaved,
 }: {
   exam?: Exam;
   institutional?: boolean;
   settingsAvailable?: boolean;
+  initialClassId?: string;
   onCancel: () => void;
   onSaved: () => void;
 }) {
@@ -716,7 +718,7 @@ function ExamForm({
     exam?.duracaoSegundos ? String(exam.duracaoSegundos / 60) : "",
   );
   const [selectedClasses, setSelectedClasses] = useState(
-    exam?.turmas?.map((t) => t.id) ?? [],
+    exam?.turmas?.map((t) => t.id) ?? (initialClassId ? [initialClassId] : []),
   );
   const [classCatalog, setClassCatalog] = useState<Record<string, Class>>({});
   const [responsibleTeacherId, setResponsibleTeacherId] = useState(exam?.autorId ?? "");
@@ -954,7 +956,7 @@ function ExamForm({
         {classKey&&loadedKey===requestKey&&!loadError&&(questionPage>1||hasMoreQuestions)&&<Pagination page={questionPage} hasMore={hasMoreQuestions} change={setQuestionPage}/>}
       </fieldset>
       {step===3&&previewId&&<article className="panel exam-question-preview"><button type="button" className="outline-button" onClick={()=>setPreviewId('')}>Fechar alternativas</button><ResourceState resource={preview}/>{preview.data&&<><p>{preview.data.enunciado}</p><ol type="A">{preview.data.alternativas.map((a,i)=><li key={i}>{a.texto}{a.correta?' · Correta':''}</li>)}</ol></>}</article>}
-      {step===4&&<article className="exam-review"><h3>Revisar simulado</h3><p><strong>{title}</strong></p><p>{description}</p><p>{minutes?minutes+' minutos':'Sem limite de tempo'} · {selectedClasses.length} turma(s)</p><p role="status">{selectedQuestions.length} de {quantity} questões selecionadas{selectedQuestions.length<quantity?` — faltam ${quantity-selectedQuestions.length}`:''}</p><p>Rascunhos incompletos podem ser salvos; a publicação exige a quantidade configurada.</p></article>}
+      {step===4&&<article className="exam-review"><h3>Revisar simulado</h3><p><strong>{title}</strong></p><p>{description}</p><p>{minutes?minutes+' minutos':'Sem limite de tempo'} · {selectedClasses.length} turma(s)</p><p role="status">{selectedQuestions.length} de {quantity} questões selecionadas{selectedQuestions.length<quantity?` — faltam ${quantity-selectedQuestions.length}`:''}</p><p>{settingsAvailable ? 'Rascunhos incompletos podem ser salvos; a publicação exige a quantidade configurada.' : 'Neste ambiente, selecione a quantidade completa de questões para salvar. Rascunhos parciais dependem da atualização segura do banco.'}</p></article>}
       {step>=3&&<details className="exam-selection-summary" open={step===4}><summary>Resumo das questões selecionadas ({selectedQuestions.length})</summary>{selectedQuestions.map(id=><div key={id}><span>{selectedCatalog[id]?.disciplina??'Questão selecionada'} · {selectedCatalog[id]?.enunciado??'Detalhes disponíveis no catálogo autorizado.'}</span><button type="button" className="outline-button" disabled={busy} onClick={()=>setSelectedQuestions(old=>old.filter(value=>value!==id))}>Remover questão</button></div>)}</details>}
       {error && (
         <p className="error" role="alert">

@@ -274,6 +274,69 @@ try {
   pass(
     "teacher creates and publishes an activity from the existing class question through the real API",
   );
+  await open('/professor/simulados?turma=' + encodeURIComponent(classId));
+  await until('document.querySelector(".teacher-exams-create")');
+  await click('Criar simulado');
+  await until('document.querySelector("#exam-title")');
+  await fill('#exam-title', 'Simulado validado no navegador');
+  await fill('#exam-description', 'Registro exclusivo do PostgreSQL descartável.');
+  await fill('#exam-duration', '30');
+  await click('Próxima etapa');
+  await until('document.querySelector(".exam-form fieldset:not([hidden]) input:checked")');
+  await click('Próxima etapa');
+  await until('document.querySelector(".exam-question-option input")');
+  await evaluate('document.querySelector(".exam-question-option input").click()');
+  await click('Próxima etapa');
+  await click('Salvar rascunho');
+  await until('!document.querySelector(".exam-form") && document.querySelector(".teacher-exam-card")');
+  await evaluate('document.querySelector(".teacher-exam-more summary").click()');
+  await click('Editar rascunho');
+  await until('document.querySelector("#exam-title")');
+  await fill('#exam-title', 'Simulado editado no navegador');
+  await click('Próxima etapa');
+  await click('Próxima etapa');
+  await until('document.querySelector(".exam-question-option input:checked")');
+  await click('Próxima etapa');
+  await click('Salvar rascunho');
+  await until('!document.querySelector(".exam-form") && document.querySelector(".teacher-exam-card")');
+  await evaluate('document.querySelector(".teacher-exam-more summary").click()');
+  await click('Publicar simulado');
+  await until('document.querySelector(".teacher-exam-status.is-published")');
+  await fill('.teacher-exams-search input', 'Nenhum simulado com este nome');
+  await until('!document.querySelector(".teacher-exam-card")');
+  await fill('.teacher-exams-search input', 'Simulado editado');
+  await until('document.querySelector(".teacher-exam-card")');
+  for (const action of ['Ver detalhes', 'Ver questões', 'Ver resultados']) {
+    await click(action);
+    await until('document.querySelector(".assessment-statistics")');
+    assert.equal(await evaluate('document.querySelector(".assessment-details").textContent.includes("Nenhuma tentativa registrada")'), true);
+    await click('Fechar detalhes');
+  }
+  const examEvidence = path.resolve('../backend/.local/teacher-exams-evidence');
+  await (await import('node:fs/promises')).mkdir(examEvidence, { recursive: true });
+  for (const width of [1440, 768, 390]) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width < 600 });
+    assert.equal(await evaluate('document.documentElement.scrollWidth > innerWidth'), false);
+    assert.ok(await evaluate('parseFloat(getComputedStyle(document.querySelector(".teacher-exams-search input")).paddingLeft) >= 38'), 'Search text must not overlap its icon');
+    assert.equal(await evaluate('getComputedStyle(document.querySelector(".teacher-exams-create")).whiteSpace'), 'nowrap');
+    assert.equal(await evaluate('document.querySelector(".teacher-exams-create").scrollWidth > document.querySelector(".teacher-exams-create").clientWidth'), false);
+    const screenshot = await cdp('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
+    await writeFile(path.join(examEvidence, `exams-${width}.png`), Buffer.from(screenshot.data, 'base64'));
+  }
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await evaluate('document.querySelector(".teacher-exam-more summary").click()');
+  await click('Encerrar simulado');
+  await until('document.querySelector(".teacher-exam-status.is-closed")');
+  await evaluate('document.querySelector(".teacher-exam-more summary").click()');
+  await click('Arquivar simulado');
+  await until('!document.querySelector(".teacher-exam-card")');
+  await evaluate('(()=>{const select=document.querySelectorAll(".teacher-exams-toolbar select")[1];select.value="ARCHIVED";select.dispatchEvent(new Event("change",{bubbles:true}));})()');
+  await until('document.querySelector(".teacher-exam-status.is-archived")');
+  await evaluate('(()=>{const select=document.querySelectorAll(".teacher-exams-toolbar select")[1];select.value="DRAFT";select.dispatchEvent(new Event("change",{bubbles:true}));})()');
+  await until('!document.querySelector(".teacher-exam-card")');
+  pass('teacher exam: class preselection, draft creation/edit, publication, details/questions/results, close/archive and responsive widths persist through the real disposable API');
+  await open('/professor/atividades?turma=' + encodeURIComponent(classId));
+  await until('document.querySelector(".activity-card")');
   const evidence = path.resolve("../docs/evidence/teacher-management-live");
   const { mkdir } = await import("node:fs/promises");
   await mkdir(evidence, { recursive: true });
