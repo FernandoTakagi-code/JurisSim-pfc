@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
 import { emailReuseBlocksEnabled, normalizeReusableEmail } from './email-reuse-policy';
 import { institutionalTransaction, requireGlobal, type InstitutionActor } from './institution-service';
-import { accountDeletionEnabled, accountDeletionUnavailableMessage } from '../account-deletion-availability';
+import { accountDeletionEnabled, accountDeletionUnavailableMessage, studentSelfDeletionEnabled } from '../account-deletion-availability';
 
 export function assertAccountDeletionEnabled() {
   if (!accountDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
@@ -17,7 +17,7 @@ export async function assertEmailReusable(email: string) {
 
 export class AccountDeletionService {
   async self(userId: string, identity: { senhaAtual?: string; googleCredential?: string }) {
-    assertAccountDeletionEnabled();
+    if (!studentSelfDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
     if (!emailReuseBlocksEnabled()) throw new ApiError(503, 'Exclusão de conta ainda não habilitada neste ambiente.');
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.deletedAt) throw new ApiError(401, 'Conta indisponível.');
