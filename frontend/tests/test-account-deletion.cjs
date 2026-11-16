@@ -26,10 +26,13 @@ compile(path.join(__dirname, '../src/account-deletion.tsx'), components, name =>
 let html = renderToStaticMarkup(React.createElement(components.AccountDeletion));
 // Student self-deletion is enabled: the button is active and no "unavailable" notice is shown.
 assert.match(html, /Excluir minha conta/); assert.doesNotMatch(html, /disabled=""/); assert.doesNotMatch(html, /ainda não está disponível/);
-for (const otherRole of ['ADMIN', 'PROFESSOR']) { role = otherRole; assert.equal(renderToStaticMarkup(React.createElement(components.AccountDeletion)), ''); }
+assert.doesNotMatch(html, /Suas turmas continuam ativas/);
+role = 'PROFESSOR'; html = renderToStaticMarkup(React.createElement(components.AccountDeletion));
+assert.match(html, /Excluir minha conta/); assert.doesNotMatch(html, /disabled=""/); assert.match(html, /Suas turmas continuam ativas/);
+role = 'ADMIN'; assert.equal(renderToStaticMarkup(React.createElement(components.AccountDeletion)), '');
 html = renderToStaticMarkup(React.createElement(components.AdminAccountDeletion, { userId: 'fixture', email: 'fixture@example.invalid', disabled: false, onDone() { throw new Error('No success expected'); } }));
 assert.match(html, /Excluir conta/); assert.match(html, /disabled=""/); assert.match(html, /ainda não está disponível/);
 html = renderToStaticMarkup(React.createElement(components.EmailReuseRevocation));
 assert.match(html, /fieldset disabled=""/);
 assert.equal(requests, 0);
-console.log('OK: exclusão pelo Aluno habilitada; exclusão ADMIN e revogação desativadas; zero requisições na renderização.');
+console.log('OK: exclusão pelo Aluno e pelo Professor habilitada; exclusão ADMIN e revogação desativadas; zero requisições na renderização.');

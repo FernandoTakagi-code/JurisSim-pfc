@@ -5,6 +5,10 @@ import { emailReuseBlocksEnabled, normalizeReusableEmail } from './email-reuse-p
 import { institutionalTransaction, requireGlobal, type InstitutionActor } from './institution-service';
 import { accountDeletionEnabled, accountDeletionUnavailableMessage, studentSelfDeletionEnabled } from '../account-deletion-availability';
 
+// Profile self-deletion: students and teachers. A teacher's classes stay active
+// (other teachers and students keep access); admins use the administrative flow.
+const selfDeletableRoles = new Set<string>(['ALUNO', 'PROFESSOR']);
+
 export function assertAccountDeletionEnabled() {
   if (!accountDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
 }
@@ -21,7 +25,7 @@ export class AccountDeletionService {
     if (!emailReuseBlocksEnabled()) throw new ApiError(503, 'Exclusão de conta ainda não habilitada neste ambiente.');
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.deletedAt) throw new ApiError(401, 'Conta indisponível.');
-    if (user.role !== 'ALUNO') throw new ApiError(403, 'A exclusão pelo perfil está disponível para Aluno.');
+    if (!selfDeletableRoles.has(user.role)) throw new ApiError(403, 'A exclusão pelo perfil está disponível para Aluno e Professor.');
     await confirmAccountIdentity(user, identity);
     return this.remove({ userId, role: user.role }, userId, false, undefined, user.senhaHash, user.sessionVersion);
   }
@@ -52,7 +56,7 @@ export class AccountDeletionService {
       if (actor.userId !== userId) {
         if (currentActor.role !== 'ADMIN' || !currentActor.emailVerifiedAt) throw new ApiError(403, 'Administração global obrigatória.');
         if (user.role === 'ADMIN' && !await tx.user.count({ where: { id: { not: userId }, role: 'ADMIN', deletedAt: null, emailVerifiedAt: { not: null }, OR: [{ accountControl: { is: null } }, { accountControl: { is: { suspended: false } } }] } })) throw new ApiError(409, 'É necessário manter um administrador geral ativo.');
-      } else if (user.role !== 'ALUNO' || user.senhaHash !== expectedHash || user.sessionVersion !== expectedVersion) throw new ApiError(409, 'Conta alterada. Confirme sua identidade novamente.');
+      } else if (!selfDeletableRoles.has(user.role) || user.senhaHash !== expectedHash || user.sessionVersion !== expectedVersion) throw new ApiError(409, 'Conta alterada. Confirme sua identidade novamente.');
       if (await tx.institution.findFirst({ where: { ownerId: userId } }) || await tx.institutionalMembership.findFirst({ where: { userId, role: 'INSTITUTION_ADMIN', active: true } })) throw new ApiError(409, 'Transfira as responsabilidades institucionais antes da exclusão.');
       const emailNormalized = normalizeReusableEmail(user.email), now = new Date();
       if (blockEmail) await tx.emailReuseBlock.upsert({ where: { emailNormalized }, create: { emailNormalized, createdById: actor.userId, reason }, update: { revokedAt: null, revokedById: null, createdAt: now, createdById: actor.userId, reason } });

@@ -22,7 +22,8 @@ export function AccountDeletion({ embedded = false }: { embedded?: boolean } = {
   const { session } = useSession();
   const [open, setOpen] = useState(false), [password, setPassword] = useState(''), [confirmation, setConfirmation] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [google, setGoogle] = useState(false);
   const pending = useRef(false);
-  if (session?.user.role !== 'ALUNO') return null;
+  const role = session?.user.role;
+  if (role !== 'ALUNO' && role !== 'PROFESSOR') return null;
   const available = studentSelfDeletionEnabled();
   async function remove(googleCredential?: string) {
     if (!available || pending.current || confirmation !== 'EXCLUIR' || (!googleCredential && !password)) return;
@@ -38,6 +39,7 @@ export function AccountDeletion({ embedded = false }: { embedded?: boolean } = {
   return <Container className={embedded ? 'profile-security-section profile-security-danger' : 'v0-panel'}>
     <Heading>Excluir minha conta</Heading>
     <p>A exclusão é irreversível: seu nome, e-mail, senha e foto serão removidos e suas sessões encerradas. Históricos acadêmicos e auditoria serão preservados com uma identidade anonimizada. O e-mail ficará disponível para novo cadastro, que não terá acesso ao histórico anterior.</p>
+    {role === 'PROFESSOR' && <p>Suas turmas continuam ativas para os alunos, e as questões, materiais e atividades que você publicou são mantidos sem o seu nome. Você deixa de ter acesso a elas.</p>}
     <p>Responsáveis institucionais devem transferir suas responsabilidades antes da exclusão.</p>
     {!available && <p className="account-action-note" role="status">{accountDeletionUnavailableMessage}</p>}
     {!open ? <button className="account-action-button account-action-danger" type="button" disabled={!available} onClick={() => setOpen(true)}>Excluir minha conta</button> : <form className="account-action-form" aria-busy={busy} onSubmit={event => { event.preventDefault(); if (!google) void remove(); }}>

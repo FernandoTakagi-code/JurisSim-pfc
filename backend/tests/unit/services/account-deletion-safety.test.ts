@@ -52,6 +52,16 @@ it('student self deletion prepares release of the normalized email after current
   expect(db.emailReuseBlock.updateMany.mock.calls[0][0].where).toMatchObject({ emailNormalized: 'target@example.invalid', revokedAt: null });
   expect(db.user.update.mock.calls[0][0].where.id).toBe('target');
 });
+it('teacher self deletion follows the same identity proof and leaves classes to the remaining members (mock persistence only)', async () => {
+  target.role = 'PROFESSOR'; target.senhaHash = await bcrypt.hash('Teacher-fixture1!', 4);
+  await service.self('target', { senhaAtual: 'Teacher-fixture1!' });
+  expect(db.user.update.mock.calls[0][0]).toMatchObject({ where: { id: 'target' }, data: { turmasComoProfessor: { set: [] }, senhaHash: null } });
+});
+it('keeps ADMIN accounts out of profile self deletion', async () => {
+  target.role = 'ADMIN';
+  await expect(service.self('target', { senhaAtual: 'irrelevant' })).rejects.toMatchObject({ statusCode: 403 });
+  expect(db.$executeRaw).not.toHaveBeenCalled(); expect(db.user.update).not.toHaveBeenCalled();
+});
 it.each([false, true])('prepares atomic email policy %s, token/session invalidation and audit without storing credentials (mock persistence only)', async blockEmail => {
   await service.admin(actor, 'target', blockEmail, 'Authorized fixture', { senhaAtual: 'Admin-fixture1!' });
   if (blockEmail) expect(db.emailReuseBlock.upsert.mock.calls[0][0].where.emailNormalized).toBe('target@example.invalid');

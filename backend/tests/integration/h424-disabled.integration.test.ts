@@ -130,13 +130,35 @@ describe('Student self-deletion against disposable PostgreSQL', () => {
     expect((await request('DELETE', '/auth/conta', user, proof)).status).toBe(401);
     expect(await prisma.auditLog.count({ where: { userId: user.id, action: 'CONTA_EXCLUIDA' } })).toBe(1);
   });
-  it('does not let PROFESSOR or ADMIN delete themselves through the profile route', async () => {
+  it('does not let ADMIN delete itself through the profile route', async () => {
     vi.stubEnv('EMAIL_REUSE_BLOCKS_ENABLED', 'true');
     // Service-level check keeps the route's rate-limit budget for the scenarios above.
-    for (const role of ['PROFESSOR', 'ADMIN'] as const) {
-      const user = await fixture(role);
-      await expect(service.self(user.id, { senhaAtual: password })).rejects.toMatchObject({ statusCode: 403 });
-      expect(await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).toEqual(user);
-    }
+    const user = await fixture('ADMIN');
+    await expect(service.self(user.id, { senhaAtual: password })).rejects.toMatchObject({ statusCode: 403 });
+    expect(await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).toEqual(user);
+  });
+  it('anonymizes the teacher and keeps the class, its students and the other teacher', async () => {
+    vi.stubEnv('EMAIL_REUSE_BLOCKS_ENABLED', 'true');
+    const [teacher, otherTeacher, student] = [await fixture('PROFESSOR'), await fixture('PROFESSOR'), await fixture()];
+    const turma = await prisma.turma.create({ data: { nome: 'Disposable class', codigoConvite: `DEL-${randomUUID()}`, professores: { connect: [{ id: teacher.id }, { id: otherTeacher.id }] }, alunos: { connect: { id: student.id } } } });
+    expect((await request('DELETE', '/auth/conta', teacher, proof)).status).toBe(200);
+    const deleted = await prisma.user.findUniqueOrThrow({ where: { id: teacher.id } });
+    expect(deleted).toMatchObject({ nome: 'Usuário removido', email: `deleted-${teacher.id}@jurissim.invalid`, senhaHash: null });
+    expect(deleted.deletedAt).not.toBeNull();
+    const kept = await prisma.turma.findUniqueOrThrow({ where: { id: turma.id }, include: { professores: true, alunos: true } });
+    expect(kept.archivedAt).toBeNull();
+    expect(kept.professores.map(user => user.id)).toEqual([otherTeacher.id]);
+    expect(kept.alunos.map(user => user.id)).toEqual([student.id]);
+    expect((await request('GET', '/auth/session', teacher)).status).toBe(401);
+  });
+  it('deletes the only teacher of an active class and leaves the class active for its students', async () => {
+    vi.stubEnv('EMAIL_REUSE_BLOCKS_ENABLED', 'true');
+    const [teacher, student] = [await fixture('PROFESSOR'), await fixture()];
+    const turma = await prisma.turma.create({ data: { nome: 'Disposable solo class', codigoConvite: `DEL-${randomUUID()}`, professores: { connect: { id: teacher.id } }, alunos: { connect: { id: student.id } } } });
+    await service.self(teacher.id, { senhaAtual: password });
+    const kept = await prisma.turma.findUniqueOrThrow({ where: { id: turma.id }, include: { professores: true, alunos: true } });
+    expect(kept.archivedAt).toBeNull();
+    expect(kept.professores).toEqual([]);
+    expect(kept.alunos.map(user => user.id)).toEqual([student.id]);
   });
 });
