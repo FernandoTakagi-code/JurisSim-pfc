@@ -59,7 +59,7 @@ Os exemplos deixam funcionalidades opcionais desativadas. Isso evita presumir qu
 
 Valores booleanos: `true` ou `false`. Os pilotos de diagnóstico, treino e simulado têm suas próprias flags `*_PILOT_ENABLED` e identificadores `*_PILOT_BATCH_ID` ou `*_PILOT_BATCH_IDS`, conforme o módulo. IDs de lote não são senhas, mas são específicos de cada banco. `INITIAL_DIAGNOSTIC_COMPOSITION_MODE` aceita a política implementada, `MISTA_15_15` ou `AUTORAL_30`. Ativar flags não aprova conteúdo nem substitui a revisão humana.
 
-Administração institucional usa `INSTITUTIONS_ENABLED`, `ADMINISTRATION_ENABLED` e `INSTITUTION_REGISTRATION_ENABLED`; conferir requisitos em `docs/dashboard-migrations-security.md`. Não ativar recursos institucionais apenas para eliminar uma mensagem de indisponibilidade.
+Administração institucional usa `INSTITUTIONS_ENABLED`, `ADMINISTRATION_ENABLED` e `INSTITUTION_REGISTRATION_ENABLED`; conferir requisitos em [arquitetura e ativação](arquitetura.md). Não ativar recursos institucionais apenas para eliminar uma mensagem de indisponibilidade.
 
 `SEED_LOCAL_DATABASE`, `LOCAL_EMAIL_CAPTURE_ENABLED`, diagnósticos locais e as variáveis `TEST_*` pertencem aos fluxos isolados. Não copiar credenciais de produção para testes. O harness cria seu próprio PostgreSQL e injeta as variáveis necessárias. `SEED_LOCAL_DATABASE` permanece `false` por padrão.
 
@@ -111,3 +111,7 @@ Em 13/11/2026, a API pública retornou HTTP 200 no health e o preflight CORS ret
 Passaram 1.064 testes unitários/rotas, o teste da preparação local, builds e linter. A conferência local de formato passou, com aviso de provedor de e-mail local ausente. A alteração local limitou-se a explicitar `VITE_API_URL=http://localhost:3333`, que antes usava o fallback do código; as demais configurações e chaves existentes foram preservadas.
 
 Fontes: [GitHub Variables](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables), [GitHub Environments](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/deploy-to-environment), [Vite](https://vite.dev/guide/env-and-mode), [Render](https://render.com/docs/configure-environment-variables), [Vercel](https://vercel.com/docs/environment-variables).
+
+## Piloto de atividades
+
+CLASS_ACTIVITY_PILOT_ENABLED=false é o padrão. Para um lote explicitamente autorizado, configurar CLASS_ACTIVITY_PILOT_ENABLED=true e CLASS_ACTIVITY_PILOT_BATCH_IDS com a lista correspondente ao banco. A seleção não preenche aprovações de revisão; os itens e as atividades permanecem identificados como provisórios. Consulte [acervo](acervo.md).

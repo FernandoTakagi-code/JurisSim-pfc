@@ -1,64 +1,56 @@
 # Execução local da equipe
 
-O backend usa o Supabase compartilhado de desenvolvimento quando suas variáveis
-locais `DATABASE_URL` e `DIRECT_URL` apontam para esse projeto. Não use o banco
-PostgreSQL da máquina nem os scripts de demonstração para a execução cotidiana.
-
 ## Preparação
 
-1. Obtenha as URLs do Supabase e os valores locais necessários pelo canal seguro
-   da equipe. Nunca cole credenciais em commits ou neste documento.
-2. Se ainda não houver configuração local, copie os exemplos sem sobrescrever
-   arquivos existentes:
+Use Node.js 24 ou superior. Obtenha a configuração do Supabase pelo canal seguro da equipe. Credenciais não devem aparecer no Git, nos documentos ou nas evidências.
 
-   ```powershell
-   if (-not (Test-Path backend/.env)) { Copy-Item backend/.env.example backend/.env }
-   if (-not (Test-Path frontend/.env.local)) { Copy-Item frontend/.env.example frontend/.env.local }
-   ```
+Na raiz do repositório:
 
-3. Preencha `backend/.env` localmente com as URLs do Supabase compartilhado e um
-   `JWT_SECRET` privado. Em `frontend/.env.local`, use
-   `VITE_API_URL=http://127.0.0.1:3333`.
-4. Instale dependências e gere o cliente Prisma:
+```powershell
+npm run setup
+npm ci --prefix backend
+npm ci --prefix frontend
+npm --prefix backend run prisma:generate
+npm run config:check
+```
 
-   ```powershell
-   npm --prefix backend ci
-   npm --prefix frontend ci
-   npm --prefix backend run prisma:generate
-   npm --prefix backend run build
-   ```
+O setup cria somente arquivos ausentes. Preserve as configurações que já funcionam. O backend carrega seu .env; variáveis fornecidas ao processo prevalecem. O Vite pode carregar .env.local com prioridade sobre .env, portanto confira também esse arquivo quando uma mudança parecer não surtir efeito.
 
 ## Iniciar
 
-Abra dois terminais na raiz do repositório:
+Em dois terminais na raiz:
 
 ```powershell
-npm --prefix backend start
+npm --prefix backend run dev
 ```
 
 ```powershell
-npm --prefix frontend run dev -- --host 127.0.0.1
+npm --prefix frontend run dev
 ```
 
-Acesse `http://127.0.0.1:5173`; a API local é `http://127.0.0.1:3333`.
-O endpoint `GET /health` verifica disponibilidade da API, mas não substitui a
-validação de acesso ao banco.
+Abra http://localhost:5173. A API usa a porta 3333 por padrão. Para evitar divergências entre IPv4 e IPv6, configure VITE_API_URL=http://127.0.0.1:3333 no ambiente do frontend. CORS_ORIGINS deve permitir exatamente a origem acessada; APP_PUBLIC_URL deve corresponder ao frontend que receberá os links de e-mail.
 
-## Banco compartilhado e migrations
+Para executar o backend compilado, use primeiro npm --prefix backend run build e depois npm --prefix backend start.
 
-Confira o estado sem modificar o banco:
+## Conferir o ambiente
+
+- GET /health informa disponibilidade HTTP da API; não comprova que todas as tabelas ou integrações funcionem.
+- npm run config:check valida o formato da configuração sem conectar ao banco.
+- npm --prefix backend run email:verify verifica conexão e autenticação SMTP, sem enviar mensagens.
+- GET /institutions/availability informa capacidades e a disponibilidade dos convites.
+
+O módulo institucional completo depende dos vínculos e da confirmação de e-mail dos professores e das instituições autorizadas para suas turmas. Não eliminar a verificação de ativação para contornar cadastros inconsistentes.
+
+## Banco e manutenção
+
+Executar o site no computador pode usar o Supabase real definido no .env. Não executar reset, db push, seed ou importações como parte da inicialização diária.
+
+Para consultar o histórico de migrations, dentro de backend:
 
 ```powershell
-npm --prefix backend exec -- prisma migrate status --schema=prisma/schema.prisma
+npx prisma migrate status
 ```
 
-Não execute `migrate deploy`, `migrate reset`, `db push` ou seeds contra o
-Supabase sem aprovação explícita da equipe. A migration
-`20261030120000_diagnostic_review_snapshot` adiciona a coluna nullable
-`QuestaoSimulado.conteudoSnapshot`; ela precisa de revisão/aprovação antes de
-ser aplicada. O diagnóstico e a prática também dependem de acervo real elegível
-e das flags correspondentes; mantenha as flags desativadas até cumprir esses
-pré-requisitos.
+O banco compartilhado pode conter migrations de outras branches. Conferir o histórico e o schema antes de aplicar qualquer mudança; não alterar registros de migrations para fingir uma aplicação. A aplicação de migrations é uma operação separada, coordenada com a equipe.
 
-Os scripts em `backend/scripts/demo/` são opt-in para demonstrações isoladas e
-não fazem parte do comando normal de inicialização.
+Scripts de demonstração e testes de integração usam bancos descartáveis próprios. Não configurá-los para usar o banco compartilhado. Veja [ambiente](variaveis-de-ambiente.md), [arquitetura](arquitetura.md) e [acervo](acervo.md).

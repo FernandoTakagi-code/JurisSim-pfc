@@ -1,4 +1,4 @@
-# Segurança e privacidade — revisão de 13/11/2026
+# Segurança e privacidade
 
 ## Controles entregues
 
@@ -12,11 +12,11 @@
 
 `GET /auth/dados?page=1` exige sessão válida e retorna somente o titular identificado no JWT. Não aceita outro usuário como alvo. Pagina até 100 itens por coleção, com `nextPage`; o perfil informa quando há outros arquivos a baixar. Inclui perfil, tentativas, respostas, resultados, trilhas, metas, revisões e eventos pessoais. Não inclui hashes, tokens, dados de outras contas ou gabarito de tentativa em andamento. A exportação não é uma cópia integral do banco; outros pedidos podem ser feitos ao canal do grupo.
 
-## Exclusão existente na outra branch
+## Exclusão e disponibilidade
 
-A branch `entrega0911`, revisada no commit `532214d`, já prepara a exclusão H4.24, confirmação de identidade, política de reutilização de e-mail, revogação de sessões, regras institucionais e interface. A disponibilidade está fixada em false até homologação do banco. Esta entrega reutiliza o mesmo arquivo de disponibilidade e bloqueia o endpoint legado com 503, sem duplicar o fluxo nem ativar exclusão. Pedidos de exclusão são encaminhados ao canal da equipe; a implementação H4.24 deve ser integrada e validada antes de disponibilizar o botão.
+O código possui fluxos de exportação, desativação e exclusão com regras próprias de identidade, vínculos e preservação de histórico. A disponibilidade precisa ser conferida na versão e no ambiente apresentados; não ativar ou testar exclusão de conta real apenas para comprovar a interface.
 
-A validação visual da exportação ocorreu na conta do titular; nenhuma conta real foi excluída. Os testes de banco usam somente PostgreSQL temporário e contas sintéticas.
+Testes com banco descartável ou mocks não comprovam o processamento de uma exclusão no Supabase. A equipe deve atender aos pedidos pelo canal informado no aviso de privacidade enquanto uma operação não estiver disponível.
 
 ## Responsabilidade do grupo
 
@@ -28,7 +28,7 @@ Ainda exigem decisão e rotina do grupo: prazos fundamentados por categoria de h
 
 ## Dependências
 
-`npm audit fix --ignore-scripts` atualizou versões compatíveis no lockfile do backend. Os alertas corrigíveis sem migração principal incluíam body-parser, Zod, Nodemailer e qs. A consulta posterior manteve um aviso de deepmerge-ts refletido também em @prisma/config e Prisma (três entradas para a mesma cadeia). Trata-se de ferramenta de configuração/CLI; não há passagem de objetos HTTP para sua operação de merge no código revisado. O npm propõe migração principal para Prisma 7; não foi forçada durante esta correção. Deve ser tratada em migração própria e acompanhada, não ocultada. A consulta das dependências de produção do frontend não apontou alertas nesta data.
+Preservar os lockfiles e avaliar os alertas das dependências na versão entregue. Uma revisão antiga não comprova a ausência de vulnerabilidades hoje. Atualizações principais de Prisma e de outras bibliotecas exigem revisão de compatibilidade e testes próprios; não executar correções automáticas amplas durante uma limpeza de documentação.
 
 ## Referências
 
