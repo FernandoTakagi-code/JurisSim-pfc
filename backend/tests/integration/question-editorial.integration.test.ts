@@ -152,7 +152,7 @@ it('navigates the editorial frontend with a legitimate isolated ADMIN login and 
   const user = await admin(); await question(user.id);
   await prisma.user.update({where:{id:user.id},data:{email:'editorial-admin@example.invalid'}});
   await new Promise<void>((resolve,reject)=>{
-    const child=spawn(process.execPath,[path.resolve('../frontend/scripts/test-question-editorial-db.mjs')],{
+    const child=spawn(process.execPath,[path.resolve('../frontend/tests/test-question-editorial-db.mjs')],{
       cwd:path.resolve('../frontend'),windowsHide:true,env:{...process.env,JURISSIM_DB_UI_API:base,JURISSIM_DB_UI_OWNER:'editorial-admin@example.invalid',JURISSIM_DB_UI_PASSWORD:'senha-de-teste',JURISSIM_DB_UI_INSTITUTION:'unused',GOOGLE_CLIENT_ID:''},stdio:['ignore','pipe','pipe']
     });
     let output=''; child.stdout.on('data',chunk=>{output+=String(chunk);}); child.stderr.on('data',chunk=>{output+=String(chunk);});

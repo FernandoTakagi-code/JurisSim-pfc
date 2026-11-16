@@ -470,7 +470,7 @@ it('completes five-question practice in all five disciplines and a separate Civi
   const email='student-practice@example.invalid';await prisma.user.update({where:{id:f.student.id},data:{email}});
   vi.stubEnv('QUESTION_REVIEW_SCHEMA_ENABLED','true');vi.stubEnv('QUESTION_REVIEW_API_ENABLED','true');vi.stubEnv('CORS_ORIGINS','http://127.0.0.1:5187');
   await new Promise<void>((resolveDone,reject)=>{
-    let output='';const child=spawn(process.execPath,[resolve('../frontend/scripts/test-student-practice-db.mjs')],{cwd:resolve('../frontend'),windowsHide:true,env:{...process.env,JURISSIM_DB_UI_API:baseUrl,JURISSIM_DB_UI_OWNER:email,JURISSIM_DB_UI_PASSWORD:'senha-de-teste',GOOGLE_CLIENT_ID:''},stdio:['ignore','pipe','pipe']});
+    let output='';const child=spawn(process.execPath,[resolve('../frontend/tests/test-student-practice-db.mjs')],{cwd:resolve('../frontend'),windowsHide:true,env:{...process.env,JURISSIM_DB_UI_API:baseUrl,JURISSIM_DB_UI_OWNER:email,JURISSIM_DB_UI_PASSWORD:'senha-de-teste',GOOGLE_CLIENT_ID:''},stdio:['ignore','pipe','pipe']});
     child.stdout.on('data',chunk=>{output+=String(chunk);});child.stderr.on('data',chunk=>{output+=String(chunk);});child.once('error',reject);child.once('close',code=>code===0?resolveDone():reject(Error('Isolated student browser: '+output.slice(-6000))));
   });
   expect(await prisma.simulado.count({where:{alunoId:f.student.id,finalizadoEm:{not:null}}})).toBe(5);
