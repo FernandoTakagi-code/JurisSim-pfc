@@ -13,7 +13,7 @@ import type { LocalEmailVerificationCapture } from '../services/local-email-capt
 import { passwordSchema } from '../services/password-policy';
 import { ApiError } from '../errors/api-error';
 import { AccountDeletionService } from '../services/account-deletion';
-import { accountDeletionEnabled, accountDeletionUnavailableMessage } from '../account-deletion-availability';
+import { studentSelfDeletionEnabled, accountDeletionUnavailableMessage } from '../account-deletion-availability';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional(), confirmation: z.literal('EXCLUIR') }).strict();
 const deactivateAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024), confirmation: z.literal('DESATIVAR') }).strict();
@@ -187,7 +187,7 @@ export class AuthController {
       response.status(400).json({ message: 'Dados inválidos.', erro: parsed.error.format() });
       return;
     }
-    if (!accountDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
+    if (!studentSelfDeletionEnabled()) throw new ApiError(503, accountDeletionUnavailableMessage);
     response.json(await new AccountDeletionService().self(request.auth!.userId, parsed.data));
   };
 
