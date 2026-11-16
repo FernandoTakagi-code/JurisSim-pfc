@@ -1,5 +1,7 @@
 # Preparação da entrega para Fernando — 16/11/2026
 
+> Registro histórico da preparação. Após autorização, os cinco commits foram criados e a integração remota foi iniciada. Consulte `integracao-final-fernando-2026-11-16.md` para os resultados posteriores. As afirmações de “não commitado” abaixo descrevem o momento anterior à autorização.
+
 **Preparação concluída, aguardando autorização. Nenhum arquivo foi adicionado ao stage e nenhum commit, merge ou push foi executado nesta etapa.** Nenhuma operação foi executada no Supabase durante a preparação.
 
 ## Git e destino

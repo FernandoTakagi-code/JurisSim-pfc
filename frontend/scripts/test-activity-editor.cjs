@@ -1,0 +1,38 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript');
+const source=fs.readFileSync(path.join(__dirname,'../src/teacher-activities.tsx'),'utf8');
+const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020}}).outputText;
+const state=[];let cursor=0,reloads=0,saved=0;const requests=[];
+const QuestionForm=()=>null;const exported={};
+vm.runInNewContext(compiled+'\nexports.Editor=ActivityEditor;',{exports:exported,Map,Set,Date,URLSearchParams,require(name){
+ if(name==='react')return {useState(initial){const key=cursor++;if(!(key in state))state[key]=typeof initial==='function'?initial():initial;return [state[key],next=>state[key]=typeof next==='function'?next(state[key]):next];}};
+ if(name==='react/jsx-runtime')return require(name);
+ if(name==='./administration')return {useResource:()=>({data:{items:[],hasMore:false},loading:false,error:'',reload:()=>reloads++}),ResourceState:()=>null,Pages:()=>null};
+ if(name==='./question-form')return {QuestaoForm:QuestionForm};
+ if(name==='./api')return {apiRequest:async(url,options)=>{requests.push({url,...options});return {id:'draft'};}};
+ if(name==='./ui-icon')return {Icon:()=>null};
+ if(name==='./assessment-details')return {AssessmentDetails:()=>null};
+ if(name==='./navigation')return {navigate(){throw Error('O cadastro não deve navegar para outra página.');}};
+ throw Error(name);
+}});
+const props={classId:'class-a',onSaved:()=>saved++,onCancel(){}};
+const render=()=>{cursor=0;return exported.Editor(props);};
+const nodes=tree=>Array.isArray(tree)?tree.flatMap(nodes):tree&&typeof tree==='object'?[tree,...nodes(tree.props?.children)]:[];
+const text=tree=>Array.isArray(tree)?tree.map(text).join(''):tree&&typeof tree==='object'?text(tree.props?.children):String(tree??'');
+let tree=render();
+assert.equal(nodes(tree).some(n=>n.type==='input'&&n.props.type==='search'),false,'Não mostrar uma busca vazia que pareça cadastro.');
+nodes(tree).find(n=>n.type==='input'&&n.props.minLength===2).props.onChange({target:{value:'Revisão da turma'}});
+nodes(tree).find(n=>n.type==='button'&&text(n)==='Escrever nova questão').props.onClick();
+tree=render();
+const inline=nodes(tree).find(n=>n.type===QuestionForm);assert.ok(inline.props.embedded);assert.equal(inline.props.turma.id,'class-a');
+inline.props.onSalva({id:'new-question',enunciado:'Questão criada na atividade',disciplina:'Direito Civil',publica:false});
+tree=render();
+assert.equal(nodes(tree).find(n=>n.type==='input'&&n.props.minLength===2).props.value,'Revisão da turma','Preservar o rascunho ao adicionar questão.');
+assert.equal(nodes(tree).find(n=>n.type==='input'&&n.props.type==='checkbox').props.checked,true,'Selecionar automaticamente a questão criada.');
+assert.equal(nodes(tree).some(n=>n.type==='a'&&n.props.target==='_blank'),false,'Não abrir abas para cadastrar questões.');
+assert.equal(reloads,1);
+(async()=>{
+ await nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
+ assert.equal(requests.length,1);assert.equal(requests[0].url,'/atividades');
+ const body=JSON.parse(requests[0].body);assert.deepEqual(body.questaoIds,['new-question']);assert.equal(body.titulo,'Revisão da turma');assert.equal(body.classId,'class-a');assert.equal(saved,1);
+ console.log('OK: questão integrada, seleção automática, rascunho preservado e envio da atividade sem navegação, rede ou banco.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

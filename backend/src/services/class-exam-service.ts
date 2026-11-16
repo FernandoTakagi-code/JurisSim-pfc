@@ -8,8 +8,7 @@ import { administrativeEvent, institutionalTransaction, fixtureProvenance, type 
 import { homologationClassBoundary, assertRestrictedInstitution, assertRestrictedParticipant, restrictedInstitutionId, restrictedOperationsEnabled, homologationManifest } from '../config/institution-homologation';
 
 import { classLifecycleReady, classActivitiesReady, examSettingsReady, visibleClasses } from './class-lifecycle';
-import { toEligibleCandidate } from '../repositories/prisma-initial-diagnostic-repository';
-import { questionAlternativesError } from '../question-alternatives';
+import {activityQuestionSelectable,activityPilotQuestion,activityDescription} from './class-activity-eligibility';
 type Actor = InstitutionActor;
 export type ExamInput = { titulo: string; descricao: string; duracaoSegundos: number | null; turmaIds: string[]; questaoIds: string[]; expectedQuestions?:number; responsibleTeacherId?:string };
 const classSelect = { id: true, nome: true, createdAt: true, archivedAt: true,
@@ -508,7 +507,11 @@ export class ClassExamService {
         if(metadata&&(metadata.closedAt||metadata.cancelledAt||metadata.classId!==data.turmaIds[0]))throw new ApiError(409,'Atividade encerrada, cancelada ou de outra turma.');
         if ((!activity&&exam.publishedAt) || exam._count.tentativas) throw new ApiError(409, 'Avaliações iniciadas não podem ser alteradas.');
       }
-      await this.validateSelection(tx, actor, data,Boolean(activity));
+      const pilot = await this.validateSelection(tx, actor, data,Boolean(activity));
+      if(activity){
+        data={...data,descricao:activityDescription(data.descricao,pilot)};
+        if(data.descricao.length>3000)throw new ApiError(422,'Reduza as orientações para incluir o aviso de atividade piloto.');
+      }
       const fields = { titulo: data.titulo, descricao: data.descricao, duracaoSegundos: data.duracaoSegundos, ...(responsibleTeacherId ? { autorId: responsibleTeacherId } : {}),
         turmas: { set: data.turmaIds.map(id => ({ id })) },
         questoes: { deleteMany: {}, create: data.questaoIds.map((questaoId, i) => ({ questaoId, posicao: i + 1 })) } };
@@ -544,8 +547,8 @@ export class ClassExamService {
     // Lock question rows as well so edits and publication cannot race.
     await tx.$queryRaw(Prisma.sql`SELECT id FROM "Questao" WHERE id IN (${Prisma.join([...data.questaoIds].sort())}) ORDER BY id FOR UPDATE`);
     const questions = await tx.questao.findMany({ where: { id: { in: data.questaoIds } }, include: { alternativas: true } });
-    if (questions.length !== data.questaoIds.length || questions.some(q => !eligibleForExam(q,actor,ids))) throw new ApiError(403, 'Há questões indisponíveis ou privadas incompatíveis com as turmas selecionadas.');
-    if(activity&&questions.some(q=>q.publica?!toEligibleCandidate(q):q.turmaId!==ids[0]||Boolean(questionAlternativesError(q.alternativas))))throw new ApiError(403,'A atividade exige questões privadas da turma ou questões globais efetivamente revisadas e liberadas.');
+    if (questions.length !== data.questaoIds.length || questions.some(q => activity ? !activityQuestionSelectable(q,ids[0]) : !eligibleForExam(q,actor,ids))) throw new ApiError(403, 'Há questões indisponíveis ou privadas incompatíveis com as turmas selecionadas.');
+    return activity&&questions.some(q=>activityPilotQuestion(q));
   }
 
   async start(actor: Actor, examId: string) {
@@ -562,7 +565,7 @@ export class ClassExamService {
       if(activity&&(activity.closedAt||activity.cancelledAt||(activity.dueAt&&activity.dueAt<=new Date())))throw new ApiError(409,'Esta atividade está encerrada ou fora do prazo para novos inícios. Tentativas já iniciadas são preservadas.');
       if(activity){
         const questions=await tx.questao.findMany({where:{id:{in:exam.questoes.map(q=>q.questaoId)}},include:{alternativas:true}});
-        if(questions.some(q=>q.publica?!toEligibleCandidate(q):q.turmaId!==activity.classId||Boolean(questionAlternativesError(q.alternativas))))throw new ApiError(409,'Há questões indisponíveis para novos inícios desta atividade.');
+        if(questions.some(q=>!activityQuestionSelectable(q,activity.classId)))throw new ApiError(409,'Há questões indisponíveis para novos inícios desta atividade.');
       }
       return tx.simulado.create({ data: { tipo: 'AVALIACAO', alunoId: actor.userId, avaliacaoId: examId, tempoLimiteSegundos: exam.duracaoSegundos,
         questoes: { create: exam.questoes.map(q => ({ questaoId: q.questaoId, posicao: q.posicao })) } }, select: { id: true } });

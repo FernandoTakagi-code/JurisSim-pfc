@@ -13,11 +13,7 @@ import {
   institutionalTransaction,
   administrativeEvent,
 } from "./institution-service";
-import {
-  inventoryWhere,
-  toEligibleCandidate,
-} from "../repositories/prisma-initial-diagnostic-repository";
-import { questionAlternativesError } from "../question-alternatives";
+import {activityQuestionWhere,activityQuestionSelectable,activityPilotQuestion} from './class-activity-eligibility';
 type Actor = InstitutionActor;
 export type ActivityInput = {
   classId: string;
@@ -175,7 +171,7 @@ export class ClassActivityService {
     )
       throw new ApiError(404, "Turma ativa indisponível.");
     const rows = await prisma.questao.findMany({
-      where: { OR: [{ publica: false, turmaId: classId }, inventoryWhere] },
+      where: activityQuestionWhere(classId),
       include: { alternativas: true },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * 50,
@@ -184,11 +180,7 @@ export class ClassActivityService {
     return {
       items: rows
         .slice(0, 50)
-        .filter((q) =>
-          q.publica
-            ? !!toEligibleCandidate(q)
-            : !questionAlternativesError(q.alternativas),
-        )
+        .filter((q) => activityQuestionSelectable(q,classId))
         .map((q) => ({
           id: q.id,
           enunciado: q.enunciado,
@@ -196,6 +188,7 @@ export class ClassActivityService {
           assunto: q.assunto,
           nivel: q.nivel,
           publica: q.publica,
+          pilot: activityPilotQuestion(q),
         })),
       page,
       hasMore: rows.length > 50,

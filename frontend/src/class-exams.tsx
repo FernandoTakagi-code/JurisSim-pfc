@@ -138,6 +138,7 @@ function Pagination({
 
 export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher: boolean;management?:(turma:Class,reload:()=>void)=>ReactNode;onStudentsSelected?:(classId:string)=>void }) {
   const list = usePage<Class>("/turmas");
+  const [showCreate,setShowCreate] = useState(()=>new URLSearchParams(window.location.search).get("acao")==="nova");
   const [name, setName] = useState(""),
     [editing, setEditing] = useState<string>(),
     [code, setCode] = useState("");
@@ -179,6 +180,7 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
             setInvite({ ...await apiRequest<{inviteCode:string;expiresAt:string}>("/turmas", json("POST", { nome: name })), className:name });
           setName("");
           setEditing(undefined);
+          setShowCreate(false);
         } else {
           const result = await apiRequest<{ message: string }>(
             "/turmas/join",
@@ -201,7 +203,8 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
           ? "Gerencie suas turmas e matrículas. Turmas arquivadas permanecem disponíveis para consulta."
           : "Ingresse com o convite fornecido pelo professor para acessar os simulados da turma."}
       </p>
-      <form className="panel class-form" onSubmit={save}>
+      {teacher && !showCreate && !editing && <button className="primary" onClick={()=>setShowCreate(true)}><Icon name="plus"/>Nova turma</button>}
+      {(!teacher || showCreate || editing) && <form className="panel class-form" onSubmit={save}>
         <h2>
           {teacher
             ? editing
@@ -214,6 +217,7 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
         </label>
         <input
           id="class-input"
+          autoFocus={teacher}
           name={teacher ? "class-name" : "invite-code"}
           value={teacher ? name : code}
           onChange={(event) =>
@@ -248,7 +252,8 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
             </button>
           )}
         </div>
-      </form>
+        {teacher && !editing && <button type="button" className="outline-button" onClick={()=>{setShowCreate(false);setName("");}}>Cancelar</button>}
+      </form>}
       {invite && teacher && (
         <article className="panel class-invite">
           <h2>Convite gerado</h2>
@@ -282,7 +287,7 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
       )}
       {notice && <p role="status">{notice}</p>}
       <Feedback loading={list.loading} error={list.error} retry={list.reload} />
-      {list.data?.items.length === 0 && (
+      {!editing && list.data?.items.length === 0 && (
         <article className="panel">
           <h2>Nenhuma turma encontrada</h2>
           <p className="muted">
@@ -308,7 +313,7 @@ export function ClassesPage({ teacher,management,onStudentsSelected }: { teacher
             {teacher && management && <ClassMembershipManager teacher classId={turma.id} />}
             {teacher && <p className="muted">
               {turma.archivedAt ? "Arquivada" : "Ativa"} · {turma._count.alunos}{" "}
-              alunos matriculados
+              {turma._count.alunos === 1 ? "aluno matriculado" : "alunos matriculados"}
             </p>}
             {teacher && (
               <div className="class-actions">

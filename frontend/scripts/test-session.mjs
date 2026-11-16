@@ -515,15 +515,15 @@ try {
   await until('!!document.querySelector(".question-card")');
   assert.equal(await evaluate('[...document.querySelectorAll(".question-card-actions button")].some(b => /Editar|Excluir/.test(b.textContent))'), false);
   await go('/professor/questoes/nova');
-  await until('!!document.querySelector(".question-form")');
+  await until('!!document.querySelector(".teacher-class-choices")');
   await evaluate('history.back()');
   await until('location.pathname === "/professor/questoes" && !!document.querySelector(".segmented")');
   await clickText('.segmented button', 'Banco completo');
   await until('!!document.querySelector(".question-card")');
   await evaluate('history.forward()');
-  await until('location.pathname.endsWith("/nova") && !!document.querySelector(".question-form")');
+  await until('location.pathname.endsWith("/nova") && !!document.querySelector(".teacher-class-choices")');
   await reloadDocument();
-  await until('location.pathname.endsWith("/nova") && !!document.querySelector(".question-form")');
+  await until('location.pathname.endsWith("/nova") && !!document.querySelector(".teacher-class-choices")');
   pass('professor não edita questão alheia; CRUD mantém voltar/avançar e URL após recarregar');
   await boot({ session: user('ADMIN'), questions: [otherQuestion] }, '/professor/questoes/other-question/editar');
   await until('location.pathname === "/administracao" && !!document.querySelector(".admin-page")');
@@ -569,8 +569,8 @@ try {
     await until('!!document.querySelector(".v0-theme-options")');
     await clickText('.v0-theme-options button', 'Tema escuro');
     await go(role === 'ALUNO' ? '/dashboard' : '/professor/questoes/nova');
-    await until(role === 'ALUNO' ? '!!document.querySelector(".dashboard-page")' : '!!document.querySelector(".question-form")');
-    assert.equal(await evaluate('getComputedStyle(document.querySelector(".v0-original .content")).backgroundColor'), 'rgb(16, 24, 39)');
+    await until(role === 'ALUNO' ? '!!document.querySelector(".dashboard-page")' : '!!document.querySelector(".teacher-class-choices")');
+    assert.equal(await evaluate('getComputedStyle(document.querySelector(".v0-original")).backgroundColor'), 'rgb(16, 24, 39)');
     for (const width of [1366, 390]) {
       await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 760 });
       assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
@@ -867,7 +867,7 @@ try {
   assert.equal(await evaluate('document.querySelectorAll(".report-exam").length'), 2);
   assert.equal(await evaluate('document.querySelector(".report-details").textContent.includes("16.67%")'), true);
   await captureStudyPage('teacher-report');
-  assert.equal(await evaluate('document.querySelector(".v0-sidebar button[aria-current=page]")?.textContent.includes("Relatórios")'), true);
+  assert.equal(await evaluate('document.querySelector(".v0-sidebar button[aria-current=page]")?.textContent.includes("Desempenho")'), true);
   const captureReportChart = async name => {
     for (const width of [1366, 390]) {
       await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 760 });

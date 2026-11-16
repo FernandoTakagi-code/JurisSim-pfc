@@ -266,6 +266,15 @@ check('visão geral prioriza decisões administrativas e atalhos úteis',()=>{
  assert.ok(!result.html.includes('Gerenciar professores'));
  assert.ok(!result.html.includes('Consultar escopo de turmas'));
 });
+check('solicitações do professor respeitam a disponibilidade mesmo em requestsOnly',()=>{
+ for(const enabled of [false,true]){
+   stateIndex=0;dependencies=[];overrides={2:{enabled}};
+   const html=renderToStaticMarkup(React.createElement(exportsObject.ClassMembershipManager,{teacher:true,classId:'class-demo',requestsOnly:true}));
+   const paths=dependencies.map(d=>d?.[0]).filter(p=>typeof p==='string');
+   assert.equal(paths.includes('/turmas/class-demo/requests?page=1'),enabled);
+   assert.equal(html.includes('Solicitações de entrada'),enabled);
+ }
+});
 check("novos estilos restritos ao painel administrativo", () => {
   const css = fs.readFileSync(
     path.join(root, "src/administration.css"),

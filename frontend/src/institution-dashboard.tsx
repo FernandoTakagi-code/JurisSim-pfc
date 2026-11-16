@@ -505,7 +505,7 @@ function InstitutionWorkspace({
           title={
             dialog === "invite" ? "Convidar professor" : "Criar nova turma"
           }
-          subtitle={dialog === "invite" ? "Convide um profissional para integrar sua institui\u00e7\u00e3o." : undefined}
+          subtitle={dialog === "invite" ? "Convide um profissional para integrar sua instituição." : undefined}
           icon={dialog === "invite" ? "mail" : undefined}
           className={dialog === "invite" ? "institution-invitation-dialog" : undefined}
           footer={dialog === "invite" ? <>
@@ -524,7 +524,7 @@ function InstitutionWorkspace({
               restricted={session.administration?.restricted === true}
               onBusyChange={setDialogBusy}
               done={() => {
-                setInvitationNotice("Convite enviado ao servi\u00e7o de e-mail. A lista de convites foi atualizada.");
+                setInvitationNotice("Convite enviado ao serviço de e-mail. A lista de convites foi atualizada.");
                 summary.reload();
                 setDialog(undefined);
                 if (section === "teachers") go("invitations");
@@ -593,12 +593,12 @@ function Overview({
         {metrics.map(([label, value, icon]) => (
           <div className="metric-card" key={label}>
             <div className="metric-icon gold"><Icon name={icon} /></div>
-            <div className="metric-copy"><span>{label}</span><strong>{typeof value === "number" ? value.toLocaleString("pt-BR") : value ?? "\u2014"}</strong></div>
+            <div className="metric-copy"><span>{label}</span><strong>{typeof value === "number" ? value.toLocaleString("pt-BR") : value ?? "—"}</strong></div>
           </div>
         ))}
       </div>
       <section className="panel institution-actions">
-        <div><p className="eyebrow">A\u00c7\u00d5ES ESSENCIAIS</p><h2>Gerenciar institui\u00e7\u00e3o</h2><p>Use somente recursos autorizados para esta institui\u00e7\u00e3o.</p></div>
+        <div><p className="eyebrow">AÇÕES ESSENCIAIS</p><h2>Gerenciar instituição</h2><p>Use somente recursos autorizados para esta instituição.</p></div>
         <div className="header-actions">
           <button className="primary-button" disabled={!teacherInvitationsAvailable} title={!teacherInvitationsAvailable ? teacherInvitationReason : undefined} onClick={() => open("invite")}>Convidar professor</button>
           <button className="outline-button" onClick={() => open("class")}>Criar nova turma</button>
@@ -606,7 +606,7 @@ function Overview({
           <button className="outline-button" onClick={() => go("institution")}>Configurações da instituição</button>
           <button className="outline-button" onClick={() => go("students")}>Alunos matriculados</button>
           <button className="outline-button" onClick={() => go("exams")}>Simulados</button>
-          <button className="text-button" onClick={() => go("performance")}>Relat\u00f3rios</button>
+          <button className="text-button" onClick={() => go("performance")}>Relatórios</button>
         </div>
       </section>
       <Notifications recent />
@@ -1063,7 +1063,7 @@ function InvitationForm({ id, institutionName, classes, done, restricted, onBusy
         </select>
       </label>
       {restricted && <p className="institution-invitation-scope" role="note">Neste ambiente, convide somente profissionais previamente autorizados.</p>}
-      <p className="institution-invite-privacy"><Icon name="lock" /> {"O v\u00ednculo s\u00f3 \u00e9 criado ap\u00f3s o aceite. Contas existentes e hist\u00f3rico acad\u00eamico s\u00e3o preservados."}</p>
+      <p className="institution-invite-privacy"><Icon name="lock" /> {"O vínculo só é criado após o aceite. Contas existentes e histórico acadêmico são preservados."}</p>
       {action.feedback}
     </form>
   );

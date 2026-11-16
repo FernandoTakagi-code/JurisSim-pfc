@@ -5,7 +5,7 @@
   "remoteHead": "c8db1ba",
   "localExclusiveCommits": 5,
   "remoteExclusiveCommits": 2,
-  "state": "LOCAL_COMMITS_CREATED_PENDING_REMOTE_INTEGRATION",
+  "state": "INTEGRATED_AND_VALIDATED_LOCALLY_AWAITING_PUSH_AUTHORIZATION",
   "groups": [
     {
       "title": "Corrige treinos do aluno e preserva liberações administrativas auditáveis",
@@ -284,5 +284,44 @@
     "frontend/.artifacts/",
     "docs/auditoria-editorial-questoes-2026-11-16.csv",
     "docs/auditoria-publicacao-aluno-2026-11-16.csv"
-  ]
+  ],
+  "createdCommits": [
+    {
+      "hash": "fb3ce1f2df906f1d10a78f171c47b1439ae500b0",
+      "title": "Corrige treinos do aluno e preserva liberações administrativas auditáveis",
+      "files": 15
+    },
+    {
+      "hash": "3fd8d8d4935bd481fbc475c6677e92cdc323b025",
+      "title": "Corrige retomada de trilhas com tentativas persistidas",
+      "files": 6
+    },
+    {
+      "hash": "0ba126766635e5c4aaa2de5823915ea878d18ff0",
+      "title": "Preserva consultas administrativas e controles de escrita local",
+      "files": 19
+    },
+    {
+      "hash": "38b1cab64552aacfd1ac5500a126c0d8971ea818",
+      "title": "Preserva melhorias compatíveis de simulados e validação docente",
+      "files": 5
+    },
+    {
+      "hash": "70eacbe6396be6b713e3d34c9137c74410da793b",
+      "title": "Documenta validação, limites e continuidade pela equipe",
+      "files": 11
+    }
+  ],
+  "integratedRemoteCommits": [
+    "0f96026",
+    "c8db1ba"
+  ],
+  "validation": {
+    "backendUnitPassed": 1498,
+    "integrationPassed": 195,
+    "integrationSkipped": 9,
+    "frontendStaticScriptsPassed": 12,
+    "builds": "frontend and backend passed",
+    "database": "disposable PostgreSQL only"
+  }
 }

@@ -1440,7 +1440,7 @@ export function ClassMembershipManager({
       createdAt: string;
     }>
   >(
-    (!teacher || requestsOnly || available.data?.enabled)
+    (!teacher || available.data?.enabled)
       ? `/turmas/${classId ? `${classId}/` : ""}requests?page=${page}`
       : null,
   );
@@ -1453,7 +1453,7 @@ export function ClassMembershipManager({
     resource.reload();
     students.reload();
   });
-  if (teacher && !requestsOnly && !available.data?.enabled) return null;
+  if (teacher && !available.data?.enabled) return null;
   return (
     <section className="panel">
       <h3>
