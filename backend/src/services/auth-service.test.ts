@@ -15,6 +15,13 @@ describe('regras de autenticacao', () => {
     expect(await new AuthService(repository as never).session('pending')).toMatchObject({registrationIntent:'TEACHER_INVITATION',nextStep:'INVITATION',user:{role:'ALUNO'}});
     expect(repository.hasCompletedDiagnostic).not.toHaveBeenCalled();expect(repository.hasCompletedInitialDiagnostic).not.toHaveBeenCalled();
   });
+  it.each(['PENDING','ACTIVE'] as const)('keeps an institutional %s account out of student diagnostics and returns status only', async institutionalStatus => {
+    const repository={findById:vi.fn().mockResolvedValue({id:'owner',nome:'Owner',email:'owner@example.invalid',role:'ALUNO',emailVerifiedAt:new Date(),registrationIntent:'INSTITUTION'}),ownInstitutionStatus:vi.fn().mockResolvedValue(institutionalStatus),hasCompletedDiagnostic:vi.fn(),hasCompletedInitialDiagnostic:vi.fn()};
+    const result=await new AuthService(repository as never).session('owner');
+    expect(result).toMatchObject({registrationIntent:'INSTITUTION',institutionalStatus,nextStep:'DASHBOARD',user:{role:'ALUNO'}});
+    expect(repository.ownInstitutionStatus).toHaveBeenCalledOnce();
+    expect(repository.hasCompletedDiagnostic).not.toHaveBeenCalled();expect(repository.hasCompletedInitialDiagnostic).not.toHaveBeenCalled();
+  });
   it('invitation login with Google cannot implicitly create a public student account',async()=>{
     const repository={findGoogleAccountsByEmail:vi.fn().mockResolvedValue([]),createGoogleUser:vi.fn()};
     await expect(new AuthService(repository as never).loginWithGoogle('unknown@example.invalid','Unknown',{accepted:true,...versions},undefined,undefined,true)).rejects.toMatchObject({statusCode:409});

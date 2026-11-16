@@ -84,6 +84,17 @@ assert.equal(
   }),
   "/instituicoes",
 );
+const institutionalOwner = {
+  ...session("ALUNO"),
+  registrationIntent: "INSTITUTION",
+  administration: { memberships: [{ role: "INSTITUTION_ADMIN" }] },
+};
+assert.equal(sessionDestination({ ...session("ALUNO"), registrationIntent: "INSTITUTION" }), "/instituicoes");
+assert.equal(sessionRedirectTarget(institutionalOwner, "/dashboard"), "/instituicoes");
+assert.equal(sessionRedirectTarget(institutionalOwner, "/dashboard", "", true), null);
+assert.equal(sessionDestination(institutionalOwner, true), "/dashboard");
+assert.equal(sessionRedirectTarget({ ...session("ALUNO"), registrationIntent: "INSTITUTION" }, "/dashboard", "", true), "/instituicoes");
+assert.equal(sessionRedirectTarget(session("ALUNO"), "/dashboard"), null);
 console.log(
   "OK: nove menus administrativos e rota legada, destinos por papel e preservação dos destinos de aluno/professor/instituição. Sem rede.",
 );

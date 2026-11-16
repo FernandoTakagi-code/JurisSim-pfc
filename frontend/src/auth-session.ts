@@ -4,6 +4,7 @@ export { sessionDestination } from './auth-routing';
 
 export type Session = {
   registrationIntent?: 'INSTITUTION' | 'TEACHER_INVITATION';
+  institutionalStatus?: string;
   user: { id: string; nome: string; email: string; role: 'ALUNO' | 'PROFESSOR' | 'ADMIN'; emailVerificado: boolean };
   nextStep: 'PROFESSOR' | 'DASHBOARD' | 'DIAGNOSTIC' | 'INITIAL_DIAGNOSTIC' | 'INVITATION';
   localDiagnosticDemoAvailable?: boolean;
@@ -17,7 +18,7 @@ let pending: { token: string; promise: Promise<Session> } | undefined;
 let revision = 0;
 const currentToken = () => sessionStorage.getItem('jurissim_token');
 function update(next: State) { state = next; listeners.forEach(listener => listener()); }
-const keys = ['jurissim_token', 'jurissim_next_step', 'jurissim_user_name', 'jurissim_email', 'jurissim_email_verificado', 'jurissim_local_diagnostic_demo', 'jurissim_institution','jurissim_administration_institution','jurissim_personal_role'];
+const keys = ['jurissim_token', 'jurissim_next_step', 'jurissim_user_name', 'jurissim_email', 'jurissim_email_verificado', 'jurissim_local_diagnostic_demo', 'jurissim_institution','jurissim_administration_institution','jurissim_personal_role','jurissim_access_context'];
 export function endSession() {
   revision++;
   pending = undefined;

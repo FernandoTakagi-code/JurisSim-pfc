@@ -93,7 +93,8 @@ function App() {
     return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [authLink]);
   const activeSession = auth.session;
-  const redirectTarget = auth.status === 'ready' && activeSession ? sessionRedirectTarget(activeSession, path, window.location.search) : null;
+  const personalContextSelected = sessionStorage.getItem('jurissim_access_context') === 'personal';
+  const redirectTarget = auth.status === 'ready' && activeSession ? sessionRedirectTarget(activeSession, path, window.location.search, personalContextSelected) : null;
   useEffect(() => {
     if (redirectTarget) navigateTo(redirectTarget, true);
   }, [redirectTarget]);
@@ -120,7 +121,7 @@ function App() {
   </main>;
   const localDemoActive = user.role === 'ALUNO' && auth.session.localDiagnosticDemoActive === true;
   const exitLocalDemo = () => { void refreshSession(true).catch(() => {}); };
-  return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair} localDiagnosticDemoActive={localDemoActive} onExitLocalDemo={exitLocalDemo}><StudentApp userId={user.id} role={user.role} nome={user.nome} email={user.email} initialDestination={sessionDestination(auth.session)} /></IntegrationShell>;
+  return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair} localDiagnosticDemoActive={localDemoActive} onExitLocalDemo={exitLocalDemo}><StudentApp userId={user.id} role={user.role} nome={user.nome} email={user.email} initialDestination={sessionDestination(auth.session, personalContextSelected)} /></IntegrationShell>;
 }
 
 function SessionValidationScreen() {

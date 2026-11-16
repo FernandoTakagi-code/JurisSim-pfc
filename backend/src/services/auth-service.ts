@@ -18,6 +18,7 @@ export type PerfilAcesso = 'ALUNO' | 'PROFESSOR';
 export type AuthSessionResult = {
   user:{id:string;nome:string;email:string;role:'ALUNO'|'PROFESSOR'|'ADMIN';emailVerificado:boolean};
   registrationIntent?:'INSTITUTION'|'TEACHER_INVITATION';
+  institutionalStatus?:string;
   nextStep:'PROFESSOR'|'DASHBOARD'|'DIAGNOSTIC'|'INITIAL_DIAGNOSTIC'|'INVITATION';
   administration?:Awaited<ReturnType<typeof currentAccess>>;
   localDiagnosticDemoAvailable?:boolean;
@@ -182,6 +183,15 @@ export class AuthService {
       registrationIntent:'TEACHER_INVITATION' as const,nextStep:'INVITATION' as const,
       ...(administration?{administration}:{}),
     };
+    if (user.role === 'ALUNO' && user.registrationIntent === 'INSTITUTION') {
+      const institutionalStatus = await this.repository.ownInstitutionStatus(userId);
+      return {
+        user: {id:user.id,nome:user.nome,email:user.email,role:user.role,emailVerificado},
+        registrationIntent:'INSTITUTION' as const,nextStep:'DASHBOARD' as const,
+        ...(institutionalStatus ? { institutionalStatus } : {}),
+        ...(administration?{administration}:{}),
+      };
+    }
     const diagnosticRequired = isInitialDiagnosticRequired() && user.registrationIntent!=='INSTITUTION';
     const localDemoRuntimeEnabled = localEmailVerificationCapture.isLocalDiagnosticDemoEnabled;
     const initialDiagnosticCompleted = user.role === 'ALUNO' && diagnosticRequired

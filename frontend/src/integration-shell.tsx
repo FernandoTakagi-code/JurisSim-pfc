@@ -30,7 +30,7 @@ const roleLabel = (role: User["role"]) =>
 export function AuthorizedContext({session,compact=false}:{session:Session;compact?:boolean}){
   const [,setRevision]=useState(0);
   useEffect(()=>{const update=()=>setRevision(v=>v+1);window.addEventListener('popstate',update);window.addEventListener('jurissim-institution-context',update);return()=>{window.removeEventListener('popstate',update);window.removeEventListener('jurissim-institution-context',update);};},[]);
-  if(session.user.role==='ADMIN'||session.user.role==='PROFESSOR'||(session.user.role==='ALUNO'&&window.location.pathname!=='/instituicoes'))return null;
+  if(session.user.role==='ADMIN'||session.user.role==='PROFESSOR')return null;
   const institutions=session.administration?.memberships.filter(m=>m.role==='INSTITUTION_ADMIN')??[];
   if(!institutions.length)return null;
   const candidate=new URLSearchParams(window.location.search).get('instituicao')??sessionStorage.getItem('jurissim_administration_institution');
@@ -39,10 +39,12 @@ export function AuthorizedContext({session,compact=false}:{session:Session;compa
   const value=institutional?`institution:${selected??institutions[0].institutionId}`:'personal';
   return <div className="institution-context"><label>Contexto de acesso<select aria-label="Contexto de acesso" value={value} onChange={e=>{
     if(e.target.value==='personal'){
+      sessionStorage.setItem('jurissim_access_context','personal');
       window.location.assign('/dashboard');
     }else{
       const id=e.target.value.slice('institution:'.length);
       if(!institutions.some(m=>m.institutionId===id))return;
+      sessionStorage.removeItem('jurissim_access_context');
       sessionStorage.setItem('jurissim_administration_institution',id);
       window.location.assign(`/instituicoes?instituicao=${encodeURIComponent(id)}`);
     }

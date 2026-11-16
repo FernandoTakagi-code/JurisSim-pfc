@@ -6,6 +6,13 @@ import { institutionsEnabled, institutionRegistrationEnabled, administrationEnab
 
 export const GOOGLE_PASSWORD_SENTINEL = '!GOOGLE_OAUTH_ACCOUNT!';
 
+function isMissingRegistrationIntentColumn(error: unknown) {
+  if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'P2022') return false;
+  const meta = 'meta' in error && error.meta && typeof error.meta === 'object' ? error.meta : undefined;
+  const column = meta && 'column' in meta ? String(meta.column) : '';
+  return /registrationIntent/i.test(column);
+}
+
 export class AuthRepository {
   async findByEmail(email: string) {
     const matches = await prisma.user.findMany({
@@ -41,18 +48,35 @@ export class AuthRepository {
       deletedAt: true,
     } as const;
 
-    // The registration intent was introduced with the optional institutional
-    // schema. A regular session must keep working while that module remains
-    // disabled on a database that has not received its additive migration.
-    if (!institutionRegistrationEnabled() && !administrationEnabled()) {
+    // Routing is based on persisted account intent even while institutional
+    // operations are disabled. Keep compatibility with databases that have
+    // not received the additive column, falling back only for that schema
+    // mismatch; connection and query failures must still surface normally.
+    try {
+      return await prisma.user.findUnique({
+        where: { id },
+        select: { ...select, registrationIntent: true },
+      });
+    } catch (error) {
+      if (!isMissingRegistrationIntentColumn(error)) throw error;
       const user = await prisma.user.findUnique({ where: { id }, select });
       return user && { ...user, registrationIntent: null };
     }
-
-    return prisma.user.findUnique({
-      where: { id },
-      select: { ...select, registrationIntent: true },
-    });
+  }
+  async ownInstitutionStatus(userId: string): Promise<string | undefined> {
+    try {
+      const institution = await prisma.institution.findFirst({
+        where: { ownerId: userId },
+        orderBy: { updatedAt: 'desc' },
+        select: { status: true },
+      });
+      return institution?.status;
+    } catch (error) {
+      // Older installations may predate the optional institution tables. This
+      // read is informational only and never affects authorization.
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2021') return undefined;
+      throw error;
+    }
   }
   findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, registrationIntent:true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } }); }
   findByIdWithSenha(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, senhaHash: true } }); }
