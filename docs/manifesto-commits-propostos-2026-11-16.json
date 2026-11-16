@@ -1,0 +1,288 @@
+{
+  "branch": "entrega-16-11",
+  "head": "df01e20",
+  "remoteBranch": "origin/entrega-16-11",
+  "remoteHead": "c8db1ba",
+  "localExclusiveCommits": 5,
+  "remoteExclusiveCommits": 2,
+  "state": "LOCAL_COMMITS_CREATED_PENDING_REMOTE_INTEGRATION",
+  "groups": [
+    {
+      "title": "Corrige treinos do aluno e preserva liberações administrativas auditáveis",
+      "files": [
+        {
+          "status": " M",
+          "path": ".gitignore"
+        },
+        {
+          "status": " M",
+          "path": "backend/.env.example"
+        },
+        {
+          "status": " M",
+          "path": "backend/src/__tests__/integration/question-practice.integration.test.ts"
+        },
+        {
+          "status": " M",
+          "path": "backend/src/repositories/prisma-question-practice-repository.test.ts"
+        },
+        {
+          "status": " M",
+          "path": "backend/src/repositories/prisma-question-practice-repository.ts"
+        },
+        {
+          "status": " M",
+          "path": "backend/src/services/question-practice-service.test.ts"
+        },
+        {
+          "status": " M",
+          "path": "backend/src/services/question-practice-service.ts"
+        },
+        {
+          "status": " M",
+          "path": "frontend/src/question-practice.tsx"
+        },
+        {
+          "status": "??",
+          "path": "backend/scripts/audit-owner-question-release.cjs"
+        },
+        {
+          "status": "??",
+          "path": "backend/scripts/publish-owner-practice.cjs"
+        },
+        {
+          "status": "??",
+          "path": "backend/scripts/verify-owner-practice.cjs"
+        },
+        {
+          "status": "??",
+          "path": "backend/src/services/owner-practice-publication.ts"
+        },
+        {
+          "status": "??",
+          "path": "backend/src/services/owner-practice-release.ts"
+        },
+        {
+          "status": "??",
+          "path": "docs/liberacao-administrativa-candidatas-2026-11-16.json"
+        },
+        {
+          "status": "??",
+          "path": "frontend/scripts/test-student-practice-db.mjs"
+        }
+      ]
+    },
+    {
+      "title": "Corrige retomada de trilhas com tentativas persistidas",
+      "files": [
+        {
+          "status": " M",
+          "path": "backend/src/repositories/student-history-repository.ts"
+        },
+        {
+          "status": " M",
+          "path": "frontend/src/adaptive-trail.tsx"
+        },
+        {
+          "status": " M",
+          "path": "frontend/src/student-progress.tsx"
+        },
+        {
+          "status": " M",
+          "path": "frontend/src/trail-launch.tsx"
+        },
+        {
+          "status": "??",
+          "path": "backend/src/repositories/student-trail-progress.test.ts"
+        },
+        {
+          "status": "??",
+          "path": "frontend/scripts/test-trail-launch.cjs"
+        }
+      ]
+    },
+    {
+      "title": "Preserva consultas administrativas e controles de escrita local",
+      "files": [
+        {
+          "status": " M",
+          "path": "backend/scripts/test-migrations-local.cjs"
+        },
+        {
+          "status": " M",
+          "path": "backend/src/middlewares/administration-audit.ts"
+        },
+        {
+          "status": " M",
+          "path": "backend/src/server.ts"
+        },
+        {
+          "status": " M",
+          "path": "frontend/scripts/test-admin-routing.cjs"
+        },
+        {
+          "status": " M",
+          "path": "frontend/scripts/test-administration.cjs"
+        },
+        {
+          "status": " M",
+          "path": "frontend/src/admin-navigation.ts"
+        },
+        {
+          "status": " M",
+          "path": "frontend/src/administration.css"
+        },
+        {
+          "status": " M",
+          "path": "frontend/src/administration.tsx"
+        },
+        {
+          "status": " M",
+          "path": "frontend/src/integration-shell.css"
+        },
+        {
+          "status": "??",
+          "path": "backend/src/__tests__/integration/question-editorial.integration.test.ts"
+        },
+        {
+          "status": "??",
+          "path": "backend/src/middlewares/local-read-only-navigation.test.ts"
+        },
+        {
+          "status": "??",
+          "path": "backend/src/middlewares/local-read-only-navigation.ts"
+        },
+        {
+          "status": "??",
+          "path": "backend/src/routes/question-editorial-routes.ts"
+        },
+        {
+          "status": "??",
+          "path": "backend/src/services/question-editorial-service.test.ts"
+        },
+        {
+          "status": "??",
+          "path": "backend/src/services/question-editorial-service.ts"
+        },
+        {
+          "status": "??",
+          "path": "frontend/scripts/test-question-editorial-db.mjs"
+        },
+        {
+          "status": "??",
+          "path": "frontend/scripts/test-question-editorial.cjs"
+        },
+        {
+          "status": "??",
+          "path": "frontend/src/question-editorial.css"
+        },
+        {
+          "status": "??",
+          "path": "frontend/src/question-editorial.tsx"
+        }
+      ]
+    },
+    {
+      "title": "Preserva melhorias compatíveis de simulados e validação docente",
+      "files": [
+        {
+          "status": " M",
+          "path": "frontend/package.json"
+        },
+        {
+          "status": " M",
+          "path": "frontend/scripts/test-teacher-live.mjs"
+        },
+        {
+          "status": " M",
+          "path": "frontend/src/class-exams.css"
+        },
+        {
+          "status": " M",
+          "path": "frontend/src/class-exams.tsx"
+        },
+        {
+          "status": "??",
+          "path": "frontend/scripts/test-exam-actions.cjs"
+        }
+      ]
+    },
+    {
+      "title": "Documenta validação, limites e continuidade pela equipe",
+      "files": [
+        {
+          "status": "??",
+          "path": "docs/acervo-aluno-validacao-2026-11-16.md"
+        },
+        {
+          "status": "??",
+          "path": "docs/acesso-editorial-admin-2026-11-16.md"
+        },
+        {
+          "status": "??",
+          "path": "docs/auditoria-editorial-e-telas-aluno-2026-11-16.md"
+        },
+        {
+          "status": "??",
+          "path": "docs/auditoria-equipe-pre-dashboard-2026-11-16.md"
+        },
+        {
+          "status": "??",
+          "path": "docs/catalogo-assuntos-aluno-2026-11-16.md"
+        },
+        {
+          "status": "??",
+          "path": "docs/fluxo-editorial-acervo-2026-11-16.md"
+        },
+        {
+          "status": "??",
+          "path": "docs/manifesto-commits-propostos-2026-11-16.json"
+        },
+        {
+          "status": "??",
+          "path": "docs/plano-publicacao-questoes-aluno-2026-11-16.md"
+        },
+        {
+          "status": "??",
+          "path": "docs/preparacao-entrega-fernando-2026-11-16.md"
+        },
+        {
+          "status": "??",
+          "path": "docs/prontidao-simulados-institucionais-2026-11-16.md"
+        },
+        {
+          "status": "??",
+          "path": "docs/validacao-dashboards-reais-2026-11-16.md"
+        }
+      ]
+    }
+  ],
+  "excludedButPreserved": [
+    {
+      "status": " M",
+      "path": "docs/evidence/teacher-management-live/activities-1440.png",
+      "reason": "Captura regenerada por teste; preservar no disco sem incluir no commit proposto."
+    },
+    {
+      "status": " M",
+      "path": "docs/evidence/teacher-management-live/activities-390.png",
+      "reason": "Captura regenerada por teste; preservar no disco sem incluir no commit proposto."
+    },
+    {
+      "status": " M",
+      "path": "docs/evidence/teacher-management-live/activities-768.png",
+      "reason": "Captura regenerada por teste; preservar no disco sem incluir no commit proposto."
+    }
+  ],
+  "ignoredLocalOnly": [
+    "backend/.local/",
+    "backend/.env",
+    "frontend/.env",
+    "*.log",
+    "node_modules/",
+    "dist/",
+    "frontend/.artifacts/",
+    "docs/auditoria-editorial-questoes-2026-11-16.csv",
+    "docs/auditoria-publicacao-aluno-2026-11-16.csv"
+  ]
+}
