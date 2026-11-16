@@ -606,7 +606,7 @@ function InstitutionCard({
     <div className="institution-profile-page">
       <header className="institution-page-hero">
         <div><p className="eyebrow">IDENTIDADE INSTITUCIONAL</p><h1>Minha instituição</h1><p>Dados cadastrais, situação atual e informações autorizadas para gestão.</p></div>
-        <div className="institution-statuses" aria-label="Situação institucional"><span className="status success"><i />Cadastro {statusNames[institution.status] ?? institution.status}</span><span className="status success"><i />Operacional neste painel</span></div>
+        <div className="institution-statuses" aria-label="Situação institucional"><span className="status success"><i />Cadastro {statusNames[institution.status] ?? institution.status}</span></div>
       </header>
       <div className="institution-layout">
       <section className="panel profile-card">
@@ -718,7 +718,6 @@ function InstitutionCard({
           <Icon name="user" />
           Vínculo administrativo validado
         </div>
-        <div className="analysis-note"><strong>Análise cadastral</strong><span>As informações apresentadas refletem o cadastro aprovado. A operação depende das autorizações válidas deste contexto.</span></div>
       </aside>
       </div>
     </div>
