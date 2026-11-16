@@ -594,10 +594,10 @@ try {
   pass(
     "flag desativada mantém navegação sem consultas protegidas, operações ou métricas inventadas",
   );
-  assert.ok(await evaluate('window.requests.some(r=>r.p==="/audit-logs")'));
+  assert.ok(!await evaluate('window.requests.some(r=>r.p==="/audit-logs")'));
   await click("Logs e auditoria");
   await until(
-    'document.querySelector(".admin-page").textContent.includes("LOGIN_SUCESSO")',
+    'document.querySelector(".admin-page").textContent.includes("Login realizado")',
   );
   assert.equal(
     await evaluate(
@@ -636,7 +636,7 @@ try {
   await evaluate("window.fixtureFailure=null");
   await click("Tentar novamente");
   await until(
-    'document.querySelector(".admin-page").textContent.includes("LOGIN_SUCESSO")',
+    'document.querySelector(".admin-page").textContent.includes("Login realizado")',
   );
   pass(
     "erro de rede da auditoria independente é apresentado sem dados inventados; nova tentativa recupera a consulta",

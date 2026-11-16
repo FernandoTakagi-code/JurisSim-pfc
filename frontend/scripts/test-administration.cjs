@@ -127,7 +127,6 @@ check(
     assert.ok(html.includes("Capacidade administrativa desativada"));
     assert.deepEqual(paths, [
       "/institutions/availability",
-      "/audit-logs?limit=5",
     ]);
     assert.ok(!html.includes("Confirmar vínculo"));
   },
@@ -202,7 +201,7 @@ check(
   "auditoria independente não desaparece quando a flag ou sua consulta falham",
   () => {
     for (const enabled of [false, undefined]) {
-      const { html, paths } = render("audit", enabled, { 7: [] });
+      const { html, paths } = render("audit", enabled, { 8: [] });
       assert.ok(paths.includes("/audit-logs?limit=25"));
       assert.ok(html.includes("Nenhum registro de auditoria neste período"));
       assert.ok(!html.includes("Próxima"));
@@ -226,6 +225,27 @@ check(
     assert.ok(render("settings", false).html.includes("Disponibilidade da plataforma"));
   },
 );
+check('auditoria separa históricos e mantém IDs apenas nos detalhes',()=>{
+ const management=render('audit',true,{9:{items:[{id:'event-demo',event:'INSTITUTION_ACTIVE',occurredAt:'2026-11-16T00:00:00Z',actorId:'actor-demo',result:'SUCCESS',severity:'INFO'}],hasMore:false}});
+ assert.ok(management.html.includes('Instituição aprovada'));
+ assert.ok(management.html.includes('<details class="admin-audit-details">'));
+ assert.ok(management.html.includes('registros de toda a plataforma'));
+ assert.ok(!management.paths.some(p=>p.startsWith('/audit-logs')));
+ const accounts=render('audit',true,{4:'accounts',8:[{id:'login-demo',action:'LOGIN_SUCESSO',occurredAt:'2026-11-16T00:00:00Z',userId:'actor-demo'}]});
+ assert.ok(accounts.html.includes('Login realizado'));
+ assert.ok(accounts.paths.includes('/audit-logs?limit=25'));
+ assert.ok(!accounts.paths.some(p=>p.startsWith('/institutions/admin/logs')));
+ assert.ok(!accounts.html.includes('Próxima'));
+});
+check('visão geral prioriza decisões administrativas e atalhos úteis',()=>{
+ const result=render('overview',true,{4:{users:17,teachers:4},8:{items:[{id:'decision',event:'PERMISSION_CHANGED',occurredAt:'2026-11-16T00:00:00Z',result:'SUCCESS',severity:'INFO'}],hasMore:false}});
+ assert.ok(result.html.includes('Permissão alterada'));
+ assert.ok(!result.html.includes('\\u00'));
+ assert.ok(result.html.includes('Evolução de cadastros'));
+ assert.ok(!result.paths.some(p=>p.startsWith('/audit-logs')));
+ assert.ok(!result.html.includes('Gerenciar professores'));
+ assert.ok(!result.html.includes('Consultar escopo de turmas'));
+});
 check("novos estilos restritos ao painel administrativo", () => {
   const css = fs.readFileSync(
     path.join(root, "src/administration.css"),
