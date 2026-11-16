@@ -8,7 +8,7 @@ import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
-import { assertDisposableDatabase } from '../../src/__tests__/integration/disposable-database';
+import { assertDisposableDatabase } from "../../tests/integration/disposable-database";
 import { INITIAL_DIAGNOSTIC_DISCIPLINES } from '../../src/services/initial-diagnostic-config';
 import versions from '../../src/legal-versions.json';
 

@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
-import { assertDisposableDatabase } from '../src/__tests__/integration/disposable-database';
+import { assertDisposableDatabase } from "../tests/integration/disposable-database";
 import { getInitialDiagnosticComposition } from '../src/services/initial-diagnostic-composition';
 import { PrismaInitialDiagnosticRepository } from '../src/repositories/prisma-initial-diagnostic-repository';
 import { PrismaInitialDiagnosticResolutionRepository } from '../src/repositories/prisma-initial-diagnostic-resolution-repository';

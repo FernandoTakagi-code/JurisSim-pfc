@@ -54,8 +54,7 @@
     {
       "includes": [
         "**/*.test.ts",
-        "tests/**",
-        "src/__tests__/**"
+        "tests/**"
       ],
       "linter": {
         "rules": {

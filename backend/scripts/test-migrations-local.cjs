@@ -570,36 +570,36 @@ async function main() {
     });
     if (result.error) throw result.error;
     assert.equal(result.status, 0, 'Isolated load test failed; inspect backend/.local/load-* reports.');
-    console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', 'src/__tests__/integration/initial-diagnostic-concurrency.integration.test.ts']));
+    console.log(run(process.execPath, [path.join(backend, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.integration.config.ts', 'tests/integration/initial-diagnostic-concurrency.integration.test.ts']));
   } else if (!accountPrivacyOnly) {
     const selectedTests = editorialSuite
-      ? ['src/__tests__/integration/question-editorial.integration.test.ts', 'src/__tests__/integration/question-practice.integration.test.ts', 'src/__tests__/integration/question-review.integration.test.ts']
+      ? ['tests/integration/question-editorial.integration.test.ts', 'tests/integration/question-practice.integration.test.ts', 'tests/integration/question-review.integration.test.ts']
       : teacherManagementOnly
-      ? ['src/__tests__/integration/teacher-management.integration.test.ts', 'src/__tests__/integration/class-activities.integration.test.ts', 'src/__tests__/integration/teacher-management-browser.integration.test.ts', 'src/__tests__/integration/teacher-class-questions.integration.test.ts', 'src/__tests__/integration/student-class-details.integration.test.ts', 'src/__tests__/integration/turma-routes.integration.test.ts']
+      ? ['tests/integration/teacher-management.integration.test.ts', 'tests/integration/class-activities.integration.test.ts', 'tests/integration/teacher-management-browser.integration.test.ts', 'tests/integration/teacher-class-questions.integration.test.ts', 'tests/integration/student-class-details.integration.test.ts', 'tests/integration/turma-routes.integration.test.ts']
       : teacherQuestionsOnly
-      ? ['src/__tests__/integration/teacher-class-questions.integration.test.ts', 'src/__tests__/integration/student-class-details.integration.test.ts', 'src/__tests__/integration/questao-controller.integration.test.ts', 'src/__tests__/integration/turma-questao-fluxo.integration.test.ts']
+      ? ['tests/integration/teacher-class-questions.integration.test.ts', 'tests/integration/student-class-details.integration.test.ts', 'tests/integration/questao-controller.integration.test.ts', 'tests/integration/turma-questao-fluxo.integration.test.ts']
       : studentClassesOnly
-      ? ['src/__tests__/integration/student-class-details.integration.test.ts', 'src/__tests__/integration/turma-routes.integration.test.ts', 'src/__tests__/integration/turma-questao-fluxo.integration.test.ts']
+      ? ['tests/integration/student-class-details.integration.test.ts', 'tests/integration/turma-routes.integration.test.ts', 'tests/integration/turma-questao-fluxo.integration.test.ts']
       : profileSecurityOnly
-      ? ['src/__tests__/integration/profile-security.integration.test.ts', 'src/__tests__/integration/h424-disabled.integration.test.ts']
+      ? ['tests/integration/profile-security.integration.test.ts', 'tests/integration/h424-disabled.integration.test.ts']
       : emailSystemSuite
       ? [
-          'src/__tests__/integration/email-system.integration.test.ts',
-          'src/__tests__/integration/institution-decision-email.integration.test.ts',
-          'src/__tests__/integration/institutions.integration.test.ts',
+          'tests/integration/email-system.integration.test.ts',
+          'tests/integration/institution-decision-email.integration.test.ts',
+          'tests/integration/institutions.integration.test.ts',
         ]
       : institutionEmailSuite
-        ? ['src/__tests__/integration/institution-decision-email.integration.test.ts']
+        ? ['tests/integration/institution-decision-email.integration.test.ts']
         : institutionSuite
-          ? ['src/__tests__/integration/institutions.integration.test.ts']
+          ? ['tests/integration/institutions.integration.test.ts']
           : individualExamOnly
-            ? ['src/__tests__/integration/individual-exam.integration.test.ts']
+            ? ['tests/integration/individual-exam.integration.test.ts']
             : questionPracticeOnly
               ? [
-                  'src/__tests__/integration/question-practice.integration.test.ts',
-                  'src/__tests__/integration/individual-exam.integration.test.ts',
-                  'src/__tests__/integration/question-review.integration.test.ts',
-                  'src/__tests__/integration/attempt-lifecycle.integration.test.ts',
+                  'tests/integration/question-practice.integration.test.ts',
+                  'tests/integration/individual-exam.integration.test.ts',
+                  'tests/integration/question-review.integration.test.ts',
+                  'tests/integration/attempt-lifecycle.integration.test.ts',
                 ]
               : [];
 

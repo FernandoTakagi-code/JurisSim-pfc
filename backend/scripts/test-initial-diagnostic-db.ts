@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
-import { assertDisposableDatabase } from '../src/__tests__/integration/disposable-database';
+import { assertDisposableDatabase } from "../tests/integration/disposable-database";
 import { PrismaInitialDiagnosticRepository } from '../src/repositories/prisma-initial-diagnostic-repository';
 import { PrismaInitialDiagnosticResolutionRepository } from '../src/repositories/prisma-initial-diagnostic-resolution-repository';
 import { INITIAL_DIAGNOSTIC_COMPOSITION } from '../src/services/initial-diagnostic-composition';

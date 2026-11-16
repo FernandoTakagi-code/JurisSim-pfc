@@ -5,11 +5,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test:legal": "node scripts/test-legal.mjs",
-    "test:delivery-static": "node scripts/test-admin-routing.cjs && node scripts/test-teacher-access.cjs && node scripts/test-account-deletion.cjs && node scripts/test-institution-navigation.cjs && node scripts/test-institution-visual.cjs && node scripts/test-administration.cjs && node scripts/test-institution-exam-access.cjs && node scripts/test-trail-launch.cjs && node scripts/test-exam-actions.cjs && node scripts/test-question-editorial.cjs && node scripts/test-teacher-workspace.cjs && node scripts/test-activity-editor.cjs",
-    "test:questions": "node scripts/test-question-form.mjs",
-    "test:pilot": "node scripts/test-authorial-pilot.mjs",
-    "test:privacy": "node scripts/test-privacy.mjs"
+    "test:legal": "node tests/test-legal.mjs",
+    "test:delivery-static": "node tests/test-admin-routing.cjs && node tests/test-teacher-access.cjs && node tests/test-account-deletion.cjs && node tests/test-institution-navigation.cjs && node tests/test-institution-visual.cjs && node tests/test-administration.cjs && node tests/test-institution-exam-access.cjs && node tests/test-trail-launch.cjs && node tests/test-exam-actions.cjs && node tests/test-question-editorial.cjs && node tests/test-teacher-workspace.cjs && node tests/test-activity-editor.cjs",
+    "test:questions": "node tests/test-question-form.mjs",
+    "test:pilot": "node tests/test-authorial-pilot.mjs",
+    "test:privacy": "node tests/test-privacy.mjs"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",

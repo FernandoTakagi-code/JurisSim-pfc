@@ -17,7 +17,7 @@ export default defineConfig({
       QUESTION_REVIEW_SCHEMA_ENABLED: 'false', QUESTION_REVIEW_API_ENABLED: 'false',
       INSTITUTIONS_ENABLED: 'false', ADMINISTRATION_ENABLED: 'false', INSTITUTION_REGISTRATION_ENABLED: 'false',
     },
-    include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
-    exclude: ['node_modules/**', 'dist/**', 'src/**/*.integration.test.ts'],
+    include: ['tests/unit/**/*.test.ts'],
+    exclude: ['node_modules/**', 'dist/**'],
   },
 });

@@ -1,0 +1,115 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PrismaQuestionPracticeRepository } from "../../../src/repositories/prisma-question-practice-repository";
+
+const fakeDb = vi.hoisted(() => ({
+  questao: { findMany: vi.fn() }, resposta: { findMany: vi.fn() }, simulado: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
+  questaoSimulado: { createMany: vi.fn(), findFirst: vi.fn(), count: vi.fn() }, alternativa: { findFirst: vi.fn() },
+  $executeRaw: vi.fn(), $queryRaw: vi.fn(), $transaction: vi.fn(),
+}));
+vi.mock("../../../src/lib/prisma", () => ({ prisma: fakeDb }));
+
+const candidate = (id: string, correct = 0) => ({
+  id, enunciado: `Enunciado suficientemente completo ${id}`, disciplina: 'Direito Civil', assunto: 'Contratos', nivel: 'BASICO',
+  fundamentacaoJuridica: 'Fundamentação jurídica revisada.', publica: true, turmaId: null, origem: 'IA',
+  revisaoJuridicaEm: new Date(), revisorJuridicoId: 'reviewer-law', revisaoPedagogicaEm: new Date(), revisorPedagogicoId: 'reviewer-ped',
+  liberadaAcervoEm: new Date(), liberadaAcervoPorId: 'admin', situacaoDireitos: null, direitosVerificadosEm: null,
+  direitosVerificadosPorId: null, oabExame: null, oabEdicao: null, oabTipoProva: null, oabNumeroQuestao: null,
+  fonteOficialUrl: null, situacaoQuestaoOficial: null, fonteNome: null, fonteReferencia: null, licencaOuAutorizacao: null,
+  alternativas: ['A', 'B', 'C', 'D'].map((letra, index) => ({ id: `${id}-${letra}`, letra, texto: `Alternativa ${letra}`, correta: index === correct })),
+});
+const practiceQuestion = (id: string) => {
+  const row = candidate(id);
+  return { id, discipline: row.disciplina, topic: row.assunto, level: row.nivel, statement: row.enunciado, explanation: row.fundamentacaoJuridica,
+    alternatives: row.alternativas.map(a => ({ id: a.id, letter: a.letra, text: a.texto, correct: a.correta })) };
+};
+
+describe('PrismaQuestionPracticeRepository isolation contract', () => {
+  it('exposes only aggregate public topic metadata and counts incomplete editorial release separately', async () => {
+    fakeDb.questao.findMany.mockResolvedValueOnce([
+      candidate('released'), { ...candidate('pending'), liberadaAcervoEm: null },
+    ]);
+    const result = await new PrismaQuestionPracticeRepository(fakeDb as never).listCatalogTopics('Direito Civil');
+    expect(fakeDb.questao.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { publica: true, turmaId: null, disciplina: 'Direito Civil' },
+    }));
+    expect(result).toEqual([{ name: 'Contratos', catalogCount: 2, pendingReviewCount: 1 }]);
+    expect(JSON.stringify(result)).not.toContain('Enunciado');
+    expect(result[0]).not.toHaveProperty('alternativas');
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fakeDb.$transaction.mockImplementation(async (work: (tx: unknown) => Promise<unknown>) => work(fakeDb));
+    fakeDb.questao.findMany.mockImplementation(async (query: { where?: { id?: { in?: string[] } } }) =>
+      (query.where?.id?.in ?? []).map(id => candidate(id)));
+    fakeDb.resposta.findMany.mockResolvedValue([]);
+    fakeDb.simulado.create.mockResolvedValue({ id: 'simulado-1' });
+    fakeDb.simulado.findFirst.mockResolvedValue({
+      id: 'simulado-1', finalizadoEm: null,
+      questoes: [candidate('q1')].map((q, index) => ({ posicao: index + 1, questao: { ...q, alternativas: q.alternativas }, resposta: null })),
+    });
+    fakeDb.questaoSimulado.createMany.mockResolvedValue({ count: 1 });
+    fakeDb.questaoSimulado.findFirst.mockResolvedValue({ id: 'link-1' });
+    fakeDb.alternativa.findFirst.mockResolvedValue({ id: 'q1-A', correta: true });
+    fakeDb.questaoSimulado.count.mockResolvedValue(0);
+    fakeDb.simulado.updateMany.mockResolvedValue({ count: 1 });
+    fakeDb.$executeRaw.mockResolvedValue(1);
+    fakeDb.$queryRaw.mockImplementation(async () => []);
+  });
+
+  it('uses the shared eligibility filter and discards incomplete candidates', async () => {
+    fakeDb.questao.findMany.mockResolvedValue([candidate('eligible'), { ...candidate('incomplete'), alternativas: [] }]);
+    const repository = new PrismaQuestionPracticeRepository(fakeDb as never);
+    const result = await repository.listEligibleQuestions('Direito Civil');
+    expect(result.map(question => question.id)).toEqual(['eligible']);
+    const query = fakeDb.questao.findMany.mock.calls[0][0];
+    expect(query.where).toMatchObject({ publica: true, turmaId: null, disciplina: 'Direito Civil' });
+    expect(query.select).toHaveProperty('revisaoJuridicaEm', true);
+    expect(query.select).toHaveProperty('situacaoDireitos', true);
+  });
+
+  it('filters answered IDs by student and question relation without loading inventory twice', async () => {
+    fakeDb.resposta.findMany.mockResolvedValue([{ questaoId: 'answered' }]);
+    const result = await new PrismaQuestionPracticeRepository(fakeDb as never).listAnsweredQuestionIds('owner', 'Direito Civil', 'Contratos');
+    expect([...result]).toEqual(['answered']);
+    expect(fakeDb.questao.findMany).not.toHaveBeenCalled();
+    expect(fakeDb.resposta.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {
+      simulado: { alunoId: 'owner', diagnosticoInicial: { is: null } }, questao: expect.objectContaining({ disciplina: 'Direito Civil', assunto: 'Contratos', publica: true }),
+    } }));
+  });
+
+  it('refuses a question whose editorial eligibility was revoked after selection', async () => {
+    fakeDb.$queryRaw.mockResolvedValueOnce([{ id: 'student-1' }]).mockResolvedValueOnce([]);
+    fakeDb.questao.findMany.mockResolvedValue([{ ...candidate('q1'), liberadaAcervoEm: null }]);
+    await expect(new PrismaQuestionPracticeRepository(fakeDb as never).createAttempt('student-1', 'Direito Civil', null, [practiceQuestion('q1')]))
+      .rejects.toMatchObject({ statusCode: 409 });
+    expect(fakeDb.simulado.create).not.toHaveBeenCalled();
+  });
+
+  it('persists the attempt, ordered question links, and session marker in one transaction', async () => {
+    fakeDb.$queryRaw
+      .mockResolvedValueOnce([{ id: 'student-1' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'session-1', simuladoId: 'simulado-1', alunoId: 'student-1', disciplina: 'Direito Civil', finalizadoEm: null }]);
+    fakeDb.simulado.findFirst.mockResolvedValueOnce({
+      id: 'simulado-1', finalizadoEm: null,
+      questoes: [candidate('q1'), candidate('q2')].map((q, index) => ({ posicao: index + 1, questao: q, resposta: null })),
+    });
+    const repository = new PrismaQuestionPracticeRepository(fakeDb as never);
+    const created = await repository.createAttempt('student-1', 'Direito Civil', null, [practiceQuestion('q1'), practiceQuestion('q2')]);
+    expect(created.questions.map(question => question.position)).toEqual([1, 2]);
+    expect(fakeDb.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'ReadCommitted' });
+    expect(fakeDb.simulado.create).toHaveBeenCalledWith({ data: { tipo: 'PERSONALIZADO', alunoId: 'student-1' }, select: { id: true } });
+    const links = fakeDb.questaoSimulado.createMany.mock.calls[0][0].data;
+    expect(links.map((q: any) => ({ id: q.questaoId, position: q.posicao }))).toEqual([{ id: 'q1', position: 1 }, { id: 'q2', position: 2 }]);
+    expect(links[0].conteudoSnapshot).toMatchObject({ version: 1, statement: candidate('q1').enunciado, explanation: candidate('q1').fundamentacaoJuridica });
+    expect(fakeDb.$executeRaw).toHaveBeenCalledOnce();
+  });
+
+  it('does not write the session marker if question linking fails inside the transaction', async () => {
+    fakeDb.questaoSimulado.createMany.mockRejectedValue(new Error('simulated link failure'));
+    fakeDb.$queryRaw.mockResolvedValueOnce([{ id: 'student-1' }]).mockResolvedValueOnce([]);
+    const repository = new PrismaQuestionPracticeRepository(fakeDb as never);
+    await expect(repository.createAttempt('student-1', 'Direito Civil', null, [practiceQuestion('q1')])).rejects.toThrow('simulated link failure');
+    expect(fakeDb.$executeRaw).not.toHaveBeenCalled();
+  });
+});
