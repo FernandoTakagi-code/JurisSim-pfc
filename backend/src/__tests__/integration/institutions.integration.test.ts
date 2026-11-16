@@ -28,6 +28,7 @@ import type { TransactionalEmail } from "../../services/brevo-email-transport";
 import { createAuthRoutes } from "../../routes/auth-routes";
 import { createInstitutionRoutes } from "../../routes/institution-routes";
 import { classRoutes, examRoutes } from "../../routes/class-exam-routes";
+import { activityRoutes } from "../../routes/class-activity-routes";
 import { goalRoutes, reportRoutes } from "../../routes/goals-reports-routes";
 import { studentHistoryRoutes } from "../../routes/student-history-routes";
 import { profilePhotoRoutes } from "../../routes/profile-photo-routes";
@@ -199,6 +200,7 @@ beforeAll(async () => {
   );
   app.use("/turmas", classRoutes);
   app.use("/avaliacoes", examRoutes);
+  app.use("/atividades", activityRoutes);
   app.use("/questoes", questaoRoutes);
   app.use("/reports", reportRoutes);
   app.use("/goals", goalRoutes);
@@ -228,6 +230,49 @@ afterAll(async () => {
 });
 
 describe("institutional flows with real isolated PostgreSQL", () => {
+  it.each(['ALUNO','PROFESSOR','ADMIN'] as const)('login, refresh and logout preserve profile %s', async role => {
+    const user = await account(role);
+    for (let refresh = 0; refresh < 2; refresh++) {
+      expect((await request('GET','/auth/session',user.token)).body.user.role).toBe(role);
+    }
+    expect((await request('POST','/auth/logout',user.token)).status).toBe(200);
+    expect((await request('GET','/auth/session',user.token)).status).toBe(401);
+    const relogin = await request('POST','/auth/login',undefined,{email:user.email,senha:password});
+    expect(relogin.status).toBe(200);
+    expect((await request('GET','/auth/session',relogin.body.token)).body.user.role).toBe(role);
+  });
+
+  it('keeps an approved institutional owner in the institution area when operations are disabled, without granting access', async () => {
+    const { owner, id } = await approved();
+    owner.token = (await request('POST','/auth/login',undefined,{email:owner.email,senha:password})).body.token;
+    vi.stubEnv('INSTITUTIONS_ENABLED','false');
+    vi.stubEnv('ADMINISTRATION_ENABLED','false');
+    vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','false');
+    resetInstitutionRoutes();
+    const session = await request('GET','/auth/session',owner.token);
+    expect(session.status).toBe(200);
+    expect(session.body).toMatchObject({registrationIntent:'INSTITUTION',institutionalStatus:'ACTIVE',nextStep:'DASHBOARD',user:{role:'ALUNO'}});
+    expect(session.body.administration).toBeUndefined();
+    expect((await request('GET','/institutions/availability',owner.token)).body.enabled).toBe(false);
+    expect((await request('GET',`/institutions/${id}/summary?page=1`,owner.token)).status).toBe(503);
+  });
+
+  it('returns pending application status without exposing student or administrative operations', async () => {
+    const owner = await account();
+    await prisma.user.update({where:{id:owner.id},data:{registrationIntent:'INSTITUTION'}});
+    await prisma.institution.create({data:{
+      name:'Pending isolated institution '+randomUUID(),responsibleName:'Pending owner',ownerId:owner.id,
+      email:owner.email,phone:'11999999999',description:'Pending institutional status integration test',status:'PENDING',
+    }});
+    vi.stubEnv('INSTITUTIONS_ENABLED','false');
+    vi.stubEnv('ADMINISTRATION_ENABLED','false');
+    vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','false');
+    resetInstitutionRoutes();
+    const session = await request('GET','/auth/session',owner.token);
+    expect(session.body).toMatchObject({registrationIntent:'INSTITUTION',institutionalStatus:'PENDING',user:{role:'ALUNO'}});
+    expect(session.body.administration).toBeUndefined();
+  });
+
   it('rejects an application by ADMIN without granting institutional privileges', async () => {
     const owner = await account(), admin = await account('ADMIN');
     const application = await request('POST','/institutions/requests',owner.token,institutionApplication);
@@ -299,7 +344,7 @@ describe("institutional flows with real isolated PostgreSQL", () => {
     });
     expect((await request('GET', '/auth/session', owner.token)).body.user.role).toBe('ALUNO');
   });
-  it("renders the eleven institutional modules through real frontend/API/database without mocked sessions", async () => {
+  it("renders the twelve institutional modules through real frontend/API/database without mocked sessions", async () => {
     const { id, owner, admin, actor } = await approved();
     const teacher = await account(),
       student = await account();
@@ -610,9 +655,19 @@ describe("institutional flows with real isolated PostgreSQL", () => {
       "POST",
       "/questoes",
       teacher.token,
-      questaoValida({ turmaId: classId }),
+      questaoValida({ turmaId: classId, publica: false }),
     );
-    expect(question.status).toBe(201);
+    expect(question.status, `question creation failed: ${JSON.stringify(question.body)}`).toBe(201);
+    const activity = await request("POST", "/atividades", owner.token, {
+      classId,
+      titulo: "Isolated institutional activity",
+      descricao: "Activity created by the authorized institution owner",
+      questaoIds: [question.body.id],
+      dueAt: null,
+      maxPoints: 10,
+    }, id);
+    expect(activity.status, `activity creation failed: ${JSON.stringify(activity.body)}`).toBe(201);
+    expect((await request("POST", `/atividades/${activity.body.id}/publish`, owner.token, {}, id)).status).toBe(200);
     const exam = await request(
       "POST",
       "/avaliacoes",
@@ -703,6 +758,26 @@ describe("institutional flows with real isolated PostgreSQL", () => {
         )
       ).body.overallPercentage,
     ).toBe(100);
+    const visibleActivities = await request("GET", `/atividades?classId=${classId}`, student.token);
+    expect(visibleActivities.status).toBe(200);
+    expect(visibleActivities.body.items).toEqual(expect.arrayContaining([expect.objectContaining({ id: activity.body.id, status: "PUBLISHED", canStart: true })]));
+    const activityAttempt = await request("POST", `/avaliacoes/${activity.body.id}/attempts`, student.token, {});
+    expect(activityAttempt.status).toBe(200);
+    expect((await request("PUT", `/avaliacoes/attempts/${activityAttempt.body.id}/answers/${question.body.id}`, student.token, { selectedOptionId: right })).status).toBe(200);
+    expect((await request("POST", `/avaliacoes/attempts/${activityAttempt.body.id}/finalize`, student.token, {})).body.overallPercentage).toBe(100);
+    const activityResults = await request("GET", `/atividades/${activity.body.id}/results`, owner.token, undefined, id);
+    expect(activityResults.status).toBe(200);
+    expect(activityResults.body.results.items).toEqual(expect.arrayContaining([expect.objectContaining({ studentId: student.id, percentage: 100 })]));
+    const liveInstitutionSummary = await request("GET", `/institutions/${id}/summary?page=1`, owner.token, undefined, id);
+    expect(liveInstitutionSummary.status).toBe(200);
+    expect(liveInstitutionSummary.body.indicators).toMatchObject({
+      publishedActivities: 1,
+      completedActivities: 1,
+      participatingStudents: 1,
+      participationRate: 100,
+      accuracy: 100,
+      activitiesAvailable: true,
+    });
     expect(
       (
         await request(

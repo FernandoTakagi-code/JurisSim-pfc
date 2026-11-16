@@ -141,10 +141,10 @@ check("indicadores reais e ausência das métricas fictícias do v0", () => {
     4: { users: 17, teachers: 4 },
   });
   assert.ok(html.includes(">17</strong>"));
-  assert.ok(html.includes("Vínculos de professores ativos"));
+  assert.ok(html.includes("Professores vinculados"));
   assert.ok(paths.includes("/institutions/admin/summary"));
   assert.ok(!html.includes("12.438"));
-  assert.ok(html.includes("não está disponível no momento"));
+  assert.ok(html.includes("Sem registros no per"));
 });
 for (const [tab, expected] of [
   ["institutions", "/institutions/admin/institutions?page=1"],

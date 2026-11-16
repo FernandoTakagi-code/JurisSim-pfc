@@ -265,7 +265,12 @@ try {
   // Login legitimately ends at the institution chooser. Wait for that redirect
   // before selecting the institution, rather than racing AuthGate's navigation.
   await until("location.pathname==='/instituicoes'&&location.search===''&&Array.from(document.querySelectorAll('button')).some(b=>b.textContent.trim()==='Administrar instituição')");
-  await evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Administrar instituição').click()");
+  assert.equal(await evaluate('Array.from(document.querySelectorAll(".v0-sidebar button")).some(b=>b.textContent.trim()==="Estudar")'), false, 'institution owner must not see the student menu');
+  await until(`!!document.querySelector('select[aria-label="Contexto de acesso"]')`);
+  await evaluate(`(()=>{const s=document.querySelector('select[aria-label="Contexto de acesso"]');s.value='personal';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await until(`location.pathname==='/dashboard'&&!!document.querySelector('.v0-app')&&!!document.querySelector('select[aria-label="Contexto de acesso"]')`);
+  await evaluate(`(()=>{const s=document.querySelector('select[aria-label="Contexto de acesso"]');s.value=${JSON.stringify('institution:'+id)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await until(`location.pathname==="/instituicoes"&&location.search.includes(${JSON.stringify(encodeURIComponent(id))})&&!!document.querySelector(".institution-workspace")`);
   await until('!!document.querySelector(".institution-workspace")');
   const modules = [
     "overview",
@@ -276,6 +281,7 @@ try {
     "students",
     "performance",
     "exams",
+    "activities",
     "reports",
     "notifications",
     "settings",
@@ -316,6 +322,9 @@ try {
       await evaluate("document.querySelector('[role=dialog] button[aria-label=Fechar]').click()");
       await until('!document.querySelector("[role=dialog]")');
       console.log("PASS REAL DB INVITATION MODAL: class query and institution context accepted; no invitation submitted.");
+    }
+    if (section === "activities") {
+      assert.equal(await evaluate('Array.from(document.querySelectorAll(".institution-workspace h1")).some(e=>e.textContent.trim()==="Atividades")'), true);
     }
     await evaluate(
       `{let e=document.querySelector('#db-review-label');if(!e){e=document.createElement('div');e.id='db-review-label';e.style.cssText='position:fixed;bottom:0;right:0;z-index:9999;background:#fff1b8;color:#352400;padding:6px;font:11px sans-serif';document.body.append(e);}e.textContent='POSTGRESQL REAL ISOLADO · CONTAS DE TESTE · SEM SUPABASE';}`,
@@ -403,7 +412,7 @@ try {
     );
   }
   console.log(
-    "PASS REAL DB UI: login verdadeiro, sessão do backend e onze módulos com PostgreSQL descartável; nenhum fetch/sessão substituído.",
+    "PASS REAL DB UI: login verdadeiro, sessão do backend e doze módulos com PostgreSQL descartável; nenhum fetch/sessão substituído.",
   );
 } catch (error) {
   const diagnosticPath = path.join(process.cwd(), '.artifacts/institution-real-db/diagnostics.json');

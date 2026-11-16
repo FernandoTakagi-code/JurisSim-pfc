@@ -37,7 +37,7 @@ async function ready() {
 }
 function teacher(actor: Actor) {
   staff(actor);
-  if (actor.role !== "PROFESSOR" || actor.institutionAdmin)
+  if (actor.role !== "PROFESSOR" && !actor.institutionAdmin)
     throw new ApiError(
       403,
       "Gestão de atividades exclusiva do contexto docente.",
@@ -65,7 +65,9 @@ export class ClassActivityService {
         turma: scope,
         ...(student
           ? { cancelledAt: null, avaliacao: { publishedAt: { not: null } } }
-          : { avaliacao: { autorId: actor.userId } }),
+          : actor.institutionAdmin
+            ? {}
+            : { avaliacao: { autorId: actor.userId } }),
       },
       orderBy: [{ avaliacao: { createdAt: "desc" } }, { id: "desc" }],
       skip: (page - 1) * 20,
@@ -221,7 +223,7 @@ export class ClassActivityService {
         where: {
           evaluationId: id,
           turma: await managedClass(actor),
-          avaliacao: { autorId: actor.userId },
+          ...(actor.institutionAdmin ? {} : { avaliacao: { autorId: actor.userId } }),
         },
         include: {
           avaliacao: {

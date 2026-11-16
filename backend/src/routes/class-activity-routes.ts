@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   requireAuth,
-  requireRoles,
+  requireAcademicStaff,
   type AuthenticatedRequest,
 } from "../middlewares/auth-middleware";
 import { denyGlobalAcademicAccess } from "../middlewares/academic-access";
@@ -17,7 +17,7 @@ activityRoutes.use(requireAuth, denyGlobalAcademicAccess, (_req, res, next) => {
 });
 const id = (req: AuthenticatedRequest) =>
   z.string().uuid().parse(req.params.id);
-activityRoutes.get('/:id/results',requireRoles('PROFESSOR'),async(req:AuthenticatedRequest,res)=>{
+activityRoutes.get('/:id/results',requireAcademicStaff,async(req:AuthenticatedRequest,res)=>{
   const {page}=z.object({page:z.coerce.number().int().min(1).max(1000).default(1)}).strict().parse(req.query);
   res.json(await exams.examDetails(req.auth!,id(req),page,true));
 });
@@ -55,7 +55,7 @@ activityRoutes.get("/", async (req: AuthenticatedRequest, res) => {
 });
 activityRoutes.get(
   "/questions",
-  requireRoles("PROFESSOR"),
+  requireAcademicStaff,
   async (req: AuthenticatedRequest, res) => {
     const q = z
       .object({
@@ -69,31 +69,31 @@ activityRoutes.get(
 );
 activityRoutes.post(
   "/",
-  requireRoles("PROFESSOR"),
+  requireAcademicStaff,
   async (req: AuthenticatedRequest, res) =>
     res.status(201).json(await service.save(req.auth!, schema.parse(req.body))),
 );
 activityRoutes.put(
   "/:id",
-  requireRoles("PROFESSOR"),
+  requireAcademicStaff,
   async (req: AuthenticatedRequest, res) =>
     res.json(await service.save(req.auth!, schema.parse(req.body), id(req))),
 );
 activityRoutes.post(
   "/:id/publish",
-  requireRoles("PROFESSOR"),
+  requireAcademicStaff,
   async (req: AuthenticatedRequest, res) =>
     res.json(await service.publish(req.auth!, id(req))),
 );
 activityRoutes.post(
   "/:id/close",
-  requireRoles("PROFESSOR"),
+  requireAcademicStaff,
   async (req: AuthenticatedRequest, res) =>
     res.json(await service.end(req.auth!, id(req), false)),
 );
 activityRoutes.post(
   "/:id/cancel",
-  requireRoles("PROFESSOR"),
+  requireAcademicStaff,
   async (req: AuthenticatedRequest, res) =>
     res.json(await service.end(req.auth!, id(req), true)),
 );

@@ -18,6 +18,7 @@ import {escapeMail} from './email-html';
 import { representationDeclarationVersion, institutionRequestSchema, institutionFixtureSchema } from './institution-registration-validation';
 import { homologationManifest, fixtureApprovalAllowed, type HomologationManifest } from '../config/institution-homologation';
 import { institutionPendingFields, noWebsiteDeclaration } from '../institution-registration';
+import { classActivitiesReady, visibleClasses } from './class-lifecycle';
 
 export type InstitutionActor = {
   userId: string;
@@ -650,39 +651,95 @@ export class InstitutionService {
 
   async summary(actor: InstitutionActor) {
     requireGlobal(actor);
-    const [users, institutions, pending, teachers, classes, errors] =
-      await Promise.all([
-        prisma.user.count({ where: { deletedAt: null } }),
-        prisma.institution.count(),
-        prisma.institution.count({ where: { status: "PENDING" } }),
-        prisma.institutionalMembership.count({
-          where: {
-            active: true,
-            role: "TEACHER",
-            institution: { status: "ACTIVE" },
-          },
-        }),
-        prisma.turma.count({ where: { archivedAt: null } }),
-        prisma.administrativeEvent.count({
-          where: {
-            severity: "ERROR",
-            occurredAt: { gte: new Date(Date.now() - 86400_000) },
-          },
-        }),
-      ]);
-    return { users, institutions, pending, teachers, classes, errors };
+    const periodStart = new Date();
+    periodStart.setUTCHours(0, 0, 0, 0);
+    periodStart.setUTCDate(periodStart.getUTCDate() - 29);
+    const classVisibility = await visibleClasses();
+    const activitiesReady = await classActivitiesReady();
+    const [
+      users,
+      students,
+      institutions,
+      pending,
+      teachers,
+      classes,
+      archivedClasses,
+      errors,
+      publishedExams,
+      publishedActivities,
+      completedActivities,
+      newUsers,
+      userDistribution,
+      registrationsByDay,
+      institutionGrowthByDay,
+      participationByDay,
+    ] = await Promise.all([
+      prisma.user.count({ where: { deletedAt: null } }),
+      prisma.user.count({ where: { deletedAt: null, role: 'ALUNO', registrationIntent: null } }),
+      prisma.institution.count(),
+      prisma.institution.count({ where: { status: "PENDING" } }),
+      prisma.institutionalMembership.count({
+        where: { active: true, role: "TEACHER", institution: { status: "ACTIVE" } },
+      }),
+      prisma.turma.count({ where: { archivedAt: null, ...classVisibility } }),
+      prisma.turma.count({ where: { archivedAt: { not: null }, ...classVisibility } }),
+      prisma.administrativeEvent.count({
+        where: { severity: "ERROR", occurredAt: { gte: new Date(Date.now() - 86400_000) } },
+      }),
+      prisma.avaliacao.count({ where: { publishedAt: { not: null }, ...(activitiesReady ? { activity: null } : {}) } }),
+      activitiesReady
+        ? prisma.classActivity.count({ where: { cancelledAt: null, avaliacao: { publishedAt: { not: null } } } })
+        : Promise.resolve(null),
+      activitiesReady
+        ? prisma.simulado.count({ where: { tipo: 'AVALIACAO', finalizadoEm: { not: null }, avaliacao: { activity: { isNot: null } } } })
+        : Promise.resolve(null),
+      prisma.user.count({ where: { deletedAt: null, createdAt: { gte: periodStart } } }),
+      prisma.$queryRaw<Array<{ profile: string; count: number }>>`
+        SELECT CASE
+          WHEN "role"::text = 'ALUNO' AND "registrationIntent" = 'INSTITUTION' THEN 'INSTITUTIONAL_OWNER'
+          WHEN "role"::text = 'ALUNO' AND "registrationIntent" = 'TEACHER_INVITATION' THEN 'INVITED_TEACHER'
+          ELSE "role"::text
+        END AS profile, COUNT(*)::int AS count
+        FROM "User" WHERE "deletedAt" IS NULL
+        GROUP BY profile ORDER BY profile`,
+      prisma.$queryRaw<Array<{ day: string; count: number }>>`
+        SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') AS day, COUNT(*)::int AS count
+        FROM "User" WHERE "deletedAt" IS NULL AND "createdAt" >= ${periodStart}
+        GROUP BY 1 ORDER BY 1`,
+      prisma.$queryRaw<Array<{ day: string; count: number }>>`
+        SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') AS day, COUNT(*)::int AS count
+        FROM "Institution" WHERE "createdAt" >= ${periodStart}
+        GROUP BY 1 ORDER BY 1`,
+      prisma.$queryRaw<Array<{ day: string; students: number; attempts: number }>>`
+        SELECT to_char(date_trunc('day', "finalizadoEm"), 'YYYY-MM-DD') AS day,
+          COUNT(DISTINCT "alunoId")::int AS students, COUNT(*)::int AS attempts
+        FROM "Simulado" WHERE "tipo" = 'AVALIACAO' AND "finalizadoEm" >= ${periodStart}
+        GROUP BY 1 ORDER BY 1`,
+    ]);
+    return {
+      users, students, institutions, pending, teachers, classes, archivedClasses, errors,
+      publishedExams, publishedActivities, completedActivities, newUsers,
+      registrationsByDay, userDistribution, institutionGrowthByDay, participationByDay,
+      activitiesAvailable: activitiesReady,
+    };
   }
 
   async institutionSummary(actor: InstitutionActor, id: string, page: number) {
     await institutionAdmin(prisma, actor, id);
-    const [teachers, links, institution] = await Promise.all([
+    const activitiesReady = await classActivitiesReady();
+    const classVisibility = await visibleClasses();
+    const [teachers, links, activeLinks, institution] = await Promise.all([
       prisma.institutionalMembership.findMany({
         where: { institutionId: id, role: "TEACHER" },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         ...pagination(page),
       }),
       prisma.institutionalClass.findMany({
-        where: { institutionId: id },
+        where: { institutionId: id, turma: { ...classVisibility } },
+        select: { classId: true },
+      }),
+      prisma.institutionalClass.findMany({
+        where: { institutionId: id, turma: { archivedAt: null, ...classVisibility } },
         select: { classId: true },
       }),
       prisma.institution.findUnique({
@@ -691,6 +748,7 @@ export class InstitutionService {
       }),
     ]);
     const classIds = links.map((link) => link.classId);
+    const activeClassIds = activeLinks.map((link) => link.classId);
     const [classes, teacherUsers, students, completedAttempts] =
       await Promise.all([
         prisma.turma.findMany({
@@ -711,23 +769,42 @@ export class InstitutionService {
         prisma.user.count({
           where: {
             deletedAt: null,
-            turmasComoAluno: { some: { id: { in: classIds } } },
+            turmasComoAluno: { some: { id: { in: activeClassIds } } },
           },
         }),
         prisma.simulado.count({
           where: {
             tipo: "AVALIACAO",
             finalizadoEm: { not: null },
-            avaliacao: { turmas: { some: { id: { in: classIds } } } },
-            aluno: { turmasComoAluno: { some: { id: { in: classIds } } } },
+            avaliacao: { turmas: { some: { id: { in: activeClassIds } } } },
+            aluno: { turmasComoAluno: { some: { id: { in: activeClassIds } } } },
           },
         }),
       ]);
-    const [activeTeachers,pendingInvitations,activeClasses]=await Promise.all([
+    const activityPerformanceQuery = activitiesReady && activeClassIds.length
+      ? prisma.$queryRaw<Array<{participatingStudents:number;answers:number;correct:number}>>`
+          SELECT COUNT(DISTINCT s."alunoId")::int AS "participatingStudents",
+            COUNT(r."id")::int AS answers,
+            COUNT(r."id") FILTER (WHERE r."correta" = true)::int AS correct
+          FROM "ClassActivity" ca
+          JOIN "Avaliacao" a ON a.id = ca."evaluationId"
+          JOIN "Simulado" s ON s."avaliacaoId" = a.id AND s."finalizadoEm" IS NOT NULL
+          LEFT JOIN "Resposta" r ON r."simuladoId" = s.id
+          WHERE ca."classId" = ANY(${activeClassIds}::text[])
+            AND ca."cancelledAt" IS NULL AND a."publishedAt" IS NOT NULL`
+      : Promise.resolve([{participatingStudents:0,answers:0,correct:0}]);
+    const [activeTeachers,pendingInvitations,activeClasses,publishedExams,publishedActivities,completedActivities,activityPerformance]=await Promise.all([
       prisma.institutionalMembership.count({where:{institutionId:id,role:'TEACHER',active:true,user:{deletedAt:null}}}),
       prisma.teacherInvitation.count({where:{institutionId:id,status:'PENDING',expiresAt:{gt:new Date()}}}),
-      prisma.turma.count({where:{id:{in:classIds},archivedAt:null}}),
+      prisma.turma.count({where:{id:{in:activeClassIds},archivedAt:null,...classVisibility}}),
+      prisma.avaliacao.count({where:{publishedAt:{not:null},turmas:{some:{id:{in:activeClassIds}}},...(activitiesReady?{activity:null}:{})}}),
+      activitiesReady?prisma.classActivity.count({where:{classId:{in:activeClassIds},cancelledAt:null,avaliacao:{publishedAt:{not:null}}}}):Promise.resolve(null),
+      activitiesReady?prisma.simulado.count({where:{tipo:'AVALIACAO',finalizadoEm:{not:null},avaliacao:{activity:{is:{classId:{in:activeClassIds}}}},aluno:{turmasComoAluno:{some:{id:{in:activeClassIds}}}}}}):Promise.resolve(null),
+      activityPerformanceQuery,
     ]);
+    const activityResult=activityPerformance[0];
+    const participationRate=activitiesReady&&students>0?Math.round((activityResult.participatingStudents/students)*1000)/10:null;
+    const accuracy=activitiesReady&&activityResult.answers>0?Math.round((activityResult.correct/activityResult.answers)*1000)/10:null;
     return {
       institution,
       teachers: pageResult(
@@ -738,7 +815,12 @@ export class InstitutionService {
         page,
       ),
       classes: pageResult(classes, page),
-      indicators: { classes: classIds.length, students, completedAttempts,activeTeachers,pendingInvitations,activeClasses },
+      indicators: {
+        classes: classIds.length, students, completedAttempts, activeTeachers, pendingInvitations, activeClasses,
+        publishedExams, publishedActivities, completedActivities,
+        participatingStudents: activitiesReady ? activityResult.participatingStudents : null,
+        participationRate, accuracy, activitiesAvailable: activitiesReady,
+      },
     };
   }
 

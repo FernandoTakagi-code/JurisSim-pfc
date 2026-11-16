@@ -390,3 +390,15 @@
 .v0-dark .institution-portal .institution-request-status :is(dt, .institution-status.is-pending, .institution-status.is-waiting) { color: #e0bf7c; }
 .v0-dark .institution-portal .institution-status:is(.is-approved, .is-ready) { color: #91deb2; }
 .v0-dark .institution-portal .institution-status.is-rejected { color: #ffadb7; }
+.admin-workspace .admin-charts { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.admin-workspace .summary-bars { display:flex; align-items:flex-end; gap:5px; min-height:150px; padding:18px 4px 0; border-bottom:1px solid var(--line,#dbe2e9); }
+.admin-workspace .summary-bar-column { flex:1; height:128px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:5px; min-width:0; }
+.admin-workspace .summary-bar-column span { width:min(100%,22px); min-height:3px; border-radius:5px 5px 0 0; background:linear-gradient(180deg,#d7b66d,#987335); }
+.admin-workspace .summary-bar-column small { color:var(--muted,#718096); font-size:.68rem; }
+.admin-workspace .profile-distribution { display:grid; gap:14px; padding:10px 0; }
+.admin-workspace .profile-distribution > div { display:grid; grid-template-columns:1fr auto; align-items:center; gap:8px; }
+.admin-workspace .profile-distribution i { grid-column:1/-1; height:8px; border-radius:99px; background:var(--line,#e3e8ed); overflow:hidden; }
+.admin-workspace .profile-distribution i b { display:block; height:100%; min-width:3px; border-radius:inherit; background:linear-gradient(90deg,#b89452,#e3cc91); }
+.admin-workspace .admin-quick-actions { margin-top:20px; }
+.admin-workspace .admin-quick-actions .admin-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.admin-workspace .admin-quick-actions p { color:var(--muted,#718096); }

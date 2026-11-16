@@ -26,6 +26,8 @@ const db = vi.hoisted(() => {
     accountControl: model(),
     turma: model(),
     simulado: model(),
+    avaliacao: model(),
+    classActivity: model(),
     classJoinRequest: model(),
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
@@ -149,9 +151,9 @@ describe('institution-owned class delegation',()=>{
   it('returns current institutional counts instead of inferring totals from a paginated list',async()=>{
     db.institutionalMembership.findMany.mockResolvedValue([]);db.institutionalClass.findMany.mockResolvedValue([{classId:'class'}]);
     db.turma.findMany.mockResolvedValue([]);db.user.findMany.mockResolvedValue([]);db.user.count.mockResolvedValue(8);db.simulado.count.mockResolvedValue(3);
-    db.institutionalMembership.count.mockResolvedValue(2);db.teacherInvitation.count.mockResolvedValue(1);db.turma.count.mockResolvedValue(1);
+    db.institutionalMembership.count.mockResolvedValue(2);db.teacherInvitation.count.mockResolvedValue(1);db.turma.count.mockResolvedValue(1);db.avaliacao.count.mockResolvedValue(4);
     const result=await service.institutionSummary(owner,'institution',1);
-    expect(result.indicators).toEqual({classes:1,students:8,completedAttempts:3,activeTeachers:2,pendingInvitations:1,activeClasses:1});
+    expect(result.indicators).toMatchObject({classes:1,students:8,completedAttempts:3,activeTeachers:2,pendingInvitations:1,activeClasses:1,publishedExams:4,activitiesAvailable:false,publishedActivities:null,completedActivities:null,participatingStudents:null,participationRate:null,accuracy:null});
     expect(db.teacherInvitation.count).toHaveBeenCalledWith({where:{institutionId:'institution',status:'PENDING',expiresAt:{gt:expect.any(Date)}}});
   });
   const admin={userId:'owner',role:'ALUNO',institutionId:'institution',institutionAdmin:true,allowedClassIds:['class']};

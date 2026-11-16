@@ -12,7 +12,13 @@ import { Icon } from "./ui-icon";
 
 type Class = { id: string; nome: string; archivedAt?: string | null };
 type Page = { items: Class[]; page: number; hasMore: boolean };
-export function TeacherActivities() {
+export function TeacherActivities({
+  basePath = "/professor/atividades",
+  onNavigate,
+}: {
+  basePath?: string;
+  onNavigate?: (section: "activities" | "students" | "reports" | "classes" | "exams", classId?: string) => void;
+} = {}) {
   const [page, setPage] = useState(1);
   const resource = useResource<Page>(`/turmas?page=${page}`);
   const query = useSyncExternalStore(
@@ -44,8 +50,9 @@ export function TeacherActivities() {
                 value={turma ? selected : ""}
                 onChange={(event) => {
                   setSelected(event.target.value);
-                  navigate(
-                    "/professor/atividades" +
+                  if (onNavigate) onNavigate("activities", event.target.value || undefined);
+                  else navigate(
+                    basePath +
                       (event.target.value
                         ? "?turma=" + encodeURIComponent(event.target.value)
                         : ""),
@@ -82,7 +89,7 @@ export function TeacherActivities() {
           <div className="class-actions">
             <button
               onClick={() =>
-                navigate(
+                onNavigate ? onNavigate("students", turma.id) : navigate(
                   `/professor/turmas/${encodeURIComponent(turma.id)}/alunos`,
                 )
               }
@@ -92,7 +99,7 @@ export function TeacherActivities() {
             </button>
             <button
               onClick={() =>
-                navigate(
+                onNavigate ? onNavigate("reports", turma.id) : navigate(
                   `/professor/relatorios/turmas/${encodeURIComponent(turma.id)}`,
                 )
               }
@@ -111,12 +118,12 @@ export function TeacherActivities() {
         />
       )}
       <div className="class-actions">
-        <button onClick={() => navigate("/professor/turmas")}>
+        <button onClick={() => onNavigate ? onNavigate("classes") : navigate("/professor/turmas")}>
           Minhas turmas
         </button>
         <button
           className="primary"
-          onClick={() => navigate("/professor/simulados")}
+          onClick={() => onNavigate ? onNavigate("exams") : navigate("/professor/simulados")}
         >
           Ir para Simulados
         </button>

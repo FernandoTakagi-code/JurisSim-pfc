@@ -12,6 +12,7 @@ import {
   AuditPanel,
 } from "./administration";
 import { ClassesPage, ClassStudents, ExamsPage } from "./class-exams";
+import { TeacherActivities } from "./teacher-activities";
 import { TeacherReports, StudentClassReport } from "./goals-reports";
 import { AuthorizedContext } from "./integration-shell";
 import { PhotoProvider, ProfileAvatar } from "./profile-photo";
@@ -62,6 +63,13 @@ type Summary = {
     activeTeachers?: number;
     pendingInvitations?: number;
     activeClasses?: number;
+    publishedExams?: number | null;
+    publishedActivities?: number | null;
+    completedActivities?: number | null;
+    participatingStudents?: number | null;
+    participationRate?: number | null;
+    accuracy?: number | null;
+    activitiesAvailable?: boolean;
   };
 };
 type Invitation = {
@@ -474,6 +482,7 @@ function InstitutionWorkspace({
                     />
                   ))}
                 {section === "exams" && <ExamsPage teacher institutional />}
+                {section === "activities" && <TeacherActivities onNavigate={(target, classId) => go(target as InstitutionSection, classId ? { turma: classId } : {})} />}
                 {section === "notifications" && <Notifications />}
                 {section === "settings" && (
                   <AuditPanel institutionId={id} />
@@ -525,20 +534,63 @@ const descriptions: Record<InstitutionSection, string> = {
   students: "Consulte alunos das turmas autorizadas da instituição.",
   performance: "Consulte resultados reais por turma, disciplina e avaliação.",
   exams: "Crie e acompanhe avaliações das turmas da instituição.",
+  activities: "Crie atividades para turmas autorizadas e acompanhe entregas e resultados.",
   reports: "Acesse os relatórios das turmas e de seus alunos autorizados.",
   notifications: "Consulte mensagens reais destinadas à sua conta.",
   settings: "Consulte a auditoria institucional.",
 };
 
-function Overview({id,summary,go,open}:{id:string;summary:Summary;go:(section:InstitutionSection,extra?:Record<string,string>)=>void;open:(dialog:"invite"|"class")=>void}) {
-  return <div className="institution-overview" data-institution-id={id}>
-    <div className="welcome-row overview-hero"><div><p className="eyebrow">PAINEL INSTITUCIONAL</p><h1>{summary.institution.name}</h1><p>Equipe, turmas e acompanhamento da sua instituição.</p></div><span className="status success"><i />Operações disponíveis</span></div>
-    <div className="metric-grid institution-key-metrics">{[
-      ['Professores ativos',summary.indicators.activeTeachers,'graduation'],['Turmas em andamento',summary.indicators.activeClasses,'book'],['Alunos vinculados',summary.indicators.students,'users']
-    ].map(([label,value,icon])=><div className="metric-card" key={String(label)}><div className="metric-icon gold"><Icon name={String(icon)} /></div><div className="metric-copy"><span>{label}</span><strong>{typeof value==='number'?value.toLocaleString('pt-BR'):'—'}</strong></div></div>)}</div>
-    <section className="panel institution-actions"><div><p className="eyebrow">AÇÕES ESSENCIAIS</p><h2>Gerenciar instituição</h2><p>Use somente recursos autorizados para esta instituição.</p></div><div className="header-actions"><button className="primary-button" onClick={()=>open('invite')}>Convidar professor</button><button className="outline-button" onClick={()=>open('class')}>Criar nova turma</button><button className="text-button" onClick={()=>go('reports')}>Consultar relatórios</button></div></section>
-    <Notifications recent/>
-  </div>;
+function Overview({
+  id,
+  summary,
+  go,
+  open,
+}: {
+  id: string;
+  summary: Summary;
+  go: (section: InstitutionSection, extra?: Record<string, string>) => void;
+  open: (dialog: "invite" | "class") => void;
+}) {
+  const metrics: [string, number | string | null | undefined, string][] = [
+    ["Professores ativos", summary.indicators.activeTeachers, "graduation"],
+    ["Turmas em andamento", summary.indicators.activeClasses, "book"],
+    ["Alunos vinculados", summary.indicators.students, "users"],
+    ["Simulados publicados", summary.indicators.publishedExams, "file"],
+    ["Atividades publicadas", summary.indicators.publishedActivities, "book"],
+    ["Entregas conclu\u00eddas", summary.indicators.completedActivities, "check"],
+    ["Participa\u00e7\u00e3o", summary.indicators.participationRate === null ? "N\u00e3o dispon\u00edvel" : summary.indicators.participationRate !== undefined ? `${summary.indicators.participationRate}%` : "\u2014", "chart"],
+    ["Desempenho correto", summary.indicators.accuracy === null ? "N\u00e3o dispon\u00edvel" : summary.indicators.accuracy !== undefined ? `${summary.indicators.accuracy}%` : "\u2014", "chart"],
+  ];
+  return (
+    <div className="institution-overview" data-institution-id={id}>
+      <div className="welcome-row overview-hero">
+        <div><p className="eyebrow">PAINEL INSTITUCIONAL</p><h1>{summary.institution.name}</h1><p>Equipe, turmas e acompanhamento da sua institui\u00e7\u00e3o.</p></div>
+        <span className="status success"><i />Opera\u00e7\u00f5es dispon\u00edveis</span>
+      </div>
+      <div className="metric-grid institution-key-metrics">
+        {metrics.map(([label, value, icon]) => (
+          <div className="metric-card" key={label}>
+            <div className="metric-icon gold"><Icon name={icon} /></div>
+            <div className="metric-copy"><span>{label}</span><strong>{typeof value === "number" ? value.toLocaleString("pt-BR") : value ?? "\u2014"}</strong></div>
+          </div>
+        ))}
+      </div>
+      <section className="panel institution-actions">
+        <div><p className="eyebrow">A\u00c7\u00d5ES ESSENCIAIS</p><h2>Gerenciar institui\u00e7\u00e3o</h2><p>Use somente recursos autorizados para esta institui\u00e7\u00e3o.</p></div>
+        <div className="header-actions">
+          <button className="primary-button" onClick={() => open("invite")}>Convidar professor</button>
+          <button className="outline-button" onClick={() => open("class")}>Criar nova turma</button>
+          <button className="outline-button" onClick={() => go("teachers")}>Meus professores</button>
+          <button className="outline-button" onClick={() => go("institution")}>{"Configura\u00e7\u00f5es da institui\u00e7\u00e3o"}</button>
+          <button className="outline-button" onClick={() => go("students")}>Alunos matriculados</button>
+          <button className="outline-button" onClick={() => go("exams")}>Simulados</button>
+          <button className="outline-button" onClick={() => go("activities")}>Atividades</button>
+          <button className="text-button" onClick={() => go("reports")}>Relat\u00f3rios</button>
+        </div>
+      </section>
+      <Notifications recent />
+    </div>
+  );
 }
 
 function InstitutionCard({

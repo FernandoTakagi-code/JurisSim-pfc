@@ -33,8 +33,8 @@ vm.runInNewContext(
 );
 const { institutionSections, canManageInstitution, institutionNavigate } =
   exportsObject;
-assert.equal(institutionSections.length, 11);
-assert.equal(new Set(institutionSections.map((s) => s.id)).size, 11);
+assert.equal(institutionSections.length, 12);
+assert.equal(new Set(institutionSections.map((s) => s.id)).size, 12);
 const session = (role) => ({
   user: { role, emailVerificado: true },
   administration: {
@@ -116,5 +116,5 @@ assert.deepEqual(
   ["src"],
 );
 console.log(
-  "OK: onze módulos, papel pessoal preservado, autorização por vínculo, rotas contextualizadas e CSS isolado; sem rede ou banco.",
+  "OK: doze módulos, papel pessoal preservado, autorização por vínculo, rotas contextualizadas e CSS isolado; sem rede ou banco.",
 );

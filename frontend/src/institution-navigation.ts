@@ -27,6 +27,7 @@ export const institutionSections = [
     icon: "chart",
   },
   { id: "exams", label: "Simulados", group: "Acompanhamento", icon: "file" },
+  { id: "activities", label: "Atividades", group: "Acompanhamento", icon: "book" },
   {
     id: "reports",
     label: "Relatórios",

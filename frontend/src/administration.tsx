@@ -744,33 +744,6 @@ export function GeneralAdministration() {
               </article>
               <GlobalIndicators enabled={can("overview")} />
               <div className="dashboard-grid">
-                <article className="panel dashboard-panel">
-                  <div className="dashboard-panel-heading">
-                    <div>
-                      <p className="gold">EVOLUÇÃO</p>
-                      <h2>Cadastros na plataforma</h2>
-                    </div>
-                  </div>
-                  <div className="empty-chart">
-                    <span aria-hidden="true">⌁</span>
-                    <p>
-                      O histórico de cadastros não está disponível no momento.
-                    </p>
-                  </div>
-                </article>
-                <article className="panel dashboard-panel">
-                  <div className="dashboard-panel-heading">
-                    <div>
-                      <p className="gold">POR PERFIL</p>
-                      <h2>Distribuição de usuários</h2>
-                    </div>
-                  </div>
-                  <div className="empty-chart">
-                    <p>
-                      A distribuição por perfil não está disponível no momento.
-                    </p>
-                  </div>
-                </article>
                 <article className="panel dashboard-panel dashboard-activity">
                   <div className="dashboard-panel-heading">
                     <div>
@@ -848,52 +821,111 @@ function AdministrationSettings({ availability }: { availability?: Administratio
       ['Operações institucionais completas', availability?.enabled],
       ['Convites e vínculos institucionais', availability?.enabled],
     ].map(([name, value]) => <div key={String(name)}><dt>{name}</dt><dd>{value === undefined ? 'Não foi possível verificar' : value ? 'Habilitada' : 'Desabilitada'}</dd></div>)}</dl></section>
-    <section className="panel"><h2>Controles administrativos</h2><h3>Controle de novos cadastros</h3><p>A opção de pausar temporariamente novas solicitações institucionais estará disponível em uma atualização futura.</p></section>
+    <section className="panel"><h2>Controles administrativos</h2><p>As capacidades exibidas s\u00e3o definidas por configura\u00e7\u00e3o segura do servidor e da implanta\u00e7\u00e3o. Esta interface n\u00e3o altera essas configura\u00e7\u00f5es nem apresenta altera\u00e7\u00f5es locais como persistidas.</p></section>
   </div>;
 }
-function GlobalIndicators({ enabled }: { enabled: boolean }) {
-  const resource = useResource<Record<string, number>>(
-    enabled ? "/institutions/admin/summary" : null,
+type AdminSummary = {
+  users: number; students: number; institutions: number; pending: number; teachers: number;
+  classes: number; archivedClasses: number; errors: number; publishedExams: number;
+  publishedActivities: number | null; completedActivities: number | null; newUsers: number;
+  activitiesAvailable: boolean;
+  registrationsByDay: {day:string;count:number}[];
+  institutionGrowthByDay: {day:string;count:number}[];
+  participationByDay: {day:string;students:number;attempts:number}[];
+  userDistribution: {profile:string;count:number}[];
+};
+function SummaryBars({
+  title,
+  items,
+  valueKey = "count",
+}: {
+  title: string;
+  items: { day: string; count?: number; students?: number; attempts?: number }[];
+  valueKey?: "count" | "students" | "attempts";
+}) {
+  const max = Math.max(1, ...items.map((item) => item[valueKey] ?? 0));
+  return (
+    <section className="panel dashboard-panel">
+      <h2>{title}</h2>
+      {items.length ? (
+        <div className="summary-bars" role="img" aria-label={`${title}, dados dos \u00faltimos 30 dias`}>
+          {items.map((item) => (
+            <div className="summary-bar-column" key={item.day} title={`${item.day}: ${item[valueKey] ?? 0}`}>
+              <span style={{ height: `${Math.max(3, ((item[valueKey] ?? 0) / max) * 100)}%` }} />
+              <small>{item.day.slice(8)}</small>
+            </div>
+          ))}
+        </div>
+      ) : <p className="empty-dashboard">Sem registros no per\u00edodo consultado.</p>}
+    </section>
   );
-  const titles: Record<string, string> = {
-    users: "Usuários cadastrados",
-    institutions: "Instituições cadastradas",
-    pending: "Solicitações pendentes",
-    teachers: "Vínculos de professores ativos",
-    classes: "Turmas não arquivadas",
-    errors: "Eventos de erro nas últimas 24 horas",
-  };
+}
+function GlobalIndicators({ enabled }: { enabled: boolean }) {
+  const resource = useResource<AdminSummary>(enabled ? "/institutions/admin/summary" : null);
+  const data = resource.data;
+  const titles: [keyof AdminSummary, string, string][] = [
+    ["users", "Contas cadastradas", "Contas n\u00e3o exclu\u00eddas"],
+    ["students", "Alunos cadastrados", "Contas com perfil de aluno"],
+    ["teachers", "Professores vinculados", "V\u00ednculos ativos em institui\u00e7\u00f5es ativas"],
+    ["institutions", "Institui\u00e7\u00f5es", "Cadastros institucionais"],
+    ["classes", "Turmas ativas", "Turmas operacionais vis\u00edveis"],
+    ["pending", "Solicita\u00e7\u00f5es pendentes", "Aguardando an\u00e1lise"],
+    ["publishedExams", "Simulados publicados", "Avalia\u00e7\u00f5es dispon\u00edveis"],
+    ["publishedActivities", "Atividades publicadas", "Indispon\u00edvel se a estrutura n\u00e3o estiver instalada"],
+    ["completedActivities", "Atividades conclu\u00eddas", "Entregas finalizadas"],
+    ["newUsers", "Novos cadastros", "\u00daltimos 30 dias"],
+  ];
   return (
     <>
       <ResourceState resource={resource} />
       <div className="dashboard-stats">
-        {Object.entries(titles).map(([key, title]) => (
+        {titles.map(([key, title, description]) => (
           <article key={key}>
             <span>{title}</span>
-            <strong>
-              {typeof resource.data?.[key] === "number"
-                ? resource.data[key].toLocaleString("pt-BR")
-                : "—"}
-            </strong>
-            <small>
-              {!enabled
-                ? "Módulo desativado"
-                : resource.loading
-                  ? "Carregando…"
-                  : resource.error || !resource.data
-                    ? "Informação indisponível"
-                    : key === "teachers"
-                      ? "Vínculos ativos em instituições ativas"
-                      : key === "users"
-                        ? "Contas não excluídas"
-                        : "Registro atual da plataforma"}
-            </small>
+            <strong>{typeof data?.[key] === "number" ? (data[key] as number).toLocaleString("pt-BR") : data?.[key] === null ? "Indispon\u00edvel" : "\u2014"}</strong>
+            <small>{!enabled ? "M\u00f3dulo desativado" : resource.loading ? "Carregando\u2026" : resource.error ? "Falha ao consultar" : description}</small>
           </article>
         ))}
       </div>
+      {data && (
+        <>
+          <div className="dashboard-grid admin-charts">
+            <SummaryBars title="Evolu\u00e7\u00e3o de cadastros" items={data.registrationsByDay ?? []} />
+            <section className="panel dashboard-panel">
+              <h2>Distribui\u00e7\u00e3o de usu\u00e1rios por perfil</h2>
+              {(data.userDistribution ?? []).length ? (
+                <div className="profile-distribution">
+                  {(data.userDistribution ?? []).map((item) => (
+                    <div key={item.profile}>
+                      <span>{item.profile}</span><strong>{item.count.toLocaleString("pt-BR")}</strong>
+                      <i><b style={{ width: `${data.users ? Math.max(1, (item.count / data.users) * 100) : 0}%` }} /></i>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="empty-dashboard">Sem usu\u00e1rios para apresentar.</p>}
+            </section>
+            <SummaryBars title="Crescimento de institui\u00e7\u00f5es" items={data.institutionGrowthByDay ?? []} />
+            <SummaryBars title="Alunos participantes por dia" items={data.participationByDay ?? []} valueKey="students" />
+          </div>
+          <div className="admin-quick-actions panel">
+            <h2>A\u00e7\u00f5es administrativas</h2>
+            <div className="admin-actions">
+              <button onClick={() => navigate("/administracao/instituicoes")}>Gerenciar institui\u00e7\u00f5es</button>
+              <button onClick={() => navigate("/administracao/solicitacoes")}>Analisar solicita\u00e7\u00f5es</button>
+              <button onClick={() => navigate("/administracao/usuarios")}>Consultar usu\u00e1rios</button>
+              <button onClick={() => navigate("/administracao/professores")}>Gerenciar professores</button>
+              <button onClick={() => navigate("/administracao/turmas")}>Consultar escopo de turmas</button>
+              <button onClick={() => navigate("/administracao/auditoria")}>Logs e auditoria</button>
+              <button onClick={() => navigate("/administracao/configuracoes")}>Configura\u00e7\u00f5es</button>
+            </div>
+            <p>O gerenciamento pedag\u00f3gico de turmas continua restrito \u00e0 institui\u00e7\u00e3o e aos professores autorizados.</p>
+          </div>
+        </>
+      )}
     </>
   );
 }
+
 function RecentAdministrativeEvents({ enabled }: { enabled: boolean }) {
   const platform = useResource<PlatformAuditEvent[]>("/audit-logs?limit=5");
   const resource = useResource<Page<Event>>(
@@ -1306,6 +1338,17 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
     </>
   );
 }
+function InstitutionalFeatureStatus({ status }: { status?: string }) {
+  const copy = status === 'PENDING'
+    ? ['SolicitaÃ§Ã£o institucional pendente', 'Sua solicitaÃ§Ã£o foi recebida e aguarda anÃ¡lise. Nenhuma permissÃ£o de gestÃ£o Ã© liberada antes da aprovaÃ§Ã£o.']
+    : status === 'ACTIVE'
+      ? ['Cadastro institucional aprovado', 'As operaÃ§Ãµes institucionais ainda aguardam habilitaÃ§Ã£o autorizada. Seu perfil pessoal e seus dados acadÃªmicos permanecem preservados.']
+      : status === 'REJECTED'
+        ? ['SolicitaÃ§Ã£o institucional nÃ£o aprovada', 'O acompanhamento detalhado ainda nÃ£o estÃ¡ habilitado. Nenhuma permissÃ£o institucional foi concedida.']
+        : ['SolicitaÃ§Ã£o institucional indisponÃ­vel', 'O recebimento de solicitaÃ§Ãµes ainda nÃ£o foi habilitado. Nenhuma permissÃ£o de gestÃ£o Ã© concedida por esta tela.'];
+  return <article className="panel institution-empty-state" role="status" aria-live="polite"><h2>{copy[0]}</h2><p>{copy[1]}</p></article>;
+}
+
 export function InstitutionsPortal({ session }: { session: Session }) {
   const availability = useResource<AdministrationAvailability>(
     "/institutions/availability",
@@ -1344,11 +1387,7 @@ export function InstitutionsPortal({ session }: { session: Session }) {
       {availability.data &&
       !registrationAvailable(availability.data) &&
       !availability.data.administrationEnabled ? (
-        <p className="institution-empty-state">
-          O recebimento de solicitações ainda não foi habilitado. Não é
-          necessário vínculo prévio; quando autorizado, use sua conta individual
-          para enviar e acompanhar a solicitação.
-        </p>
+        <InstitutionalFeatureStatus status={session.institutionalStatus} />
       ) : (
         (registrationAvailable(availability.data) ||
           availability.data?.administrationEnabled) && (
