@@ -39,7 +39,14 @@ for (const path of [
 ]) {
   assert.equal(sessionRedirectTarget(session("ADMIN"), path), "/administracao");
 }
-assert.equal(new Set(adminSections.map((section) => section.path)).size, 9);
+assert.equal(new Set(adminSections.map((section) => section.path)).size, 5);
+assert.ok(!adminSections.some(section=>section.id==='notifications'));
+assert.equal(adminSection('/administracao/notificacoes').id,'audit');
+assert.ok(!adminSections.some(section=>section.id==='settings'));
+assert.equal(adminSection('/administracao/configuracoes').id,'settings');
+assert.ok(!adminSections.some(section=>['teachers','security'].includes(section.id)));
+assert.equal(adminSection('/administracao/professores').id,'teachers');
+assert.equal(adminSection('/administracao/seguranca').id,'security');
 assert.ok(!adminSections.some(section=>section.id==='classes'));
 assert.equal(adminSection('/administracao/turmas').id,'classes');
 for (const section of adminSections) {
@@ -96,5 +103,5 @@ assert.equal(sessionDestination(institutionalOwner, true), "/dashboard");
 assert.equal(sessionRedirectTarget({ ...session("ALUNO"), registrationIntent: "INSTITUTION" }, "/dashboard", "", true), "/instituicoes");
 assert.equal(sessionRedirectTarget(session("ALUNO"), "/dashboard"), null);
 console.log(
-  "OK: nove menus administrativos e rota legada, destinos por papel e preservação dos destinos de aluno/professor/instituição. Sem rede.",
+  "OK: cinco menus administrativos e rotas antigas preservadas; destinos por papel. Sem rede.",
 );

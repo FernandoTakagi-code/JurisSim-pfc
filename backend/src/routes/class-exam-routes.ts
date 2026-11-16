@@ -61,6 +61,10 @@ classRoutes.patch('/:id', staff, async (request: AuthenticatedRequest, response)
   response.json(await service.updateClass(request.auth!, id(request), data));
 });
 classRoutes.post('/:id/invite', staff, async (request: AuthenticatedRequest, response) => { response.json(await service.rotateInvite(request.auth!, id(request))); });
+examRoutes.get('/eligible-questions/:questionId',staff,async(request:AuthenticatedRequest,response)=>{
+  const query=z.object({turmaIds:z.string().transform(value=>value.split(',')).pipe(z.array(z.string().uuid()).min(1).max(30))}).strict().parse(request.query);
+  response.json(await service.eligibleQuestionPreview(request.auth!,query.turmaIds,id(request,'questionId')));
+});
 examRoutes.get('/eligible-questions',staff,async(request:AuthenticatedRequest,response)=>{
   const query=z.object({turmaIds:z.string().transform(value=>value.split(',')).pipe(z.array(z.string().uuid()).min(1).max(30)),page:z.coerce.number().int().min(1).max(10000).default(1),q:z.string().trim().max(160).optional(),disciplina:z.string().trim().max(100).optional(),assunto:z.string().trim().max(150).optional(),nivel:z.enum(['BASICO','INTERMEDIARIO','AVANCADO']).optional(),pageSize:z.coerce.number().refine(n=>[10,20,50].includes(n)).optional()}).strict().parse(request.query);
   const {turmaIds,page:current,...filters}=query;

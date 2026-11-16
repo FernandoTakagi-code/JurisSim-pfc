@@ -1,12 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { ApiError } from '../errors/api-error';
-import { diagnosticAttemptSelect, DiagnosticRepository, type DiagnosticResultAttempt } from '../repositories/diagnostic-repository';
+import { DiagnosticRepository, type DiagnosticResultAttempt } from '../repositories/diagnostic-repository';
 import type { AnsweredQuestion } from '../types/diagnostic';
 import { analyzeDiagnostic } from './adaptive-engine';
 import { gerarJustificativaComIA } from './feedback-service';
 import { readDiagnosticQuestionSnapshot } from './diagnostic-question-snapshot';
-
-type Attempt = Prisma.SimuladoGetPayload<{ select: typeof diagnosticAttemptSelect }>;
 
 export class DiagnosticService {
   constructor(private readonly repository = new DiagnosticRepository()) {}

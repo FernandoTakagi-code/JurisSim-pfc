@@ -222,6 +222,10 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     const totalAnswered = academic?.totals.answeredQuestions ?? 0;
     const totalCorrect = academic?.totals.correctAnswers ?? 0;
     const trail = dashboardResult?.trail;
+    // While the first load is in flight, empty states ("nenhum diagnóstico") would be false.
+    const loadingAcademic = progress.loading && !academic;
+    const priorityTopic = academic?.learning?.priorityTopic;
+    const loadingPanel = <p className="empty-dashboard" role="status">Carregando...</p>;
     return (
       <div className="shell">        <main className="content">
           <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refreshAcademic()} />
@@ -239,15 +243,18 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
             <article className="dashboard-recommendation">
               <div className="recommendation-icon">✦</div>
               <div className="recommendation-copy">
-                <p className="gold">{academic?.learning?.priorityTopic || trail ? "RECOMENDADO PARA VOCÊ" : "COMECE POR AQUI"}</p>
-              {academic?.learning?.priorityTopic ? <><h2>{academic.learning.priorityTopic.discipline}</h2><p>Retome {academic.learning.priorityTopic.topic} · {academic.learning.priorityTopic.percentage}% em {academic.learning.priorityTopic.total} respostas</p></> : trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{trail.assuntoPrioritario ?? "Conteudos gerais da disciplina"} · nivel {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></> : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem após seu primeiro diagnóstico concluído.</p></>}
+                <p className="gold">{loadingAcademic ? "CARREGANDO" : priorityTopic || trail ? "RECOMENDADO PARA VOCÊ" : "COMECE POR AQUI"}</p>
+              {loadingAcademic ? <><h2>Carregando suas recomendações</h2><p>Buscando seu diagnóstico e sua atividade recente.</p></>
+                : priorityTopic ? <><h2>{priorityTopic.discipline}</h2><p>{priorityTopic.percentage >= 100 ? `Continue praticando ${priorityTopic.topic} · você acertou todas as ${priorityTopic.total} respostas` : `Retome ${priorityTopic.topic} · ${priorityTopic.percentage}% em ${priorityTopic.total} respostas`}</p></>
+                : trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{metrics.length > 0 && metrics.every((metric) => metric.percentual >= 100) ? "Você acertou todas as questões do diagnóstico. Continue praticando para consolidar · " : ""}{trail.assuntoPrioritario ?? "Conteúdos gerais da disciplina"} · nível {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></>
+                : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem após seu primeiro diagnóstico concluído.</p></>}
               </div>
               {trail && <button className="outline-button" onClick={() => navigate("/trilha")}>Abrir trilha adaptativa</button>}
             </article>
             <div className="dashboard-stats">
-              <article><span>Seu nível</span><strong>{dashboardResult ? labels[dashboardResult.level] ?? dashboardResult.level : "—"}</strong><small>{dashboardResult ? "Resultado do diagnóstico" : "Sem resultado disponível"}</small></article>
-              <article><span>Questões respondidas</span><strong>{academic ? totalAnswered : "—"}</strong><small>{totalAnswered ? `${totalCorrect} acertos em atividades concluídas` : "Aguardando atividade registrada"}</small></article>
-              <article><span>Disciplinas com respostas</span><strong>{academic ? metrics.length : "—"}</strong><small>{academic ? "No desempenho registrado" : "Aguardando dados"}</small></article>
+              <article><span>Seu nível</span><strong>{dashboardResult ? labels[dashboardResult.level] ?? dashboardResult.level : "—"}</strong><small>{loadingAcademic ? "Carregando..." : dashboardResult ? "Resultado do diagnóstico" : "Sem resultado disponível"}</small></article>
+              <article><span>Questões respondidas</span><strong>{academic ? totalAnswered : "—"}</strong><small>{loadingAcademic ? "Carregando..." : totalAnswered ? `${totalCorrect} acertos em atividades concluídas` : "Aguardando atividade registrada"}</small></article>
+              <article><span>Disciplinas com respostas</span><strong>{academic ? metrics.length : "—"}</strong><small>{loadingAcademic ? "Carregando..." : academic ? "No desempenho registrado" : "Aguardando dados"}</small></article>
             </div>
             <div className="dashboard-grid student-entry-cards">
               <article className="panel"><p className="gold">CONTEÚDOS E AULAS</p><h2>Estudar</h2><p className="muted">Aprenda por disciplina, revise e continue suas aulas. Leituras e autoavaliações ficam salvas neste navegador.</p><button className="primary" onClick={() => navigate("/estudar")}>Estudar agora</button></article>
@@ -261,19 +268,19 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
             <div className="dashboard-grid">
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">VISÃO POR MATÉRIA</p><h2>Desempenho por disciplina</h2></div><button className="text-button" onClick={() => navigate("/desempenho")}>Ver meu desempenho</button></div>
-                {metrics.length ? metrics.map((metric) => <div className="metric" key={metric.disciplina}><span>{metric.disciplina}</span><div><i style={{ width: `${metric.percentual}%` }} /></div><b>{metric.percentual}%</b></div>) : <p className="empty-dashboard">O desempenho por matéria será exibido após respostas registradas.</p>}
+                {loadingAcademic ? loadingPanel : metrics.length ? metrics.map((metric) => <div className="metric" key={metric.disciplina}><span>{metric.disciplina}</span><div><i style={{ width: `${metric.percentual}%` }} /></div><b>{metric.percentual}%</b></div>) : <p className="empty-dashboard">O desempenho por matéria será exibido após respostas registradas.</p>}
               </article>
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">EVOLUÇÃO</p><h2>Seu progresso</h2></div></div>
-                <Evolution items={academic?.evolution} />
+                {loadingAcademic ? loadingPanel : <Evolution items={academic?.evolution} />}
               </article>
               <article className="panel dashboard-panel dashboard-activity">
                 <div className="dashboard-panel-heading"><div><p className="gold">ATIVIDADE</p><h2>Atividade recente</h2></div></div>
-                <RecentActivities items={academic?.recentActivities} />
+                {loadingAcademic ? loadingPanel : <RecentActivities items={academic?.recentActivities} />}
               </article>
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">TRILHAS</p><h2>Progresso das trilhas adaptativas</h2></div></div>
-                {academic?.learning?.trailProgress.length ? academic.learning.trailProgress.slice(0, 5).map((item) => <div className="metric" key={item.id}><span>{item.discipline}{item.topic ? ` · ${item.topic}` : ""}</span><div><i style={{ width: `${item.total ? Math.round(item.answered / item.total * 100) : 0}%` }} /></div><b>{item.completed ? "Concluída" : `${item.answered}/${item.total}`}</b></div>) : <p className="empty-dashboard">As trilhas concluídas e em andamento aparecerão aqui.</p>}
+                {loadingAcademic ? loadingPanel : academic?.learning?.trailProgress.length ?academic.learning.trailProgress.slice(0, 5).map((item) => <div className="metric" key={item.id}><span>{item.discipline}{item.topic ? ` · ${item.topic}` : ""}</span><div><i style={{ width: `${item.total ? Math.round(item.answered / item.total * 100) : 0}%` }} /></div><b>{item.completed ? "Concluída" : `${item.answered}/${item.total}`}</b></div>) : <p className="empty-dashboard">As trilhas concluídas e em andamento aparecerão aqui.</p>}
               </article>
             </div>
           </section>

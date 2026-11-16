@@ -34,7 +34,6 @@ export function InstitutionArea({
         id={id}
         session={session}
         onSair={onSair}
-        readOnly={session.administration?.enabled !== true}
       />
     );
   return (

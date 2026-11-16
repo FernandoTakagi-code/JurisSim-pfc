@@ -504,7 +504,7 @@ function TeacherRoster({classId}:{classId:string}) {
   const roster=usePage<EnrolledStudent>(`/turmas/${encodeURIComponent(classId)}/students`);
   const action=useMutation(()=>{roster.reload();});
   const turma=roster.data?.class;
-  return <><Feedback loading={roster.loading} error={roster.error} retry={roster.reload}/>{turma&&<><h2>{turma.nome}</h2>{turma.archivedAt?<p role="status">Turma arquivada: matrículas disponíveis somente para consulta.</p>:<><EnrollmentSearch classId={classId} onChanged={roster.reload}/><ClassMembershipManager teacher classId={classId} requestsOnly /></>}</>}{action.feedback}{roster.data&&<article className="panel"><h2>Alunos matriculados</h2>{!roster.data.items.length&&<p>Nenhum aluno matriculado nesta turma.</p>}<ul className="class-students">{roster.data.items.map(s=><li key={s.id}><div><strong>{s.nome}</strong><span>{s.email}</span><small>Turma: {turma?.nome??s.turmasComoAluno?.find(c=>c.id===classId)?.nome??'Turma selecionada'}</small></div>{turma&&!turma.archivedAt&&<RemoveStudent classId={classId} studentId={s.id} busy={action.busy} remove={()=>action.run(`/turmas/${classId}/students/${s.id}`,'DELETE')}/>}</li>)}</ul><Pagination page={roster.page} hasMore={roster.data.hasMore} change={roster.setPage}/></article>}</>;
+  return <><Feedback loading={roster.loading} error={roster.error} retry={roster.reload}/>{turma&&<><h2>{turma.nome}</h2>{turma.archivedAt?<p role="status">Turma arquivada. Consulte as matrículas registradas.</p>:<><EnrollmentSearch classId={classId} onChanged={roster.reload}/><ClassMembershipManager teacher classId={classId} requestsOnly /></>}</>}{action.feedback}{roster.data&&<article className="panel"><h2>Alunos matriculados</h2>{!roster.data.items.length&&<p>Nenhum aluno matriculado nesta turma.</p>}<ul className="class-students">{roster.data.items.map(s=><li key={s.id}><div><strong>{s.nome}</strong><span>{s.email}</span><small>Turma: {turma?.nome??s.turmasComoAluno?.find(c=>c.id===classId)?.nome??'Turma selecionada'}</small></div>{turma&&!turma.archivedAt&&<RemoveStudent classId={classId} studentId={s.id} busy={action.busy} remove={()=>action.run(`/turmas/${classId}/students/${s.id}`,'DELETE')}/>}</li>)}</ul><Pagination page={roster.page} hasMore={roster.data.hasMore} change={roster.setPage}/></article>}</>;
 }
 
 function EnrollmentSearch({classId,onChanged}:{classId:string;onChanged:()=>void}) {
@@ -700,7 +700,6 @@ function ExamForm({
   const [filters,setFilters]=useState({q:'',disciplina:'',assunto:'',nivel:''}),[appliedFilters,setAppliedFilters]=useState(filters);
   const [selectedCatalog,setSelectedCatalog]=useState<Record<string,Question>>({});
   const [previewId,setPreviewId]=useState('');
-  const preview=useResource<{enunciado:string;alternativas:{texto:string;correta:boolean}[]}>(previewId?`/questoes/${previewId}`:null);
   const savedId=useRef(exam?.id),publishAfter=useRef(false);
   useEffect(()=>{const timer=setTimeout(()=>{setAppliedFilters(filters);setQuestionPage(1);},250);return()=>clearTimeout(timer);},[filters]);
   useEffect(()=>{if(exam)void apiRequest<{questions:Question[]}>(`/avaliacoes/${exam.id}/details?page=1`).then(data=>setSelectedCatalog(Object.fromEntries(data.questions.map(q=>[q.id,q])))).catch(()=>{});},[exam?.id]);
@@ -740,6 +739,7 @@ function ExamForm({
   useEffect(() => {
     if (responsibleTeacherId && !responsibleTeachers.some(teacher => teacher.id === responsibleTeacherId)) setResponsibleTeacherId("");
   }, [classKey, responsibleTeachers.map(teacher => teacher.id).join(",")]);
+  const preview=useResource<{enunciado:string;alternativas:{texto:string;correta:boolean}[]}>(previewId && classKey ? `/avaliacoes/eligible-questions/${previewId}?turmaIds=${encodeURIComponent(classKey)}` : null);
   const previousClasses=useRef(classKey);
   useEffect(()=>{if(previousClasses.current!==classKey){previousClasses.current=classKey;setQuestionPage(1);setSelectedQuestions([]);setSelectedCatalog({});}},[classKey]);
   useEffect(() => {
@@ -799,7 +799,7 @@ function ExamForm({
           turmaIds: selectedClasses,
           questaoIds: selectedQuestions,
           expectedQuestions:quantity,
-          ...(institutional && responsibleTeacherId ? { responsibleTeacherId } : {}),
+          ...(institutional && responsibleTeachers.some(teacher => teacher.id === responsibleTeacherId) ? { responsibleTeacherId } : {}),
         }),
       );
       savedId.current=saved.id;
@@ -926,7 +926,7 @@ function ExamForm({
         <p role="status">{selectedQuestions.length} de {quantity} questões selecionadas{selectedQuestions.length<quantity?` — faltam ${quantity-selectedQuestions.length}`:''}</p>
         <div className="exam-choices exam-question-catalog">
           {visibleQuestions.map((q) => (
-            <label key={q.id}>
+            <div key={q.id} className="exam-question-option"><label>
               <input
                 type="checkbox"
                 checked={selectedQuestions.includes(q.id)}
@@ -938,7 +938,7 @@ function ExamForm({
                 {q.disciplina} · {q.enunciado}
                 {!q.publica && " · Privada"}
               </span>
-            </label>
+            </label><button type="button" className="outline-button" onClick={()=>setPreviewId(q.id)}>Ver alternativas</button></div>
           ))}
         </div>
         {!questionsLoading&&!loadError&&visibleQuestions.length>0&&<p role="status">{visibleQuestions.length} questões elegíveis nesta página. Selecione exatamente {quantity} para o rascunho.</p>}
@@ -953,9 +953,9 @@ function ExamForm({
         {invalidSelection&&<p role="alert">Há questões selecionadas que não estão mais elegíveis. Revise a seleção antes de salvar.</p>}
         {classKey&&loadedKey===requestKey&&!loadError&&(questionPage>1||hasMoreQuestions)&&<Pagination page={questionPage} hasMore={hasMoreQuestions} change={setQuestionPage}/>}
       </fieldset>
-      {step===3&&previewId&&<article className="panel exam-question-preview"><button type="button" className="outline-button" onClick={()=>setPreviewId('')}>Fechar alternativas</button><ResourceState resource={preview}/>{preview.data&&<><p>{preview.data.enunciado}</p><ol type="A">{preview.data.alternativas.map((a,i)=><li key={i}>{a.texto}{a.correta?' ? Correta':''}</li>)}</ol></>}</article>}
-      {step===4&&<article className="exam-review"><h3>Revisar simulado</h3><p><strong>{title}</strong></p><p>{description}</p><p>{minutes?minutes+' minutos':'Sem limite de tempo'}  ? {selectedClasses.length} turma(s)</p><p role="status">{selectedQuestions.length} de {quantity} questões selecionadas{selectedQuestions.length<quantity?` — faltam ${quantity-selectedQuestions.length}`:''}</p><p>Rascunhos incompletos podem ser salvos; a publicação exige a quantidade configurada.</p></article>}
-      {step>=3&&<details className="exam-selection-summary" open={step===4}><summary>Resumo das questões selecionadas ({selectedQuestions.length})</summary>{selectedQuestions.map(id=><div key={id}><span>{selectedCatalog[id]?.disciplina??'Questão selecionada'}  ? {selectedCatalog[id]?.enunciado??'Detalhes disponíveis no catálogo autorizado.'}</span><button type="button" className="outline-button" disabled={busy} onClick={()=>setSelectedQuestions(old=>old.filter(value=>value!==id))}>Remover questão</button></div>)}</details>}
+      {step===3&&previewId&&<article className="panel exam-question-preview"><button type="button" className="outline-button" onClick={()=>setPreviewId('')}>Fechar alternativas</button><ResourceState resource={preview}/>{preview.data&&<><p>{preview.data.enunciado}</p><ol type="A">{preview.data.alternativas.map((a,i)=><li key={i}>{a.texto}{a.correta?' · Correta':''}</li>)}</ol></>}</article>}
+      {step===4&&<article className="exam-review"><h3>Revisar simulado</h3><p><strong>{title}</strong></p><p>{description}</p><p>{minutes?minutes+' minutos':'Sem limite de tempo'} · {selectedClasses.length} turma(s)</p><p role="status">{selectedQuestions.length} de {quantity} questões selecionadas{selectedQuestions.length<quantity?` — faltam ${quantity-selectedQuestions.length}`:''}</p><p>Rascunhos incompletos podem ser salvos; a publicação exige a quantidade configurada.</p></article>}
+      {step>=3&&<details className="exam-selection-summary" open={step===4}><summary>Resumo das questões selecionadas ({selectedQuestions.length})</summary>{selectedQuestions.map(id=><div key={id}><span>{selectedCatalog[id]?.disciplina??'Questão selecionada'} · {selectedCatalog[id]?.enunciado??'Detalhes disponíveis no catálogo autorizado.'}</span><button type="button" className="outline-button" disabled={busy} onClick={()=>setSelectedQuestions(old=>old.filter(value=>value!==id))}>Remover questão</button></div>)}</details>}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -963,7 +963,7 @@ function ExamForm({
       )}
       <div className="class-actions">
         {step>1&&<button type="button" className="outline-button" disabled={busy} onClick={()=>setStep(old=>old-1)}>Etapa anterior</button>}
-        {step<4&&<button type="button" className="primary" disabled={busy||(step===1&&(!title.trim()||title.trim().length<2||!Number.isInteger(quantity)||quantity<1||quantity>80||(minutes!==''&&(!Number.isInteger(Number(minutes))||Number(minutes)<1||Number(minutes)>1440))))||(step===2&&(!selectedClasses.length||classes.loading||Boolean(classes.error)))||(step===3&&(!selectedQuestions.length||selectedQuestions.length>quantity||questionsLoading||Boolean(loadError)))} onClick={()=>setStep(old=>old+1)}>Pr?xima etapa</button>}
+        {step<4&&<button type="button" className="primary" disabled={busy||(step===1&&(!title.trim()||title.trim().length<2||!Number.isInteger(quantity)||quantity<1||quantity>80||(minutes!==''&&(!Number.isInteger(Number(minutes))||Number(minutes)<1||Number(minutes)>1440))))||(step===2&&(!selectedClasses.length||classes.loading||Boolean(classes.error)))||(step===3&&(!selectedQuestions.length||selectedQuestions.length>quantity||questionsLoading||Boolean(loadError)))} onClick={()=>setStep(old=>old+1)}>Próxima etapa</button>}
         <button
           type="submit"
           hidden={step!==4}

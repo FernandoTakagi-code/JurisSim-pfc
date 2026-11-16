@@ -114,7 +114,8 @@ try {
   await evaluate('window.failEnrollment=true');await click('Adicionar à turma');
   await until('document.body.textContent.includes("Falha temporária de matrícula.")');
   await click('Adicionar à turma');
-  await until('document.body.textContent.includes("Aluno vinculado à turma.")&&document.querySelectorAll(".teacher-enrollments > .panel .class-students li").length===1');
+  // Count only the roster panel: the search results above also render a .class-students list.
+  await until('document.body.textContent.includes("Aluno vinculado à turma.")&&[...document.querySelectorAll(".teacher-enrollments .panel")].find(p=>p.querySelector(":scope > h2")?.textContent==="Alunos matriculados")?.querySelectorAll(".class-students li").length===1');
   await until('[...document.querySelectorAll(".enrollment-search button")].some(b=>b.textContent==="Já matriculado"&&b.disabled)');
   assert.equal(await evaluate('document.body.textContent.includes("Turma: Turma vazia")'),true);
   console.log('PASS: class selection, name search, API error, enrollment refresh and duplicate blocking');checks++;

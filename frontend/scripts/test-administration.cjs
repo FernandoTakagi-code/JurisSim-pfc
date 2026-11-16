@@ -87,7 +87,7 @@ vm.runInNewContext(compiled, {
 });
 function render(tab, enabled, extra = {}) {
   route =
-    (tab==="classes"?"/administracao/turmas":navigation.adminSections.find((section) => section.id === tab)?.path) ??
+    ({classes:'/administracao/turmas',teachers:'/administracao/professores',security:'/administracao/seguranca',settings:'/administracao/configuracoes',notifications:'/administracao/notificacoes'}[tab]??navigation.adminSections.find((section) => section.id === tab)?.path) ??
     "/administracao/inexistente";
   stateIndex = 0;
   dependencies = [];
@@ -108,11 +108,7 @@ const sections = [
   "Instituições",
   "Solicitações de cadastro",
   "Usuários",
-  "Professores",
   "Logs e auditoria",
-  "Segurança",
-  "Notificações",
-  "Configurações do sistema",
 ];
 let checks = 0;
 function check(name, fn) {
@@ -121,7 +117,7 @@ function check(name, fn) {
   console.log(`OK ${name}`);
 }
 check(
-  "nove seções acessíveis sem módulo ativo; nenhuma consulta protegida",
+  "cinco seções acessíveis sem módulo ativo; nenhuma consulta protegida",
   () => {
     const { html, paths } = render("overview", false);
     assert.deepEqual(
@@ -132,7 +128,6 @@ check(
     assert.ok(html.includes("Capacidade administrativa desativada"));
     assert.deepEqual(paths, [
       "/institutions/availability",
-      "/audit-logs?limit=5",
     ]);
     assert.ok(!html.includes("Confirmar vínculo"));
   },
@@ -152,7 +147,6 @@ for (const [tab, expected] of [
   ["requests", "/institutions/admin/institutions?page=1&status=PENDING"],
 
   ["audit", "/institutions/admin/logs?page=1"],
-  ["notifications", "/institutions/notifications?page=1"],
 ])
   check(`contrato existente: ${tab}`, () => {
     assert.ok(render(tab, true).paths.includes(expected), expected);
@@ -166,6 +160,25 @@ for (const [tab, expected] of [
 check('ADMIN has no academic class query',()=>{const result=render('classes',true);assert.ok(result.html.includes('Gestão pedagógica institucional'));assert.ok(!result.paths.some(p=>p.startsWith('/institutions/admin/classes')));});
 check('account searches do not load users before a search', () => {
   for (const tab of ['users', 'teachers']) assert.ok(!render(tab, true).paths.some(p => p.startsWith('/institutions/admin/users')));
+});
+check('consulta de usuários reúne professores e remove a revogação indisponível',()=>{
+  const html=render('users',true).html;
+  assert.ok(html.includes('Perfil da conta'));
+  assert.ok(html.includes('Professor'));
+  assert.ok(!html.includes('Revogar bloqueio de reutilização'));
+});
+check('estado do sistema explica cadastro pausado sem prometer controles futuros',()=>{
+  const html=render('settings',false).html;
+  assert.ok(html.includes('Cadastro pausado'));
+  assert.ok(html.includes('independente do cadastro de alunos'));
+  assert.ok(!html.includes('atualização futura'));
+  assert.ok(!html.includes('Não monitorado'));
+});
+check('a rota antiga de avisos abre auditoria sem consultar notificações do ADMIN',()=>{
+  const result=render('notifications',true);
+  assert.ok(result.html.includes('Logs e auditoria'));
+  assert.ok(result.paths.includes('/institutions/admin/logs?page=1'));
+  assert.ok(!result.paths.some(path=>path.startsWith('/institutions/notifications')));
 });
 check("carregamento e erro com opção de tentar novamente", () => {
   assert.ok(
@@ -189,7 +202,7 @@ check(
   "auditoria independente não desaparece quando a flag ou sua consulta falham",
   () => {
     for (const enabled of [false, undefined]) {
-      const { html, paths } = render("audit", enabled, { 7: [] });
+      const { html, paths } = render("audit", enabled, { 8: [] });
       assert.ok(paths.includes("/audit-logs?limit=25"));
       assert.ok(html.includes("Nenhum registro de auditoria neste período"));
       assert.ok(!html.includes("Próxima"));
@@ -205,15 +218,35 @@ check(
       "users",
       "teachers",
       "classes",
-      "notifications",
     ]) {
       const { html } = render(tab, false);
       assert.ok(html.includes(tab==="classes"?"Gestão pedagógica institucional":"Capacidade administrativa desativada"));
     }
     assert.ok(!render('notifications', false).paths.includes('/notifications'));
-    assert.ok(render("settings", false).html.includes("Estado do sistema"));
+    assert.ok(render("settings", false).html.includes("Disponibilidade da plataforma"));
   },
 );
+check('auditoria separa históricos e mantém IDs apenas nos detalhes',()=>{
+ const management=render('audit',true,{9:{items:[{id:'event-demo',event:'INSTITUTION_ACTIVE',occurredAt:'2026-11-16T00:00:00Z',actorId:'actor-demo',result:'SUCCESS',severity:'INFO'}],hasMore:false}});
+ assert.ok(management.html.includes('Instituição aprovada'));
+ assert.ok(management.html.includes('<details class="admin-audit-details">'));
+ assert.ok(management.html.includes('registros de toda a plataforma'));
+ assert.ok(!management.paths.some(p=>p.startsWith('/audit-logs')));
+ const accounts=render('audit',true,{4:'accounts',8:[{id:'login-demo',action:'LOGIN_SUCESSO',occurredAt:'2026-11-16T00:00:00Z',userId:'actor-demo'}]});
+ assert.ok(accounts.html.includes('Login realizado'));
+ assert.ok(accounts.paths.includes('/audit-logs?limit=25'));
+ assert.ok(!accounts.paths.some(p=>p.startsWith('/institutions/admin/logs')));
+ assert.ok(!accounts.html.includes('Próxima'));
+});
+check('visão geral prioriza decisões administrativas e atalhos úteis',()=>{
+ const result=render('overview',true,{4:{users:17,teachers:4},8:{items:[{id:'decision',event:'PERMISSION_CHANGED',occurredAt:'2026-11-16T00:00:00Z',result:'SUCCESS',severity:'INFO'}],hasMore:false}});
+ assert.ok(result.html.includes('Permissão alterada'));
+ assert.ok(!result.html.includes('\\u00'));
+ assert.ok(result.html.includes('Evolução de cadastros'));
+ assert.ok(!result.paths.some(p=>p.startsWith('/audit-logs')));
+ assert.ok(!result.html.includes('Gerenciar professores'));
+ assert.ok(!result.html.includes('Consultar escopo de turmas'));
+});
 check("novos estilos restritos ao painel administrativo", () => {
   const css = fs.readFileSync(
     path.join(root, "src/administration.css"),

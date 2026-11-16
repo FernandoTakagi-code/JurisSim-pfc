@@ -34,12 +34,6 @@ export const institutionSections = [
   },
   { id: "exams", label: "Simulados", group: "Acompanhamento", icon: "file" },
   {
-    id: "reports",
-    label: "Relatórios",
-    group: "Acompanhamento",
-    icon: "chart",
-  },
-  {
     id: "notifications",
     label: "Notificações",
     group: "Sistema",
@@ -53,6 +47,10 @@ export const institutionSections = [
   },
 ] as const;
 export type InstitutionSection = (typeof institutionSections)[number]["id"];
+export function resolveInstitutionSection(value: string | null) {
+  const canonical = value === "reports" ? "performance" : value;
+  return institutionSections.find(section => section.id === canonical) ?? institutionSections[0];
+}
 export function useInstitutionLocation() {
   return useSyncExternalStore(
     (listener) => {
@@ -68,12 +66,12 @@ export function useInstitutionLocation() {
 }
 export function institutionNavigate(
   id: string,
-  section: InstitutionSection,
+  section: InstitutionSection | "reports",
   extra: Record<string, string> = {},
 ) {
   const params = new URLSearchParams({
     instituicao: id,
-    secao: section,
+    secao: resolveInstitutionSection(section).id,
     ...extra,
   });
   sessionStorage.setItem("jurissim_administration_institution", id);

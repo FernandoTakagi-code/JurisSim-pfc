@@ -1,5 +1,5 @@
 import { InstitutionRequest } from './institution-request';
-import { AdminAccountDeletion, EmailReuseRevocation } from './account-deletion';
+import { AdminAccountDeletion } from './account-deletion';
 import { institutionPendingFields, noWebsiteDeclaration } from '../../backend/src/institution-registration';
 import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "./api";
@@ -114,7 +114,7 @@ const sectionDescriptions: Record<AdminSectionId, string> = {
   requests:
     "Analise solicitações institucionais e registre decisões com justificativa.",
   users:
-    "Consulte contas, vínculos e permissões. Alterações dependem das proteções do servidor.",
+    "Pesquise alunos, professores e administradores. Consulte vínculos, situação da conta e acesso administrativo em um só lugar.",
   teachers:
     "Consulte contas de professores e seus vínculos institucionais, sem alterar o histórico acadêmico.",
   classes:
@@ -124,9 +124,9 @@ const sectionDescriptions: Record<AdminSectionId, string> = {
   security:
     "Confira a segurança da sua conta e consulte os eventos de autenticação registrados.",
   notifications:
-    "Consulte notificações institucionais destinadas à sua conta, quando o recurso estiver disponível.",
+    "Mensagens automáticas destinadas à sua conta. Não há envio de recados entre usuários; acessos e alterações ficam em Logs e auditoria.",
   settings:
-    "Consulte os serviços e as funcionalidades disponíveis.",
+    "Confira o acesso à plataforma e a disponibilidade do cadastro e dos painéis institucionais.",
 };
 const institutionalUnavailable: Partial<
   Record<AdminSectionId, { endpoint: string; message: string }>
@@ -359,7 +359,7 @@ export function InstitutionContext({ session }: { session: Session }) {
     </div>
   );
 }
-function Notifications({recent=false}:{recent?:boolean}={}) {
+function Notifications({recent=false,administrative=false}:{recent?:boolean;administrative?:boolean}={}) {
   const [page, setPage] = useState(1);
   const [expanded,setExpanded]=useState(false);
   const resource = useResource<
@@ -368,18 +368,62 @@ function Notifications({recent=false}:{recent?:boolean}={}) {
   if(recent&&!expanded&&resource.data?.items.length===0)return null;
   return (
     <section>
-      <h2>{recent&&!expanded?'Notificações recentes':'Notificações'}</h2>
+      <h2>{administrative?'Avisos para sua conta':recent&&!expanded?'Notificações recentes':'Notificações'}</h2>
       <ResourceState resource={resource} />
-      {resource.data?.items.length === 0 && <p>Nenhuma notificação.</p>}
+      {resource.data?.items.length === 0 && <div className={administrative?'panel admin-empty-state':undefined} role="status"><p>{administrative?'Você não tem avisos no momento.':'Nenhuma notificação.'}</p>{administrative&&<p>O sistema gera avisos para o destinatário de uma decisão institucional ou solicitação de turma. O ADMIN não recebe automaticamente todos esses avisos. Para analisar pedidos de instituições, abra Solicitações de cadastro.</p>}</div>}
       {(recent&&!expanded?resource.data?.items.slice(0,3):resource.data?.items)?.map((n) => (
         <article className="panel" key={n.id}>
           <time>{date(n.createdAt)}</time>
           <p>{n.message}</p>
         </article>
       ))}
-      {recent&&!expanded?((resource.data?.hasMore||(resource.data?.items.length??0)>3)&&<button className="text-button" onClick={()=>setExpanded(true)}>Ver todas as notificações</button>):<Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />}
+      {recent&&!expanded?((resource.data?.hasMore||(resource.data?.items.length??0)>3)&&<button className="text-button" onClick={()=>setExpanded(true)}>Ver todas as notificações</button>):((resource.data?.items.length??0)>0||page>1)&&<Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />}
     </section>
   );
+}
+const auditNames: Record<string, string> = {
+  ACEITE_TERMOS_E_PRIVACIDADE: 'Termos e privacidade aceitos', USUARIO_CADASTRADO: 'Conta criada',
+  LOGIN_SUCESSO: 'Login realizado', LOGIN_FALHA: 'Tentativa de login recusada',
+  DIAGNOSTICO_INICIADO: 'Diagnóstico iniciado', DIAGNOSTICO_FINALIZADO: 'Diagnóstico concluído',
+  QUESTAO_CRIADA: 'Questão criada', QUESTAO_ATUALIZADA: 'Questão atualizada', QUESTAO_EXCLUIDA: 'Questão excluída',
+  PASSWORD_RECOVERY_REQUESTED: 'Recuperação de senha solicitada', PASSWORD_RECOVERY_COMPLETED: 'Senha recuperada',
+  EMAIL_CONFIRMADO: 'E-mail confirmado', SENHA_REDEFINIDA: 'Senha redefinida', CONTA_EXCLUIDA: 'Conta excluída',
+  RECUPERACAO_SENHA_SOLICITADA: 'Recuperação de senha solicitada', INSTITUTION_REQUESTED: 'Cadastro institucional solicitado',
+  INSTITUTION_ACTIVE: 'Instituição aprovada', INSTITUTION_REJECTED: 'Instituição recusada', INSTITUTION_SUSPENDED: 'Instituição suspensa',
+  INSTITUTION_UPDATED: 'Instituição atualizada', INSTITUTION_RESUBMITTED: 'Cadastro institucional reenviado', INSTITUTION_ADMINISTRATIVE_UPDATED: 'Cadastro institucional atualizado',
+  INSTITUTION_RESPONSIBLE_CHANGED: 'Responsável institucional alterado', PERMISSION_CHANGED: 'Permissão alterada',
+  ACCOUNT_SUSPENDED: 'Conta suspensa', ACCOUNT_REACTIVATED: 'Conta reativada', CLASS_CREATED: 'Turma criada',
+  CLASS_CODE_ROTATED: 'Código de convite renovado', ACCESS_DENIED: 'Acesso bloqueado',
+};
+const auditName = (code: string) => auditNames[code] ?? 'Outro evento registrado';
+const severityName = (code: string) => ({ INFO: 'Informação', WARN: 'Atenção', ERROR: 'Erro' }[code] ?? 'Registro');
+function eventOutcome(value: string) {
+  const known: Record<string,string> = { SUCCESS: 'Concluído', FAILED: 'Falha', ACTIVE: 'Aprovada', REJECTED: 'Recusada', PENDING: 'Pendente', SUSPENDED: 'Suspensa' };
+  if (known[value]) return known[value];
+  try { const result = JSON.parse(value); return known[result?.status] ?? 'Registrado'; } catch { return 'Registrado'; }
+}
+function AuditDetails({ event }: { event: Event | PlatformAuditEvent }) {
+  return <details className="admin-audit-details"><summary>Detalhes técnicos</summary><dl>
+    <dt>Código do evento</dt><dd>{'event' in event ? event.event : event.action}</dd>
+    <dt>Registro</dt><dd>{event.id}</dd>
+    <dt>Conta responsável (ID)</dt><dd>{('userId' in event ? event.userId : event.actorId) ?? 'Não identificada'}</dd>
+    <dt>Recurso (ID)</dt><dd>{event.resourceId ?? 'Não informado'}</dd>
+    {'institutionId' in event && <><dt>Instituição (ID)</dt><dd>{event.institutionId ?? 'Não informada'}</dd></>}
+    {'result' in event && <><dt>Resultado registrado</dt><dd>{event.result}</dd></>}
+    {'termsVersion' in event && <><dt>Versão dos termos</dt><dd>{event.termsVersion ?? 'Não se aplica'}</dd><dt>Versão da privacidade</dt><dd>{event.privacyVersion ?? 'Não se aplica'}</dd></>}
+  </dl></details>;
+}
+function AdministrationAudit({ available }: { available: boolean }) {
+  const [source, setSource] = useState('management');
+  const management = available && source === 'management';
+  return <section className="admin-audit-workspace">
+    <p className="admin-audit-scope">Visão global: registros de toda a plataforma, não apenas da sua conta. Escolha um histórico e filtre o período para investigar uma ocorrência.</p>
+    <div className="admin-audit-tabs" role="group" aria-label="Histórico de auditoria">
+      {available && <button aria-pressed={management} onClick={() => setSource('management')}>Gestão administrativa</button>}
+      <button aria-pressed={!management} onClick={() => setSource('accounts')}>Acessos e contas</button>
+    </div>
+    {management ? <AuditPanel /> : <PlatformAuditPanel />}
+  </section>;
 }
 export function AuditPanel({
   institutionId,
@@ -395,38 +439,31 @@ export function AuditPanel({
     [draft, setDraft] = useState<Record<string, string>>(
       initialInstitutionId ? { institutionId: initialInstitutionId } : {},
     );
+  const [validation, setValidation] = useState('');
   const query = new URLSearchParams({ page: String(page), ...filters });
   const resource = useResource<Page<Event>>(
     `/institutions/${institutionId ? `${institutionId}/logs` : "admin/logs"}?${query}`,
   );
   return (
-    <section>
-      <h2>Logs e Auditoria</h2>
+    <section className="panel">
+      <h2>Gestão administrativa</h2>
+      <p>{institutionId ? 'Decisões e alterações desta instituição.' : 'Decisões institucionais, permissões e alterações administrativas.'} Os registros aparecem do mais recente para o mais antigo.</p>
       <form
         className="admin-form"
         onSubmit={(e) => {
           e.preventDefault();
+          if (draft.from && draft.to && new Date(draft.from) > new Date(draft.to)) {
+            setValidation('O início do período deve ser anterior ou igual ao fim.'); return;
+          }
+          setValidation('');
+          const next = Object.fromEntries(Object.entries(draft).filter(([, v]) => v).map(([k,v]) => [k, k === 'from' || k === 'to' ? new Date(v).toISOString() : v]));
+          if (page === 1 && JSON.stringify(next) === JSON.stringify(filters)) resource.reload();
           setPage(1);
-          setFilters(
-            Object.fromEntries(Object.entries(draft).filter(([, v]) => v)),
-          );
+          setFilters(next);
         }}
       >
-        {["event", "actorId", ...(institutionId ? [] : ["institutionId"])].map(
-          (field, i) => (
-            <label key={field}>
-              {["Tipo de evento", "Identificador do responsável", "Identificador da instituição"][i]}
-              <input
-                value={draft[field] ?? ""}
-                maxLength={80}
-                onChange={(e) =>
-                  setDraft({ ...draft, [field]: e.target.value })
-                }
-              />
-            </label>
-          ),
-        )}
-        <label>
+        <label>Evento<select value={draft.event ?? ''} onChange={e=>setDraft({...draft,event:e.target.value})}><option value="">Todos</option>{Object.entries(auditNames).filter(([code])=>!platformAuditActions.includes(code as typeof platformAuditActions[number])).map(([code,name])=><option key={code} value={code}>{name}</option>)}</select></label>
+<label>
           Gravidade
           <select
             value={draft.severity ?? ""}
@@ -443,30 +480,46 @@ export function AuditPanel({
             {i ? "Até" : "Desde"}
             <input
               type="datetime-local"
+              value={draft[field] ?? ''}
               onChange={(e) =>
                 setDraft({
                   ...draft,
-                  [field]: e.target.value
-                    ? new Date(e.target.value).toISOString()
-                    : "",
+                  [field]: e.target.value,
                 })
               }
             />
           </label>
         ))}
+        <details className="admin-audit-advanced"><summary>Filtros avançados por identificador ou código</summary>
+        {["event", "actorId", ...(institutionId ? [] : ["institutionId"])].map(
+          (field, i) => (
+            <label key={field}>
+              {["Tipo de evento", "Identificador do responsável", "Identificador da instituição"][i]}
+              <input
+                value={draft[field] ?? ""}
+                maxLength={80}
+                onChange={(e) =>
+                  setDraft({ ...draft, [field]: e.target.value })
+                }
+              />
+            </label>
+          ),
+        )}
+        </details>
         <button className="primary-button">Aplicar filtros</button>
+        <button type="button" onClick={()=>{const initial: Record<string,string> = initialInstitutionId ? {institutionId:initialInstitutionId} : {};setDraft(initial);setFilters(initial);setPage(1);setValidation('');resource.reload();}}>Limpar filtros</button>
       </form>
+      {validation && <p className="error" role="alert">{validation}</p>}
       <ResourceState resource={resource} />
-      {resource.data?.items.length === 0 && <p>Nenhum evento neste período.</p>}
-      <div className="admin-table-wrap">
+      {resource.data?.items.length === 0 && <p className="empty-dashboard" role="status">Nenhum evento neste período. Amplie as datas ou limpe os filtros.</p>}
+      {!!resource.data?.items.length && <div className="admin-table-wrap">
         <table>
           <thead>
             <tr>
               <th>Data e hora</th>
               <th>Evento</th>
-              <th>Responsável</th>
-              <th>Entidade / instituição</th>
               <th>Resultado</th>
+              <th>Detalhes</th>
             </tr>
           </thead>
           <tbody>
@@ -474,21 +527,17 @@ export function AuditPanel({
               <tr key={e.id}>
                 <td>{date(e.occurredAt)}</td>
                 <td>
-                  <strong>{({CLASS_CREATED:'Turma criada',CLASS_CODE_ROTATED:'Código de convite renovado',ACCESS_DENIED:'Acesso bloqueado'} as Record<string,string>)[e.event] ?? e.event}</strong>
-                  <small>{e.event} · {({INFO:'Informação',WARN:'Aviso',ERROR:'Erro'} as Record<string,string>)[e.severity] ?? e.severity}</small>
+                  <strong>{auditName(e.event)}</strong>
+                  <small>{severityName(e.severity)}</small>
                 </td>
-                <td>{e.actorId ?? "Não identificado"}</td>
-                <td>
-                  {e.resourceId ?? "—"}
-                  <small>{e.institutionId}</small>
-                </td>
-                <td>{({SUCCESS:'Sucesso',FAILED:'Falha'} as Record<string,string>)[e.result] ?? e.result}</td>
+                <td>{eventOutcome(e.result)}</td>
+                <td><AuditDetails event={e}/></td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
-      <Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />
+      </div>}
+      {(!!resource.data?.items.length || page > 1) && <Pages page={page} hasMore={resource.data?.hasMore} change={setPage} />}
     </section>
   );
 }
@@ -505,9 +554,9 @@ function PlatformAuditPanel() {
   const resource = useResource<PlatformAuditEvent[]>(`/audit-logs?${query}`);
   return (
     <section className="panel">
-      <h2>Auditoria da plataforma</h2>
+      <h2>Acessos e contas</h2>
       <p>
-        Registros de autenticação, contas e atividades. Esta consulta é
+        Registros de autenticação, contas e atividades, do mais recente para o mais antigo. Use as datas para consultar registros antigos. Esta consulta é
         independente do módulo institucional e exige ADMIN.
       </p>
       <form
@@ -545,22 +594,12 @@ function PlatformAuditPanel() {
             <option value="">Todas</option>
             {platformAuditActions.map((action) => (
               <option key={action} value={action}>
-                {action}
+                {auditName(action)}
               </option>
             ))}
           </select>
         </label>
-        <label>
-          ID do usuário
-          <input
-            value={draft.userId}
-            maxLength={36}
-            pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
-            title="Identificador UUID do usuário"
-            onChange={(e) => setDraft({ ...draft, userId: e.target.value })}
-          />
-        </label>
-        {(["from", "to"] as const).map((field) => (
+{(["from", "to"] as const).map((field) => (
           <label key={field}>
             {field === "from" ? "Desde" : "Até"}
             <input
@@ -583,7 +622,18 @@ function PlatformAuditPanel() {
             ))}
           </select>
         </label>
-        <button>Consultar registros</button>
+        <details className="admin-audit-advanced"><summary>Filtrar por conta</summary><label>
+          ID do usuário
+          <input
+            value={draft.userId}
+            maxLength={36}
+            pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+            title="Identificador UUID do usuário"
+            onChange={(e) => setDraft({ ...draft, userId: e.target.value })}
+          />
+        </label>
+        </details>
+        <button className="primary-button">Consultar registros</button><button type="button" onClick={()=>{setDraft({action:"",userId:"",from:"",to:"",limit:"25"});setQuery("limit=25");setValidation("");resource.reload();}}>Limpar filtros</button>
       </form>
       {validation && (
         <p className="error" role="alert">
@@ -606,9 +656,7 @@ function PlatformAuditPanel() {
             <tr>
               <th>Data e hora</th>
               <th>Ação</th>
-              <th>ID do usuário</th>
-              <th>Recurso</th>
-              <th>Versões legais</th>
+              <th>Detalhes</th>
             </tr>
           </thead>
           <tbody>
@@ -619,14 +667,7 @@ function PlatformAuditPanel() {
                     {date(event.occurredAt)}
                   </time>
                 </td>
-                <td>{event.action}</td>
-                <td>{event.userId ?? "Não identificado"}</td>
-                <td>{event.resourceId ?? "—"}</td>
-                <td>
-                  {event.termsVersion || event.privacyVersion
-                    ? `Termos: ${event.termsVersion ?? "—"}; Privacidade: ${event.privacyVersion ?? "—"}`
-                    : "—"}
-                </td>
+                <td><strong>{auditName(event.action)}</strong></td><td><AuditDetails event={event}/></td>
               </tr>
             ))}
           </tbody>
@@ -763,26 +804,13 @@ export function GeneralAdministration() {
               </div>
             </>
           ) : tab === "settings" ? (
-            <AdministrationSettings availability={availability.data} />
+            <AdministrationSettings availability={availability.data} refreshAvailability={availability.reload} />
           ) : tab === 'classes' ? (
             <section className="panel"><h2>Gestão pedagógica institucional</h2><p>Turmas e alunos são gerenciados pelos responsáveis e professores autorizados da própria instituição. A administração geral não possui acesso pedagógico rotineiro.</p></section>
           ) : tab === "security" ? (
             <><AdministrationSecurity />{can('users')&&<UserAdministration permissionsOnly/>}</>
           ) : tab === "audit" ? (
-            <>
-              <PlatformAuditPanel />
-              {can("audit") ? (
-                <AuditPanel />
-              ) : availability.data?.enabled === false ? (
-                <section className="panel">
-                  <h2>Auditoria institucional indisponível</h2>
-                  <p>
-                    A auditoria de instituições, convites e vínculos não está disponível no momento.
-                    Você pode consultar a auditoria da plataforma acima.
-                  </p>
-                </section>
-              ) : null}
-            </>
+            <AdministrationAudit available={can("audit")} />
           ) : tab && can(tab as AdministrativeCapability) ? (
             <div className="admin-section-content" key={tab}>
               {tab === "institutions" ? (
@@ -799,8 +827,6 @@ export function GeneralAdministration() {
                 <UserAdministration />
               ) : tab === "teachers" ? (
                 <UserAdministration initialRole="PROFESSOR" />
-              ) : tab === "notifications" ? (
-                <Notifications />
               ) : null}
             </div>
           ) : null}
@@ -809,20 +835,12 @@ export function GeneralAdministration() {
     </section>
   );
 }
-function AdministrationSettings({ availability }: { availability?: AdministrationAvailability }) {
+function AdministrationSettings({ availability, refreshAvailability }: { availability?: AdministrationAvailability; refreshAvailability:()=>void }) {
   const health = useResource<{status: string}>("/health");
   return <div className="admin-settings">
-    <section className="panel"><h2>Estado do sistema</h2><ResourceState resource={health}/><dl>
-      <dt>Serviço</dt><dd>{health.loading ? 'Verificando…' : health.error ? 'Não foi possível verificar' : health.data?.status === 'ok' ? 'Disponível' : 'Indisponível'}</dd>
-      <dt>Serviço de e-mails</dt><dd>Não monitorado</dd>
-    </dl><button onClick={health.reload} disabled={health.loading}>Atualizar verificação</button></section>
-    <section className="panel"><h2>Funcionalidades</h2><dl>{[
-      ['Cadastro institucional', availability?.registrationEnabled],
-      ['Administração geral', availability?.administrationEnabled],
-      ['Operações institucionais completas', availability?.enabled],
-      ['Convites e vínculos institucionais', availability?.enabled],
-    ].map(([name, value]) => <div key={String(name)}><dt>{name}</dt><dd>{value === undefined ? 'Não foi possível verificar' : value ? 'Habilitada' : 'Desabilitada'}</dd></div>)}</dl></section>
-    <section className="panel"><h2>Controles administrativos</h2><p>As capacidades exibidas s\u00e3o definidas por configura\u00e7\u00e3o segura do servidor e da implanta\u00e7\u00e3o. Esta interface n\u00e3o altera essas configura\u00e7\u00f5es nem apresenta altera\u00e7\u00f5es locais como persistidas.</p></section>
+    <section className="panel"><h2>Conexão com a plataforma</h2><ResourceState resource={health}/><p>{health.loading ? 'Verificando a conexão…' : health.error ? 'Não foi possível consultar a plataforma agora. Tente atualizar a verificação.' : health.data?.status === 'ok' ? 'A plataforma está respondendo.' : 'A plataforma não confirmou sua disponibilidade.'}</p><p className="muted">Esta verificação confere a resposta da API; não testa o envio de e-mails nem todos os recursos.</p><button onClick={()=>{health.reload();refreshAvailability();}} disabled={health.loading}>Atualizar verificação</button></section>
+    <section className="panel"><h2>Cadastro de instituições</h2><p className="admin-status-label">{availability===undefined?'Aguardando consulta':registrationAvailable(availability)?'Recebendo solicitações':'Cadastro pausado'}</p><p>{availability===undefined?'Atualize a verificação para consultar a disponibilidade.':registrationAvailable(availability)?'Novas instituições podem enviar uma solicitação para análise do administrador.':'Novas instituições ainda não podem enviar solicitações. As instituições já registradas continuam disponíveis para consulta no ADMIN.'}</p><p className="muted">Essa configuração é independente do cadastro de alunos. A alteração é feita no ambiente de publicação pela equipe responsável.</p></section>
+    <section className="panel"><h2>Acesso aos painéis</h2><dl className="admin-availability-list"><div><dt>Administração geral</dt><dd>{availability===undefined?'Aguardando consulta':(availability.administrationEnabled??availability.enabled)?'Disponível':'Indisponível'}</dd></div><div><dt>Área das instituições</dt><dd>{availability===undefined?'Aguardando consulta':availability.enabled?'Disponível':'Aguardando ativação'}</dd></div></dl><p className="muted">A área institucional permite aos responsáveis gerenciar professores, convites e turmas. Liberar o ADMIN não ativa essa área automaticamente.</p></section>
   </div>;
 }
 type AdminSummary = {
@@ -849,7 +867,7 @@ function SummaryBars({
     <section className="panel dashboard-panel">
       <h2>{title}</h2>
       {items.length ? (
-        <div className="summary-bars" role="img" aria-label={`${title}, dados dos \u00faltimos 30 dias`}>
+        <div className="summary-bars" role="img" aria-label={`${title}, dados dos últimos 30 dias`}>
           {items.map((item) => (
             <div className="summary-bar-column" key={item.day} title={`${item.day}: ${item[valueKey] ?? 0}`}>
               <span style={{ height: `${Math.max(3, ((item[valueKey] ?? 0) / max) * 100)}%` }} />
@@ -857,7 +875,7 @@ function SummaryBars({
             </div>
           ))}
         </div>
-      ) : <p className="empty-dashboard">Sem registros no per\u00edodo consultado.</p>}
+      ) : <p className="empty-dashboard">Sem registros no período consultado.</p>}
     </section>
   );
 }
@@ -865,16 +883,16 @@ function GlobalIndicators({ enabled }: { enabled: boolean }) {
   const resource = useResource<AdminSummary>(enabled ? "/institutions/admin/summary" : null);
   const data = resource.data;
   const titles: [keyof AdminSummary, string, string][] = [
-    ["users", "Contas cadastradas", "Contas n\u00e3o exclu\u00eddas"],
+    ["users", "Contas cadastradas", "Contas não excluídas"],
     ["students", "Alunos cadastrados", "Contas com perfil de aluno"],
-    ["teachers", "Professores vinculados", "V\u00ednculos ativos em institui\u00e7\u00f5es ativas"],
-    ["institutions", "Institui\u00e7\u00f5es", "Cadastros institucionais"],
-    ["classes", "Turmas ativas", "Turmas operacionais vis\u00edveis"],
-    ["pending", "Solicita\u00e7\u00f5es pendentes", "Aguardando an\u00e1lise"],
-    ["publishedExams", "Simulados publicados", "Avalia\u00e7\u00f5es dispon\u00edveis"],
-    ["publishedActivities", "Atividades publicadas", "Indispon\u00edvel se a estrutura n\u00e3o estiver instalada"],
-    ["completedActivities", "Atividades conclu\u00eddas", "Entregas finalizadas"],
-    ["newUsers", "Novos cadastros", "\u00daltimos 30 dias"],
+    ["teachers", "Professores vinculados", "Vínculos ativos em instituições ativas"],
+    ["institutions", "Instituições", "Cadastros institucionais"],
+    ["classes", "Turmas ativas", "Turmas operacionais visíveis"],
+    ["pending", "Solicitações pendentes", "Aguardando análise"],
+    ["publishedExams", "Simulados publicados", "Avaliações disponíveis"],
+    ["publishedActivities", "Atividades publicadas", "Indisponível se a estrutura não estiver instalada"],
+    ["completedActivities", "Atividades concluídas", "Entregas finalizadas"],
+    ["newUsers", "Novos cadastros", "Últimos 30 dias"],
   ];
   return (
     <>
@@ -883,43 +901,40 @@ function GlobalIndicators({ enabled }: { enabled: boolean }) {
         {titles.map(([key, title, description]) => (
           <article key={key}>
             <span>{title}</span>
-            <strong>{typeof data?.[key] === "number" ? (data[key] as number).toLocaleString("pt-BR") : data?.[key] === null ? "Indispon\u00edvel" : "\u2014"}</strong>
-            <small>{!enabled ? "M\u00f3dulo desativado" : resource.loading ? "Carregando\u2026" : resource.error ? "Falha ao consultar" : description}</small>
+            <strong>{typeof data?.[key] === "number" ? (data[key] as number).toLocaleString("pt-BR") : data?.[key] === null ? "Indisponível" : "—"}</strong>
+            <small>{!enabled ? "Módulo desativado" : resource.loading ? "Carregando…" : resource.error ? "Falha ao consultar" : description}</small>
           </article>
         ))}
       </div>
       {data && (
         <>
           <div className="dashboard-grid admin-charts">
-            <SummaryBars title="Evolu\u00e7\u00e3o de cadastros" items={data.registrationsByDay ?? []} />
+            <SummaryBars title="Evolução de cadastros" items={data.registrationsByDay ?? []} />
             <section className="panel dashboard-panel">
-              <h2>Distribui\u00e7\u00e3o de usu\u00e1rios por perfil</h2>
+              <h2>Distribuição de usuários por perfil</h2>
               {(data.userDistribution ?? []).length ? (
                 <div className="profile-distribution">
                   {(data.userDistribution ?? []).map((item) => (
                     <div key={item.profile}>
-                      <span>{item.profile}</span><strong>{item.count.toLocaleString("pt-BR")}</strong>
+                      <span>{({ALUNO:"Aluno",PROFESSOR:"Professor",ADMIN:"Administrador",INSTITUTIONAL_OWNER:"Responsável institucional",INVITED_TEACHER:"Professor convidado"} as Record<string,string>)[item.profile] ?? "Outro perfil"}</span><strong>{item.count.toLocaleString("pt-BR")}</strong>
                       <i><b style={{ width: `${data.users ? Math.max(1, (item.count / data.users) * 100) : 0}%` }} /></i>
                     </div>
                   ))}
                 </div>
-              ) : <p className="empty-dashboard">Sem usu\u00e1rios para apresentar.</p>}
+              ) : <p className="empty-dashboard">Sem usuários para apresentar.</p>}
             </section>
-            <SummaryBars title="Crescimento de institui\u00e7\u00f5es" items={data.institutionGrowthByDay ?? []} />
+            <SummaryBars title="Crescimento de instituições" items={data.institutionGrowthByDay ?? []} />
             <SummaryBars title="Alunos participantes por dia" items={data.participationByDay ?? []} valueKey="students" />
           </div>
           <div className="admin-quick-actions panel">
-            <h2>A\u00e7\u00f5es administrativas</h2>
+            <h2>Ações administrativas</h2>
             <div className="admin-actions">
-              <button onClick={() => navigate("/administracao/instituicoes")}>Gerenciar institui\u00e7\u00f5es</button>
-              <button onClick={() => navigate("/administracao/solicitacoes")}>Analisar solicita\u00e7\u00f5es</button>
-              <button onClick={() => navigate("/administracao/usuarios")}>Consultar usu\u00e1rios</button>
-              <button onClick={() => navigate("/administracao/professores")}>Gerenciar professores</button>
-              <button onClick={() => navigate("/administracao/turmas")}>Consultar escopo de turmas</button>
+              <button onClick={() => navigate("/administracao/instituicoes")}>Gerenciar instituições</button>
+              <button onClick={() => navigate("/administracao/solicitacoes")}>Analisar solicitações</button>
+              <button onClick={() => navigate("/administracao/usuarios")}>Consultar usuários</button>
               <button onClick={() => navigate("/administracao/auditoria")}>Logs e auditoria</button>
-              <button onClick={() => navigate("/administracao/configuracoes")}>Configura\u00e7\u00f5es</button>
             </div>
-            <p>O gerenciamento pedag\u00f3gico de turmas continua restrito \u00e0 institui\u00e7\u00e3o e aos professores autorizados.</p>
+            <p>O gerenciamento pedagógico de turmas continua restrito à instituição e aos professores autorizados.</p>
           </div>
         </>
       )}
@@ -928,53 +943,9 @@ function GlobalIndicators({ enabled }: { enabled: boolean }) {
 }
 
 function RecentAdministrativeEvents({ enabled }: { enabled: boolean }) {
-  const platform = useResource<PlatformAuditEvent[]>("/audit-logs?limit=5");
-  const resource = useResource<Page<Event>>(
-    enabled ? "/institutions/admin/logs?page=1" : null,
-  );
-  return (
-    <>
-      <h3>Atividade da plataforma</h3>
-      <ResourceState resource={platform} />
-      {platform.data?.length === 0 && (
-        <p className="empty-dashboard">
-          Nenhum registro recente de auditoria da plataforma.
-        </p>
-      )}
-      {platform.data?.map((event) => (
-        <div className="admin-event-row" key={event.id}>
-          <div>
-            <strong>{event.action}</strong>
-            <p>{event.userId ?? "Usuário não identificado"}</p>
-          </div>
-          <time dateTime={event.occurredAt}>{date(event.occurredAt)}</time>
-        </div>
-      ))}
-      <h3>Atividade institucional</h3>
-      <ResourceState resource={resource} />
-      {!enabled ? (
-        <p className="empty-dashboard">
-          Disponível após a ativação autorizada do módulo institucional.
-        </p>
-      ) : resource.data?.items.length === 0 ? (
-        <p className="empty-dashboard">
-          Nenhum evento administrativo registrado.
-        </p>
-      ) : (
-        resource.data?.items.slice(0, 5).map((event) => (
-          <div className="admin-event-row" key={event.id}>
-            <div>
-              <strong>{event.event}</strong>
-              <p>
-                {event.result} · {event.severity}
-              </p>
-            </div>
-            <time dateTime={event.occurredAt}>{date(event.occurredAt)}</time>
-          </div>
-        ))
-      )}
-    </>
-  );
+ const resource = useResource<Page<Event>>(enabled ? '/institutions/admin/logs?page=1' : null);
+ return <><p>Decisões e alterações administrativas recentes. Os logins ficam em Logs e auditoria → Acessos e contas.</p><ResourceState resource={resource}/>
+ {!enabled ? <p className="empty-dashboard">Histórico administrativo indisponível nesta configuração.</p> : resource.data?.items.length === 0 ? <p className="empty-dashboard">Nenhuma movimentação administrativa registrada.</p> : resource.data?.items.slice(0,5).map(event=><div className="admin-event-row" key={event.id}><div><strong>{auditName(event.event)}</strong><p>{eventOutcome(event.result)} · {severityName(event.severity)}</p></div><time dateTime={event.occurredAt}>{date(event.occurredAt)}</time></div>)}</>;
 }
 const institutionPendingCategories: [string, string[]][] = [
   ['Identificação institucional', ['Razão social', 'Nome fantasia', 'CNPJ', 'CNPJ inválido', 'Tipo']],
@@ -1186,7 +1157,7 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
   return (
     <>
       <h2>{permissionsOnly?'Permissões administrativas':initialRole === 'PROFESSOR'?'Consulta de professores e vínculos':'Consulta de contas'}</h2>
-      {!permissionsOnly && <EmailReuseRevocation />}
+      {!permissionsOnly && <p className="muted">Para encontrar professores, selecione Professor no filtro Perfil da conta. A segurança da sua própria conta fica em Perfil e configurações.</p>}
       <form
         className="admin-form"
         onSubmit={(e) => {
@@ -1211,9 +1182,8 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
           />
         </label>
         <label>
-          Perfil global
+          Perfil da conta
           <select
-            disabled={initialRole === "PROFESSOR"}
             value={role}
             onChange={(e) => {
               setRole(e.target.value);
@@ -1288,7 +1258,7 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
               {u.suspended ? "Reativar" : "Suspender"}
             </button>}
             {!permissionsOnly && <AdminAccountDeletion userId={u.id} email={u.email} disabled={action.busy || u.id === currentUserId} onDone={resource.reload} />}
-            {permissionsOnly&&<button
+            {(u.role==='ADMIN'||u.role==='PROFESSOR'||u.memberships.some(m=>m.role==='INSTITUTION_ADMIN'))&&<details className="admin-permission-tools"><summary>Acesso de administrador</summary><p>Este acesso permite administrar a plataforma inteira. O vínculo de professor ou responsável institucional é separado.</p><button
               className="account-action-button"
               disabled={action.busy || u.id === currentUserId}
               onClick={() =>
@@ -1305,7 +1275,7 @@ function UserAdministration({ initialRole = "",permissionsOnly=false }: { initia
               {u.role === "ADMIN"
                 ? "Revogar administração geral"
                 : "Conceder administração geral"}
-            </button>}
+            </button></details>}
           </div>
         </article>
       ))}

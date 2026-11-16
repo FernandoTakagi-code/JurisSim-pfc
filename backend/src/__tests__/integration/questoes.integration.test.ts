@@ -22,13 +22,21 @@ beforeEach(async () => {
   await limparBanco();
 });
 
+// Professores cadastram apenas questões privadas dentro de uma turma autorizada.
+async function turmaDoProfessor(token: string) {
+  const turma = await requisicao(baseUrl, 'POST', '/turmas', { token, corpo: { nome: 'Turma de cadastro' } });
+  expect(turma.status).toBe(201);
+  return turma.corpo.turma.id as string;
+}
+
 describe('POST /questoes (Controller + Service + Repository + BD)', () => {
   it('deveRetornar201EAQuestaoCriadaQuandoProfessorCadastra', async () => {
     // Arrange
     const professor = await criarUsuario('PROFESSOR');
+    const turmaId = await turmaDoProfessor(tokenPara(professor));
 
     // Act
-    const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token: tokenPara(professor), corpo: questaoValida() });
+    const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token: tokenPara(professor), corpo: questaoValida({ publica: false, turmaId }) });
 
     // Assert - status e corpo da resposta
     expect(resposta.status).toBe(201);
@@ -38,6 +46,15 @@ describe('POST /questoes (Controller + Service + Repository + BD)', () => {
     expect(resposta.corpo.alternativas.filter((a: { correta: boolean }) => a.correta)).toHaveLength(1);
     // Assert - persistido de fato no banco
     expect(await prisma.questao.count()).toBe(1);
+  });
+
+  it('deveRetornar403QuandoProfessorCadastraQuestaoPublicaOuSemTurma', async () => {
+    const professor = await criarUsuario('PROFESSOR');
+    const turmaId = await turmaDoProfessor(tokenPara(professor));
+    for (const corpo of [questaoValida(), questaoValida({ publica: false }), questaoValida({ publica: true, turmaId })]) {
+      expect((await requisicao(baseUrl, 'POST', '/questoes', { token: tokenPara(professor), corpo })).status).toBe(403);
+    }
+    expect(await prisma.questao.count()).toBe(0);
   });
 
   it('deveRetornar403ENaoGravarNadaQuandoAlunoTentaCadastrarQuestao', async () => {
@@ -84,7 +101,8 @@ describe('QuestaoRepository (persistência com PostgreSQL de teste)', () => {
   it('deveSalvarQuestaoComAlternativasERegistrarLogDeAuditoriaNaMesmaTransacao', async () => {
     // Arrange
     const professor = await criarUsuario('PROFESSOR');
-    const { alternativas, ...dados } = questaoValida();
+    const turmaId = await turmaDoProfessor(tokenPara(professor));
+    const { alternativas, ...dados } = questaoValida({ publica: false, turmaId });
 
     // Act
     const criada = await QuestaoRepository.criar(
@@ -109,8 +127,12 @@ describe('QuestaoRepository (persistência com PostgreSQL de teste)', () => {
     const professorB = await criarUsuario('PROFESSOR');
     const aluno = await criarUsuario('ALUNO');
     const { alternativas, ...dados } = questaoValida();
-    await QuestaoRepository.criar({ ...dados, nivel: 'BASICO', publica: true, autorId: professorA.id, alternativas }, professorA.id, 'PROFESSOR');
-    await QuestaoRepository.criar({ ...dados, enunciado: `${dados.enunciado} Versão privada distinta.`, nivel: 'BASICO', publica: false, autorId: professorB.id, alternativas }, professorB.id, 'PROFESSOR');
+    const turmaA = await turmaDoProfessor(tokenPara(professorA));
+    const turmaB = await turmaDoProfessor(tokenPara(professorB));
+    const historica = await QuestaoRepository.criar({ ...dados, nivel: 'BASICO', publica: false, turmaId: turmaA, autorId: professorA.id, alternativas }, professorA.id, 'PROFESSOR');
+    // Questão global histórica: o CRUD docente não publica no banco global.
+    await prisma.questao.update({ where: { id: historica.id }, data: { publica: true, turmaId: null } });
+    await QuestaoRepository.criar({ ...dados, enunciado: `${dados.enunciado} Versão privada distinta.`, nivel: 'BASICO', publica: false, turmaId: turmaB, autorId: professorB.id, alternativas }, professorB.id, 'PROFESSOR');
 
     // Act
     const visaoPublica = await QuestaoRepository.listar({}, aluno.id, 'ALUNO');
@@ -135,8 +157,11 @@ describe('Fluxo completo: login -> cadastro de questão -> consulta (API + Servi
     const login = await requisicao(baseUrl, 'POST', '/auth/login', {
       corpo: { email: professor.email, senha: 'senha-do-professor', perfil: 'PROFESSOR' },
     });
-    // Act 2 - cadastro com o token emitido pelo login
-    const criacao = await requisicao(baseUrl, 'POST', '/questoes', { token: login.corpo.token, corpo: questaoValida() });
+    // Act 2 - cadastro com o token emitido pelo login, dentro de uma turma do professor
+    const turmaId = await turmaDoProfessor(login.corpo.token);
+    const criacao = await requisicao(baseUrl, 'POST', '/questoes', { token: login.corpo.token, corpo: questaoValida({ publica: false, turmaId }) });
+    // Simula a liberação no banco global, que não é feita pelo CRUD docente.
+    await prisma.questao.update({ where: { id: criacao.corpo.id }, data: { publica: true, turmaId: null } });
     // Act 3 - consultas
     const minhas = await requisicao(baseUrl, 'GET', '/questoes?minhas=true', { token: login.corpo.token });
     const visaoAluno = await requisicao(baseUrl, 'GET', '/questoes', { token: tokenPara(aluno) });

@@ -162,8 +162,11 @@ function run(command, args, input, allowAfterStop = false, environment = env) {
   // On Windows, postgres can inherit pg_ctl's pipe handles and keep spawnSync
   // waiting after pg_ctl has exited. The server already writes to postgres.log.
   const controller = path.basename(command).startsWith('pg_ctl') && ['start', 'stop'].includes(args.at(-1));
+  // A full Vitest integration run takes ~90 s on a fast machine and exceeds the
+  // 2-minute cap on slower ones; give it its own budget instead of killing it.
+  const vitestRun = args.some(arg => String(arg).includes('vitest'));
   const result = spawnSync(command, args, { cwd: backend, env: environment, input,
-    stdio: controller ? 'ignore' : 'pipe', encoding: 'utf8', windowsHide: true, timeout: 120_000 });
+    stdio: controller ? 'ignore' : 'pipe', encoding: 'utf8', windowsHide: true, timeout: vitestRun ? 1_800_000 : 120_000 });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `${path.basename(command)} failed:\n${redact(result.stdout)}\n${redact(result.stderr)}`);
   return redact(result.stdout || '').trim();

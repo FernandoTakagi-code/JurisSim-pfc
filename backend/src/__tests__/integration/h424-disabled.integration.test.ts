@@ -90,12 +90,53 @@ describe('H4.24 current safety policy against disposable PostgreSQL', () => {
     expect(await prisma.institution.findUniqueOrThrow({ where: { id: institution.id } })).toEqual(institution);
     expect(await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).toEqual(user);
   });
-  it('cannot be enabled by environment variables and repeated requests create no deletion audit', async () => {
-    const user = await fixture();
+  it('administrative deletion cannot be enabled by environment variables', async () => {
+    const admin = await fixture('ADMIN'), user = await fixture();
     vi.stubEnv('ACCOUNT_DELETION_ENABLED', 'true'); vi.stubEnv('EMAIL_REUSE_BLOCKS_ENABLED', 'true');
     expect(accountDeletionEnabled()).toBe(false);
-    for (let attempt = 0; attempt < 2; attempt++) expect((await request('DELETE', '/auth/conta', user, proof)).status).toBe(503);
+    for (let attempt = 0; attempt < 2; attempt++) expect((await request('DELETE', `/institutions/admin/users/${user.id}`, admin, { ...proof, blockEmail: false, reason: 'Disposable review' })).status).toBe(503);
     expect(await prisma.auditLog.count({ where: { userId: user.id, action: 'CONTA_EXCLUIDA' } })).toBe(0);
     expect(await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).toEqual(user);
+  });
+});
+
+describe('Student self-deletion against disposable PostgreSQL', () => {
+  // DELETE /auth/conta allows 5 requests per 15 min per route instance; the
+  // suite above already spent that budget, so these scenarios get a fresh app.
+  let selfServer: Server, sharedBase = '';
+  beforeAll(async () => {
+    const app = express(); app.use(express.json()); app.use('/auth', createAuthRoutes()); app.use(errorHandler);
+    selfServer = app.listen(0, '127.0.0.1'); await new Promise<void>(resolve => selfServer.once('listening', resolve));
+    sharedBase = base; base = `http://127.0.0.1:${(selfServer.address() as { port: number }).port}`;
+  });
+  afterAll(async () => { base = sharedBase; selfServer.closeAllConnections(); await new Promise<void>(resolve => selfServer.close(() => resolve())); });
+
+  it('stays unavailable while the environment lacks the email-reuse policy', async () => {
+    const user = await fixture();
+    vi.stubEnv('EMAIL_REUSE_BLOCKS_ENABLED', 'false');
+    expect((await request('DELETE', '/auth/conta', user, proof)).status).toBe(503);
+    expect(await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).toEqual(user);
+  });
+  it('anonymizes the student, revokes the session and keeps the audit once', async () => {
+    vi.stubEnv('EMAIL_REUSE_BLOCKS_ENABLED', 'true');
+    const user = await fixture();
+    expect((await request('DELETE', '/auth/conta', user, { confirmation: 'EXCLUIR', senhaAtual: 'wrong-password' })).status).toBe(400);
+    expect((await request('DELETE', '/auth/conta', user, proof)).status).toBe(200);
+    const deleted = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(deleted.deletedAt).not.toBeNull();
+    expect(deleted.email).toBe(`deleted-${user.id}@jurissim.invalid`);
+    expect(deleted.senhaHash).toBeNull();
+    expect((await request('GET', '/auth/session', user)).status).toBe(401);
+    expect((await request('DELETE', '/auth/conta', user, proof)).status).toBe(401);
+    expect(await prisma.auditLog.count({ where: { userId: user.id, action: 'CONTA_EXCLUIDA' } })).toBe(1);
+  });
+  it('does not let PROFESSOR or ADMIN delete themselves through the profile route', async () => {
+    vi.stubEnv('EMAIL_REUSE_BLOCKS_ENABLED', 'true');
+    // Service-level check keeps the route's rate-limit budget for the scenarios above.
+    for (const role of ['PROFESSOR', 'ADMIN'] as const) {
+      const user = await fixture(role);
+      await expect(service.self(user.id, { senhaAtual: password })).rejects.toMatchObject({ statusCode: 403 });
+      expect(await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).toEqual(user);
+    }
   });
 });

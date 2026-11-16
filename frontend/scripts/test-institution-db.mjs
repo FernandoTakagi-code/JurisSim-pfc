@@ -281,7 +281,6 @@ try {
     "students",
     "performance",
     "exams",
-    "reports",
     "notifications",
     "settings",
   ];
@@ -432,7 +431,7 @@ try {
     );
   }
   console.log(
-    "PASS REAL DB UI: login verdadeiro, sessão do backend e onze módulos com PostgreSQL descartável; nenhum fetch/sessão substituído.",
+    "PASS REAL DB UI: login verdadeiro, sessão do backend e dez módulos com PostgreSQL descartável; nenhum fetch/sessão substituído.",
   );
 } catch (error) {
   const diagnosticPath = path.join(process.cwd(), '.artifacts/institution-real-db/diagnostics.json');

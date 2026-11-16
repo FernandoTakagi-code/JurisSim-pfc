@@ -135,6 +135,8 @@ try {
   // Finish the remaining persisted fixture answers, then exercise the real UI submission.
   await evaluate('(()=>{const s=JSON.parse(sessionStorage.getItem("flow-state"));for(let i=0;i<30;i++)s.answers["q"+i]="q"+i+"A";sessionStorage.setItem("flow-state",JSON.stringify(s));})()');
   await cdp('Page.reload');await until('!!document.querySelector("input[name=exam-answer]")');
+  // After the reload the answer input can render before the submit buttons; wait for them.
+  await until('[...document.querySelectorAll("button")].some(b=>b.textContent.includes("Revisar e entregar"))');
   await click('Revisar e entregar');await until('!!document.querySelector("dialog[open]")');
   await evaluate('document.querySelector("dialog[open] .individual-primary").click()');
   await until('document.body.textContent.includes("100%")');

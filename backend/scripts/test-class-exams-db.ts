@@ -100,7 +100,9 @@ async function main() {
   await expectStatus(`/avaliacoes/${exam.id}/publish`, b, 'POST', undefined, 404);
   assert.equal((await expectStatus('/avaliacoes', alice)).items.length, 0);
   await expectStatus(`/avaliacoes/${exam.id}/attempts`, alice, 'POST', undefined, 404);
-  await expectStatus(`/questoes/${question.id}`, a, 'PUT', { enunciado: 'Forbidden question mutation' }, 409);
+  // Public bank question: teachers cannot manage it at all (403). The 409 for a used
+  // private class question is covered by teacher-class-questions.integration.test.ts.
+  await expectStatus(`/questoes/${question.id}`, a, 'PUT', { enunciado: 'Forbidden question mutation' }, 403);
   await expectStatus(`/avaliacoes/${exam.id}/publish`, a, 'POST');
   await expectStatus(`/avaliacoes/${exam.id}`, a, 'PUT', input, 409);
   assert.equal((await expectStatus('/avaliacoes', alice)).items.length, 1);

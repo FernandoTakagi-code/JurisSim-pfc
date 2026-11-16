@@ -19,7 +19,9 @@ import {
   institutionSections,
   institutionNavigate,
   useInstitutionLocation,
+  canManageInstitution,
   canViewInstitution,
+  resolveInstitutionSection,
   type InstitutionSection,
 } from "./institution-navigation";
 import "./institution-dashboard.css";
@@ -163,17 +165,22 @@ function InstitutionWorkspace({
 }) {
   const location = useInstitutionLocation();
   const params = new URL(location, window.location.origin).searchParams;
-  const current = institutionSections.find(
-    (s) => s.id === (params.get("secao") ?? "overview"),
-  ) ?? institutionSections[0];
+  const current = resolveInstitutionSection(params.get("secao"));
   const section = current.id;
   useEffect(() => {
     if (params.get("secao") === "activities") institutionNavigate(id, "overview");
+    if (params.get("secao") === "reports") institutionNavigate(id, "performance", {
+      ...(params.get("turma") ? {turma: params.get("turma")!} : {}),
+      ...(params.get("aluno") ? {aluno: params.get("aluno")!} : {}),
+    });
   }, [location, id]);
   const [page, setPage] = useState(1);
   const [classRevision, setClassRevision] = useState(0);
   const [dialogBusy, setDialogBusy] = useState(false);
   const [invitationNotice, setInvitationNotice] = useState("");
+  useEffect(() => {
+    if (section !== "teachers" && section !== "invitations") setInvitationNotice("");
+  }, [section]);
   const summary = useResource<Summary>(
     `/institutions/${id}/summary?page=${page}`,
   );
@@ -205,9 +212,6 @@ function InstitutionWorkspace({
     setProfile(false);
     setDialog(undefined);
   }, [location]);
-  useEffect(() => {
-    if (section !== "teachers" && section !== "invitations") setInvitationNotice("");
-  }, [section]);
   useEffect(() => {
     if (!mobile) return;
     const escape = (e: KeyboardEvent) => {
@@ -468,7 +472,7 @@ function InstitutionWorkspace({
                 {section === "students" && (
                   <ClassStudents institutional key={params.get("turma") ?? "all"} classId={params.get("turma") ?? undefined} onBack={() => go("classes")} />
                 )}
-                {(section === "performance" || section === "reports") &&
+                {section === "performance" &&
                   (params.get("turma") && params.get("aluno") ? (
                     <StudentClassReport
                       key={params.get("turma")! + params.get("aluno")!}
@@ -481,9 +485,7 @@ function InstitutionWorkspace({
                   ) : (
                     <TeacherReports
                       classId={params.get("turma") ?? undefined}
-                      mode={
-                        section === "performance" ? "performance" : "reports"
-                      }
+                      mode="performance"
                       onClassSelected={(turma) => go(section, { turma })}
                       onStudentSelected={(turma, aluno) =>
                         go(section, { turma, aluno })
@@ -550,9 +552,8 @@ const descriptions: Record<InstitutionSection, string> = {
   invitations: "Convide professores e acompanhe suas ativações.",
   classes: "Organize turmas, delegações docentes e matrículas.",
   students: "Consulte alunos das turmas autorizadas da instituição.",
-  performance: "Consulte resultados reais por turma, disciplina e avaliação.",
+  performance: "Acompanhe os resultados por turma, disciplina e avaliação e consulte os relatórios individuais dos alunos.",
   exams: "Crie e acompanhe avaliações das turmas da instituição.",
-  reports: "Acesse os relatórios das turmas e de seus alunos autorizados.",
   notifications: "Consulte mensagens reais destinadas à sua conta.",
   settings: "Consulte a auditoria institucional.",
 };
@@ -589,18 +590,15 @@ function Overview({
         <span className={`status ${readOnly ? "warning" : "success"}`}><i />{readOnly ? teacherManagementAvailable ? "Gestão de professores ativa" : "Acompanhamento institucional" : "Operações disponíveis"}</span>
       </div>
       <div className="metric-grid institution-key-metrics">
-        {metrics.map(([label, value, icon]) => {
-          const unavailable = value == null || value === "Não disponível" || value === "—";
-          return (
-            <article className={`metric-card${unavailable ? " is-unavailable" : ""}`} key={label}>
-              <div className="metric-icon gold" aria-hidden="true"><Icon name={icon} /></div>
-              <div className="metric-copy"><span>{label}</span><strong>{typeof value === "number" ? value.toLocaleString("pt-BR") : value ?? "—"}</strong></div>
-            </article>
-          );
-        })}
+        {metrics.map(([label, value, icon]) => (
+          <div className="metric-card" key={label}>
+            <div className="metric-icon gold"><Icon name={icon} /></div>
+            <div className="metric-copy"><span>{label}</span><strong>{typeof value === "number" ? value.toLocaleString("pt-BR") : value ?? "\u2014"}</strong></div>
+          </div>
+        ))}
       </div>
-      {!readOnly && <section className="panel institution-actions">
-        <div><p className="eyebrow">AÇÕES ESSENCIAIS</p><h2>Gerenciar instituição</h2><p>Use somente recursos autorizados para esta instituição.</p></div>
+      <section className="panel institution-actions">
+        <div><p className="eyebrow">A\u00c7\u00d5ES ESSENCIAIS</p><h2>Gerenciar institui\u00e7\u00e3o</h2><p>Use somente recursos autorizados para esta institui\u00e7\u00e3o.</p></div>
         <div className="header-actions">
           <button className="primary-button" disabled={!teacherInvitationsAvailable} title={!teacherInvitationsAvailable ? teacherInvitationReason : undefined} onClick={() => open("invite")}>Convidar professor</button>
           <button className="outline-button" onClick={() => open("class")}>Criar nova turma</button>
@@ -608,11 +606,9 @@ function Overview({
           <button className="outline-button" onClick={() => go("institution")}>Configurações da instituição</button>
           <button className="outline-button" onClick={() => go("students")}>Alunos matriculados</button>
           <button className="outline-button" onClick={() => go("exams")}>Simulados</button>
-          <button className="text-button" onClick={() => go("reports")}>Relatórios</button>
+          <button className="text-button" onClick={() => go("performance")}>Relat\u00f3rios</button>
         </div>
-      </section>}
-      {readOnly && teacherManagementAvailable && <section className="panel institution-actions"><div><p className="eyebrow">GESTÃO DE PROFESSORES</p><h2>Convites e vínculos autorizados</h2><p>Convide professores e gerencie suas designações nas turmas vinculadas.</p></div><div className="header-actions"><button className="primary-button institution-invite-button" disabled={!teacherInvitationsAvailable} title={!teacherInvitationsAvailable ? teacherInvitationReason : undefined} onClick={() => open("invite")}>Convidar professor</button><button className="outline-button" onClick={() => go("teachers")}>Gerenciar professores</button><button className="outline-button" onClick={() => go("invitations")}>Ver convites</button></div></section>}
-      {readOnly && <ReadOnlyNotice title="Acompanhamento seguro" text={teacherManagementAvailable ? (teacherInvitationsAvailable ? "Indicadores e consultas refletem os vínculos ativos. Convites e designações docentes estão liberados; os demais módulos aguardam suas capacidades específicas." : `Indicadores e consultas estão disponíveis. ${teacherInvitationReason ?? "O envio de convites está indisponível."}`) : "Indicadores e consultas institucionais estão disponíveis para este perfil."} />}
+      </section>
       <Notifications recent />
     </div>
   );
@@ -633,7 +629,7 @@ function InstitutionCard({
     <div className="institution-profile-page">
       <header className="institution-page-hero">
         <div><p className="eyebrow">IDENTIDADE INSTITUCIONAL</p><h1>Minha instituição</h1><p>Dados cadastrais, situação atual e informações autorizadas para gestão.</p></div>
-        <div className="institution-statuses" aria-label="Situação institucional"><span className="status success"><i />Cadastro {statusNames[institution.status] ?? institution.status}</span><span className={`status ${readOnly ? "warning" : "success"}`}><i />{readOnly ? "Somente leitura" : "Operacional neste painel"}</span></div>
+        <div className="institution-statuses" aria-label="Situação institucional"><span className="status success"><i />Cadastro {statusNames[institution.status] ?? institution.status}</span><span className="status success"><i />Operacional neste painel</span></div>
       </header>
       <div className="institution-layout">
       <section className="panel profile-card">
@@ -745,7 +741,6 @@ function InstitutionCard({
           <Icon name="user" />
           Vínculo administrativo validado
         </div>
-        <div className="analysis-note"><strong>Análise cadastral</strong><span>As informações apresentadas refletem o cadastro aprovado. A operação depende das autorizações válidas deste contexto.</span></div>
       </aside>
       </div>
     </div>

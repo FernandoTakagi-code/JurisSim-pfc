@@ -140,6 +140,30 @@ describe('question practice with disposable PostgreSQL', () => {
     expect(constitutional.body.attempt.questions.every((question: { id: string }) => eligibleConstitutional.some(item => item.id === question.id))).toBe(true);
   });
 
+  it('keeps questions answered only in the initial diagnostic available for practice', async () => {
+    const author = await criarUsuario('PROFESSOR'), student = await criarUsuario('ALUNO');
+    const ids = await createQuestionSet(author.id, 'Direito do Trabalho', 5);
+    const answer = async (simuladoId: string, questionId: string, position: number) => {
+      const link = await prisma.questaoSimulado.create({ data: { simuladoId, questaoId: questionId, posicao: position } });
+      const option = await prisma.alternativa.findFirstOrThrow({ where: { questaoId: questionId, correta: true } });
+      await prisma.resposta.create({ data: { simuladoId, questaoId: questionId, questaoSimuladoId: link.id, alternativaEscolhidaId: option.id, correta: true } });
+    };
+    const diagnostic = await prisma.simulado.create({ data: { tipo: 'DIAGNOSTICO', alunoId: student.id, finalizadoEm: new Date() } });
+    await prisma.diagnosticoInicial.create({ data: { alunoId: student.id, simuladoId: diagnostic.id } });
+    for (const [index, id] of ids.entries()) await answer(diagnostic.id, id, index + 1);
+
+    const repository = new PrismaQuestionPracticeRepository(prisma);
+    expect((await repository.listAnsweredQuestionIds(student.id, 'Direito do Trabalho')).size).toBe(0);
+    const started = await request('POST', '/question-practice', tokenPara(student), { discipline: 'Direito do Trabalho', quantity: 5 });
+    expect(started.status, JSON.stringify(started.body)).toBe(201);
+    expect(started.body.attempt.questions.map((q: { id: string }) => q.id).sort()).toEqual([...ids].sort());
+
+    // Answers from any other activity still count as already seen.
+    const other = await prisma.simulado.create({ data: { tipo: 'PERSONALIZADO', alunoId: student.id, finalizadoEm: new Date() } });
+    await answer(other.id, ids[0], 1);
+    expect([...await repository.listAnsweredQuestionIds(student.id, 'Direito do Trabalho')]).toEqual([ids[0]]);
+  });
+
   it('persists answers, corrects them on finalization, and rejects edits afterward', async () => {
     const author = await criarUsuario('PROFESSOR');
     const student = await criarUsuario('ALUNO');

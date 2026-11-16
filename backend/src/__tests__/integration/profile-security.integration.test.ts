@@ -7,7 +7,7 @@ import { parse } from 'dotenv';
 import bcrypt from 'bcrypt';
 // The production deletion gate stays hard-disabled. This double exists only in
 // this test process, after the disposable database identity is checked.
-vi.mock('../../account-deletion-availability', () => ({ accountDeletionEnabled: () => true, accountDeletionUnavailableMessage: 'isolated test only' }));
+vi.mock('../../account-deletion-availability', () => ({ accountDeletionEnabled: () => true, studentSelfDeletionEnabled: () => true, accountDeletionUnavailableMessage: 'isolated test only' }));
 import { prisma, criarUsuario, limparBanco, encerrar, tokenPara } from './helpers';
 import { assertDisposableDatabase } from './disposable-database';
 import { AuthController } from '../../controllers/auth-controller';
@@ -147,7 +147,7 @@ it('exercises safe deletion only in this isolated process and preserves the acad
 it.skipIf(process.env.JURISSIM_PROFILE_SEND_REAL_EMAIL !== 'true')('sends two real Brevo messages only to the explicitly authorized test recipient, using a disposable account', async () => {
   await assertDisposableDatabase(prisma);
   const recipient = process.env.JURISSIM_PROFILE_TEST_RECIPIENT;
-  if (!recipient || !recipient.includes('@')) throw new Error('An explicitly authorized test recipient is required.');
+  if (!recipient?.includes('@')) throw new Error('An explicitly authorized test recipient is required.');
   // Read only mail configuration; never load the production database URL.
   const config = parse(readFileSync('.env'));
   const transport = (config.BREVO_EMAIL_TRANSPORT ?? 'api').trim() === 'smtp'

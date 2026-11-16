@@ -38,7 +38,7 @@ async function main() {
   console.log('LOAD: isolated reports: ' + output);
   const password = randomBytes(24).toString('hex'), hash = await bcrypt.hash(password, 10);
   const reviewer = await prisma.user.create({ data: { nome: 'LOAD_FIXTURE_ONLY author', email: 'load-author@example.invalid', role: 'ADMIN', emailVerifiedAt: new Date() } });
-  const accounts = [];
+  const accounts: Array<{ id: string; email: string; password: string }> = [];
   for (let index = 0; index < 96; index++) {
     const user = await prisma.user.create({ data: { nome: 'LOAD_FIXTURE_ONLY student ' + index,
       email: `load-${index}@example.invalid`, senhaHash: hash, role: 'ALUNO', emailVerifiedAt: new Date(),

@@ -10,6 +10,12 @@ import type { Level } from '../types/diagnostic';
 import { analyzeDiagnostic } from '../services/adaptive-engine';
 
 type SessionRow = { id: string; simuladoId: string; alunoId: string; disciplina: string; assunto?: string | null; finalizadoEm: Date | null };
+
+// "Inéditas" excludes what the student already answered, except in the initial
+// diagnostic: it draws 6 questions per discipline from this same pilot inventory and
+// would otherwise exhaust small disciplines (Civil, Administrativo) before any practice.
+export const practiceExclusionScope = (studentId: string): Prisma.SimuladoWhereInput =>
+  ({ alunoId: studentId, diagnosticoInicial: { is: null } });
 type AttemptRow = Prisma.SimuladoGetPayload<{ select: {
   id: true; finalizadoEm: true; questoes: { orderBy: { posicao: 'asc' }; select: {
     posicao: true; conteudoSnapshot: true; questao: { select: { id: true; disciplina: true; assunto: true; nivel: true; enunciado: true; fundamentacaoJuridica: true; alternativas: { orderBy: { letra: 'asc' }; select: { id: true; letra: true; texto: true; correta: true } } } }; resposta: { select: { alternativaEscolhidaId: true } };
@@ -77,7 +83,7 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
 
   async listAnsweredQuestionIds(studentId: string, discipline: string, topic?: string | null): Promise<ReadonlySet<string>> {
     const answers = await this.db.resposta.findMany({
-      where: { simulado: { alunoId: studentId }, questao: { ...practiceInventoryWhere(), disciplina: discipline, ...(topic ? { assunto: topic } : {}) } },
+      where: { simulado: practiceExclusionScope(studentId), questao: { ...practiceInventoryWhere(), disciplina: discipline, ...(topic ? { assunto: topic } : {}) } },
       select: { questaoId: true }, distinct: ['questaoId'],
     });
     return new Set(answers.map(answer => answer.questaoId));
@@ -124,7 +130,7 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
       if (valid.size !== questions.length) throw new ApiError(409, 'O acervo disponível mudou. Atualize a disponibilidade.');
       // Use the freshly validated content for the persisted snapshot.
       questions = questions.map(q => valid.get(q.id)!);
-      const answered = await tx.resposta.findMany({ where: { simulado: { alunoId: studentId }, questaoId: { in: questions.map(q => q.id) } }, select: { questaoId: true } });
+      const answered = await tx.resposta.findMany({ where: { simulado: practiceExclusionScope(studentId), questaoId: { in: questions.map(q => q.id) } }, select: { questaoId: true } });
       if (answered.length) throw new ApiError(409, 'O estoque mudou. Atualize a disponibilidade para iniciar um treino inédito.');
       const simulado = await tx.simulado.create({ data: { tipo: 'PERSONALIZADO', alunoId: studentId }, select: { id: true } });
       await tx.questaoSimulado.createMany({ data: questions.map((q, index) => ({ simuladoId: simulado.id, questaoId: q.id, posicao: index + 1,

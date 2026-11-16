@@ -24,12 +24,12 @@ export function TeacherDashboard({ session }: { session: Session }) {
     {access.pendingLink ? <article className="panel" role="status"><h2>Vínculo institucional pendente</h2><p>Sua conta e seu histórico foram preservados. Solicite um convite ao responsável pela instituição para liberar turmas, alunos e relatórios.</p><p>Se você já recebeu um convite, abra o link original e aceite com esta conta.</p><button onClick={() => navigate('/professor/perfil')}>Meu perfil</button></article> : access.needsSelection ? <article className="panel" role="status"><h2>Selecione sua instituição de trabalho</h2><p>Escolha uma instituição acima para carregar somente as turmas e os simulados desse vínculo.</p></article> : <>
       <section className="teacher-overview" aria-label="Indicadores das turmas autorizadas"><ResourceState resource={overview} />
         {overview.data && <dl className="teacher-indicators">
-          <div><Icon name="users"/><dt>Turmas</dt><dd>{overview.data.classes}</dd><span>Todos os registros autorizados</span></div>
+          <div><Icon name="users"/><dt>Turmas</dt><dd>{overview.data.classes}</dd><span>Ativas e arquivadas</span></div>
           <div><Icon name="book"/><dt>Turmas ativas</dt><dd>{overview.data.activeClasses}</dd><span>Disponíveis para acompanhamento</span></div>
           <div><Icon name="user"/><dt>Alunos distintos matriculados</dt><dd>{overview.data.students}</dd><span>Sem duplicar matrículas compartilhadas</span></div>
-          <div><Icon name="file"/><dt>Simulados publicados</dt><dd>{overview.data.publishedExams}</dd><span>Publicações das turmas autorizadas</span></div>
+          <div><Icon name="file"/><dt>Simulados publicados</dt><dd>{overview.data.publishedExams}</dd><span>Inclui simulados de turmas arquivadas</span></div>
         </dl>}
-        <p className="teacher-caption">Contagens de todas as páginas do contexto atual, com alunos e simulados contados uma única vez.</p>
+        <p className="teacher-caption">Contagens de todas as suas turmas, ativas e arquivadas, com alunos e simulados contados uma única vez. Em Desempenho, cada turma mostra apenas os próprios números.</p>
       </section>
       <section><h2>Seu espaço de trabalho</h2><nav className="teacher-shortcuts" aria-label="Atalhos do professor">{shortcuts.map(([path,title,icon,description])=><button key={path} onClick={()=>navigate('/professor/'+path)}><span className="teacher-shortcut-icon"><Icon name={icon}/></span><span><strong>{title}</strong><small>{description}</small></span><Icon name="right"/></button>)}</nav></section>
       <div className="teacher-recent-grid">

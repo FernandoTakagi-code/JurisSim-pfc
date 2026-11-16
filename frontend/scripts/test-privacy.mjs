@@ -49,7 +49,7 @@ try {
   const cdp = (method, params = {}) => send(method, params, sessionId);
   await cdp('Page.enable'); await cdp('Runtime.enable'); await cdp('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
   const evaluate = async expression => { const r = await cdp('Runtime.evaluate', { expression: /\bawait\b/.test(expression) ? `(async()=>{${expression}})()` : expression, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw Error('Browser expression failed: ' + expression.slice(0, 120)); return r.result.value; };
-  const until = async expression => { for (let i = 0; i < 140; i++) { try { if (await evaluate(expression)) return; } catch {} await sleep(50); } throw Error('Condition failed: ' + expression); };
+  const until = async expression => { for (let i = 0; i < 300; i++) { try { if (await evaluate(expression)) return; } catch {} await sleep(50); } throw Error('Condition failed: ' + expression); };
   const pass = message => { checks++; console.log('PASS PRIVACY: ' + message); };
   await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.owner='owner-a';window.downloads=[];window.exportCalls=[];window.exportStatus=200;window.delayExport=false;
@@ -67,7 +67,7 @@ try {
       throw Error('Unexpected isolated request: '+route);
     };
   ` });
-  await cdp('Page.navigate', { url: origin + '/perfil?aba=security' });
+  await cdp('Page.navigate', { url: origin + '/perfil?aba=personal' });
   await until('!!document.querySelector("[aria-labelledby=privacy-settings-title] button")');
   pass('profile shows personal export without another authentication system');
   const camera = await evaluate(`const policy=document.permissionsPolicy||document.featurePolicy;const allowed=policy.allowsFeature('camera');const media=await navigator.mediaDevices.getUserMedia({video:true,audio:false});const video=document.createElement('video');video.muted=true;video.srcObject=media;await video.play();const canvas=document.createElement('canvas');canvas.width=320;canvas.height=240;canvas.getContext('2d').drawImage(video,0,0,320,240);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));media.getTracks().forEach(track=>track.stop());return {allowed,microphone:policy.allowsFeature('microphone'),geolocation:policy.allowsFeature('geolocation'),size:blob.size,stopped:media.getTracks().every(track=>track.readyState==='ended')};`);

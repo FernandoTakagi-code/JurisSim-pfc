@@ -5,7 +5,7 @@ import { ApiError } from '../errors/api-error';
 import { currentAccess } from '../services/institution-service';
 import { prisma } from '../lib/prisma';
 import { homologationParticipant, institutionRequestScope } from '../config/institution-homologation';
-import { institutionsGloballyEnabled, institutionalTeacherManagementEnabled } from '../config/institution-feature';
+import { institutionsGloballyEnabled, institutionalTeacherManagementEnabled, institutionalExamManagementEnabled } from '../config/institution-feature';
 
 const service = new AuthService();
 const repository = new AuthRepository();
@@ -22,6 +22,15 @@ function isTeacherManagementWrite(request: Request) {
 
 export interface AuthenticatedRequest extends Request {
   auth?: { userId: string; role: string; institutionId?: string; allowedClassIds?: string[]; institutionAdmin?:boolean;institutionalAccount?:boolean;invitationPending?:boolean };
+}
+
+function isInstitutionExamWrite(request: Request) {
+  if (!institutionalExamManagementEnabled()) return false;
+  const path = request.originalUrl.split('?')[0];
+  const exam = '/[0-9a-f-]{36}';
+  if (request.method === 'POST') return /^\/avaliacoes\/?$/.test(path) || new RegExp(`^/avaliacoes${exam}/(?:publish|close|archive)$`).test(path);
+  if (request.method === 'PUT' || request.method === 'DELETE') return new RegExp(`^/avaliacoes${exam}$`).test(path);
+  return false;
 }
 
 export async function requireAuth(request: AuthenticatedRequest, response: Response, next: NextFunction) {
@@ -70,7 +79,7 @@ async function authenticate(request: AuthenticatedRequest, next: NextFunction, a
       // Session and invitation routes remain accessible before a context is selected.
       if (requested && !selected) return next(new ApiError(403, 'Vínculo institucional não autorizado.'));
       if(administrativeContext&&!selected) return next(new ApiError(403,'Selecione uma instituição com administração ativa e autorizada.'));
-      if (administrativeContext && 'readOnly' in access && access.readOnly && !['GET', 'HEAD', 'OPTIONS'].includes(request.method ?? 'GET') && !isTeacherManagementWrite(request))
+      if (administrativeContext && 'readOnly' in access && access.readOnly && !['GET', 'HEAD', 'OPTIONS'].includes(request.method ?? 'GET') && !isTeacherManagementWrite(request) && !isInstitutionExamWrite(request))
         return next(new ApiError(503, 'Operações institucionais aguardam ativação autorizada. Este contexto está disponível somente para leitura.'));
       if (!selected && request.auth.role === 'PROFESSOR' && /^\/(turmas|avaliacoes|atividades|reports|questoes)(\/|\?|$)/.test(request.originalUrl)) return next(new ApiError(memberships.length?409:403, memberships.length?'Selecione uma instituição de trabalho.':'Vínculo docente ativo obrigatório. Regularize o acesso com a instituição responsável.'));
       request.auth.institutionId = selected?.institutionId;

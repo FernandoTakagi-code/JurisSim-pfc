@@ -25,38 +25,19 @@ export const adminSections = [
     icon: "users",
   },
   {
-    id: "teachers",
-    path: "/administracao/professores",
-    label: "Professores",
-    icon: "user",
-  },
-  {
     id: "audit",
     path: "/administracao/auditoria",
     label: "Logs e auditoria",
     icon: "chart",
   },
-  {
-    id: "security",
-    path: "/administracao/seguranca",
-    label: "Segurança",
-    icon: "target",
-  },
-  {
-    id: "notifications",
-    path: "/administracao/notificacoes",
-    label: "Notificações",
-    icon: "file",
-  },
-  {
-    id: "settings",
-    path: "/administracao/configuracoes",
-    label: "Configurações do sistema",
-    icon: "settings",
-  },
 ] as const;
-export type AdminSectionId = (typeof adminSections)[number]["id"] | 'classes';
+export type AdminSectionId = (typeof adminSections)[number]["id"] | 'classes' | 'teachers' | 'security' | 'settings' | 'notifications';
 export const isAdministrationPath = (path: string) =>
   path === "/administracao" || path.startsWith("/administracao/");
 export const adminSection = (path: string) =>
-  path.replace(/\/$/,'')==='/administracao/turmas' ? {id:'classes' as const,path:'/administracao/turmas',label:'Gestão pedagógica institucional',icon:'book'} : adminSections.find((section) => section.path === path.replace(/\/$/, ""));
+  path.replace(/\/$/,'')==='/administracao/notificacoes' ? {id:'audit' as const,path:'/administracao/notificacoes',label:'Logs e auditoria',icon:'chart'}
+  : path.replace(/\/$/,'')==='/administracao/turmas' ? {id:'classes' as const,path:'/administracao/turmas',label:'Gestão pedagógica institucional',icon:'book'}
+  : path.replace(/\/$/,'')==='/administracao/professores' ? {id:'teachers' as const,path:'/administracao/professores',label:'Usuários — professores',icon:'users'}
+  : path.replace(/\/$/,'')==='/administracao/seguranca' ? {id:'security' as const,path:'/administracao/seguranca',label:'Acesso administrativo',icon:'users'}
+  : path.replace(/\/$/,'')==='/administracao/configuracoes' ? {id:'settings' as const,path:'/administracao/configuracoes',label:'Disponibilidade da plataforma',icon:'settings'}
+  : adminSections.find((section) => section.path === path.replace(/\/$/, ""));

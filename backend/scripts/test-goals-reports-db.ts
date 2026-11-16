@@ -58,7 +58,7 @@ async function main() {
   assert.deepEqual(empty.evolution, []); assert.equal(empty.students.items.length, 4);
   pass('empty goals and reports preserve actual enrollment with null averages and no fictional evolution');
 
-  const questions = [];
+  const questions: Array<{ id: string; alternativas: Array<{ id: string; correta: boolean }> }> = [];
   for (let i = 0; i < 2; i++) questions.push(await prisma.questao.create({ data: { enunciado: `Report fixture question ${i}`, disciplina: 'Report Civil', assunto: 'Fixture', nivel: 'BASICO', fundamentacaoJuridica: 'Local fixture', autorId: users.teacherA.id,
     alternativas: { create: [{ texto: 'Correct', correta: true }, { texto: 'Incorrect', correta: false }] } }, include: { alternativas: true } }));
   const exam = async (token: string, title: string, turmaIds: string[], duration: number | null = null) => {

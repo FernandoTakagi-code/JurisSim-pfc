@@ -145,6 +145,18 @@ export class ClassExamService {
     return {items:rows.slice(0,size).filter(q=>eligibleForExam(q,actor,ids)).map(q=>({id:q.id,enunciado:q.enunciado,disciplina:q.disciplina,assunto:q.assunto,nivel:q.nivel,publica:q.publica})),page,hasMore:rows.length>size};
     },{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
   }
+  async eligibleQuestionPreview(actor: Actor, classIds: string[], questionId: string) {
+    examStaff(actor);
+    const ids = [...new Set(classIds)];
+    if (!ids.length || ids.length > 30) throw new ApiError(422, 'Selecione as turmas do simulado.');
+    return prisma.$transaction(async tx => {
+      const authorized = await tx.turma.count({where:{id:{in:ids},archivedAt:null,...await managedClass(actor),...(actor.institutionId?{institutionalClass:{institutionId:actor.institutionId,institution:{status:'ACTIVE'}}}:{})}});
+      if (authorized !== ids.length) throw new ApiError(403, 'Turmas não autorizadas para esta consulta.');
+      const question = await tx.questao.findFirst({where:{id:questionId,OR:[{publica:true},{turmaId:null,autorId:actor.userId},...(ids.length===1?[{turmaId:ids[0]}]:[])]},select:{id:true,enunciado:true,publica:true,autorId:true,turmaId:true,alternativas:{orderBy:{id:'asc'},select:{id:true,texto:true,correta:true}}}});
+      if (!question || !eligibleForExam(question, actor, ids)) throw new ApiError(404, 'Questão não elegível para as turmas selecionadas.');
+      return {id:question.id,enunciado:question.enunciado,alternativas:question.alternativas};
+    }, {isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
+  }
   async assignTeacher(actor:Actor,classId:string,userId:string,assigned:boolean){
     assertRestrictedInstitution(actor.institutionId ?? '');
     assertRestrictedParticipant(userId);
