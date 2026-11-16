@@ -7,13 +7,22 @@ import { localDashboardErrorDiagnostic, passwordResetDiagnostic } from './passwo
 const databaseUnavailableCodes = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024']);
 const databaseConnectionFailure = /can't reach database server|connection (?:timed out|refused)|connect(?:ion)? timed out|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH/i;
 
-function databaseUnavailableCode(error: unknown): string | undefined {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    try { if (databaseUnavailableCodes.has(error.code)) return error.code; } catch { return undefined; }
-  }
-  if (error instanceof Prisma.PrismaClientInitializationError) {
-    if (error.errorCode && databaseUnavailableCodes.has(error.errorCode)) return error.errorCode;
-    if (databaseConnectionFailure.test(error.message)) return error.errorCode;
+function databaseFailure(error: unknown): { prismaCode?: string } | undefined {
+  // Inspect only data properties: an exception getter must not break the error
+  // handler or cause private values to be copied into logs.
+  try {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      const code = Object.getOwnPropertyDescriptor(error, 'code')?.value;
+      if (typeof code === 'string' && databaseUnavailableCodes.has(code)) return { prismaCode: code };
+    }
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      const code = Object.getOwnPropertyDescriptor(error, 'errorCode')?.value;
+      if (typeof code === 'string' && databaseUnavailableCodes.has(code)) return { prismaCode: code };
+      const message = Object.getOwnPropertyDescriptor(error, 'message')?.value;
+      if (typeof message === 'string' && databaseConnectionFailure.test(message)) return {};
+    }
+  } catch {
+    // Malformed errors fall through to the generic, protected classifier.
   }
   return undefined;
 }
@@ -28,13 +37,13 @@ function routeTemplate(request: Request) {
 }
 
 export const errorHandler: ErrorRequestHandler = (error, request, response, _next) => {
-  const databaseCode = databaseUnavailableCode(error);
-  if (databaseCode !== undefined || (error instanceof Prisma.PrismaClientInitializationError && databaseConnectionFailure.test(error.message))) {
+  const unavailable = databaseFailure(error);
+  if (unavailable) {
     console.error({
       type: 'database_unavailable',
       method: request.method,
       route: routeTemplate(request),
-      ...(databaseCode ? { prismaCode: databaseCode } : {}),
+      ...unavailable,
     });
     response.set('Retry-After', '5');
     response.status(503).json({ message: 'O banco de dados está temporariamente indisponível. Não foi possível validar sua sessão ou carregar os dados. Tente novamente em instantes.' });
