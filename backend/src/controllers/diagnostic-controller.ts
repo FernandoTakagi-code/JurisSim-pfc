@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { DiagnosticService } from '../services/diagnostic-service';
+import { DiagnosticService } from '../services/diagnostics/diagnostic-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 
 const startSchema = z.object({

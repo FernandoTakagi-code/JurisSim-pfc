@@ -1,262 +1,188 @@
-# JurisSim — Plataforma Adaptativa de Preparação para a OAB
+<div align="center">
+  <img src="frontend/public/brand/jurissim-logo.png" alt="Logo JurisSim" width="170" />
+  <h1>JurisSim</h1>
+  <p><strong>Preparação para a OAB, com diagnóstico e acompanhamento da aprendizagem.</strong></p>
+  <p>Projeto Final de Curso · Engenharia de Software · Universidade de Mogi das Cruzes — UMC</p>
+  <p>
+    <img alt="Uso acadêmico" src="https://img.shields.io/badge/uso-acadêmico-C9A35B" />
+    <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&amp;logoColor=white" />
+    <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&amp;logoColor=white" />
+    <img alt="Node.js 24 ou superior" src="https://img.shields.io/badge/Node.js-24%2B-339933?logo=nodedotjs&amp;logoColor=white" />
+    <img alt="Prisma 6" src="https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma&amp;logoColor=white" />
+    <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&amp;logoColor=white" />
+  </p>
+  <p><a href="https://jurissim.vercel.app">Acessar o site</a> · <a href="#executar-localmente">Executar localmente</a> · <a href="#conferência-e-evidências">Conferência e evidências</a> · <a href="docs/entrega.md">Checklist de entrega</a></p>
+</div>
 
-> Projeto Final de Curso (PFC) — Engenharia de Software, UMC (Universidade de Mogi das Cruzes)
-> Disciplina: Análise e Projeto de Software
+## Sobre o projeto
 
-## 📋 Sobre o Projeto
+O JurisSim apoia a preparação para a primeira fase do Exame da OAB. O aluno realiza um diagnóstico inicial, pratica questões, faz simulados e acompanha seus resultados. Professores e instituições organizam turmas e avaliações, enquanto a administração gerencia cadastros e consulta a auditoria da plataforma.
 
-O **JurisSim** é uma plataforma web de simulados voltada para a preparação de candidatos à **1ª fase do Exame de Ordem (OAB)**. O sistema conta com um motor de regras determinístico para recomendação de trilhas de estudo personalizadas, baseado no desempenho dos alunos em simulados diagnósticos.
+O sistema possui frontend React com Vite, API Express e persistência PostgreSQL por meio do Prisma. A publicação utiliza Vercel para o site, Render para a API e Supabase para o banco.
 
-### Objetivo
+## Funcionalidades por perfil
 
-Oferecer uma ferramenta de estudo adaptativa, na qual o desempenho do aluno em simulados anteriores direciona a geração de novas trilhas de exercícios, priorizando os assuntos e níveis onde a taxa de acerto foi menor.
+| Perfil | Recursos implementados |
+| --- | --- |
+| Aluno | Diagnóstico inicial, trilhas de estudo, prática de questões, simulados, avaliações de turma e desempenho pessoal |
+| Professor | Gestão das turmas autorizadas, cadastro de questões, preparação e publicação de atividades e simulados, acompanhamento dos resultados |
+| Instituição | Gestão dos dados institucionais, professores, convites, vínculos, turmas e acompanhamento acadêmico |
+| Administrador | Consulta de usuários, análise de solicitações institucionais, gestão das instituições, auditoria e acesso editorial ao acervo |
 
-## 👥 Atores do Sistema
+A disponibilidade depende da configuração do ambiente, das permissões e dos vínculos da conta. O acervo autoral piloto ainda depende de revisão humana jurídica e pedagógica; os resultados associados a ele são provisórios. Consulte as [regras do acervo](docs/acervo.md).
 
-- **ADMIN global**: gerencia usuários e configurações gerais, sem acesso pedagógico rotineiro.
-- **Responsável institucional**: acompanha a solicitação e administra a instituição conforme seu vínculo autorizado, sem receber automaticamente o papel global de ADMIN.
-- **Professor**: acessa turmas, questões autorizadas, simulados e relatórios conforme suas permissões. O vínculo docente depende de convite e aceite explícito.
-- **Aluno**: resolve simulados, acompanha sua evolução e recebe trilhas de exercícios recomendadas.
+## Executar localmente
 
-## ⚙️ Funcionalidades Principais (MVP)
+### 1. Requisitos e código
 
-1. **Autenticação e Controle de Acesso** — Login via JWT com controle de acesso baseado em papéis (Aluno vs Professor/Admin).
-2. **Gestão de Questões** — CRUD de questões organizadas por Disciplina, Assunto, Nível e Fundamentação Jurídica, com suporte a questões públicas (banco geral) ou vinculadas a uma turma.
-3. **Módulo de Simulado** — Simulado diagnóstico e avaliações de turma, com duração quando configurada, correção automática e resultados após a conclusão.
-4. **Motor Adaptativo** — Geração de trilhas de exercícios personalizadas com base nas taxas de acerto do aluno por assunto/nível.
-5. **Dashboards Analíticos** — Painel de evolução para o aluno e painel de desempenho da turma para o professor.
-
-## 🏗️ Arquitetura
-
-O backend segue o padrão em camadas:
-
-```
-Controllers → Services → Repositories
-```
-
-- **Controllers**: recebem a requisição HTTP, validam entrada (via Zod) e delegam para a camada de serviço.
-- **Services**: concentram as regras de negócio da aplicação (incluindo o motor adaptativo).
-- **Repositories**: responsáveis pelo acesso ao banco de dados, via Prisma ORM.
-
-## 🛠️ Stack Tecnológica
-
-| Camada | Tecnologias |
-|---|---|
-| **Back-end** | Node.js, Express, TypeScript, Prisma ORM, Zod, JWT, Bcrypt |
-| **Banco de Dados** | PostgreSQL, no ambiente autorizado para execução |
-| **Front-end** | React, TypeScript, Vite, CSS, cliente HTTP baseado em Fetch |
-| **Testes & Qualidade** | Vitest, verificações estáticas e testes de navegador com Chrome; Prettier disponível como ferramenta de desenvolvimento |
-
-## 📁 Estrutura do Repositório
-
-```
-jurissim/
-├── backend/
-│   ├── src/
-│   │   ├── controllers/
-│   │   ├── services/
-│   │   ├── repositories/
-│   │   ├── routes/
-│   │   ├── middlewares/
-│   │   ├── config/
-│   │   └── utils/
-│   ├── prisma/
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/
-│   ├── src/
-│   ├── public/
-│   ├── package.json
-│   └── vite.config.ts
-├── docs/
-│   ├── evidence/
-│   └── (guias técnicos, relatórios e roteiro acadêmico)
-└── README.md
-```
-
-## 📊 Visão conceitual da arquitetura
-
-### Processos do sistema
-
-O sistema JurisSim é modelado em 6 processos principais:
-
-1. **Autenticação e Onboarding** - Registro de novo usuário, validação de email e aceite de termos
-2. **Gestão de Questões (Professor)** - Criação e categorização de questões
-3. **Simulado Diagnóstico (Aluno)** - Execução do simulado inicial com geração de trilha adaptativa
-4. **Simulado Personalizado (Aluno)** - Execução de simulado baseado em trilha recomendada
-5. **Motor Adaptativo** - Análise de desempenho e geração inteligente de trilhas de estudo
-6. **Acompanhamento de Turma (Professor)** - Visualização de métricas e desempenho dos alunos
-
-#### Fluxo Simplificado:
-
-```
-Aluno Login → Simulado Diagnóstico → Calcular Métricas →
-Motor Adaptativo (Análise de Desempenho) → Gerar Trilha →
-Simulado Personalizado → Atualizar Progresso
-```
-
-Os arquivos XML de BPMN e UML anteriormente citados não estão incluídos nesta árvore. Este resumo não substitui os diagramas acadêmicos originais. Consulte a [arquitetura administrativa e de cadastro](docs/arquitetura-administrativa-cadastro-0911.md) para o contrato institucional documentado.
-
-### Modelos e contratos
-
-O sistema utiliza o padrão **MVC em Camadas** com separação clara de responsabilidades:
-
-#### Camada de Modelos (Entities)
-- **User** - Usuários do sistema (Aluno, Professor, Admin)
-- **Questao** - Questões de múltipla escolha
-- **Alternativa** - Alternativas de resposta
-- **Simulado** - Instâncias de simulados realizados
-- **Resposta** - Respostas do aluno
-- **DesempenhoDiagnostico** - Métricas de desempenho
-- **TrilhaAdaptativa** - Trilhas personalizadas geradas
-- **MetaDiaria** - Metas diárias de estudo
-- **Turma** - Agrupamento de alunos por professor
-
-#### Camada de Serviços (Business Logic)
-- **AuthService** - Autenticação, registro, logout, verificação de token
-- **DiagnosticService** - Gerenciamento de simulados diagnósticos
-- **AdaptiveEngine** - Motor de análise de desempenho e geração de trilhas
-- **QuestaoService** - CRUD de questões
-- **TrailService** - Gestão de trilhas adaptativas
-
-#### Camada de Controllers (HTTP Endpoints)
-- **AuthController** - Endpoints de autenticação (/auth/*)
-- **DiagnosticController** - Endpoints de diagnóstico (/diagnostics/*)
-- **QuestaoController** - Endpoints de questões (/questoes/*)
-- **TrailController** - Endpoints de trilhas (/trilhas/*)
-
-#### Relacionamentos principais (resumo conceitual):
-```
-User 1─→ * Questao (Professor cria questões)
-User 1─→ * Simulado (Aluno faz simulados)
-Questao 1─→ * Alternativa (Questão tem alternativas)
-Simulado 1─→ * Resposta (Simulado tem respostas)
-Simulado 1─→ * DesempenhoDiagnostico (Métricas)
-Simulado 1─→ 1 TrilhaAdaptativa (Trilha gerada)
-User 1─→ * MetaDiaria (Metas do aluno)
-```
-
-As cardinalidades e os campos completos estão no [schema Prisma](backend/prisma/schema.prisma); o registro de rotas está em [server.ts](backend/src/server.ts).
-
-## 🚀 Como Rodar o Projeto
-
-### Pré-requisitos
-
-- Node.js compatível com o Vite 7: `^20.19.0 || >=22.12.0`. As validações recentes usaram Node.js 24.
-- npm e as dependências dos dois diretórios instaladas pelos respectivos lockfiles.
-- Configuração de PostgreSQL/schema previamente autorizada, além das variáveis necessárias de autenticação. Google e envio de e-mail exigem configuração própria quando utilizados.
-
-### Versão pública e overlay local
-
-No histórico versionado, `npm run dev` executado em `backend` inicia `tsx watch src/server.ts`; em `frontend`, inicia Vite. Nesta máquina, os manifestos de trabalho podem conter launchers privados de homologação: esse overlay não é distribuído pelo Git e não deve ser copiado para uma instalação pública. Não substitua `.env`, manifestos funcionais ou arquivos privados existentes seguindo instruções de instalação nova.
-
-Os comandos abaixo destinam-se a uma instalação nova e não aplicam migrations, seeds ou provisionamento. O ambiente de banco deve ser aprovado e preparado separadamente.
-
-### Preparação local
+Instale **Git, Node.js 24 ou superior e npm**. É necessário acesso autorizado a um PostgreSQL com schema compatível. Para usar o banco da equipe, solicite a configuração pelo canal privado combinado.
 
 ```powershell
-cd backend
-npm ci
-if (!(Test-Path .env)) { Copy-Item .env.example .env }
-# Preencher somente a configuração autorizada antes de iniciar.
-npm run prisma:generate
-npm run dev
+git clone https://github.com/FernandoTakagi-code/JurisSim-pfc.git
+cd JurisSim-pfc
+git switch entrega-16-11
 ```
 
-O backend de desenvolvimento usa a porta 3333. Não inicie outra instância se essa porta já estiver ocupada.
+A branch acima reúne o trabalho desta etapa. Para reproduzir a entrega, utilize o **commit informado pela equipe**, pois a branch pode receber novas alterações.
 
-### Frontend
+### 2. Preparar as dependências e o ambiente
 
-Em outro terminal, a partir da raiz:
+Execute na raiz do repositório:
 
 ```powershell
-cd frontend
-npm ci
-if (!(Test-Path .env)) { Copy-Item .env.example .env }
-npm run dev
-```
-
-O frontend usa a porta 5173. Mantenha a mesma origem durante login e convites: `localhost` e `127.0.0.1` não compartilham automaticamente a sessão.
-
-### Variáveis de ambiente
-
-Consulte os exemplos públicos [backend/.env.example](backend/.env.example) e [frontend/.env.example](frontend/.env.example). Preencha credenciais apenas nos arquivos privados locais; valores `VITE_*` chegam ao navegador e não devem conter segredos de servidor.
-
-As flags institucionais, os requisitos do acervo e a política privada de homologação continuam sendo verificados pelo backend. Não habilite funcionalidades apenas para contornar uma mensagem de indisponibilidade.
-
-## 📌 Status do Projeto
-
-### Setup automatizado e configuração por ambiente
-
-Para uma instalação nova, o projeto também oferece os comandos:
-
-```bash
 npm run setup
 npm ci --prefix backend
 npm ci --prefix frontend
 npm --prefix backend run prisma:generate
 ```
 
-O setup prepara arquivos locais ausentes e gera uma chave JWT privada, sem sobrescrever um `.env` existente. Configure `DATABASE_URL` e `DIRECT_URL` somente com o banco autorizado.
+O setup cria `backend/.env` e `frontend/.env` somente quando não existem e gera um segredo JWT local. Os arquivos existentes são preservados.
 
-Use `npm run config:check` para validar a configuração sem conectar ao banco ou exibir credenciais.
+Preencha os arquivos localmente:
 
-Não execute reset, seed ou migrations no banco compartilhado.
-
-### Publicação
-
-O projeto utiliza [Vercel](https://jurissim.vercel.app) para o frontend e [Render](https://jurissim-pfc.onrender.com/health) para a API.
-
-Consulte [docs/variaveis-de-ambiente.md](docs/variaveis-de-ambiente.md) para a configuração de ambientes, funcionalidades e variáveis do GitHub, Render e Vercel.
-
-As credenciais permanecem fora do Git. Variáveis `VITE_*` são públicas no navegador.
-
-Projeto em desenvolvimento ativo, seguindo o cronograma da disciplina de Análise e Projeto de Software (2026/2º semestre).
-
-| Área | Situação nesta branch |
+| Arquivo | Configuração |
 | --- | --- |
-| Autenticação, cadastro e confirmação | Backend e interfaces implementados; Google, e-mail e persistência reais dependem da configuração e homologação autorizadas. |
-| Dashboards de Aluno, Professor, Instituição e ADMIN | Interfaces e contratos implementados, com validações automatizadas isoladas. Acesso e dados dependem de papel, vínculo e contexto autorizado. |
-| Convites e primeiro acesso docente | Fluxos implementados com destinatário validado e aceite explícito; as restrições privadas permanecem. Nenhuma promoção ocorre ao abrir o link. |
-| Turmas, relatórios e simulados | Contratos existentes integrados às interfaces; consulta de questões elegíveis separada da gestão do acervo. Salvamento/publicação reais exigem autorização. |
-| Atividades próprias | Rota e contexto de turma disponíveis; criação, publicação, respostas e correção próprias ainda indisponíveis. |
-| Exclusão de conta H4.24 | Desabilitada para Aluno e ADMIN até validação segura da integração de persistência. |
-| Desativação da conta | Backend e componente existentes; a auditoria não localizou integração direta do componente no perfil. Não considerar a ação de interface homologada. |
-
-Os testes com APIs/Prisma/SMTP mockados não comprovam operações reais. Os commits locais C01–C11 estão organizados; a integração posterior com `origin/main`, incluindo a PR #12, permanece pendente de autorização. Nenhuma funcionalidade H4.38 está sendo declarada concluída.
-
-## 📚 Documentação Adicional
-
-- [Arquitetura administrativa e cadastro](docs/arquitetura-administrativa-cadastro-0911.md)
-- [Administração institucional](docs/administracao-institucional-0911.md)
-- [Roteiro de apresentação acadêmica](docs/roteiro-apresentacao-academica.md)
-- [Evidências históricas](docs/evidence)
-- [Prisma Schema](backend/prisma/schema.prisma) - Modelo de dados completo
-
-## 🧪 Testes
-
-Para validação sem banco, a partir da raiz:
+| `backend/.env` | `DATABASE_URL` e `DIRECT_URL` do banco autorizado; `APP_PUBLIC_URL=http://localhost:5173` e origem local permitida em `CORS_ORIGINS` |
+| `frontend/.env` | `VITE_API_URL=http://127.0.0.1:3333` |
+| Recursos opcionais | Configure e-mail, Google e IA conforme os provedores utilizados; habilite os módulos após conferir seus requisitos no guia de ambiente |
 
 ```powershell
-cd backend
-npm run build
-npm run test:no-db
-cd ../frontend
-npm run build
-npm run test:delivery-static
+npm run config:check
 ```
 
-Testes de integração com PostgreSQL exigem o harness descartável e autorização específica; não devem apontar para um banco existente. Esta branch não fornece scripts `lint` ou `coverage`: não os confunda com configurações ainda presentes apenas em `origin/main` ou em cópias isoladas.
+Esse comando verifica o formato da configuração, sem testar conexão com o banco ou autenticação dos provedores. Os modelos deixam vários módulos desativados por padrão; apenas copiar os arquivos não reproduz todas as funcionalidades da entrega. Veja o [guia de variáveis e ativação](docs/variaveis-de-ambiente.md).
 
-## 🎓 Orientação
+Credenciais ficam fora do Git. Variáveis `VITE_*` são públicas no navegador e não devem conter senhas, tokens privados ou conexões do banco.
 
-- Prof. Alessandro Aparecido da Silva Horas
-- Prof. Oscar Alves Evangelista
+### 3. Iniciar a aplicação
 
-## 👨‍💻 Autor
+Abra dois terminais na raiz do projeto.
 
-**Fernando Takagi**
+**Terminal 1 — API:**
 
----
+```powershell
+npm --prefix backend run dev
+```
 
-**Última revisão documental**: 13 de novembro de 2026. Não representa homologação real de todos os fluxos.
+**Terminal 2 — frontend:**
+
+```powershell
+npm --prefix frontend run dev
+```
+
+- Site local: [http://localhost:5173](http://localhost:5173).
+- Disponibilidade HTTP da API: [http://127.0.0.1:3333/health](http://127.0.0.1:3333/health).
+
+Utilize uma conta autorizada para cada perfil. O cadastro público não concede permissões administrativas ou institucionais automaticamente. Contas de avaliação devem ser combinadas com a equipe por canal privado; este repositório não publica credenciais.
+
+**Banco de dados:** o localhost utiliza o banco indicado no `.env`, que pode ser o Supabase compartilhado. Não execute `reset`, `db push`, seed ou importações para iniciar o site. A preparação de um banco novo e a aplicação de migrations são etapas separadas, coordenadas com a equipe. Consulte o [guia de execução](docs/execucao-equipe.md).
+
+## Conferência e evidências
+
+Para o acompanhamento do PFC, informe o repositório, a branch e o commit exatos da versão apresentada. Os comandos abaixo ajudam a identificá-los:
+
+```powershell
+git branch --show-current
+git rev-parse HEAD
+git status --short
+```
+
+O README reúne as instruções de execução. O [checklist de entrega](docs/entrega.md) orienta o registro das funcionalidades, integrações e pendências. A monografia e o relatório de acompanhamento devem ser entregues conforme solicitado pelo orientador.
+
+As evidências selecionadas estão no [índice de evidências](docs/evidence/README.md), com capturas históricas identificadas, resultados de testes e o que ainda precisa ser registrado na versão final.
+
+### Roteiro de conferência funcional
+
+Registre uma captura ou vídeo dos fluxos escolhidos e o resultado observado, utilizando contas próprias para avaliação e dados fictícios. Faça as operações de publicação somente em turmas e conteúdos destinados à conferência.
+
+| Perfil / integração | O que conferir | Evidência esperada |
+| --- | --- | --- |
+| Acesso | Entrar e sair com cada perfil autorizado | Destino correto e menus compatíveis com a conta |
+| Administração | Consultar solicitações, instituições, usuários e auditoria | Filtros, resultados e detalhes acessíveis |
+| Instituição | Consultar professores e turmas; acompanhar um convite autorizado | Vínculos e situações coerentes com a operação realizada |
+| Professor | Criar questão, salvar uma atividade como rascunho e preparar um simulado | Conteúdo salvo e disponível para a turma correta |
+| Aluno | Realizar o percurso selecionado de diagnóstico, prática ou avaliação | Respostas persistidas e resultado correspondente |
+| Desempenho | Consultar uma avaliação concluída | Resultado exibido no contexto correto do aluno e da turma |
+| E-mail / Google / IA | Executar cada integração habilitada na versão apresentada | Resultado real, identificando ambiente e eventuais limitações |
+
+Essas etapas são um roteiro de execução, não uma declaração de que todos os fluxos foram validados. A resposta de `/health` confirma disponibilidade HTTP; não comprova o funcionamento do banco e das integrações.
+
+### Verificações automatizadas
+
+Na raiz:
+
+```powershell
+npm --prefix backend run build
+npm --prefix backend run test:no-db
+npm --prefix backend run check:tests
+npm --prefix frontend run build
+npm --prefix frontend run test:delivery-static
+```
+
+Na conferência local de **16/11/2026**, após incorporar as atualizações da equipe, passaram **1.499 testes isolados do backend**, os builds, a checagem de tipos dos testes e as verificações estáticas do frontend. A extração dos componentes institucionais também passou no build e nas verificações estáticas. Essa organização foi registrada até o [commit af729c9](https://github.com/FernandoTakagi-code/JurisSim-pfc/commit/af729c9).
+
+Testes isolados e estáticos não comprovam gravação no banco real, entrega de e-mail ou equivalência com a hospedagem. Os testes de integração com PostgreSQL não foram reexecutados nessa etapa de organização. Para integração e carga, utilize o ambiente descartável previsto nos scripts, separado do banco compartilhado.
+
+- [Procedimento de testes de carga](docs/testes-de-carga.md).
+- [Relatório do teste de carga de 14/11](docs/relatorios/carga-2026-11-14.md), com escopo e limitações próprios.
+- Capturas dos testes visuais são geradas em `frontend/.artifacts/evidence`, fora do Git. As evidências para a entrega devem corresponder à versão apresentada e ser compartilhadas sem senhas, tokens ou dados pessoais reais.
+
+## Estrutura do repositório
+
+```text
+JurisSim-pfc/
+├── frontend/
+│   ├── src/                 Interface, navegação e componentes
+│   │   └── institution/     Componentes do painel institucional
+│   ├── public/              Imagens e arquivos públicos
+│   └── tests/               Verificações da interface
+├── backend/
+│   ├── src/                 Rotas, controllers, services e acesso a dados
+│   ├── tests/               Testes isolados, integração, fixtures e preparação
+│   ├── prisma/              Schema e histórico de migrations
+│   └── scripts/             Manutenção, acervo e ambientes de teste
+├── scripts/                 Preparação do ambiente local
+├── docs/                    Guias, acervo e relatórios de validação
+└── .github/workflows/       Verificações automatizadas
+```
+
+## Documentação
+
+| Guia | Conteúdo |
+| --- | --- |
+| [Execução da equipe](docs/execucao-equipe.md) | Preparação local, inicialização e cuidados com o banco |
+| [Ambiente e publicação](docs/variaveis-de-ambiente.md) | Variáveis, provedores e ativação de funcionalidades |
+| [Arquitetura](docs/arquitetura.md) | Organização do código, testes e responsabilidades |
+| [Acervo](docs/acervo.md) | Origem, elegibilidade e limites das questões piloto |
+| [Segurança e privacidade](docs/seguranca-e-privacidade.md) | Controles e orientações de proteção de dados |
+| [Entrega](docs/entrega.md) | Conferência, evidências e pendências |
+| [Modelo do banco](backend/prisma/schema.prisma) | Entidades e relacionamentos implementados |
+
+## Ambientes publicados
+
+| Serviço | Endereço |
+| --- | --- |
+| Frontend — Vercel | [jurissim.vercel.app](https://jurissim.vercel.app) |
+| API — Render | [jurissim-pfc.onrender.com/health](https://jurissim-pfc.onrender.com/health) |
+
+As configurações locais não são enviadas automaticamente à hospedagem. Confira o commit e as variáveis efetivamente publicados em cada serviço antes da apresentação. Os endereços acima identificam os ambientes; este README não representa uma nova verificação de disponibilidade deles.

@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRoles, requireAcademicStaff, type AuthenticatedRequest } from '../middlewares/auth-middleware';
-import { StudyGoalService } from '../services/study-goal-service';
-import { ClassReportService } from '../services/class-report-service';
+import { StudyGoalService } from '../services/study/study-goal-service';
+import { ClassReportService } from '../services/assessments/class-report-service';
 
 const goalService = new StudyGoalService(), reportService = new ClassReportService();
 const id = (request: AuthenticatedRequest, key = 'id') => z.string().uuid().parse(request.params[key]);

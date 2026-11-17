@@ -3,9 +3,9 @@ import { InitialDiagnosticController } from '../controllers/initial-diagnostic-c
 import { requireAuth, requireRoles } from '../middlewares/auth-middleware';
 import { PrismaInitialDiagnosticRepository } from '../repositories/prisma-initial-diagnostic-repository';
 import { PrismaInitialDiagnosticResolutionRepository } from '../repositories/prisma-initial-diagnostic-resolution-repository';
-import { InitialDiagnosticService } from '../services/initial-diagnostic-service';
-import { InitialDiagnosticResolutionService } from '../services/initial-diagnostic-resolution-service';
-import { parseInitialDiagnosticCompositionMode } from '../services/initial-diagnostic-composition';
+import { InitialDiagnosticService } from '../services/diagnostics/initial-diagnostic-service';
+import { InitialDiagnosticResolutionService } from '../services/diagnostics/initial-diagnostic-resolution-service';
+import { parseInitialDiagnosticCompositionMode } from '../services/diagnostics/initial-diagnostic-composition';
 import { initialDiagnosticPilotBatchId } from '../config/initial-diagnostic-pilot';
 
 const FEATURE_FLAG = 'INITIAL_DIAGNOSTIC_API_ENABLED';
@@ -29,6 +29,10 @@ export function createInitialDiagnosticRoutes(options: InitialDiagnosticRoutesOp
   const controller = new InitialDiagnosticController(service, resolutionService);
   const enabled = options.isEnabled ?? isInitialDiagnosticApiEnabled;
 
+  // Historical results remain readable when creation/resolution is suspended.
+  // Ownership and completion are still checked by the resolution service.
+  router.get('/:attemptId/result', requireAuth, requireRoles('ALUNO'), controller.getResult);
+
   // Gate before auth: the existing auth middleware reads the user from the
   // database. While disabled this endpoint must not perform any DB access.
   router.use((_request, response, next) => {
@@ -46,7 +50,6 @@ export function createInitialDiagnosticRoutes(options: InitialDiagnosticRoutesOp
   router.get('/:attemptId/answers', controller.getAnswers);
   router.put('/:attemptId/answers/:questionId', controller.saveAnswer);
   router.post('/:attemptId/finalize', controller.finalize);
-  router.get('/:attemptId/result', controller.getResult);
   return router;
 }
 

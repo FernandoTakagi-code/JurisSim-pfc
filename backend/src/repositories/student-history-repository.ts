@@ -64,7 +64,7 @@ export class StudentHistoryRepository {
         _count: { select: { questoes: true } }, questoes: { select: { resposta: { select: { id: true } } } } } } }, orderBy: { id: 'desc' }, take: 50 });
     return { disciplines, priorityTopic: topics[0] ? { discipline: topics[0].discipline, topic: topics[0].topic,
       total: topics[0].total, percentage: Number((100 * topics[0].correct / topics[0].total).toFixed(2)) } : null,
-      trailProgress: trails.map(trail => ({ id: trail.id, discipline: trail.disciplinaPrioritaria, topic: trail.assuntoPrioritario,
+      trailProgress: trails.map(trail => ({ id: trail.id, attemptId: trail.simuladoGerado?.id ?? null, discipline: trail.disciplinaPrioritaria, topic: trail.assuntoPrioritario,
         finalizedAt: trail.simuladoGerado?.finalizadoEm ?? null, total: trail.simuladoGerado?._count.questoes ?? 0,
         answered: trail.simuladoGerado?.questoes.filter(question => question.resposta).length ?? 0,
         completed: Boolean(trail.simuladoGerado?.finalizadoEm) })) };

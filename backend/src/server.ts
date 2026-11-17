@@ -1,3 +1,4 @@
+import {activityRoutes} from "./routes/class-activity-routes";
 import express from 'express';
 import cors from 'cors';
 import { configureHttpSecurity } from './config/http-security';
@@ -23,11 +24,13 @@ import { goalRoutes, reportRoutes } from './routes/goals-reports-routes';
 import { profilePhotoRoutes } from './routes/profile-photo-routes';
 import { institutionRoutes } from './routes/institution-routes';
 import { administrationAudit } from './middlewares/administration-audit';
+import { localReadOnlyNavigation } from './middlewares/local-read-only-navigation';
+import { createQuestionEditorialRoutes } from './routes/question-editorial-routes';
 import {denyGlobalAcademicAccess} from './middlewares/academic-access';
 import { prisma } from './lib/prisma';
-import { isLocalDiagnosticDemoRequested, isLocalEmailCaptureRequested, localEmailVerificationCapture } from './services/local-email-capture';
+import { isLocalDiagnosticDemoRequested, isLocalEmailCaptureRequested, localEmailVerificationCapture } from './services/email/local-email-capture';
 import { setDefaultAutoSelectFamily } from 'node:net';
-import { assertInstitutionActivationReady, InstitutionActivationBlocked } from './services/institution-activation';
+import { assertInstitutionActivationReady, InstitutionActivationBlocked } from './services/institutions/institution-activation';
 setDefaultAutoSelectFamily(false);
 
 const app = express();
@@ -54,18 +57,20 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(administrationAudit);
+app.use(localReadOnlyNavigation);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', message: 'JurisSim API rodando' });
 });
 app.use('/auth', authRoutes);
 app.use('/institutions', institutionRoutes);
-app.use(['/questoes','/trilhas','/diagnostics','/initial-diagnostic','/students/me','/turmas','/avaliacoes','/goals','/reports','/question-practice','/individual-exams','/question-review'],requireAuth,denyGlobalAcademicAccess);
+app.use('/question-editorial', createQuestionEditorialRoutes());
+app.use(['/questoes','/trilhas','/diagnostics','/initial-diagnostic','/students/me','/turmas','/atividades', '/avaliacoes','/goals','/reports','/question-practice','/individual-exams','/question-review'],requireAuth,denyGlobalAcademicAccess);
 // These study routes are behind a server-side initial-diagnostic gate. Auth is
 // checked here before the gate; route-level authorization remains in place.
 app.use([
   '/questoes', '/trilhas', '/diagnostics', '/students/me', '/turmas',
-  '/avaliacoes', '/goals', '/reports', '/question-practice', '/profile/photo', '/individual-exams', '/question-review',
+  '/atividades', '/avaliacoes', '/goals', '/reports', '/question-practice', '/profile/photo', '/individual-exams', '/question-review',
 ], (request, response, next) => isInitialDiagnosticRequired()
   ? requireAuth(request, response, next)
   : next(), requireInitialDiagnosticCompletion);
@@ -80,6 +85,7 @@ app.use('/audit-logs', auditRoutes);
 app.use('/students/me', studentHistoryRoutes);
 app.use('/turmas', classRoutes);
 app.use('/avaliacoes', examRoutes);
+app.use('/atividades', activityRoutes);
 app.use('/goals', goalRoutes);
 app.use('/reports', reportRoutes);
 app.use('/profile/photo', profilePhotoRoutes);

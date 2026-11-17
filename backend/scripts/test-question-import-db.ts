@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { PrismaQuestionImportDatabase } from '../src/repositories/prisma-question-import-database';
 import { QuestionImportRepository } from '../src/repositories/question-import-repository';
-import { assertDisposableDatabase } from '../src/__tests__/integration/disposable-database';
+import { assertDisposableDatabase } from "../tests/integration/disposable-database";
 
 const client = new PrismaClient();
 const q = (name: string) => `"${name.replaceAll('"', '""')}"`;

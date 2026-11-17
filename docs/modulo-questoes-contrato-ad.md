@@ -1,6 +1,6 @@
 # Cadastro e edição de questões no formato A–D
 
-Implementação local de 11/11/2026. O cadastro comum agora exige quatro alternativas, com textos preenchidos e diferentes e exatamente um gabarito. A validação compartilhada está em `backend/src/question-alternatives.ts`, usada por schemas Zod, serviço e formulários React.
+Contrato do cadastro de questões. O cadastro comum agora exige quatro alternativas, com textos preenchidos e diferentes e exatamente um gabarito. A validação compartilhada está em `backend/src/question-alternatives.ts`, usada por schemas Zod, serviço e formulários React.
 
 ## Contrato HTTP
 
@@ -24,7 +24,7 @@ No backend, executar os testes direcionados:
 
 ```powershell
 cd backend
-npm.cmd test -- src/routes/questao-crud.test.ts src/__tests__/unit/questao-service.unit.test.ts src/services/question-csv-preview.test.ts
+npm.cmd test -- tests/unit/routes/questao-crud.test.ts tests/unit/questao-service.unit.test.ts tests/unit/services/question-csv-preview.test.ts
 ```
 
 No frontend, executar o teste de navegador:
@@ -38,4 +38,4 @@ O script usa Chrome ou Edge instalado nos caminhos usuais do Windows. Para outro
 
 Foram acrescentadas asserções de letras persistidas ao teste de integração existente. A suíte com PostgreSQL real descartável ainda precisa ser executada em ambiente apropriado; a validação com mocks não comprova execução transacional no banco real.
 
-Nenhuma migration ou atualização retroativa das questões existentes é necessária para disponibilizar o código, pois a coluna já existe. Os registros atuais não são corrigidos automaticamente. Não foram aplicadas migrations, importados rascunhos, atribuídas aprovações ou ativadas flags.
+Nenhuma migration ou atualização retroativa das questões existentes é necessária para disponibilizar o código, pois a coluna já existe. Os registros atuais não são corrigidos automaticamente. Esta documentação descreve o contrato; não registra o estado de manutenção de cada ambiente.

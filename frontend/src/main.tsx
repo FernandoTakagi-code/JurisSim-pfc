@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
@@ -23,13 +23,14 @@ import { InitialDiagnosticPage } from "./initial-diagnostic";
 import { DiagnosticReview } from './diagnostic-review';
 import { navigate as navigateTo, usePath } from "./navigation";
 import { sessionRedirectTarget } from './auth-routing';
-import { ClassesPage, ExamsPage, ClassExamAttempt } from "./class-exams";
+import { ClassesPage, ExamsPage, ClassExamAttempt, StudentClassDetailsPage } from "./class-exams";
 import { GoalsPage } from "./goals-reports";
 import { useStudentProgress, ProgressStatus, Evolution, RecentActivities, StudentHistory, PersistedResult } from "./student-progress";
 import { AdaptiveTrail } from "./adaptive-trail";
 import { TrailLaunchButton } from "./trail-launch";
-import { StudyTrail } from "./study-trail";
+const StudyTrail = lazy(() => import('./study-trail').then(module => ({ default: module.StudyTrail })));
 import { useAttemptResume } from './attempt-resume';
+import { ConfirmAccountEmailChange } from './account-security';
 
 
 type Alternative = { id: string; text: string };
@@ -73,9 +74,13 @@ const labels: Record<string, string> = {
 
 function App() {
   const path = usePath();
-  const [authLink, setAuthLink] = useState(() => /^#\/(verificar-email|reset-password)(\?|$)/.test(window.location.hash));
+  const [emailChangeLink, setEmailChangeLink] = useState(() => window.location.hash.startsWith('#/confirm-email-change'));
+  const [authLink, setAuthLink] = useState(() => /^#\/(verificar-email|reset-password|confirm-email-change)(\?|$)/.test(window.location.hash));
   useEffect(() => {
-    const update = () => setAuthLink(/^#\/(verificar-email|reset-password)(\?|$)/.test(window.location.hash));
+    const update = () => {
+      setAuthLink(/^#\/(verificar-email|reset-password|confirm-email-change)(\?|$)/.test(window.location.hash));
+      setEmailChangeLink(window.location.hash.startsWith('#/confirm-email-change'));
+    };
     window.addEventListener('hashchange', update);
     return () => window.removeEventListener('hashchange', update);
   }, []);
@@ -88,13 +93,15 @@ function App() {
     return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [authLink]);
   const activeSession = auth.session;
-  const redirectTarget = auth.status === 'ready' && activeSession ? sessionRedirectTarget(activeSession, path, window.location.search) : null;
+  const personalContextSelected = sessionStorage.getItem('jurissim_access_context') === 'personal';
+  const redirectTarget = auth.status === 'ready' && activeSession ? sessionRedirectTarget(activeSession, path, window.location.search, personalContextSelected) : null;
   useEffect(() => {
     if (redirectTarget) navigateTo(redirectTarget, true);
   }, [redirectTarget]);
+  if(emailChangeLink) return <ConfirmAccountEmailChange />;
   if(path === '/convite-professor') return <TeacherInvitationLanding/>;
   if (authLink || (auth.status === 'anonymous' && !sessionStorage.getItem('jurissim_token'))) return <AuthGate />;
-  if (auth.status === 'error') return <main className="page"><p className="error" role="alert">{auth.message}</p><button onClick={() => void refreshSession().catch(() => {})}>Tentar novamente</button><button onClick={() => void logoutSession()}>Sair</button></main>;
+  if (auth.status === 'error') return <main className="session-validation session-validation-error" role="alert" aria-live="assertive"><section className="session-validation-card"><span className="session-validation-mark" aria-hidden="true">!</span><strong>Não foi possível confirmar sua sessão</strong><p>{auth.message || 'O serviço está temporariamente indisponível. Tente novamente em instantes.'}</p><div className="session-validation-actions"><button type="button" className="primary-button" onClick={() => void refreshSession().catch(() => {})}>Tentar novamente</button><button type="button" className="outline-button" onClick={() => void logoutSession()}>Sair</button></div></section></main>;
   if (auth.status !== 'ready' || !auth.session || redirectTarget) return <SessionValidationScreen />;
   const { user } = auth.session;
   const sair = async () => { if (!await logoutSession()) return; window.location.assign('/'); };
@@ -114,7 +121,7 @@ function App() {
   </main>;
   const localDemoActive = user.role === 'ALUNO' && auth.session.localDiagnosticDemoActive === true;
   const exitLocalDemo = () => { void refreshSession(true).catch(() => {}); };
-  return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair} localDiagnosticDemoActive={localDemoActive} onExitLocalDemo={exitLocalDemo}><StudentApp userId={user.id} role={user.role} nome={user.nome} email={user.email} initialDestination={sessionDestination(auth.session)} /></IntegrationShell>;
+  return <IntegrationShell key={user.id + ':' + user.role} user={user} onSair={sair} localDiagnosticDemoActive={localDemoActive} onExitLocalDemo={exitLocalDemo}><StudentApp userId={user.id} role={user.role} nome={user.nome} email={user.email} initialDestination={sessionDestination(auth.session, personalContextSelected)} /></IntegrationShell>;
 }
 
 function SessionValidationScreen() {
@@ -136,13 +143,10 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState<string>();
   const [currentResult, setResult] = useState<Result>();
-  const progress = useStudentProgress();
-  const previousProgressRoute = useRef(route);
-  useEffect(() => {
-    const changed = previousProgressRoute.current !== route;
-    previousProgressRoute.current = route;
-    if (changed && ["/dashboard", "/trilha"].includes(route)) void progress.refresh();
-  }, [route, progress.refresh]);
+  const progress = useStudentProgress(
+    ["/dashboard", "/trilha", "/desempenho", "/estudar", "/diagnostico"].includes(route),
+    route === '/dashboard',
+  );
   const result = (currentResult?.level || route === '/diagnostico' ? currentResult : undefined)
     ?? (["/dashboard", "/desempenho", "/trilha", "/estudar"].includes(route) ? progress.latestResult : undefined);
   const [error, setError] = useState("");
@@ -194,6 +198,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const reviewRoute = /^\/questoes\/revisao\/([^/]+)$/.exec(route);
 
 
+  const studentClassRoute = /^\/turmas\/([^/]+)$/.exec(route);
+  if (studentClassRoute) return <StudentClassDetailsPage key={studentClassRoute[1]} classId={studentClassRoute[1]} />;
   const classAttemptRoute = /^\/simulados\/tentativas\/([^/]+)$/.exec(route);
   const individualExamRoute = /^\/simulados\/individual\/([^/]+)$/.exec(route);
   if (individualExamRoute) return <IndividualExamPage key={individualExamRoute[1]} id={individualExamRoute[1]} />;
@@ -205,7 +211,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const diagnosticReviewRoute = /^\/resultados\/diagnostico\/([^/]+)\/correcao$/.exec(route);
   if (diagnosticReviewRoute) return <DiagnosticReview attemptId={diagnosticReviewRoute[1]} onBack={() => navigate(`/resultados/diagnostico/${diagnosticReviewRoute[1]}`)} />;
   if (route === "/historico") return <StudentHistory />;
-  if (route === "/estudar") return <StudyTrail userId={userId} result={result} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
+  if (route === "/estudar") return <StudyTrail userId={userId} result={result} recommendationLoading={progress.loading} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
   if (route === "/trilha") return <AdaptiveTrail progress={progress} />;
   if (resultRoute) return <PersistedResult type={resultRoute[1] as "diagnostico" | "diagnostico-inicial" | "trilha"} id={resultRoute[2]} />;
 
@@ -216,6 +222,10 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     const totalAnswered = academic?.totals.answeredQuestions ?? 0;
     const totalCorrect = academic?.totals.correctAnswers ?? 0;
     const trail = dashboardResult?.trail;
+    // While the first load is in flight, empty states ("nenhum diagnóstico") would be false.
+    const loadingAcademic = progress.loading && !academic;
+    const priorityTopic = academic?.learning?.priorityTopic;
+    const loadingPanel = <p className="empty-dashboard" role="status">Carregando...</p>;
     return (
       <div className="shell">        <main className="content">
           <ProgressStatus loading={progress.loading} error={progress.error} refresh={() => void progress.refreshAcademic()} />
@@ -233,15 +243,18 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
             <article className="dashboard-recommendation">
               <div className="recommendation-icon">✦</div>
               <div className="recommendation-copy">
-                <p className="gold">{academic?.learning?.priorityTopic || trail ? "RECOMENDADO PARA VOCÊ" : "COMECE POR AQUI"}</p>
-              {academic?.learning?.priorityTopic ? <><h2>{academic.learning.priorityTopic.discipline}</h2><p>Retome {academic.learning.priorityTopic.topic} · {academic.learning.priorityTopic.percentage}% em {academic.learning.priorityTopic.total} respostas</p></> : trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{trail.assuntoPrioritario ?? "Conteudos gerais da disciplina"} · nivel {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></> : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem após seu primeiro diagnóstico concluído.</p></>}
+                <p className="gold">{loadingAcademic ? "CARREGANDO" : priorityTopic || trail ? "RECOMENDADO PARA VOCÊ" : "COMECE POR AQUI"}</p>
+              {loadingAcademic ? <><h2>Carregando suas recomendações</h2><p>Buscando seu diagnóstico e sua atividade recente.</p></>
+                : priorityTopic ? <><h2>{priorityTopic.discipline}</h2><p>{priorityTopic.percentage >= 100 ? `Continue praticando ${priorityTopic.topic} · você acertou todas as ${priorityTopic.total} respostas` : `Retome ${priorityTopic.topic} · ${priorityTopic.percentage}% em ${priorityTopic.total} respostas`}</p></>
+                : trail ? <><h2>{trail.disciplinaPrioritaria}</h2><p>{metrics.length > 0 && metrics.every((metric) => metric.percentual >= 100) ? "Você acertou todas as questões do diagnóstico. Continue praticando para consolidar · " : ""}{trail.assuntoPrioritario ?? "Conteúdos gerais da disciplina"} · nível {labels[trail.nivelRecomendado] ?? trail.nivelRecomendado}</p></>
+                : <><h2>Seu painel está pronto</h2><p>As recomendações aparecem após seu primeiro diagnóstico concluído.</p></>}
               </div>
               {trail && <button className="outline-button" onClick={() => navigate("/trilha")}>Abrir trilha adaptativa</button>}
             </article>
             <div className="dashboard-stats">
-              <article><span>Seu nível</span><strong>{dashboardResult ? labels[dashboardResult.level] ?? dashboardResult.level : "—"}</strong><small>{dashboardResult ? "Resultado do diagnóstico" : "Sem resultado disponível"}</small></article>
-              <article><span>Questões respondidas</span><strong>{academic ? totalAnswered : "—"}</strong><small>{totalAnswered ? `${totalCorrect} acertos em atividades concluídas` : "Aguardando atividade registrada"}</small></article>
-              <article><span>Disciplinas com respostas</span><strong>{academic ? metrics.length : "—"}</strong><small>{academic ? "No desempenho registrado" : "Aguardando dados"}</small></article>
+              <article><span>Seu nível</span><strong>{dashboardResult ? labels[dashboardResult.level] ?? dashboardResult.level : "—"}</strong><small>{loadingAcademic ? "Carregando..." : dashboardResult ? "Resultado do diagnóstico" : "Sem resultado disponível"}</small></article>
+              <article><span>Questões respondidas</span><strong>{academic ? totalAnswered : "—"}</strong><small>{loadingAcademic ? "Carregando..." : totalAnswered ? `${totalCorrect} acertos em atividades concluídas` : "Aguardando atividade registrada"}</small></article>
+              <article><span>Disciplinas com respostas</span><strong>{academic ? metrics.length : "—"}</strong><small>{loadingAcademic ? "Carregando..." : academic ? "No desempenho registrado" : "Aguardando dados"}</small></article>
             </div>
             <div className="dashboard-grid student-entry-cards">
               <article className="panel"><p className="gold">CONTEÚDOS E AULAS</p><h2>Estudar</h2><p className="muted">Aprenda por disciplina, revise e continue suas aulas. Leituras e autoavaliações ficam salvas neste navegador.</p><button className="primary" onClick={() => navigate("/estudar")}>Estudar agora</button></article>
@@ -255,19 +268,19 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
             <div className="dashboard-grid">
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">VISÃO POR MATÉRIA</p><h2>Desempenho por disciplina</h2></div><button className="text-button" onClick={() => navigate("/desempenho")}>Ver meu desempenho</button></div>
-                {metrics.length ? metrics.map((metric) => <div className="metric" key={metric.disciplina}><span>{metric.disciplina}</span><div><i style={{ width: `${metric.percentual}%` }} /></div><b>{metric.percentual}%</b></div>) : <p className="empty-dashboard">O desempenho por matéria será exibido após respostas registradas.</p>}
+                {loadingAcademic ? loadingPanel : metrics.length ? metrics.map((metric) => <div className="metric" key={metric.disciplina}><span>{metric.disciplina}</span><div><i style={{ width: `${metric.percentual}%` }} /></div><b>{metric.percentual}%</b></div>) : <p className="empty-dashboard">O desempenho por matéria será exibido após respostas registradas.</p>}
               </article>
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">EVOLUÇÃO</p><h2>Seu progresso</h2></div></div>
-                <Evolution items={academic?.evolution} />
+                {loadingAcademic ? loadingPanel : <Evolution items={academic?.evolution} />}
               </article>
               <article className="panel dashboard-panel dashboard-activity">
                 <div className="dashboard-panel-heading"><div><p className="gold">ATIVIDADE</p><h2>Atividade recente</h2></div></div>
-                <RecentActivities items={academic?.recentActivities} />
+                {loadingAcademic ? loadingPanel : <RecentActivities items={academic?.recentActivities} />}
               </article>
               <article className="panel dashboard-panel">
                 <div className="dashboard-panel-heading"><div><p className="gold">TRILHAS</p><h2>Progresso das trilhas adaptativas</h2></div></div>
-                {academic?.learning?.trailProgress.length ? academic.learning.trailProgress.slice(0, 5).map((item) => <div className="metric" key={item.id}><span>{item.discipline}{item.topic ? ` · ${item.topic}` : ""}</span><div><i style={{ width: `${item.total ? Math.round(item.answered / item.total * 100) : 0}%` }} /></div><b>{item.completed ? "Concluída" : `${item.answered}/${item.total}`}</b></div>) : <p className="empty-dashboard">As trilhas concluídas e em andamento aparecerão aqui.</p>}
+                {loadingAcademic ? loadingPanel : academic?.learning?.trailProgress.length ?academic.learning.trailProgress.slice(0, 5).map((item) => <div className="metric" key={item.id}><span>{item.discipline}{item.topic ? ` · ${item.topic}` : ""}</span><div><i style={{ width: `${item.total ? Math.round(item.answered / item.total * 100) : 0}%` }} /></div><b>{item.completed ? "Concluída" : `${item.answered}/${item.total}`}</b></div>) : <p className="empty-dashboard">As trilhas concluídas e em andamento aparecerão aqui.</p>}
               </article>
             </div>
           </section>
@@ -671,7 +684,7 @@ const application = (
       {import.meta.env.VITE_JURISSIM_DEMO_MODE === 'true' && <div className="jurissim-demo-global-banner" role="status">
         DEMONSTRAÇÃO ACADÊMICA — todos os registros são sintéticos. Os slots OAB são apenas simulações técnicas; não são questões oficiais, licenciadas ou homologadas.
       </div>}
-      <App />
+      <Suspense fallback={<SessionValidationScreen />}><App /></Suspense>
     </LegalBoundary>
 );
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();

@@ -1,0 +1,156 @@
+{
+  "dataUTC": "2026-11-16T20:47:05.663Z",
+  "branch": "entrega-16-11",
+  "commitReferencia": "af729c9d473d98f72e544a0a6ef1b142639e79e8",
+  "comando": "npm --prefix frontend run test:delivery-static",
+  "codigoSaida": 0,
+  "saida": "frontend-estatico-2026-11-16.txt",
+  "sha256Saida": "25810d10add99736c288cdadd69a6ce975c37913d96812e804c802cefa2a7a58",
+  "escopo": "Verificações estáticas, sem navegador, rede ou banco.",
+  "arquivosDeTeste": [
+    {
+      "arquivo": "frontend/tests/test-account-deletion.cjs",
+      "sha256": "0ee49f2f1e0adb74734b85a7b4e72cec5c1437333c77203391d9a9b3e86b2118"
+    },
+    {
+      "arquivo": "frontend/tests/test-account-security.cjs",
+      "sha256": "44c989ba1f0b5aba6713bd0ed1365625cf6c957ccdedec78495c16a21071f045"
+    },
+    {
+      "arquivo": "frontend/tests/test-activity-editor.cjs",
+      "sha256": "3435fb9468d48f5ac29851017e03d28817a4573cd6e3985b757301b69c5aacc7"
+    },
+    {
+      "arquivo": "frontend/tests/test-admin-routing.cjs",
+      "sha256": "72cf97d6bb6209f718c9bbdeacf5852bcfbd3f7a740733ec6132fcafa49f4f03"
+    },
+    {
+      "arquivo": "frontend/tests/test-administration.cjs",
+      "sha256": "8a3b4a05369bc52510c372ba22a24fbd922a46320b83426d749a0251c88229a6"
+    },
+    {
+      "arquivo": "frontend/tests/test-administration.mjs",
+      "sha256": "b28257fe6f33bf7f98f75cd9046fa76ab3e1884f0c272861d5844543e2e8e3b1"
+    },
+    {
+      "arquivo": "frontend/tests/test-attempt-resume.mjs",
+      "sha256": "58907c24429aaa31cd7a1c96f1dfeea73af2d33810466297a0a62812ccb77d08"
+    },
+    {
+      "arquivo": "frontend/tests/test-auth-local.mjs",
+      "sha256": "af70d06e539fd49ac7df8e8909377bd2dcae014e96dbc66cc61b165cc073454a"
+    },
+    {
+      "arquivo": "frontend/tests/test-authorial-pilot.mjs",
+      "sha256": "f32c8bd10d44121149e65250a939b602f00a84c34596ae97843ef835de5d44a3"
+    },
+    {
+      "arquivo": "frontend/tests/test-dashboard-navigation.mjs",
+      "sha256": "8fcf54762c9f87d8d6cc8d6fc79cb0298cd2aa8cbc3a3fc6fd3ac0775ce95fd2"
+    },
+    {
+      "arquivo": "frontend/tests/test-exam-actions.cjs",
+      "sha256": "0e31fe8180808595a9a8bfa1507c62c75f6186994b552f724845300d39312f37"
+    },
+    {
+      "arquivo": "frontend/tests/test-institution-db.mjs",
+      "sha256": "0e70a2489b0a506ef5333497cfabd266535014058099bf48d98426783c4b756b"
+    },
+    {
+      "arquivo": "frontend/tests/test-institution-exam-access.cjs",
+      "sha256": "73794cc1cda0d4929d51c4c918eb8b1051a96a9327f3742b2475ae1fbd72fc7e"
+    },
+    {
+      "arquivo": "frontend/tests/test-institution-navigation.cjs",
+      "sha256": "e4d7ae503c1fa17cdac51b693bbfe619f662ed4724b7d95295db54c8743953fb"
+    },
+    {
+      "arquivo": "frontend/tests/test-institution-visual.cjs",
+      "sha256": "e1c4069d0b3b2e764582456822a9a1eb61c883f30604e6ea4f1cee1fa58c8c95"
+    },
+    {
+      "arquivo": "frontend/tests/test-legal.mjs",
+      "sha256": "f66b80e979eaa08862d140690dafe6dd34dfb98941e3e8df224d8462a64068e9"
+    },
+    {
+      "arquivo": "frontend/tests/test-performance-contrast.mjs",
+      "sha256": "3e60708877f6e6cea72f93aebe7eed6b130c0b65e0c2959227c60d3a3ba7ace3"
+    },
+    {
+      "arquivo": "frontend/tests/test-privacy.mjs",
+      "sha256": "3b6f36e01f7689749c5d7a29dab4262c7b336e23ad10db73dc90474b4bcfe209"
+    },
+    {
+      "arquivo": "frontend/tests/test-profile-security.mjs",
+      "sha256": "f678a34977b356680bea7538a36c9d118434eb6b31ee6d6285d53616f7182f50"
+    },
+    {
+      "arquivo": "frontend/tests/test-question-editorial-db.mjs",
+      "sha256": "4ead66372f2875c748aeb9e41cebb3dd37c355ee9ee50621f03f0fa4254d30fc"
+    },
+    {
+      "arquivo": "frontend/tests/test-question-editorial.cjs",
+      "sha256": "16ce35e64ce245dbbce1b19dbd004e2b2d692a2d9835c86738b011f96a852c62"
+    },
+    {
+      "arquivo": "frontend/tests/test-question-form.mjs",
+      "sha256": "6de46f0bda1c8d20beb47585027e8f37481f66a5ae284a096c0cc074d6b7e7a3"
+    },
+    {
+      "arquivo": "frontend/tests/test-session.mjs",
+      "sha256": "82488f4117b8b7e4f622813a489104ce31ce4fd691f9ec0ff5332c765c61a25a"
+    },
+    {
+      "arquivo": "frontend/tests/test-stage-b1.mjs",
+      "sha256": "c7540c10df2148dddd6abc26f3fd7dafea1288c178d750462595279e92a439a3"
+    },
+    {
+      "arquivo": "frontend/tests/test-student-class-details.mjs",
+      "sha256": "3be617600e3abb8cdcebb3a0579932f441f9d206b2229b7f32fa33db326cccb7"
+    },
+    {
+      "arquivo": "frontend/tests/test-student-flows.mjs",
+      "sha256": "7d7d8088f17d491556a9159035d51ec489362428eff2b2faf0057da92bbf69f3"
+    },
+    {
+      "arquivo": "frontend/tests/test-student-practice-db.mjs",
+      "sha256": "c12a32f5f8fb1390bce6a94d914308a161866f1bd9e5a4ef678d43d193311719"
+    },
+    {
+      "arquivo": "frontend/tests/test-study-class-cards.mjs",
+      "sha256": "ca32bba205eba7a8a4a10a7974f51329ac36f608f1da5ba799586efc80c37f48"
+    },
+    {
+      "arquivo": "frontend/tests/test-study-exercise-progress.mjs",
+      "sha256": "b839bd596da2ff51ee1e7bc6981d7c2674692a05d6372079da105cf83d81d458"
+    },
+    {
+      "arquivo": "frontend/tests/test-study-footer.mjs",
+      "sha256": "2658ae676ed0307ba511e2f2fea0ef7c48d40fb34e37dc05e481c8563a9321a4"
+    },
+    {
+      "arquivo": "frontend/tests/test-study-lesson.mjs",
+      "sha256": "d49b17518afba102b6a5226a149fe4c399263efd446d561ab7243d0639c05469"
+    },
+    {
+      "arquivo": "frontend/tests/test-teacher-access.cjs",
+      "sha256": "eae4a9a1b0e5f8e2694191cfb8ee6e76021d75c1c54a6a6b68a226f02b170b3c"
+    },
+    {
+      "arquivo": "frontend/tests/test-teacher-live.mjs",
+      "sha256": "f50961644ed76e5f00320d3aec3e6ac95a74dbcd8df600c9cc426a7fa733a720"
+    },
+    {
+      "arquivo": "frontend/tests/test-teacher-navigation.mjs",
+      "sha256": "5f35f6a62f0a60dc5726b440aca08db6eff055921d54fcf219bd6bf88192d6f4"
+    },
+    {
+      "arquivo": "frontend/tests/test-teacher-workspace.cjs",
+      "sha256": "f053c77017ff883d3aabcb4c13d708e583e8af01992727606d9be53f4e86d19e"
+    },
+    {
+      "arquivo": "frontend/tests/test-trail-launch.cjs",
+      "sha256": "0737e2cda7c5b5843880f80c98ae4421cfabfa360c7044cb79123010c604c5c2"
+    }
+  ]
+}

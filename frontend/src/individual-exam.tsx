@@ -344,7 +344,6 @@ export function IndividualExamLobby() {
       {enabled && busy && <p role="status">Consultando disponibilidade…</p>}
       {data && (
         <>
-          {data.provisional && <ProvisionalNotice />}
           <div className="individual-inventory">
             {data.disciplines.map((d) => (
               <div key={d.discipline}>

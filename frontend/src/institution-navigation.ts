@@ -8,6 +8,12 @@ export const canManageInstitution = (session: Session, id: string) =>
   session.administration.memberships.some(
     (m) => m.institutionId === id && m.role === "INSTITUTION_ADMIN",
   );
+export const canViewInstitution = (session: Session, id: string) =>
+  session.user.role !== "ADMIN" &&
+  session.user.emailVerificado &&
+  session.administration?.memberships.some(
+    (m) => m.institutionId === id && m.role === "INSTITUTION_ADMIN",
+  ) === true;
 export const institutionSections = [
   { id: "overview", label: "Visão geral", group: "Gestão", icon: "home" },
   {
@@ -28,12 +34,6 @@ export const institutionSections = [
   },
   { id: "exams", label: "Simulados", group: "Acompanhamento", icon: "file" },
   {
-    id: "reports",
-    label: "Relatórios",
-    group: "Acompanhamento",
-    icon: "chart",
-  },
-  {
     id: "notifications",
     label: "Notificações",
     group: "Sistema",
@@ -47,6 +47,10 @@ export const institutionSections = [
   },
 ] as const;
 export type InstitutionSection = (typeof institutionSections)[number]["id"];
+export function resolveInstitutionSection(value: string | null) {
+  const canonical = value === "reports" ? "performance" : value;
+  return institutionSections.find(section => section.id === canonical) ?? institutionSections[0];
+}
 export function useInstitutionLocation() {
   return useSyncExternalStore(
     (listener) => {
@@ -62,12 +66,12 @@ export function useInstitutionLocation() {
 }
 export function institutionNavigate(
   id: string,
-  section: InstitutionSection,
+  section: InstitutionSection | "reports",
   extra: Record<string, string> = {},
 ) {
   const params = new URLSearchParams({
     instituicao: id,
-    secao: section,
+    secao: resolveInstitutionSection(section).id,
     ...extra,
   });
   sessionStorage.setItem("jurissim_administration_institution", id);

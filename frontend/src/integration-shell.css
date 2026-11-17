@@ -168,6 +168,10 @@
   background: var(--v0-panel);
 }
 .v0-breadcrumb {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   font-size: 12px;
   color: var(--v0-muted);
   display: flex;
@@ -189,6 +193,7 @@
   position: relative;
   margin-left: auto;
   min-width: 0;
+  max-width: min(268px, 60%);
 }
 .v0-user-trigger {
   display: flex;
@@ -196,9 +201,12 @@
   gap: 10px;
   padding: 0;
   text-align: left;
+  width: 100%;
+  min-width: 0;
 }
 .v0-user-trigger > span:nth-child(2) {
   max-width: 190px;
+  min-width: 0;
   overflow: hidden;
 }
 .v0-user-trigger strong {

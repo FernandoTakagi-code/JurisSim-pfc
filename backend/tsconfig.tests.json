@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "tests/**/*.ts",
+    "../frontend/src/vite-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

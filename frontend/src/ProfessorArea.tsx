@@ -1,28 +1,13 @@
 import { apiRequest } from './api';
+import { useResource, ResourceState, Pages } from './administration';
 import { useEffect, useMemo, useState } from "react";
 
 import { navigate, usePath } from "./navigation";
 import { ClassesPage, ExamsPage, ClassStudents } from "./class-exams";
 import { TeacherReports, StudentClassReport } from "./goals-reports";
-import { QUESTION_LETTERS, questionAlternativesError } from '../../backend/src/question-alternatives';
+import {QuestaoForm,type Nivel,type Questao} from './question-form';
 
 
-type Nivel = "BASICO" | "INTERMEDIARIO" | "AVANCADO";
-type Alternativa = { id?: string; letra?: string | null; texto: string; correta: boolean };
-type Questao = {
-  id: string;
-  enunciado: string;
-  disciplina: string;
-  assunto: string;
-  nivel: Nivel;
-  fundamentacaoJuridica: string;
-  publica: boolean;
-  autorId: string;
-  canManage?:boolean;
-  createdAt?: string;
-  alternativas: Alternativa[];
-};
-type DadosQuestao = Omit<Questao, "id" | "autorId" | "createdAt" | 'canManage'>;
 type Tela =
   | { nome: "painel" }
   | { nome: "questoes" }
@@ -35,28 +20,13 @@ const nivelLabel: Record<Nivel, string> = {
   AVANCADO: "Avançado",
 };
 
-// Sugestões para o campo Disciplina (o professor pode digitar outra).
-const disciplinasOab = [
-  "Direito Administrativo",
-  "Direito Civil",
-  "Direito Constitucional",
-  "Direito do Trabalho",
-  "Direito Empresarial",
-  "Direito Penal",
-  "Direito Processual Civil",
-  "Direito Processual Penal",
-  "Direito Processual do Trabalho",
-  "Direito Tributário",
-  "Direitos Humanos",
-  "Ética Profissional",
-];
-
 const call = apiRequest;
 
 const letra = (index: number) => String.fromCharCode(65 + index);
 
 export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: string; nome: string; email: string; role: string; onSair: () => void }) {
   const path = usePath();
+  const classCreation = /^\/professor\/turmas\/([^/]+)\/questoes\/nova$/.exec(path)?.[1];
 
   const [questoes, setQuestoes] = useState<Questao[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,8 +46,8 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
   };
 
   useEffect(() => {
-    carregar();
-  }, []);
+    if (!classCreation && path !== '/professor/questoes/nova') carregar();
+  }, [classCreation,path]);
 
   useEffect(() => {
     if (!path.startsWith("/professor")) navigate("/professor", true);
@@ -112,6 +82,8 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
   };
 
   const individualReport = /^\/professor\/relatorios\/turmas\/([^/]+)\/alunos\/([^/]+)$/.exec(path);
+  if (classCreation) return <ClassQuestionCreation key={classCreation} classId={classCreation} />;
+  if (path === '/professor/questoes/nova') return <QuestionClassPicker />;
   const reportRoute = /^\/professor\/(relatorios|desempenho)(?:\/turmas\/([^/]+))?$/.exec(path);
   if (individualReport) return <StudentClassReport key={individualReport[1] + individualReport[2]} classId={individualReport[1]} studentId={individualReport[2]} />;
   if (reportRoute) return <TeacherReports classId={reportRoute[2]} mode={reportRoute[1] === "desempenho" ? "performance" : "reports"} />;
@@ -171,6 +143,13 @@ export function ProfessorArea({ userId, nome, email, role, onSair }: { userId: s
 
     </div>
   );
+}
+
+function QuestionClassPicker() {
+  const [page,setPage] = useState(1);
+  const classes = useResource<{items:{id:string;nome:string;archivedAt?:string|null}[];hasMore:boolean}>(`/turmas?page=${page}`);
+  const active = classes.data?.items.filter(turma=>!turma.archivedAt) ?? [];
+  return <section className="page"><p className="teacher-eyebrow">Nova questão · primeiro passo</p><h1>Escolha a turma da questão</h1><p>As novas questões são privadas da turma. Você poderá usá-las nas atividades e nos simulados dessa mesma turma.</p><ResourceState resource={classes}/><div className="teacher-class-choices">{active.map(turma=><button key={turma.id} onClick={()=>navigate(`/professor/turmas/${encodeURIComponent(turma.id)}/questoes/nova`)}><strong>{turma.nome}</strong><span>Cadastrar questão nesta turma →</span></button>)}</div>{classes.data && !active.length && <article className="teacher-empty-state"><h2>Nenhuma turma ativa nesta página</h2><p>Consulte as outras páginas ou crie uma turma antes de cadastrar a questão.</p><button onClick={()=>navigate('/professor/turmas?acao=nova')}>Nova turma</button></article>}{classes.data && (page>1||classes.data.hasMore) && <Pages page={page} hasMore={classes.data.hasMore} change={setPage}/>}<button className="outline-button" onClick={()=>navigate('/professor/questoes')}>Voltar ao banco de questões</button></section>;
 }
 
 function Painel({
@@ -399,172 +378,19 @@ function BancoQuestoes({
   );
 }
 
-const alternativasIniciais = (): Alternativa[] => [
-  { texto: "", correta: false },
-  { texto: "", correta: false },
-  { texto: "", correta: false },
-  { texto: "", correta: false },
-];
-
-function QuestaoForm({
-  questao,
-  disciplinasExistentes,
-  onCancelar,
-  onSalva,
-}: {
-  questao?: Questao;
-  disciplinasExistentes: string[];
-  onCancelar: () => void;
-  onSalva: () => void;
-}) {
-  const [dados, setDados] = useState<DadosQuestao>(() => ({
-    enunciado: questao?.enunciado ?? "",
-    disciplina: questao?.disciplina ?? "",
-    assunto: questao?.assunto ?? "",
-    nivel: questao?.nivel ?? "BASICO",
-    fundamentacaoJuridica: questao?.fundamentacaoJuridica ?? "",
-    publica: questao?.publica ?? true,
-    alternativas: questao ? (() => {
-      const existing = [...questao.alternativas];
-      if (existing.every(a => a.letra && QUESTION_LETTERS.includes(a.letra as typeof QUESTION_LETTERS[number]))) {
-        existing.sort((a, b) => a.letra!.localeCompare(b.letra!));
-      }
-      const editable = existing.map(({ texto, correta }) => ({ texto, correta: Boolean(correta) }));
-      while (editable.length < QUESTION_LETTERS.length) editable.push({ texto: '', correta: false });
-      return editable;
-    })() : alternativasIniciais(),
-  }));
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [tentouSalvar, setTentouSalvar] = useState(false);
-
-  const campo = <K extends keyof DadosQuestao>(chave: K, valor: DadosQuestao[K]) =>
-    setDados((atual) => ({ ...atual, [chave]: valor }));
-  const setAlternativas = (fn: (atual: Alternativa[]) => Alternativa[]) =>
-    setDados((atual) => ({ ...atual, alternativas: fn(atual.alternativas) }));
-
-  const problemas: string[] = [];
-  if (dados.enunciado.trim().length < 10) problemas.push("O enunciado precisa ter pelo menos 10 caracteres.");
-  if (!dados.disciplina.trim()) problemas.push("Informe a disciplina.");
-  if (!dados.assunto.trim()) problemas.push("Informe o assunto.");
-  if (!dados.fundamentacaoJuridica.trim()) problemas.push("Informe a fundamentação jurídica.");
-  const alternativeError = questionAlternativesError(dados.alternativas);
-  if (alternativeError) problemas.push(alternativeError);
-
-  const sugestoes = [...new Set([...disciplinasOab, ...disciplinasExistentes])].sort();
-
-  const submit = async () => {
-    if (loading) return;
-    setTentouSalvar(true);
-    if (problemas.length) return;
-    setLoading(true);
-    setError("");
-    const corpo = {
-      ...dados,
-      enunciado: dados.enunciado.trim(),
-      disciplina: dados.disciplina.trim(),
-      assunto: dados.assunto.trim(),
-      fundamentacaoJuridica: dados.fundamentacaoJuridica.trim(),
-      alternativas: dados.alternativas.map((a) => ({ texto: a.texto.trim(), correta: a.correta })),
-    };
-    try {
-      await call(questao ? `/questoes/${questao.id}` : "/questoes", {
-        method: questao ? "PUT" : "POST",
-        body: JSON.stringify(corpo),
-      });
-      onSalva();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Erro inesperado.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <section className="page professor-page">
-      <p className="gold">{questao ? "EDITAR QUESTÃO" : "CADASTRO DE QUESTÃO"}</p>
-      <h1>{questao ? "Editar questão" : "Nova questão"}</h1>
-      <p className="muted">Questões já usadas em simulados não podem ser editadas nem excluídas, para preservar o histórico dos alunos.</p>
-      <article className="panel question-form">
-        <label>
-          Enunciado
-          <textarea rows={5} value={dados.enunciado} onChange={(e) => campo("enunciado", e.target.value)} placeholder="Ex.: João, servidor público federal, ..." />
-        </label>
-        <div className="form-row">
-          <label>
-            Disciplina
-            <input list="disciplinas-oab" value={dados.disciplina} onChange={(e) => campo("disciplina", e.target.value)} placeholder="Ex.: Direito Civil" />
-            <datalist id="disciplinas-oab">{sugestoes.map((d) => <option key={d} value={d} />)}</datalist>
-          </label>
-          <label>
-            Assunto
-            <input value={dados.assunto} onChange={(e) => campo("assunto", e.target.value)} placeholder="Ex.: Contratos" />
-          </label>
-        </div>
-        <div className="form-row">
-          <label>
-            Nível
-            <select value={dados.nivel} onChange={(e) => campo("nivel", e.target.value as Nivel)}>
-              <option value="BASICO">Básico</option>
-              <option value="INTERMEDIARIO">Intermediário</option>
-              <option value="AVANCADO">Avançado</option>
-            </select>
-          </label>
-          <label>
-            Fundamentação jurídica
-            <input value={dados.fundamentacaoJuridica} onChange={(e) => campo("fundamentacaoJuridica", e.target.value)} placeholder="Ex.: Art. 421 do Código Civil" />
-          </label>
-        </div>
-        <fieldset>
-          <legend>Alternativas A–D <small>preencha as quatro e marque uma correta</small></legend>
-          {dados.alternativas.length > QUESTION_LETTERS.length && <p role="alert">Esta questão antiga tem mais de quatro alternativas. Remova explicitamente as excedentes e confira o gabarito antes de salvar.</p>}
-          {dados.alternativas.map((alt, index) => (
-            <div className={`alternative-row${alt.correta ? " is-correct" : ""}`} key={index}>
-              <label className="alt-radio" title="Marcar como correta">
-                <input
-                  type="radio"
-                  name="alternativa-correta"
-                  checked={alt.correta}
-                  onChange={() => setAlternativas((atual) => atual.map((a, i) => ({ ...a, correta: i === index })))}
-                  aria-label={`Marcar alternativa ${letra(index)} como correta`}
-                />
-                <b>{letra(index)}</b>
-              </label>
-              <textarea
-                rows={2}
-                placeholder={`Texto da alternativa ${letra(index)}`}
-                aria-label={`Texto da alternativa ${letra(index)}`}
-                value={alt.texto}
-                onChange={(e) => setAlternativas((atual) => atual.map((a, i) => (i === index ? { ...a, texto: e.target.value } : a)))}
-              />
-              {dados.alternativas.length > QUESTION_LETTERS.length && <button
-                type="button"
-                className="icon-button"
-                aria-label={`Remover alternativa ${letra(index)}`}
-                onClick={() => setAlternativas((atual) => {
-                  const restantes = atual.filter((_, i) => i !== index);
-                  return restantes;
-                })}
-              >×</button>}
-            </div>
-          ))}
-        </fieldset>
-        <label className="checkbox-row">
-          <input type="checkbox" checked={dados.publica} onChange={(e) => campo("publica", e.target.checked)} />
-          Disponível no banco público
-        </label>
-        <p className="muted">O uso no diagnóstico inicial e na prática individual depende também da revisão e liberação do acervo.</p>
-        {tentouSalvar && problemas.length > 0 && (
-          <ul className="form-problems">{problemas.map((p) => <li key={p}>{p}</li>)}</ul>
-        )}
-        {error && <p className="error">{error}</p>}
-        <div className="form-actions">
-          <button type="button" className="outline-button" onClick={onCancelar} disabled={loading}>Cancelar</button>
-          <button type="button" className="primary" disabled={loading} onClick={submit}>
-            {loading ? "Salvando..." : questao ? "Salvar alterações" : "Cadastrar questão"} <b>→</b>
-          </button>
-        </div>
-      </article>
-    </section>
-  );
+function ClassQuestionCreation({ classId }: { classId: string }) {
+  const [turma, setTurma] = useState<{ id: string; nome: string }>();
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [sequence, setSequence] = useState(0);
+  useEffect(() => {
+    let active = true;
+    call<{ id: string; nome: string }>(`/questoes/turmas/${encodeURIComponent(classId)}/contexto`)
+      .then(data => { if (active) setTurma(data); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'Não foi possível carregar a turma.'); });
+    return () => { active = false; };
+  }, [classId]);
+  if (!turma) return <section className="page professor-page"><h1>Cadastrar questões da turma</h1><p role={error ? 'alert' : 'status'}>{error || 'Verificando autorização da turma…'}</p><button onClick={() => navigate('/professor/turmas')}>Voltar para turmas</button></section>;
+  if (saved) return <section className="page professor-page"><h1>{turma.nome}</h1><article className="panel"><h2 role="status">Questão cadastrada com sucesso</h2><p>A questão foi vinculada exclusivamente a esta turma.</p><div className="form-actions"><button className="primary" onClick={() => { setSequence(n => n + 1); setSaved(false); }}>Cadastrar outra questão</button><button className="outline-button" onClick={() => navigate('/professor/turmas')}>Voltar para turmas</button></div></article></section>;
+  return <QuestaoForm key={sequence} turma={turma} disciplinasExistentes={[]} onCancelar={() => navigate('/professor/turmas')} onSalva={() => setSaved(true)} />;
 }

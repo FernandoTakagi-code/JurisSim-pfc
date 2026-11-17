@@ -205,6 +205,12 @@
 .session-validation{min-height:100vh;display:grid;place-items:center;background:#f5f7fa;color:#102957;font-family:inherit}
 .session-validation-card{position:relative;display:grid;justify-items:center;gap:12px;min-width:230px;padding:30px 34px;border:1px solid #e0e5ec;border-radius:16px;background:#fff;box-shadow:0 16px 45px #10295712;font-size:13px;color:#718096}
 .session-validation-card strong{font-size:17px;color:#102957}
+.session-validation-error .session-validation-card{width:min(460px,calc(100vw - 32px));box-sizing:border-box;text-align:center;justify-items:center;gap:16px}
+.session-validation-error .session-validation-card p{margin:0;color:#53647d;line-height:1.55;overflow-wrap:anywhere}
+.session-validation-error .session-validation-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;width:100%}
+.session-validation-error .session-validation-actions button{min-height:42px;padding:10px 16px;border:1px solid #102957;border-radius:8px;color:#fff;background:#102957;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.session-validation-error .session-validation-actions .outline-button{color:#102957;background:#fff;border-color:#d9dee7}
+.session-validation-error .session-validation-actions button:focus-visible{outline:3px solid #d6ad52;outline-offset:2px}
 .session-validation-mark{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#d6ad52;color:#102957;font-size:22px;font-weight:900}
 .session-validation-spinner{position:absolute;top:23px;right:24px;width:15px;height:15px;border:2px solid #e7edf4;border-top-color:#d6ad52;border-radius:50%;animation:session-spin .8s linear infinite}
 @keyframes session-spin{to{transform:rotate(360deg)}}

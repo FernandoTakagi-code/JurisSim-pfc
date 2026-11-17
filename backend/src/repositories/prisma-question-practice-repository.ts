@@ -1,15 +1,25 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { inventorySelect, type InventoryRow } from './prisma-initial-diagnostic-repository';
-import { practiceInventoryWhere, isPracticePilotQuestion, isPracticeSelectable } from '../services/question-practice-pilot';
-import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
+import { inventorySelect, toEligibleCandidate, type InventoryRow } from './prisma-initial-diagnostic-repository';
+import { practiceInventoryWhere, isPracticePilotQuestion, isPracticeSelectable } from '../services/questions/question-practice-pilot';
+import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from '../services/diagnostics/diagnostic-question-snapshot';
 import { ApiError } from '../errors/api-error';
-import type { PracticeAttempt, PracticeQuestion, QuestionPracticeRepository } from '../services/question-practice-service';
+import type { PracticeAttempt, PracticeQuestion, QuestionPracticeRepository } from '../services/questions/question-practice-service';
 import type { Level } from '../types/diagnostic';
-import { analyzeDiagnostic } from '../services/adaptive-engine';
+import { analyzeDiagnostic } from '../services/diagnostics/adaptive-engine';
+import { ownerPracticeEnabled, ownerPracticeScope, ownerPracticeAuthorizedIds } from '../services/questions/owner-practice-release';
+
+const selectableInventoryWhere = (): Prisma.QuestaoWhereInput => ownerPracticeEnabled()
+  ? { OR:[practiceInventoryWhere(), ownerPracticeScope] } : practiceInventoryWhere();
 
 type SessionRow = { id: string; simuladoId: string; alunoId: string; disciplina: string; assunto?: string | null; finalizadoEm: Date | null };
+
+// "Inéditas" excludes what the student already answered, except in the initial
+// diagnostic: it draws 6 questions per discipline from this same pilot inventory and
+// would otherwise exhaust small disciplines (Civil, Administrativo) before any practice.
+export const practiceExclusionScope = (studentId: string): Prisma.SimuladoWhereInput =>
+  ({ alunoId: studentId, diagnosticoInicial: { is: null } });
 type AttemptRow = Prisma.SimuladoGetPayload<{ select: {
   id: true; finalizadoEm: true; questoes: { orderBy: { posicao: 'asc' }; select: {
     posicao: true; conteudoSnapshot: true; questao: { select: { id: true; disciplina: true; assunto: true; nivel: true; enunciado: true; fundamentacaoJuridica: true; alternativas: { orderBy: { letra: 'asc' }; select: { id: true; letra: true; texto: true; correta: true } } } }; resposta: { select: { alternativaEscolhidaId: true } };
@@ -34,8 +44,8 @@ const attemptSelect = {
   },
 } as const satisfies Prisma.SimuladoSelect;
 
-function questionFromRow(row: InventoryRow): PracticeQuestion | null {
-  if (!isPracticeSelectable(row)) return null;
+function questionFromRow(row: InventoryRow, ownerAuthorized = false): PracticeQuestion | null {
+  if (!isPracticeSelectable(row) && !ownerAuthorized) return null;
   return {
     id: row.id, discipline: row.disciplina, topic: row.assunto, level: row.nivel,
     statement: row.enunciado, explanation: row.fundamentacaoJuridica, provisional: isPracticePilotQuestion(row),
@@ -71,17 +81,32 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
   }
 
   async listEligibleQuestions(discipline: string, topic?: string | null): Promise<PracticeQuestion[]> {
-    const rows = await this.db.questao.findMany({ where: { ...practiceInventoryWhere(), disciplina: discipline, ...(topic ? { assunto: topic } : {}) }, select: inventorySelect });
-    return rows.flatMap(row => { const question = questionFromRow(row); return question ? [question] : []; });
+    const rows = await this.db.questao.findMany({ where: { ...selectableInventoryWhere(), disciplina: discipline, ...(topic ? { assunto: topic } : {}) }, select: inventorySelect });
+    const authorized = await ownerPracticeAuthorizedIds(this.db, rows);
+    return rows.flatMap(row => { const question = questionFromRow(row, authorized.has(row.id)); return question ? [question] : []; });
+  }
+
+  async listCatalogTopics(discipline: string) {
+    // Only public, unscoped metadata is discoverable. Never expose private class
+    // topics, question bodies or answer keys through this catalog.
+    const rows = await this.db.questao.findMany({
+      where: { publica: true, turmaId: null, disciplina: discipline }, select: inventorySelect,
+    });
+    const authorized = await ownerPracticeAuthorizedIds(this.db, rows);
+    const topics = new Map<string, { name: string; catalogCount: number; pendingReviewCount: number }>();
+    for (const row of rows) {
+      if (!row.assunto.trim()) continue;
+      const item = topics.get(row.assunto) ?? { name: row.assunto, catalogCount: 0, pendingReviewCount: 0 };
+      item.catalogCount++;
+      if (!toEligibleCandidate(row) && !authorized.has(row.id)) item.pendingReviewCount++;
+      topics.set(row.assunto, item);
+    }
+    return [...topics.values()];
   }
 
   async listAnsweredQuestionIds(studentId: string, discipline: string, topic?: string | null): Promise<ReadonlySet<string>> {
-    const eligible = await this.db.questao.findMany({
-      where: { ...practiceInventoryWhere(), disciplina: discipline, ...(topic ? { assunto: topic } : {}) }, select: { id: true },
-    });
-    if (!eligible.length) return new Set();
     const answers = await this.db.resposta.findMany({
-      where: { simulado: { alunoId: studentId }, questaoId: { in: eligible.map(question => question.id) } },
+      where: { simulado: practiceExclusionScope(studentId), questao: { ...selectableInventoryWhere(), disciplina: discipline, ...(topic ? { assunto: topic } : {}) } },
       select: { questaoId: true }, distinct: ['questaoId'],
     });
     return new Set(answers.map(answer => answer.questaoId));
@@ -122,7 +147,15 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
           AND (${topic}::text IS NULL OR p."assunto"=${topic})
         ORDER BY p."criadaEm" ASC LIMIT 1`;
       if (active[0]) return active[0].simuladoId;
-      const answered = await tx.resposta.findMany({ where: { simulado: { alunoId: studentId }, questaoId: { in: questions.map(q => q.id) } }, select: { questaoId: true } });
+      if (ownerPracticeEnabled()) await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('jurissim:owner-practice-release'))::text`;
+      const currentRows = await tx.questao.findMany({ where: { ...selectableInventoryWhere(), disciplina: discipline,
+        ...(topic ? { assunto: topic } : {}), id: { in: questions.map(q => q.id) } }, select: inventorySelect });
+      const authorized = await ownerPracticeAuthorizedIds(tx, currentRows);
+      const valid = new Map(currentRows.flatMap(row => { const q = questionFromRow(row, authorized.has(row.id)); return q ? [[q.id, q] as const] : []; }));
+      if (valid.size !== questions.length) throw new ApiError(409, 'O acervo disponível mudou. Atualize a disponibilidade.');
+      // Use the freshly validated content for the persisted snapshot.
+      questions = questions.map(q => valid.get(q.id)!);
+      const answered = await tx.resposta.findMany({ where: { simulado: practiceExclusionScope(studentId), questaoId: { in: questions.map(q => q.id) } }, select: { questaoId: true } });
       if (answered.length) throw new ApiError(409, 'O estoque mudou. Atualize a disponibilidade para iniciar um treino inédito.');
       const simulado = await tx.simulado.create({ data: { tipo: 'PERSONALIZADO', alunoId: studentId }, select: { id: true } });
       await tx.questaoSimulado.createMany({ data: questions.map((q, index) => ({ simuladoId: simulado.id, questaoId: q.id, posicao: index + 1,

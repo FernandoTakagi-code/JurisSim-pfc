@@ -6,8 +6,8 @@ import type {
   InitialDiagnosticFinalizeOutcome,
   InitialDiagnosticResolutionAttempt,
   InitialDiagnosticResolutionRepository,
-} from '../services/initial-diagnostic-resolution-service';
-import { readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
+} from '../services/diagnostics/initial-diagnostic-resolution-service';
+import { readDiagnosticQuestionSnapshot } from '../services/diagnostics/diagnostic-question-snapshot';
 
 const attemptInclude = {
   simulado: {
@@ -127,7 +127,7 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
       const alternative = question?.alternatives.find(option => option.id === alternativeId);
       if (!alternative) return 'ALTERNATIVE_NOT_FOUND' as const;
 
-      await tx.resposta.upsert({
+      const saved = await tx.resposta.upsert({
         where: { questaoSimuladoId: link.id },
         create: {
           simuladoId: attemptId,
@@ -141,9 +141,9 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
           correta: alternative.correct,
           respondidoEm: new Date(),
         },
-        select: { id: true },
+        select: { alternativaEscolhidaId: true, respondidoEm: true },
       });
-      return 'SAVED' as const;
+      return { status: 'SAVED', selectedAlternativeId: saved.alternativaEscolhidaId, respondedAt: saved.respondidoEm } as const;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }));
   }
 

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
-import type { QuestionPracticeService } from '../services/question-practice-service';
+import type { QuestionPracticeService } from '../services/questions/question-practice-service';
 
 const uuid = z.uuid();
 const startSchema = z.object({ discipline: z.string().trim().min(1).max(100), topic: z.string().trim().min(1).max(150).nullable().optional(), quantity: z.number().int() }).strict();

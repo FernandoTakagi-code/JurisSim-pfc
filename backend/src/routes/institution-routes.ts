@@ -7,16 +7,17 @@ import {
 } from "../middlewares/auth-middleware";
 import { administrativeCapabilities } from "../config/institution-feature";
 import { authRateLimit } from '../middlewares/auth-rate-limit';
-import { InstitutionService } from "../services/institution-service";
+import { InstitutionService } from "../services/institutions/institution-service";
 import { ApiError } from "../errors/api-error";
-import { institutionRequestSchema } from '../services/institution-registration-validation';
-import { InvitationOnboardingService } from '../services/invitation-onboarding';
+import { institutionRequestSchema } from '../services/institutions/institution-registration-validation';
+import { InvitationOnboardingService } from '../services/institutions/invitation-onboarding';
 import { homologationManifest, homologationParticipant, restrictedInstitutionId } from '../config/institution-homologation';
 import { institutionsGloballyEnabled } from '../config/institution-feature';
-import { InstitutionDecisionEmail } from '../services/institution-decision-email';
-import { requireGlobal } from '../services/institution-service';
-import { emailFrontendContext } from '../services/email-frontend';
-import { AccountDeletionService } from '../services/account-deletion';
+import { teacherInvitationMode } from '../config/teacher-invitations';
+import { InstitutionDecisionEmail } from '../services/institutions/institution-decision-email';
+import { requireGlobal } from '../services/institutions/institution-service';
+import { emailFrontendContext } from '../services/email/email-frontend';
+import { AccountDeletionService } from '../services/accounts/account-deletion';
 
 const invitationToken = z.string().regex(/^[a-f0-9]{64}$/);
 const page = z.coerce.number().int().min(1).max(10000).default(1);
@@ -52,7 +53,26 @@ institutionRoutes.use((req, res, next) => {
 });
 institutionRoutes.get("/availability", (_req, res) => {
   res.set('Cache-Control','no-store');
-  res.json(administrativeCapabilities());
+  const availability = administrativeCapabilities();
+  let teacherInvitations = false;
+  let teacherInvitationReason: string | undefined;
+  if (availability.capabilities.teacherManagement) {
+    try {
+      teacherInvitationMode();
+      teacherInvitations = true;
+    } catch {
+      teacherInvitationReason = process.env.INSTITUTION_HOMOLOGATION_ENABLED === 'true'
+        ? 'A configuração de homologação não permite convites neste perfil.'
+        : 'Configure o ambiente, o modo de convites e o serviço de e-mail no backend.';
+    }
+  } else {
+    teacherInvitationReason = 'A gestão de professores está desativada no backend.';
+  }
+  res.json({
+    ...availability,
+    capabilities: { ...availability.capabilities, teacherInvitations },
+    ...(teacherInvitationReason ? { teacherInvitationReason } : {}),
+  });
 });
 institutionRoutes.use((_req, res, next) => {
   res.set("Cache-Control", "no-store");
@@ -60,10 +80,31 @@ institutionRoutes.use((_req, res, next) => {
   const path = _req.path;
   const invitationEntry = ['/invitations/inspect','/invitations/accept','/invitations/decline'].includes(path);
   if (!institutionsGloballyEnabled() && homologationManifest() && invitationEntry && (_req as AuthenticatedRequest).auth && homologationParticipant((_req as AuthenticatedRequest).auth!.userId)) return next();
+  // Invitation tokens are independently scoped credentials. Keep the complete
+  // invitation lifecycle available when teacher management is enabled, without
+  // enabling institution-wide operations or academic modules.
+  const teacherInvitationFlow = caps.teacherInvitations && [
+    '/invitations/inspect', '/invitations/accept', '/invitations/decline',
+    '/invitations/register', '/invitations/decline-new',
+    '/invitations/complete', '/invitations/decline-proof',
+  ].includes(path);
   // First-time account creation via invitation cannot authorize an unknown UUID.
   // Restricted participants register/confirm normally before invitation acceptance.
   if (restrictedInstitutionId() && ['/invitations/register','/invitations/onboarding','/invitations/complete','/invitations/decline-proof'].includes(path)) return next(new ApiError(403,'Use uma conta individual previamente cadastrada e confirmada.'));
-  const allowed = /^\/requests(?:\/|$)/.test(path) ? availability.registrationEnabled
+  // These GETs are read models. Their services still verify the caller's
+  // ownership/membership, so they remain safe while operational writes wait
+  // for explicit activation and the pending migrations.
+  const authorizedRead = _req.method === 'GET' && (
+    path === '/mine' ||
+    path === '/notifications' ||
+    /^\/[0-9a-f-]{36}\/(summary|invitations|logs)$/.test(path)
+  );
+  const teacherManagementWrite = caps.teacherManagement && (
+    (_req.method === 'POST' && /^\/[0-9a-f-]{36}\/invitations(?:\/[0-9a-f-]{36}\/resend)?$/.test(path)) ||
+    (_req.method === 'DELETE' && /^\/[0-9a-f-]{36}\/(?:invitations|teachers)\/[0-9a-f-]{36}$/.test(path))
+  );
+  const allowed = authorizedRead || teacherManagementWrite || teacherInvitationFlow ? true
+    : /^\/requests(?:\/|$)/.test(path) ? availability.registrationEnabled
     : path === '/mine' ? availability.registrationEnabled || availability.administrationEnabled
     : path === '/notifications' ? caps.notifications
     : /^\/admin\/institutions(?:\/|$)/.test(path) ? caps.institutions
@@ -148,6 +189,7 @@ institutionRoutes.post('/invitations/decline', authRateLimit(10,3600_000), async
 });
 institutionRoutes.get(
   "/notifications",
+  requireAuth,
   async (req: AuthenticatedRequest, res) => {
     res.json(
       await service.notifications(
@@ -260,6 +302,7 @@ institutionRoutes.get("/admin/logs", async (req: AuthenticatedRequest, res) => {
 });
 institutionRoutes.get(
   "/:id/summary",
+  requireAuth,
   async (req: AuthenticatedRequest, res) => {
     res.json(
       await service.institutionSummary(
@@ -283,6 +326,7 @@ institutionRoutes.patch("/:id", async (req: AuthenticatedRequest, res) => {
 });
 institutionRoutes.get(
   "/:id/invitations",
+  requireAuth,
   async (req: AuthenticatedRequest, res) => {
     const filters = z
       .object({
@@ -306,7 +350,7 @@ institutionRoutes.get(
 institutionRoutes.post(
   "/:id/invitations",
   async (req: AuthenticatedRequest, res) => {
-    const input=z.object({email:z.string().trim().email().max(254).toLowerCase(),name:z.string().trim().min(2).max(120).optional(),classIds:z.array(z.string().uuid()).max(30).optional()}).strict().parse(req.body);
+    const input=z.object({email:z.string().trim().email().max(254).toLowerCase(),name:z.string().trim().min(2).max(120).optional(),message:z.string().trim().max(2000).optional(),classIds:z.array(z.string().uuid()).max(30).optional()}).strict().parse(req.body);
     res.status(201).json(
       await service.invite(
         req.auth!,
@@ -342,7 +386,7 @@ institutionRoutes.delete(
     res.json(await service.unlink(req.auth!, id(req), id(req, "userId")));
   },
 );
-institutionRoutes.get("/:id/logs", async (req: AuthenticatedRequest, res) => {
+institutionRoutes.get("/:id/logs", requireAuth, async (req: AuthenticatedRequest, res) => {
   if ("institutionId" in req.query)
     throw new ApiError(422, "Use somente a instituição da rota.");
   res.json(

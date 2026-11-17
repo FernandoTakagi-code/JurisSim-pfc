@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { TrailService } from '../services/trail-service';
+import { TrailService } from '../services/study/trail-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 
 const answerSchema = z.object({ selectedOptionId: z.string().uuid() });

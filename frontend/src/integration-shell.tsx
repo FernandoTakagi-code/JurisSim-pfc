@@ -1,3 +1,4 @@
+import {teacherSections,teacherCanonicalPath} from './teacher-navigation';
 import {Icon} from './ui-icon';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { apiRequest } from "./api";
@@ -13,6 +14,8 @@ import { InstitutionContext } from './administration';
 import { adminSections } from './admin-navigation';
 import { GlobalSignOut } from './global-sign-out';
 import { AccountDeletion } from './account-deletion';
+import { AccountEmailChange, AccountPasswordChange } from './account-security';
+import './profile-security.css';
 import {accountIdentity,profilePath as canonicalProfilePath,profileRoute,profileTabs,type ProfileTab} from './profile-navigation';
 const subscribeProfile=(listener:()=>void)=>{window.addEventListener('popstate',listener);return()=>window.removeEventListener('popstate',listener);};
 const useProfileLocation=()=>useSyncExternalStore(subscribeProfile,()=>window.location.pathname+window.location.search);
@@ -28,7 +31,7 @@ const roleLabel = (role: User["role"]) =>
 export function AuthorizedContext({session,compact=false}:{session:Session;compact?:boolean}){
   const [,setRevision]=useState(0);
   useEffect(()=>{const update=()=>setRevision(v=>v+1);window.addEventListener('popstate',update);window.addEventListener('jurissim-institution-context',update);return()=>{window.removeEventListener('popstate',update);window.removeEventListener('jurissim-institution-context',update);};},[]);
-  if(session.user.role==='ADMIN')return null;
+  if(session.user.role==='ADMIN'||session.user.role==='PROFESSOR')return null;
   const institutions=session.administration?.memberships.filter(m=>m.role==='INSTITUTION_ADMIN')??[];
   if(!institutions.length)return null;
   const candidate=new URLSearchParams(window.location.search).get('instituicao')??sessionStorage.getItem('jurissim_administration_institution');
@@ -37,14 +40,16 @@ export function AuthorizedContext({session,compact=false}:{session:Session;compa
   const value=institutional?`institution:${selected??institutions[0].institutionId}`:'personal';
   return <div className="institution-context"><label>Contexto de acesso<select aria-label="Contexto de acesso" value={value} onChange={e=>{
     if(e.target.value==='personal'){
-      window.location.assign(session.user.role==='PROFESSOR'?'/professor':'/dashboard');
+      sessionStorage.setItem('jurissim_access_context','personal');
+      window.location.assign('/dashboard');
     }else{
       const id=e.target.value.slice('institution:'.length);
       if(!institutions.some(m=>m.institutionId===id))return;
+      sessionStorage.removeItem('jurissim_access_context');
       sessionStorage.setItem('jurissim_administration_institution',id);
       window.location.assign(`/instituicoes?instituicao=${encodeURIComponent(id)}`);
     }
-  }}><option value="personal">{session.user.role==='PROFESSOR'?'Minha área de professor':'Meu espaço de estudos'}</option>{institutions.map(m=><option key={m.institutionId} value={`institution:${m.institutionId}`}>Administrar {m.institution.name}</option>)}</select></label>{!compact&&<small>O contexto utiliza seus vínculos autorizados e preserva seu papel pessoal.</small>}</div>;
+  }}><option value="personal">Meu espaço de estudos</option>{institutions.map(m=><option key={m.institutionId} value={`institution:${m.institutionId}`}>Administrar {m.institution.name}</option>)}</select></label>{!compact&&<small>O contexto utiliza seus vínculos autorizados e preserva seu papel pessoal.</small>}</div>;
 }
 
 function readPreference(key: string, fallback: string) {
@@ -99,15 +104,7 @@ export function IntegrationShell({
   const mainRef = useRef<HTMLDivElement>(null);
   const wasMobileOpen = useRef(false);
   let primary: Item[] = admin ? [...adminSections] : institutional ? [{path:'/instituicoes',label:'Acompanhamento institucional',icon:'users'}] : teacher
-    ? [
-        { path: base, label: "Início", icon: "home" },
-        { path: base + "/turmas", label: "Turmas", icon: "users" },
-        { path: base + "/alunos", label: "Alunos", icon: "users" },
-        { path: base + "/atividades", label: "Atividades", icon: "book" },
-        { path: base + "/simulados", label: "Simulados", icon: "file" },
-        { path: base + "/questoes", label: "Banco de questões", icon: "book" },
-        { path: base + "/questoes/nova", label: "Cadastrar questão", icon: "plus" },
-      ]
+    ? [...teacherSections]
     : [
         { path: "/dashboard", label: "Início", icon: "home" },
         { path: "/estudar", label: "Estudar", icon: "book" },
@@ -118,23 +115,18 @@ export function IntegrationShell({
         { path: "/trilha", label: "Minha Trilha Adaptativa", icon: "target" },
       ];
   if(sessionState.session?.administration?.restricted) primary=primary.filter(item=>!/(?:^|\/)questoes(?:\/|$)/.test(item.path));
-  const secondary: Item[] = admin || institutional ? [] : teacher
-    ? [
-        { path: base + "/desempenho", label: "Desempenho", icon: "chart" },
-        { path: base + "/relatorios", label: "Relatórios", icon: "file" },
-      ]
-    : [
+  const secondary: Item[] = admin || institutional || teacher ? [] : [
         { path: "/historico", label: "Histórico de atividades", icon: "chart" },
         { path: "/metas", label: "Metas de estudo", icon: "target" },
       ];
-  if (!admin&&!institutional) primary.push({ path: '/instituicoes', label: 'Instituições e solicitações', icon: 'users' });
   const profileLocation=useProfileLocation();
   const profilePath=canonicalProfilePath(user.role);
   const profile=profileRoute(user.role,path,profileLocation.slice(path.length));
   const utility=!!profile;
   useEffect(()=>{if(profile&&profileLocation!==profile.target)navigate(profile.target,true);},[profileLocation,profile?.target]);
-  const currentNav = [...primary, ...secondary].filter(item => path === item.path || (item.path !== base && item.path !== "/" && path.startsWith(item.path + "/"))).sort((a, b) => b.path.length - a.path.length)[0];
-  const title = utility ? "Perfil e configura\u00e7\u00f5es" : path.endsWith("/editar") ? "Editar quest\u00e3o" : currentNav?.label ?? "JurisSim";
+  const navPath = teacher ? teacherCanonicalPath(path) : path;
+  const currentNav = [...primary, ...secondary].filter(item => navPath === item.path || (item.path !== base && item.path !== "/" && navPath.startsWith(item.path + "/"))).sort((a, b) => b.path.length - a.path.length)[0];
+  const title = utility ? "Perfil e configura\u00e7\u00f5es" : path.endsWith("/editar") ? "Editar questão" : currentNav?.label ?? "JurisSim";
 
   useEffect(() => {
     setMobileOpen(false);
@@ -224,7 +216,7 @@ export function IntegrationShell({
   );
   return (
     <PhotoProvider key={user.id}><div
-      className={`v0-app ${dark ? "v0-dark" : ""} ${collapsed ? "v0-collapsed" : ""}`}
+      className={`v0-app ${teacher && !utility ? "v0-teacher" : ""} ${dark ? "v0-dark" : ""} ${collapsed ? "v0-collapsed" : ""}`}
       data-theme={theme}
     >
       {mobileOpen && (
@@ -270,7 +262,7 @@ export function IntegrationShell({
           <p className="v0-nav-label">
             {admin ? "Administração geral" : institutional ? 'Administração institucional' : teacher ? "Área do professor" : "Área do aluno"}
           </p>
-          <nav aria-label={admin ? "Administração" : "Estudos"}>{primary.map(navItem)}</nav>
+          <nav aria-label={admin ? "Administração" : teacher ? "Área do professor" : "Estudos"}>{primary.map(navItem)}</nav>
           <><p className="v0-nav-label">Minha conta</p>
           <nav aria-label="Conta e preferências">
             {secondary.map(navItem)}
@@ -291,7 +283,7 @@ export function IntegrationShell({
           </button>
         </div>
       </aside>
-      <div ref={mainRef} className="v0-workspace">
+      <div ref={mainRef} className={`v0-workspace${utility ? ' v0-profile-workspace' : ''}`}>
         <header className="v0-header">
           <button
             ref={menuButtonRef}
@@ -434,23 +426,25 @@ export function ProfileSettings({
     }
   };
   return (
-    <section className="v0-page">
+    <section className="v0-page profile-page" aria-labelledby="profile-page-title">
+      <header className="profile-page-heading">
       <p className="gold">{identity.label}</p>
-      <h1>Perfil e configurações</h1>
+      <h1 id="profile-page-title">Perfil e configurações</h1>
       <p className="v0-description">
-        Gerencie seus dados, segurança e preferências do JurisSim.
+        Gerencie seus dados, segurança e aparência do JurisSim.
       </p>
+      </header>
       <nav className="v0-tabs" role="tablist" aria-label="Seções do perfil" onKeyDown={event=>{
         if(!['ArrowRight','ArrowLeft','Home','End'].includes(event.key))return;
         event.preventDefault();const index=profileTabs.indexOf(tab);
-        const next=event.key==='Home'?0:event.key==='End'?3:(index+(event.key==='ArrowRight'?1:3))%4;
+        const count=profileTabs.length;
+        const next=event.key==='Home'?0:event.key==='End'?count-1:(index+(event.key==='ArrowRight'?1:count-1))%count;
         setTab(profileTabs[next]);requestAnimationFrame(()=>document.getElementById('profile-tab-'+profileTabs[next])?.focus());
       }}>
         {[
           ["personal", "Dados pessoais"],
           ["security", "Segurança"],
           ["appearance", "Aparência"],
-          ["preferences", "Preferências"],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -467,7 +461,7 @@ export function ProfileSettings({
           </button>
         ))}
       </nav>
-      <div id="profile-tab-panel" role="tabpanel" aria-labelledby={'profile-tab-'+tab}>
+      <div id="profile-tab-panel" className="profile-tab-content" role="tabpanel" aria-labelledby={'profile-tab-'+tab}>
       {tab === "personal" && (
         <div className="v0-profile-grid">
           <article className="v0-panel">
@@ -523,28 +517,20 @@ export function ProfileSettings({
               Cada operação está sujeita às permissões do seu perfil e aos seus vínculos ativos.
             </p>
           </article>
+          <AccountPrivacy />
         </div>
       )}
       {tab === "security" && (
-        <div className="v0-profile-grid">
-          <article className="v0-panel">
-            <h2>Segurança da conta</h2>
-            <p>
-              E-mail{" "}
-              {user.emailVerificado ? "confirmado" : "pendente de confirmação"}.
-            </p>
-            <p>
-              Para redefinir sua senha, saia e use “Esqueci minha senha” no
-              login. A redefinição revoga as sessões anteriores.
-            </p>
-            <button className="outline-button" onClick={onSair}>
-              Sair da conta
-            </button>
+          <article className="v0-panel profile-security-card" aria-labelledby="account-security-title">
+            <h2 id="account-security-title">Segurança da conta</h2>
+            <p>Gerencie seu acesso e proteja sua conta. Seus dados acadêmicos e histórico são preservados.</p>
+            <div className="profile-security-sections">
+              <AccountEmailChange compact />
+              <AccountPasswordChange compact />
+              <GlobalSignOut embedded />
+              <AccountDeletion embedded />
+            </div>
           </article>
-          <Privacy />
-          <GlobalSignOut />
-          <AccountDeletion />
-        </div>
       )}
       {tab === "appearance" && (
         <article className="v0-panel">
@@ -583,23 +569,7 @@ export function ProfileSettings({
           </div>
         </article>
       )}
-      {tab === "preferences" && (
-        <div className="v0-profile-grid">
-          <Privacy />
-          <article className="v0-panel">
-            <h2>Notificações</h2>
-            <p>
-              Preferências de notificações ainda indisponíveis. Nenhuma
-              alteração é enviada ou simulada.
-            </p>
-          </article>
-        </div>
-      )}
       </div>
     </section>
   );
-}
-
-function Privacy() {
-  return <AccountPrivacy />;
 }

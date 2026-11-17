@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from './api';
-import { clampDiagnosticReviewIndex, diagnosticReviewStatus } from '../../backend/src/services/diagnostic-review-navigation';
+import { clampDiagnosticReviewIndex, diagnosticReviewStatus } from '../../backend/src/services/diagnostics/diagnostic-review-navigation';
 import './diagnostic-review.css';
 
 type ReviewAlternative = { id: string; letter: 'A' | 'B' | 'C' | 'D' | null; text: string; correct: boolean };

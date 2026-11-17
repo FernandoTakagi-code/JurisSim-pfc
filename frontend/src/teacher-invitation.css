@@ -26,6 +26,14 @@
 .teacher-invitation .auth-card {padding:18px;background:#f8fafc;border:1px solid #e0e6ef;border-radius:14px;box-shadow:none;margin:15px 0;}
 .teacher-invitation .auth-card label {font-size:13px;}
 .teacher-invitation .auth-card input:not([type=checkbox]) {min-height:44px;font:inherit;}
+.teacher-invitation .auth-card .invitation-consent {display:flex;align-items:flex-start;gap:10px;margin:2px 0;color:#172849;font-size:13px;line-height:1.5;font-weight:600;cursor:pointer;}
+.teacher-invitation .auth-card .invitation-consent input[type=checkbox] {appearance:none;-webkit-appearance:none;box-sizing:border-box;display:grid;place-items:center;flex:0 0 18px;width:18px;height:18px;min-width:18px;margin:1px 0 0;padding:0;border:1.5px solid #c79625;border-radius:5px;background:#fff;cursor:pointer;}
+.teacher-invitation .auth-card .invitation-consent input[type=checkbox]::after {content:"";width:5px;height:9px;border:solid #102957;border-width:0 2px 2px 0;transform:rotate(45deg) scale(0);transition:transform .12s ease;}
+.teacher-invitation .auth-card .invitation-consent input[type=checkbox]:checked {border-color:#d7a82d;background:#d7a82d;}
+.teacher-invitation .auth-card .invitation-consent input[type=checkbox]:checked::after {transform:rotate(45deg) scale(1);}
+.teacher-invitation .auth-card .invitation-consent input[type=checkbox]:focus-visible {outline:3px solid #d7a82d66;outline-offset:2px;}
+.teacher-invitation .auth-card .invitation-consent input[type=checkbox]:disabled {opacity:.55;cursor:not-allowed;}
+@media (forced-colors:active) {.teacher-invitation .auth-card .invitation-consent input[type=checkbox]:checked {outline:1px solid SelectedItem;background:SelectedItem;}}
 .teacher-invitation .error[role=alert] {background:#fff1ed;border:1px solid #efc3b7;border-radius:9px;padding:12px;color:#8a3121;}
 @media(max-width:760px){.teacher-invitation .auth-content {padding:22px 14px;}.teacher-invitation .invitation-card {padding:23px 19px;border-radius:16px;}.invitation-details {padding:16px;}.invitation-details dl {grid-template-columns:1fr;}}
 @media(prefers-reduced-motion:reduce){.teacher-invitation * {transition:none!important;}}

@@ -41,8 +41,13 @@ type Availability = {
   }[];
   provisional: boolean;
   availableCount: number;
+  eligibleCount?: number;
+  answeredCount?: number;
+  disciplineAvailableCount?: number;
+  disciplineEligibleCount?: number;
+  availabilityReason?: 'NO_ELIGIBLE_QUESTIONS' | 'NO_UNSEEN_QUESTIONS' | 'INSUFFICIENT_UNSEEN_QUESTIONS' | null;
   availableQuantities: number[];
-  topics: { name: string; availableCount: number }[];
+  topics: { name: string; availableCount: number; eligibleCount?: number; catalogCount?: number; pendingReviewCount?: number }[];
   activeAttempt: { id: string; quantity: number; topic: string | null } | null;
 };
 type Result = {
@@ -94,7 +99,7 @@ export function QuestionPracticePage({
   const api = review ? "/question-review" : "/question-practice";
   const catalogPath = review ? "/questoes/revisao" : "/questoes";
   const attemptPath = review ? "/questoes/revisao/" : "/questoes/pratica/";
-  const [filter, setFilter] = useState<"all" | "incorrect">("incorrect");
+  const [filter, setFilter] = useState<"all" | "incorrect">(() => review && new URLSearchParams(window.location.search).get('filtro') === 'all' ? 'all' : 'incorrect');
   const [discipline, setDiscipline] = useState(
     disciplines.includes(initialDiscipline ?? "")
       ? initialDiscipline!
@@ -325,6 +330,7 @@ export function QuestionPracticePage({
               />{" "}
               Somente erradas
             </label>
+
             <label>
               <input
                 type="radio"
@@ -345,7 +351,6 @@ export function QuestionPracticePage({
             </p>
           </fieldset>
         )}
-        {availability?.provisional && <ProvisionalNotice />}
         {!enabled && (
           <p className="individual-notice">
             {review
@@ -368,6 +373,7 @@ export function QuestionPracticePage({
                   disabled={!enabled || busy}
                   aria-pressed={discipline === d}
                   onClick={() => {
+                    if (discipline === d && !topic) return;
                     setDiscipline(d);
                     setTopic("");
                     setAvailability(undefined);
@@ -394,10 +400,18 @@ export function QuestionPracticePage({
                   <option key={t.name} value={t.name}>
                     {t.name} · {t.availableCount}{" "}
                     {review ? "para revisar" : "inéditas"}
+                    {!review && (t.pendingReviewCount ?? 0) > 0 ? ` · ${t.pendingReviewCount} aguardando revisão/liberação` : ""}
                   </option>
                 ))}
               </select>
             </label>
+            {!review && topic && availability && !availability.activeAttempt && availability.availableCount < 5 && (
+              <div className="practice-inventory-status" role="status">
+                <p>Este assunto tem {availability.availableCount} questões inéditas. O treino exige pelo menos 5 no mesmo filtro.</p>
+                {(availability.disciplineAvailableCount ?? 0) >= 5 && <button type="button" className="individual-link" onClick={() => { setTopic(''); setAvailability(undefined); }}>Treinar 5 com todos os assuntos ({availability.disciplineAvailableCount} inéditas)</button>}
+              </div>
+            )}
+            {!review && availability && <p className="practice-inventory-status">Os assuntos incluem o catálogo público em revisão. Apenas questões elegíveis entram no treino; questões privadas de turmas não são expostas.</p>}
             <h2>2. Defina o tamanho {review ? "da revisão" : "do treino"}</h2>
             <fieldset
               className="practice-sizes"
@@ -433,11 +447,14 @@ export function QuestionPracticePage({
                   <small>
                     {loadingCatalog
                       ? "Consultando…"
+                      : !availability ? "Consulta indisponível"
+                      : availability.activeAttempt ? review ? "Revisão em andamento" : "Treino em andamento"
                       : availability &&
                           !availability.availableQuantities.includes(n)
                         ? review
                           ? "Histórico insuficiente"
-                          : "Acervo insuficiente"
+                          : availability.availabilityReason === 'NO_ELIGIBLE_QUESTIONS'
+                            ? "Sem questões liberadas" : "Acervo insuficiente"
                         : "Correção por questão"}
                   </small>
                 </label>
@@ -451,8 +468,10 @@ export function QuestionPracticePage({
                 : availability
                   ? review
                     ? `${availability.availableCount} ${availability.availableCount === 1 ? "questão" : "questões"} para revisar neste filtro. Cada questão aparece uma vez.`
-                    : `${availability.availableCount} questões inéditas neste filtro. As já respondidas em treinos e simulados ficam fora desta seleção.`
-                  : "Selecione uma disciplina para consultar a disponibilidade."}
+                    : availability.availabilityReason === 'NO_ELIGIBLE_QUESTIONS'
+                      ? "Nenhuma questão elegível está liberada para novos treinos neste filtro. Isso não impede retomar seu treino existente."
+                      : `${availability.availableCount} questões inéditas neste filtro.${typeof availability.eligibleCount === 'number' ? ` ${availability.eligibleCount} elegíveis; ${availability.answeredCount ?? 0} já respondidas em treinos e simulados.` : ' As já respondidas em treinos e simulados ficam fora desta seleção.'}`
+                  : error ? "Não foi possível consultar a disponibilidade. Use Atualizar disponibilidade para tentar novamente." : "Selecione uma disciplina para consultar a disponibilidade."}
             </p>
             {error && (
               <p className="error" role="alert">
@@ -507,9 +526,20 @@ export function QuestionPracticePage({
                 <p className="practice-resume-note" role="status">
                   {review
                     ? "Nenhuma questão disponível para este filtro. Escolha outra disciplina, veja todas as respondidas ou conclua uma atividade."
-                    : "Não há questões inéditas suficientes para um treino de 5. Escolha outro assunto ou disciplina."}
+                    : availability.availabilityReason === 'NO_ELIGIBLE_QUESTIONS'
+                      ? "Novos treinos dependem da disponibilização de questões elegíveis. Seu histórico foi preservado."
+                      : availability.availabilityReason === 'NO_UNSEEN_QUESTIONS'
+                        ? topic ? "Você já respondeu às questões elegíveis deste assunto. Consulte todos os assuntos ou seu histórico."
+                          : "Você já respondeu a todas as questões elegíveis desta disciplina fora do diagnóstico inicial. Não há cinco inéditas para um novo treino; seu histórico permanece disponível."
+                        : "Não há questões inéditas suficientes para um treino de 5. Escolha outro assunto ou disciplina."}
                 </p>
               )}
+            {!review && availability?.availabilityReason === 'NO_UNSEEN_QUESTIONS' && !availability.activeAttempt && <>
+              <button type="button" className="individual-link" onClick={() => navigate('/historico')}>Consultar meu histórico</button>
+              {import.meta.env.VITE_QUESTION_REVIEW_UI_ENABLED === 'true'
+                ? <button type="button" className="individual-link" onClick={() => navigate(`/questoes/revisao?disciplina=${encodeURIComponent(discipline)}&filtro=all`)}>Revisar todas as respondidas de {shortName(discipline)}</button>
+                : <p className="practice-inventory-status">A revisão de respondidas ainda não está disponível neste ambiente.</p>}
+            </>}
             <button
               className="individual-primary"
               disabled={

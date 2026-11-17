@@ -1,10 +1,11 @@
 import { Response } from 'express';
-import { QuestaoService } from '../services/QuestaoService';
+import { QuestaoService } from '../services/questions/QuestaoService';
 import { AuthenticatedRequest } from '../middlewares/auth-middleware';
 import { criarQuestaoSchema } from '../schemas/questao-schemas';
 import { z } from 'zod';
 import { ApiError } from '../errors/api-error';
 import { prisma } from '../lib/prisma';
+import { QuestaoRepository } from '../repositories/QuestaoRepository';
 async function enforceQuestionInstitution(req: AuthenticatedRequest, questionId?: string, requestedClassId?: string) {
   if(req.auth?.institutionAdmin&&req.method!=='GET')throw new ApiError(403,'Autoria de questões exige o contexto docente e delegação atual.');
   if (req.auth?.role !== 'PROFESSOR' || !req.auth.allowedClassIds) return;
@@ -24,15 +25,20 @@ const filtrosSchema = z.object({
   turmaId: z.string().trim().min(1).optional(), minhas: z.enum(['true', 'false']).optional(),
 });
 
-async function questionPermissions<T extends {autorId?:string;turmaId?:string|null}>(req:AuthenticatedRequest,questions:T[]){
+async function questionPermissions<T extends {autorId?:string;turmaId?:string|null;publica?:boolean}>(req:AuthenticatedRequest,questions:T[]){
   if(req.auth?.institutionAdmin)return questions.map(q=>({...q,canManage:false}));
   if(req.auth?.role!=='PROFESSOR')return questions;
   const classIds=[...new Set(questions.map(q=>q.turmaId).filter((id):id is string=>typeof id==='string'))];
   const allowed=req.auth.allowedClassIds??(classIds.length?(await prisma.turma.findMany({where:{id:{in:classIds},professores:{some:{id:req.auth.userId}}},select:{id:true}})).map(c=>c.id):[]);
-  return questions.map(q=>({...q,canManage:q.autorId===req.auth!.userId&&(!q.turmaId||allowed.includes(q.turmaId))}));
+  return questions.map(q=>({...q,canManage:q.autorId===req.auth!.userId&&!q.publica&&!!q.turmaId&&allowed.includes(q.turmaId)}));
 }
 
 export class QuestaoController {
+  static async contextoTurma(req: AuthenticatedRequest, res: Response) {
+    const id = req.params.turmaId as string;
+    await enforceQuestionInstitution(req, undefined, id);
+    return res.json(await QuestaoRepository.contextoTurma(id, req.auth!.userId));
+  }
   static async criar(req: AuthenticatedRequest, res: Response) {
     const parsed = criarQuestaoSchema.safeParse(req.body);
     if (!parsed.success) {

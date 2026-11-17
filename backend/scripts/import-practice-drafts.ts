@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { resolveInventoryCheckDatabaseUrl } from '../src/config/inventory-check-database-url';
-import { importPracticeDrafts, preparePracticeDraftImport } from '../src/services/practice-draft-import';
+import { importPracticeDrafts, preparePracticeDraftImport } from '../src/services/questions/practice-draft-import';
 
 async function main() {
   const args = process.argv.slice(2), flags = new Map<string, string>();

@@ -1,4 +1,4 @@
-import { parseInitialDiagnosticCompositionMode } from '../services/initial-diagnostic-composition';
+import { parseInitialDiagnosticCompositionMode } from '../services/diagnostics/initial-diagnostic-composition';
 
 export function initialDiagnosticPilotBatchId(env: NodeJS.ProcessEnv = process.env): string | undefined {
   if (env.INITIAL_DIAGNOSTIC_PILOT_ENABLED?.trim().toLowerCase() !== 'true') return undefined;

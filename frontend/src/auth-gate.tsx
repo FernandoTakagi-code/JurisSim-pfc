@@ -7,7 +7,7 @@ import { navigate } from './navigation';
 import { LegalLinks, legalAcceptance } from './legal';
 import { PASSWORD_MIN_LENGTH, passwordError, passwordRequirements, validPasswordConfirmation } from '../../backend/src/password-policy';
 import { validateRegistration } from './registration-validation';
-import { INITIAL_DIAGNOSTIC_ATTEMPT_COUNT, INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT } from '../../backend/src/services/initial-diagnostic-config';
+import { INITIAL_DIAGNOSTIC_ATTEMPT_COUNT, INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT } from '../../backend/src/services/diagnostics/initial-diagnostic-config';
 import './password-policy.css';
 import './institution-request.css';
 import {InstitutionRegistrationWizard} from './institution-wizard-loader';

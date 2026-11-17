@@ -1,0 +1,5 @@
+# Historical SQL bytes were authenticated against the remote Prisma checksums.
+# Preserve their original CRLF bytes on every platform.
+backend/prisma/migrations/20261113200000_teacher_academic_activities/migration.sql -text
+backend/prisma/migrations/20261113210000_class_materials_announcements/migration.sql -text
+backend/prisma/migrations/20261113220000_teacher_questions_in_exams/migration.sql -text

@@ -8,4 +8,4 @@ for (const [key, name] of [['DATABASE_URL', 'jurissim_h424_test'], ['SHADOW_DATA
   const url = new URL(process.env[key]!);
   if (url.hostname !== '127.0.0.1' || url.port !== '5432' || url.pathname !== '/' + name || url.search || url.hash) throw new Error('H4.24: destino recusado.');
 }
-export default defineConfig({ test: { include: ['src/__tests__/integration/h424.integration.test.ts'], fileParallelism: false, testTimeout: 30000, hookTimeout: 30000 } });
+export default defineConfig({ test: { include: ['tests/integration/h424.integration.test.ts'], fileParallelism: false, testTimeout: 30000, hookTimeout: 30000 } });

@@ -3,7 +3,7 @@ require('dotenv').config({ quiet: true });
 const { PrismaClient } = require('@prisma/client');
 const { randomUUID } = require('node:crypto');
 const assert = require('node:assert/strict');
-const { acceptanceData } = require('../dist/services/legal-acceptance');
+const { acceptanceData } = require("../dist/services/accounts/legal-acceptance.js");
 const versions = require('../src/legal-versions.json');
 const prisma = new PrismaClient();
 const rollback = new Error('TEST_ROLLBACK');

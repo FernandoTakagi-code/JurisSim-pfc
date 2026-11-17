@@ -1,0 +1,144 @@
+import {beforeEach,afterEach,it,expect,vi} from 'vitest';
+import {createHash} from 'node:crypto';
+import versions from "../../../src/legal-versions.json";
+const db=vi.hoisted(()=>{
+  const model=()=>Object.fromEntries(['findUnique','findFirst','create','update','updateMany','upsert','findMany'].map(k=>[k,vi.fn()]));
+  return {teacherInvitation:model(),invitationOnboarding:model(),institution:model(),user:model(),accountControl:model(),institutionalMembership:model(),teacherInvitationClass:model(),administrativeEvent:model(),$transaction:vi.fn(),$queryRaw:vi.fn()};
+});
+vi.mock("../../../src/lib/prisma",()=>({prisma:db}));
+import {InvitationOnboardingService,escapeMail} from "../../../src/services/institutions/invitation-onboarding";
+import {EmailDeliveryFailure} from "../../../src/services/email/email-delivery-failure";
+const mail={isConfigured:true,send:vi.fn()},token='a'.repeat(64),proof='b'.repeat(64);
+const digest=(v:string)=>createHash('sha256').update(v).digest('hex');
+const service=new InvitationOnboardingService(mail);
+beforeEach(()=>{
+  vi.resetAllMocks();vi.stubEnv('APP_PUBLIC_URL','https://jurissim.example.invalid');
+  vi.stubEnv('INSTITUTIONS_ENABLED','true');
+  db.$transaction.mockImplementation(work=>work(db));
+  db.teacherInvitation.findUnique.mockResolvedValue({id:'invite',institutionId:'inst',email:'invited@example.invalid',status:'PENDING',expiresAt:new Date(Date.now()+3600000)});
+  db.institution.findUnique.mockResolvedValue({id:'inst',name:'Instituição de teste',status:'ACTIVE'});
+  db.teacherInvitation.updateMany.mockResolvedValue({count:1});
+  db.invitationOnboarding.create.mockResolvedValue({id:'setup'});
+  db.user.create.mockResolvedValue({id:'new-user'});
+  db.teacherInvitationClass.findMany.mockResolvedValue([]);
+});
+afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
+it('inspects the invited identity for the bearer without consuming the invitation',async()=>{
+  const details=await service.inspect(token);
+  expect(details.maskedEmail).toBe('i***@example.invalid');expect(details.email).toBe('invited@example.invalid');expect(details.accountExists).toBe(false);expect(details).not.toHaveProperty('tokenHash');expect(db.user.create).not.toHaveBeenCalled();expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();
+});
+it('new recipient explicitly registers through the valid invitation and receives only its teacher membership',async()=>{
+  db.user.findMany.mockResolvedValue([]);
+  db.user.findUnique.mockResolvedValue({id:'new-user',email:'invited@example.invalid',role:'ALUNO',emailVerifiedAt:new Date(),deletedAt:null});
+  await expect(service.register(token,'New Teacher','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).resolves.toMatchObject({nextStep:'LOGIN',invitationAccepted:true});
+  expect(db.user.create.mock.calls[0][0].data).toMatchObject({email:'invited@example.invalid',role:'PROFESSOR',registrationIntent:null,emailVerifiedAt:expect.any(Date)});
+  expect(db.institutionalMembership.upsert).toHaveBeenCalledWith(expect.objectContaining({create:{institutionId:'inst',userId:'new-user',role:'TEACHER'}}));
+  expect(db.teacherInvitation.updateMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({status:'PENDING'}),data:{status:'ACCEPTED',acceptedById:'new-user'}}));
+  expect(db.$transaction).toHaveBeenCalledTimes(1);
+  expect(mail.send).not.toHaveBeenCalled();
+});
+it('registration cannot overwrite an existing account or its credentials',async()=>{
+  db.user.findMany.mockResolvedValue([{id:'existing',role:'ALUNO',emailVerifiedAt:new Date()}]);
+  await expect(service.register(token,'Name','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).rejects.toMatchObject({statusCode:409});
+  expect(db.user.create).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();
+});
+it('new registration refuses an expired invitation before creating any account',async()=>{
+  db.teacherInvitation.findUnique.mockResolvedValue({id:'invite',institutionId:'inst',email:'invited@example.invalid',status:'PENDING',expiresAt:new Date(0)});
+  await expect(service.register(token,'Name','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).rejects.toMatchObject({statusCode:409});
+  expect(db.user.create).not.toHaveBeenCalled();
+});
+it.each(['SUSPENDED','REJECTED','PENDING'])('rejects invitation from %s institution',async status=>{
+  db.institution.findUnique.mockResolvedValue({id:'inst',status});await expect(service.inspect(token)).rejects.toMatchObject({statusCode:409});
+});
+it.each(['CANCELLED','ACCEPTED','DECLINED'])('rejects %s invitations',async status=>{
+  db.teacherInvitation.findUnique.mockResolvedValue({id:'invite',institutionId:'inst',status,expiresAt:new Date(Date.now()+3600000)});await expect(service.inspect(token)).rejects.toMatchObject({statusCode:409});
+});
+it.each([
+  ['CANCELLED','INVITATION_REVOKED'],['ACCEPTED','INVITATION_ACCEPTED'],['DECLINED','INVITATION_DECLINED'],['PENDING','INVITATION_EXPIRED'],
+])('returns safe distinguishable state %s without changing invitation or account',async(status,code)=>{
+  db.teacherInvitation.findUnique.mockResolvedValue({id:'invite',institutionId:'inst',status,expiresAt:status==='PENDING'?new Date(0):new Date(Date.now()+3600000)});
+  await expect(service.inspect(token)).rejects.toMatchObject({statusCode:409,code});
+  expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();
+});
+it('does not overwrite or enumerate an existing identity',async()=>{
+  db.user.findFirst.mockResolvedValue({id:'existing',role:'PROFESSOR',senhaHash:'existing-hash'});
+  const result=await service.start(token,'Professor',{accepted:true,...versions});
+  expect(result.message).toContain('Se este for');expect(db.user.create).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();expect(mail.send).not.toHaveBeenCalled();
+});
+it('stores only proof hash and mails a second email-control proof without password',async()=>{
+  await service.start(token,'Professor',{accepted:true,...versions});
+  const entry=db.invitationOnboarding.create.mock.calls[0][0].data;
+  expect(entry.proofHash).toMatch(/^[a-f0-9]{64}$/);expect(entry).not.toHaveProperty('proof');
+  const message=mail.send.mock.calls[0][0];const raw=new URL(message.text.match(/https:\/\/\S+/)![0]).hash.split('confirmacao=')[1];
+  expect(digest(raw)).toBe(entry.proofHash);expect(message.text).not.toContain(entry.initialPasswordHash);
+  expect(db.user.create.mock.calls[0][0].data.role).toBe('ALUNO');expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();
+});
+it('requires explicit legal acceptance before creating an identity',async()=>{
+  await expect(service.start(token,'Professor',{accepted:false,...versions})).rejects.toBeDefined();expect(db.user.create).not.toHaveBeenCalled();
+});
+it('H4.12 direct registration never bypasses the disabled institutional runtime',async()=>{
+  vi.stubEnv('INSTITUTIONS_ENABLED','false');
+  await expect(service.register(token,'Professor','SenhaForte123!','SenhaForte123!',{accepted:true,...versions})).rejects.toMatchObject({statusCode:503});
+  expect(db.user.create).not.toHaveBeenCalled();expect(mail.send).not.toHaveBeenCalled();
+});
+it('H4.12 an untouched legacy provisional identity can decline without a second proof or changing credentials',async()=>{
+  vi.stubEnv('INSTITUTIONS_ENABLED','true');
+  db.user.findFirst.mockResolvedValue({id:'pending',role:'ALUNO',emailVerifiedAt:null,senhaHash:'initial'});
+  db.invitationOnboarding.findUnique.mockResolvedValue({id:'legacy',invitationId:'invite',initialPasswordHash:'initial',completedAt:null});
+  await expect(service.declineNew(token)).resolves.toHaveProperty('message');
+  expect(db.invitationOnboarding.update).toHaveBeenCalledWith({where:{id:'legacy'},data:{completedAt:expect.any(Date)}});
+  expect(db.user.update).not.toHaveBeenCalled();expect(db.user.create).not.toHaveBeenCalled();expect(mail.send).not.toHaveBeenCalled();
+});
+it('H4.6 preserves a possibly delivered onboarding proof after an indeterminate SMTP result',async()=>{
+  mail.send.mockRejectedValue(new EmailDeliveryFailure('indeterminate','request_deadline'));
+  await expect(service.start(token,'Professor',{accepted:true,...versions})).resolves.toHaveProperty('message');
+  expect(db.invitationOnboarding.updateMany).not.toHaveBeenCalled();
+});
+it('H4.6 invalidates only the failed proof when SMTP demonstrably did not accept it',async()=>{
+  mail.send.mockRejectedValue(new EmailDeliveryFailure('not_accepted','connect'));
+  await service.start(token,'Professor',{accepted:true,...versions});
+  const proofHash=db.invitationOnboarding.create.mock.calls[0][0].data.proofHash;
+  expect(db.invitationOnboarding.updateMany).toHaveBeenCalledWith({where:{id:'setup',completedAt:null,proofHash},data:{expiresAt:new Date(0)}});
+});
+it('rotates the proof after the resend cooldown without changing the pending account password',async()=>{
+  db.user.findFirst.mockResolvedValue({id:'new-user',role:'ALUNO',senhaHash:'original'});
+  db.invitationOnboarding.findUnique.mockResolvedValue({id:'setup',invitationId:'invite',userId:'new-user',initialPasswordHash:'original',expiresAt:new Date(Date.now()+60000),lastSentAt:new Date(Date.now()-61000),sendAttempts:1});
+  db.invitationOnboarding.update.mockResolvedValue({id:'setup'});
+  await service.start(token,'Professor',{accepted:true,...versions});
+  expect(db.user.create).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();
+  expect(db.invitationOnboarding.update.mock.calls[0][0].data).toMatchObject({invitationId:'invite',sendAttempts:{increment:1},proofHash:expect.stringMatching(/^[a-f0-9]{64}$/)});
+  expect(mail.send).toHaveBeenCalledTimes(1);
+});
+it('allows a replacement invitation to resume an unfinished identity without duplicating it',async()=>{
+  db.user.findFirst.mockResolvedValue({id:'new-user',role:'ALUNO',senhaHash:'original'});
+  db.invitationOnboarding.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({id:'setup',invitationId:'cancelled-invite',userId:'new-user',initialPasswordHash:'original',lastSentAt:new Date(Date.now()-61000),sendAttempts:3});
+  db.invitationOnboarding.update.mockResolvedValue({id:'setup'});
+  await service.start(token,'Professor',{accepted:true,...versions});
+  expect(db.invitationOnboarding.update.mock.calls[0][0].data).toMatchObject({invitationId:'invite',sendAttempts:1});expect(db.user.create).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();
+});
+it('rejects forged confirmation proof before changing credentials',async()=>{
+  await expect(service.complete(token,proof,'SenhaForte123!','SenhaForte123!')).rejects.toMatchObject({statusCode:409});expect(db.user.update).not.toHaveBeenCalled();
+});
+it('does not replace an account password altered after onboarding started',async()=>{
+  const entry={id:'setup',invitationId:'invite',userId:'new-user',proofHash:digest(proof),initialPasswordHash:'original',expiresAt:new Date(Date.now()+60000),completedAt:null};
+  db.invitationOnboarding.findUnique.mockResolvedValue(entry);db.user.findUnique.mockResolvedValue({id:'new-user',email:'invited@example.invalid',role:'ALUNO',senhaHash:'changed'});
+  await expect(service.complete(token,proof,'SenhaForte123!','SenhaForte123!')).rejects.toMatchObject({statusCode:409});expect(db.user.update).not.toHaveBeenCalled();
+});
+it('legacy proof completes only the identity and credentials, preserving the original invitation for separate acceptance',async()=>{
+  const entry={id:'setup',invitationId:'invite',userId:'new-user',proofHash:digest(proof),initialPasswordHash:'original',expiresAt:new Date(Date.now()+60000),completedAt:null};
+  db.invitationOnboarding.findUnique.mockResolvedValue(entry);
+  db.user.findUnique.mockResolvedValue({id:'new-user',email:'invited@example.invalid',role:'ALUNO',senhaHash:'original',emailVerifiedAt:new Date()});
+  await service.complete(token,proof,'SenhaForte123!','SenhaForte123!');
+  expect(db.user.update.mock.calls[0][0].data).toMatchObject({sessionVersion:{increment:1},emailVerifiedAt:expect.any(Date)});
+  expect(db.user.update.mock.calls[0][0].data.registrationIntent).toBe('TEACHER_INVITATION');
+  expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();expect(db.user.update).toHaveBeenCalledOnce();
+  expect(db.invitationOnboarding.update).toHaveBeenCalledWith(expect.objectContaining({data:{completedAt:expect.any(Date)}}));
+});
+it('declines with email proof without granting a membership or replacing credentials',async()=>{
+  db.invitationOnboarding.findUnique.mockResolvedValue({id:'setup',invitationId:'invite',userId:'new-user',expiresAt:new Date(Date.now()+60000)});
+  await service.declineWithProof(token,proof);expect(db.teacherInvitation.updateMany.mock.calls[0][0].data.status).toBe('DECLINED');expect(db.user.update).not.toHaveBeenCalled();expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();
+});
+it('rejects a different authenticated recipient',async()=>{
+  db.user.findUnique.mockResolvedValue({email:'another@example.invalid',emailVerifiedAt:new Date()});await expect(service.decline(token,{userId:'another',role:'ALUNO'})).rejects.toMatchObject({statusCode:403});expect(db.teacherInvitation.updateMany).not.toHaveBeenCalled();
+});
+it('escapes untrusted names in transactional email HTML',()=>expect(escapeMail('<img onerror="x">&')).toBe('&lt;img onerror=&quot;x&quot;&gt;&amp;'));

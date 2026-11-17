@@ -24,7 +24,9 @@
     "test:legal-db": "node scripts/verify-legal-db.cjs",
     "prisma:generate": "prisma generate",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test:no-db": "vitest run --config vitest.no-db.config.ts --maxWorkers=2"
+    "test:no-db": "vitest run --config vitest.no-db.config.ts --maxWorkers=2",
+    "prebuild": "node scripts/clean-build.cjs",
+    "check:tests": "tsc -p tsconfig.tests.json"
   },
   "keywords": [],
   "type": "commonjs",

@@ -5,7 +5,7 @@ import {
   requireRoles,
   type AuthenticatedRequest,
 } from "../middlewares/auth-middleware";
-import { QuestionReviewService } from "../services/question-review-service";
+import { QuestionReviewService } from "../services/questions/question-review-service";
 export function isQuestionReviewEnabled() {
   return (
     process.env.QUESTION_REVIEW_SCHEMA_ENABLED === "true" &&

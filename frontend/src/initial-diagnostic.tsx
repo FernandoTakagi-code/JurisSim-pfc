@@ -11,11 +11,11 @@ import {
   type InitialDiagnosticResult,
   type InitialDiagnosticShortage,
 } from "./initial-diagnostic-api";
-import { INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT, INITIAL_DIAGNOSTIC_QUESTIONS_PER_DISCIPLINE } from "../../backend/src/services/initial-diagnostic-config";
+import { INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT, INITIAL_DIAGNOSTIC_QUESTIONS_PER_DISCIPLINE } from "../../backend/src/services/diagnostics/initial-diagnostic-config";
 import { DiagnosticReview } from './diagnostic-review';
 import "./initial-diagnostic.css";
 
-export { INITIAL_DIAGNOSTIC_DISCIPLINES } from "../../backend/src/services/initial-diagnostic-config";
+export { INITIAL_DIAGNOSTIC_DISCIPLINES } from "../../backend/src/services/diagnostics/initial-diagnostic-config";
 
 export type InitialDiagnosticDiscipline = typeof INITIAL_DIAGNOSTIC_DISCIPLINES[number];
 export type AlternativeLetter = "A" | "B" | "C" | "D";
@@ -44,6 +44,7 @@ type InitialDiagnosticPageProps = { onBack: () => void; studentId: string; manda
 type PagePhase = "intro" | "loading" | "attempt" | "result";
 type DiagnosticUiError = { message: string; shortages?: InitialDiagnosticShortage[]; disabled?: boolean };
 const STORAGE_PREFIX = "jurissim_initial_diagnostic_attempt_";
+const levelLabels: Record<string, string> = { BASICO: "Básico", INTERMEDIARIO: "Intermediário", AVANCADO: "Avançado" };
 
 function isShortageList(value: unknown): value is InitialDiagnosticShortage[] {
   return Array.isArray(value) && value.every(item => item && typeof item.discipline === "string"
@@ -365,7 +366,7 @@ function InitialDiagnosticResultPage({ result, onBack, mandatory }: { result: In
     <article className="initial-diagnostic-result-summary">
       <div><strong>{result.overallPercentage}%</strong><span>aproveitamento geral</span></div>
       <div><strong>{result.correctAnswers}/{result.totalQuestions}</strong><span>respostas corretas</span></div>
-      <div><strong>{result.level}</strong><span>nível recomendado</span></div>
+      <div><strong>{levelLabels[result.level] ?? result.level}</strong><span>nível recomendado</span></div>
     </article>
     <article className="initial-diagnostic-panel">
       <p className="initial-diagnostic-eyebrow">DESEMPENHO POR DISCIPLINA</p>
@@ -505,7 +506,7 @@ export function InitialDiagnosticWorkspace({ attempt, initialAnswers = {}, confi
                 <strong>{alternative.letter}</strong><span>{alternative.text}</span>
               </label>)}
             </fieldset>
-            {answers[question.id] && confirmedAnswers[question.id] !== answers[question.id] && <button type="button" className="initial-diagnostic-secondary" disabled={savingQuestionId !== ""} onClick={() => selectAnswer(question.id, answers[question.id])}>Tentar salvar resposta novamente</button>}
+            {answers[question.id] && savingQuestionId !== question.id && confirmedAnswers[question.id] !== answers[question.id] && <button type="button" className="initial-diagnostic-secondary" disabled={savingQuestionId !== ""} onClick={() => selectAnswer(question.id, answers[question.id])}>Tentar salvar resposta novamente</button>}
           </article>
           <div className="initial-diagnostic-footer">
             <button type="button" className="initial-diagnostic-secondary" disabled={index === 0 || loading || savingQuestionId !== ""} onClick={() => setIndex(current => Math.max(0, current - 1))}>Questão anterior</button>

@@ -7,6 +7,7 @@ import {ApiError} from '../errors/api-error';
 const router = Router();
 
 router.get('/', requireAuth, denyGlobalAcademicAccess, QuestaoController.listar);
+router.get('/turmas/:turmaId/contexto', requireAuth, denyGlobalAcademicAccess, requireRoles('PROFESSOR'), QuestaoController.contextoTurma);
 router.get('/:id', requireAuth, denyGlobalAcademicAccess, QuestaoController.buscarPorId);
 router.post('/importacao/preview', requireAuth, denyGlobalAcademicAccess, (_req,_res,next)=>next(new ApiError(403,'Importação pedagógica global descontinuada neste perfil.')));
 router.post('/', requireAuth, denyGlobalAcademicAccess, requireRoles('PROFESSOR'), QuestaoController.criar);

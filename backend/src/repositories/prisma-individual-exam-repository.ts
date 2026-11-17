@@ -3,10 +3,10 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../errors/api-error';
 import { inventorySelect } from './prisma-initial-diagnostic-repository';
-import { individualExamInventoryWhere, isIndividualExamSelectable, isIndividualExamPilotQuestion } from '../services/individual-exam-pilot';
-import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from '../services/diagnostic-question-snapshot';
-import { PRACTICE_DISCIPLINES } from '../services/question-practice-service';
-import type { ExamCandidate, IndividualExamAttempt, IndividualExamRepository } from '../services/individual-exam-service';
+import { individualExamInventoryWhere, isIndividualExamSelectable, isIndividualExamPilotQuestion } from '../services/assessments/individual-exam-pilot';
+import { createDiagnosticQuestionSnapshot, readDiagnosticQuestionSnapshot } from '../services/diagnostics/diagnostic-question-snapshot';
+import { PRACTICE_DISCIPLINES } from '../services/questions/question-practice-service';
+import type { ExamCandidate, IndividualExamAttempt, IndividualExamRepository } from '../services/assessments/individual-exam-service';
 
 type Connection = Prisma.TransactionClient;
 async function activeId(db: Connection, studentId: string) {
@@ -27,6 +27,15 @@ async function lockAttempt(db: Connection, studentId: string, id: string) {
 
 export class PrismaIndividualExamRepository implements IndividualExamRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
+  async activeSummary(studentId: string) {
+    const rows = await this.db.$queryRaw<{ id: string; provisional: boolean }[]>`
+      SELECT s.id, EXISTS (SELECT 1 FROM "QuestaoSimulado" q WHERE q."simuladoId"=s.id
+        AND q."conteudoSnapshot"->>'provisional'='true') AS provisional
+      FROM "SessaoSimuladoIndividual" e JOIN "Simulado" s ON s.id=e."simuladoId" AND s."alunoId"=e."alunoId"
+      WHERE e."alunoId"=${studentId} AND s.tipo='PERSONALIZADO' AND s."finalizadoEm" IS NULL
+      ORDER BY e."criadaEm" ASC LIMIT 1`;
+    return rows[0] ?? null;
+  }
   async available(studentId: string): Promise<ExamCandidate[]> {
     // One inventory query across all five disciplines; never one query per question.
     const rows = await this.db.questao.findMany({ where: { ...individualExamInventoryWhere(), respostas: { none: { simulado: { alunoId: studentId } } } }, select: inventorySelect });

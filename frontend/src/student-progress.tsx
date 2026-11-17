@@ -54,7 +54,7 @@ type Overview = {
   recentActivities: Activity[];
   latestDiagnosticId: string | null;
   latestDiagnosticInitial?: boolean;
-  learning?: { disciplines: { discipline: string; total: number; correct: number; percentage: number | null }[]; priorityTopic: { discipline: string; topic: string; total: number; percentage: number } | null; trailProgress: { id: string; discipline: string; topic: string | null; finalizedAt: string | null; total: number; answered: number; completed: boolean }[] };
+  learning?: { disciplines: { discipline: string; total: number; correct: number; percentage: number | null }[]; priorityTopic: { discipline: string; topic: string; total: number; percentage: number } | null; trailProgress: { id: string; attemptId?: string | null; discipline: string; topic: string | null; finalizedAt: string | null; total: number; answered: number; completed: boolean }[] };
 };
 type StudyDashboard = { streak: { current: number; longest: number; lastActivityDate: string | null }; totalAnsweredQuestions: number; todayAnsweredQuestions: number; todayGoal: { targetQuestions: number; progressPercentage: number } | null; currentLevel: string | null };
 const formatDate = (value: string) =>
@@ -72,7 +72,7 @@ const errorMessage = (cause: unknown) =>
     ? cause.message
     : "Não foi possível carregar os dados.";
 
-export function useStudentProgress() {
+export function useStudentProgress(academicEnabled = true, dashboardEnabled = true) {
   const [data, setData] = useState<Overview>();
   const [latestResult, setLatestResult] = useState<StudyResult>();
   const [studyDashboard, setStudyDashboard] = useState<StudyDashboard>();
@@ -139,12 +139,13 @@ export function useStudentProgress() {
     await Promise.all([refreshAcademic(), refreshDashboard()]);
   }, [refreshAcademic, refreshDashboard]);
   useEffect(() => {
-    void refresh();
+    if (academicEnabled) void refreshAcademic();
+    if (dashboardEnabled) void refreshDashboard();
     return () => {
       revision.current++;
       dashboardRevision.current++;
     };
-  }, [refresh]);
+  }, [academicEnabled, dashboardEnabled, refreshAcademic, refreshDashboard]);
   return { data, latestResult, studyDashboard, loading, error, resultError, refresh, refreshAcademic, dashboardLoading, dashboardError, refreshDashboard };
 }
 
@@ -193,7 +194,7 @@ export function Evolution({ items }: { items?: Activity[] }) {
           <button
             onClick={() => navigate(resultPath(item))}
           >
-            <span>{formatDate(item.finalizedAt!)}</span>
+            <span>Concluído em {formatDate(item.finalizedAt!)}</span>
             <strong>
               {item.overallPercentage === null
                 ? "Sem pontuação"
@@ -217,7 +218,10 @@ export function RecentActivities({ items }: { items?: Activity[] }) {
       {items.map((item) => (
         <li key={item.id}>
           <span>
-            {typeLabel(item.type)} · {formatDate(item.startedAt)}
+            {typeLabel(item.type)} ·{" "}
+            {item.finalizedAt
+              ? `Concluído em ${formatDate(item.finalizedAt)}`
+              : `Iniciado em ${formatDate(item.startedAt)}`}
           </span>
           {item.finalizedAt ? (
             <>

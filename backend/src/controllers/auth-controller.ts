@@ -1,23 +1,27 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { OAuth2Client, type TokenPayload } from 'google-auth-library';
-import { acceptanceSchema } from '../services/legal-acceptance';
-import { AuthService } from '../services/auth-service';
+import { acceptanceSchema } from '../services/accounts/legal-acceptance';
+import { AuthService } from '../services/accounts/auth-service';
 import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
-import { PasswordRecoveryService } from '../services/password-recovery-service';
-import { BrevoRecoveryEmailSender } from '../services/recovery-email-sender';
-import { EmailVerificationService } from '../services/email-verification-service';
-import { BrevoEmailVerificationSender } from '../services/email-verification-sender';
-import { isLocalEmailCaptureRequested, localEmailVerificationCapture } from '../services/local-email-capture';
-import type { LocalEmailVerificationCapture } from '../services/local-email-capture';
-import { passwordSchema } from '../services/password-policy';
+import { PasswordRecoveryService } from '../services/accounts/password-recovery-service';
+import { BrevoRecoveryEmailSender } from '../services/email/recovery-email-sender';
+import { EmailVerificationService } from '../services/accounts/email-verification-service';
+import { BrevoEmailVerificationSender } from '../services/email/email-verification-sender';
+import { isLocalEmailCaptureRequested, localEmailVerificationCapture } from '../services/email/local-email-capture';
+import type { LocalEmailVerificationCapture } from '../services/email/local-email-capture';
+import { passwordSchema } from '../services/accounts/password-policy';
 import { ApiError } from '../errors/api-error';
-import { AccountDeletionService } from '../services/account-deletion';
+import { AccountDeletionService } from '../services/accounts/account-deletion';
 import { studentSelfDeletionEnabled, accountDeletionUnavailableMessage } from '../account-deletion-availability';
+import { AccountEmailChangeService } from '../services/accounts/account-email-change';
+import { BrevoAccountEmailChangeSender } from '../services/email/account-email-change-sender';
 
 const deleteAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024).optional(), googleCredential: z.string().min(1).max(8192).optional(), confirmation: z.literal('EXCLUIR') }).strict();
 const deactivateAccountSchema = z.object({ senhaAtual: z.string().min(1).max(1024), confirmation: z.literal('DESATIVAR') }).strict();
 const emailSchema = z.string().trim().email('E-mail inválido').max(254).transform(value => value.toLowerCase());
+const changeAccountEmailSchema = z.object({ newEmail: emailSchema, confirmationEmail: emailSchema,
+  senhaAtual: z.string().min(1).max(1024), }).strict();
 const perfilSchema = z.enum(['ALUNO', 'PROFESSOR']).optional();
 
 const registerSchema = z.object({
@@ -63,6 +67,7 @@ export class AuthController {
     private readonly emailVerification = new EmailVerificationService(undefined,
       isLocalEmailCaptureRequested() ? localEmailVerificationCapture : new BrevoEmailVerificationSender()),
     private readonly localEmailCapture: LocalEmailVerificationCapture = localEmailVerificationCapture,
+    private readonly accountEmailChange = new AccountEmailChangeService(new BrevoAccountEmailChangeSender()),
   ) {}
 
   registerInstitution = async (request: Request,response: Response) => {
@@ -168,7 +173,7 @@ export class AuthController {
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {
-    response.json(await this.service.session(request.auth!.userId, request.get('x-jurissim-local-demo') === 'true'));
+    response.json(await this.service.session(request.auth!.userId, request.get('x-jurissim-local-demo') === 'true', request.get('x-institution-context') === 'administration'));
   };
 
   atualizarNome = async (request: AuthenticatedRequest, response: Response) => {
@@ -230,5 +235,23 @@ export class AuthController {
       return;
     }
     response.json(await this.emailVerification.confirm(parsed.data.token));
+  };
+
+  solicitarTrocaEmail = async (request: AuthenticatedRequest, response: Response) => {
+    const parsed = changeAccountEmailSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Informe e confirme um novo e-mail válido e sua senha atual.' });
+      return;
+    }
+    response.status(202).json(await this.accountEmailChange.request(request.auth!.userId, parsed.data));
+  };
+
+  confirmarTrocaEmail = async (request: Request, response: Response) => {
+    const parsed = z.object({ token: z.string().min(20).max(2048) }).strict().safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: 'Link inválido, expirado ou já utilizado.' });
+      return;
+    }
+    response.json(await this.accountEmailChange.confirm(parsed.data.token));
   };
 }

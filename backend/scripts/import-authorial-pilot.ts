@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { resolveInventoryCheckDatabaseUrl } from '../src/config/inventory-check-database-url';
-import { importAuthorialPilot, preparePilotImport } from '../src/services/authorial-pilot-import';
+import { importAuthorialPilot, preparePilotImport } from '../src/services/questions/authorial-pilot-import';
 
 async function main(){
  const args=process.argv.slice(2);

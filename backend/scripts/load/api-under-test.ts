@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { PrismaClient } from '@prisma/client';
-import { assertDisposableDatabase } from '../../src/__tests__/integration/disposable-database';
+import { assertDisposableDatabase } from "../../tests/integration/disposable-database";
 
 async function main() {
   const proof = new PrismaClient();

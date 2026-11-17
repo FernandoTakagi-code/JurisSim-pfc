@@ -431,14 +431,14 @@ function ReportMetrics({
 }) {
   const cards = individual
     ? [
-        ["Simulados publicados na turma", data.publishedExams],
+        ["Avaliações publicadas na turma", data.publishedExams],
         ["Tentativas iniciadas", data.startedAttempts],
         ["Tentativas concluídas", data.completedAttempts],
         ["Média de acertos", percent(data.meanPercentage)],
       ]
     : [
         ["Alunos matriculados", data.enrolledStudents],
-        ["Simulados publicados", data.publishedExams],
+        ["Avaliações publicadas", data.publishedExams],
         ["Alunos participantes", data.participants],
         [
           "Participação",
@@ -453,7 +453,7 @@ function ReportMetrics({
         {cards.map(([label, value]) => (
           <div key={label}>
             <dt>{label}</dt>
-            <dd>{value}</dd>
+            <dd className={typeof value === "string" && !/\d/.test(value) ? "report-metric-text" : undefined}>{value}</dd>
           </div>
         ))}
       </dl>
@@ -553,7 +553,7 @@ function EvolutionChart({
     return (
       <div className="report-chart-empty">
         <p>
-          A evolução requer pelo menos dois simulados com resultados concluídos.
+          A evolução requer pelo menos duas avaliações com resultados concluídos.
         </p>
       </div>
     );
@@ -573,7 +573,7 @@ function EvolutionChart({
           aria-label={
             individual
               ? "Evolução do aluno nos simulados da turma"
-              : "Média de acertos por simulado publicado"
+              : "Média de acertos por avaliação publicada"
           }
         >
           {[0, 25, 50, 75, 100].map((score) => (
@@ -672,8 +672,9 @@ export function TeacherReports({
           : "Relatórios por turma"}
       </h1>
       <p className="muted">
-        Participação e resultados nos simulados publicados para as matrículas
-        atuais de cada turma.
+        {mode === "performance"
+          ? "Participação e resultados das atividades e dos simulados publicados para cada turma."
+          : "Acompanhamento individual: escolha uma turma e, em seguida, consulte o relatório de cada aluno matriculado."}
       </p>
       <State {...classes} />
       <article className="panel report-class-selector">
@@ -729,13 +730,13 @@ function ClassReportContent({ classId,onStudentSelected }: { classId: string;onS
           <h2>{data.turma.nome}</h2>
           <ReportMetrics data={data.summary} />
           <article className="panel"><h2>Distribuição por nível atual</h2>{data.levelDistribution.length ? data.levelDistribution.map(item => <p key={item.level}>{item.level}: {item.students} aluno(s)</p>) : <p className="muted">Nenhum aluno desta turma possui nível classificado.</p>}</article>
-          <article className="panel"><h2>Desempenho por disciplina</h2>{data.disciplineMetrics.length ? data.disciplineMetrics.map(item => <div className="metric" key={item.discipline}><span>{item.discipline}</span><div><i style={{ width: `${item.percentage ?? 0}%` }} /></div><b>{item.percentage ?? 0}%</b><small>{item.correctAnswers}/{item.totalQuestions} acertos</small></div>) : <p className="muted">As métricas por disciplina aparecerão após tentativas concluídas de simulados da turma.</p>}</article>
+          <article className="panel"><h2>Desempenho por disciplina</h2>{data.disciplineMetrics.length ? data.disciplineMetrics.map(item => <div className="metric" key={item.discipline}><span>{item.discipline}</span><div><i style={{ width: `${item.percentage ?? 0}%` }} /></div><b>{item.percentage ?? 0}%</b><small>{item.correctAnswers}/{item.totalQuestions} acertos</small></div>) : <p className="muted">As métricas por disciplina aparecerão após tentativas concluídas das avaliações da turma.</p>}</article>
           <article className="panel">
-            <h2>Evolução das médias por simulado</h2>
+            <h2>Evolução das médias por avaliação</h2>
             <EvolutionChart points={data.evolution} />
           </article>
           <article className="panel report-exams">
-            <h2>Participação nos simulados</h2>
+            <h2>Participação nas avaliações</h2>
             <div className="report-legend">
               <span className="legend-correct">Acertos</span>
               <span className="legend-incorrect">Erros</span>
@@ -743,7 +744,7 @@ function ClassReportContent({ classId,onStudentSelected }: { classId: string;onS
             </div>
             {data.exams.items.length === 0 && (
               <p className="muted">
-                Nenhum simulado publicado para esta turma.
+                Nenhuma avaliação publicada para esta turma.
               </p>
             )}
             {data.exams.items.map((exam) => (
@@ -835,18 +836,18 @@ export function StudentClassReport({
       {data && (
         <>
           <p className="muted">
-            {data.turma.nome} · Somente simulados publicados para esta turma.
+            {data.turma.nome} · Avaliações publicadas nesta turma.
           </p>
           <ReportMetrics data={data.summary} individual />
           <article className="panel">
-            <h2>Evolução nos simulados</h2>
+            <h2>Evolução nas avaliações</h2>
             <EvolutionChart points={data.evolution} individual />
           </article>
           <article className="panel">
             <h2>Tentativas do aluno nesta turma</h2>
             {data.attempts.items.length === 0 && (
               <p className="muted">
-                O aluno ainda não iniciou simulados desta turma.
+                O aluno ainda não iniciou avaliações desta turma.
               </p>
             )}
             <ul className="report-attempts">

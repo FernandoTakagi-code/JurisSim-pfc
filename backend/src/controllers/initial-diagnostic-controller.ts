@@ -3,8 +3,8 @@ import type { AuthenticatedRequest } from '../middlewares/auth-middleware';
 import {
   InitialDiagnosticServiceUnavailableError,
   type InitialDiagnosticService,
-} from '../services/initial-diagnostic-service';
-import type { InitialDiagnosticResolutionService } from '../services/initial-diagnostic-resolution-service';
+} from '../services/diagnostics/initial-diagnostic-service';
+import type { InitialDiagnosticResolutionService } from '../services/diagnostics/initial-diagnostic-resolution-service';
 import { z } from 'zod';
 import { ApiError } from '../errors/api-error';
 

@@ -1,0 +1,14 @@
+{
+  "tipo": "Resumo de execução anterior do Vitest, sem caminhos locais ou dados dos casos",
+  "inicioUTC": "2026-11-16T19:32:58.091Z",
+  "comando": "npm --prefix backend run test:no-db",
+  "resultado": "aprovado",
+  "testes": {
+    "total": 1499,
+    "aprovados": 1499,
+    "reprovados": 0,
+    "pendentes": 0
+  },
+  "sha256RelatorioOriginal": "43a8ab85a06dc2a918631631be7e8c6d54b6cd90a4ac7ee8384f1a3a2bf5357d",
+  "escopo": "Testes isolados com dependências simuladas; sem comprovação de operação do banco real ou provedores externos."
+}

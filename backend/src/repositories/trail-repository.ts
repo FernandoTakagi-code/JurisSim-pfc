@@ -4,6 +4,7 @@ import type { AdaptiveResult } from '../types/diagnostic';
 import { lockAttempt, saveLockedAnswer } from './attempt-write';
 import { prisma } from '../lib/prisma';
 import type { TrailFilter } from '../types/diagnostic';
+import { inventoryWhere, inventorySelect, toEligibleCandidate } from './prisma-initial-diagnostic-repository';
 
 const trailAttemptDetails = {
   questoes: { orderBy: { posicao: 'asc' }, include: { questao: { include: { alternativas: true } }, resposta: true } },
@@ -27,18 +28,25 @@ export class TrailRepository {
 
     for (const filter of filters) {
       if (collected.length >= quantity) break;
-      const found = await this.db.questao.findMany({
-        take: quantity - collected.length,
-        where: {
-          publica: true,
-          disciplina: filter.disciplina,
-          ...(filter.assunto ? { assunto: filter.assunto } : {}),
-          ...(filter.nivel ? { nivel: filter.nivel } : {}),
-          id: { notIn: collected.map((question) => question.id) },
-        },
-        orderBy: { createdAt: 'asc' },
-      });
-      collected.push(...found);
+      let cursor: string | undefined;
+      while (collected.length < quantity) {
+        const found = await this.db.questao.findMany({
+          take: 200,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          where: {
+            ...inventoryWhere,
+            disciplina: filter.disciplina,
+            ...(filter.assunto ? { assunto: filter.assunto } : {}),
+            ...(filter.nivel ? { nivel: filter.nivel } : {}),
+            id: { notIn: collected.map((question) => question.id) },
+          },
+          orderBy: { id: 'asc' },
+          select: inventorySelect,
+        });
+        collected.push(...found.filter(row => toEligibleCandidate(row)).slice(0, quantity - collected.length).map(row => ({ id: row.id })));
+        if (found.length < 200) break;
+        cursor = found[found.length - 1]!.id;
+      }
     }
     return collected;
   }
@@ -56,6 +64,10 @@ export class TrailRepository {
         return existing;
       }
       if (!questionIds.length) throw new ApiError(409, 'Não há questões disponíveis para esta trilha.');
+      const eligible = await tx.questao.findMany({ where: { ...inventoryWhere, id: { in: questionIds } }, select: inventorySelect });
+      if (eligible.filter(row => toEligibleCandidate(row)).length !== questionIds.length) {
+        throw new ApiError(409, 'O acervo disponível mudou. Tente gerar os exercícios novamente.');
+      }
       const simulado = await tx.simulado.create({
         data: {
           tipo: 'PERSONALIZADO',

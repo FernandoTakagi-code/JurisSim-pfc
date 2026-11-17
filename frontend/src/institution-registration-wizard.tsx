@@ -4,7 +4,7 @@ import {establishSession,refreshSession} from './auth-session';
 import {navigate} from './navigation';
 import {legalAcceptance,LegalLinks} from './legal';
 import {institutionStates,noWebsiteDeclaration} from '../../backend/src/institution-registration';
-import {institutionRequestSchema} from '../../backend/src/services/institution-registration-validation';
+import {institutionRequestSchema} from '../../backend/src/services/institutions/institution-registration-validation';
 import {passwordError,passwordRequirements} from '../../backend/src/password-policy';
 import './institution-request.css';
 

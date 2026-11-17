@@ -11,10 +11,10 @@ import bcrypt from 'bcrypt';
 import type { Server } from 'node:http';
 import { prisma } from '../src/lib/prisma';
 import { AuthController } from '../src/controllers/auth-controller';
-import { AuthService } from '../src/services/auth-service';
-import { EmailVerificationService } from '../src/services/email-verification-service';
-import { EmailDeliveryFailure, type EmailDeliveryOutcome } from '../src/services/email-delivery-failure';
-import { PasswordRecoveryService } from '../src/services/password-recovery-service';
+import { AuthService } from '../src/services/accounts/auth-service';
+import { EmailVerificationService } from '../src/services/accounts/email-verification-service';
+import { EmailDeliveryFailure, type EmailDeliveryOutcome } from '../src/services/email/email-delivery-failure';
+import { PasswordRecoveryService } from '../src/services/accounts/password-recovery-service';
 import { createAuthRoutes } from '../src/routes/auth-routes';
 import { studentHistoryRoutes } from '../src/routes/student-history-routes';
 import { goalRoutes, reportRoutes } from '../src/routes/goals-reports-routes';
@@ -174,7 +174,7 @@ async function main() {
   if (process.env.JURISSIM_RUN_BROWSER_TEST === '1') {
     // Browser/Vite validation is an explicit opt-in phase, separate from database checks.
     await new Promise<void>((resolve, reject) => {
-      const child = spawn(process.execPath, [path.resolve('../frontend/scripts/test-auth-local.mjs')], { cwd: path.resolve('../frontend'), windowsHide: true, env: { ...process.env, JURISSIM_TEST_API: base, JURISSIM_TEST_MAIL_KEY: fixtureKey }, stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = spawn(process.execPath, [path.resolve('../frontend/tests/test-auth-local.mjs')], { cwd: path.resolve('../frontend'), windowsHide: true, env: { ...process.env, JURISSIM_TEST_API: base, JURISSIM_TEST_MAIL_KEY: fixtureKey }, stdio: ['ignore', 'pipe', 'pipe'] });
       child.stdout.on('data', chunk => process.stdout.write(chunk)); child.stderr.on('data', chunk => process.stderr.write(chunk)); child.on('error', reject);
       child.on('close', code => code === 0 ? resolve() : reject(new Error('Local authentication browser test failed')));
     });

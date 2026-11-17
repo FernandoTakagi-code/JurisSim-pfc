@@ -115,7 +115,7 @@ async function main() {
   // Application imports must not subsequently load unrelated private values.
   dotenv.config = () => ({ parsed: {} });
   require('tsx/cjs');
-  const { EMAIL_VERIFICATION_TOKEN_TTL_MINUTES, PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } = require('../src/services/auth-token-policy.ts');
+  const { EMAIL_VERIFICATION_TOKEN_TTL_MINUTES, PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } = require('../src/services/accounts/auth-token-policy.ts');
   prisma = require('../src/lib/prisma.ts').prisma;
   const [identity] = await prisma.$queryRawUnsafe('SELECT current_database() AS database, current_user AS owner, current_setting(\'data_directory\') AS directory');
   assert.equal(identity.database, database); assert.equal(identity.owner, owner);
@@ -124,7 +124,7 @@ async function main() {
   disposableIdentityVerified = true;
   pass('fresh disposable database identity verified; 12 local migrations applied');
 
-  const { BrevoSmtpClient, OFFICIAL_EMAIL } = require('../src/services/brevo-smtp.ts');
+  const { BrevoSmtpClient, OFFICIAL_EMAIL } = require('../src/services/email/brevo-smtp.ts');
   if (!real) { process.env.BREVO_SMTP_USER = 'fixture@smtp-brevo.com'; process.env.BREVO_SMTP_KEY = 'simulated-only'; }
   assert.ok(new BrevoSmtpClient().isConfigured);
   const getTransporter = BrevoSmtpClient.prototype.getTransporter;

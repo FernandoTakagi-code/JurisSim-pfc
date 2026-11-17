@@ -4,7 +4,7 @@ import { requireAuth, requireLimitedAuth } from '../middlewares/auth-middleware'
 import { authRateLimit } from '../middlewares/auth-rate-limit';
 import { ApiError } from '../errors/api-error';
 import { isAllowedCorsOrigin } from '../config/cors-policy';
-import { emailFrontendContext } from '../services/email-frontend';
+import { emailFrontendContext } from '../services/email/email-frontend';
 
 export function createAuthRoutes(controller = new AuthController()) {
   const authRoutes = Router();
@@ -29,6 +29,8 @@ export function createAuthRoutes(controller = new AuthController()) {
   authRoutes.post('/conta/desativacao', requireAuth, authRateLimit(5, 900000), controller.desativarConta);
   authRoutes.post('/email-verification', requireLimitedAuth, authRateLimit(30, 3600000), controller.solicitarConfirmacaoEmail);
   authRoutes.post('/email-verification/confirm', authRateLimit(60, 900000), controller.confirmarEmail);
+  authRoutes.post('/account/email-change', requireAuth, authRateLimit(5, 3600000, Date.now, { account: true }), controller.solicitarTrocaEmail);
+  authRoutes.post('/account/email-change/confirm', authRateLimit(60, 900000), controller.confirmarTrocaEmail);
   return authRoutes;
 }
 export const authRoutes = createAuthRoutes();

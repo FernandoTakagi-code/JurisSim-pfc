@@ -3,7 +3,7 @@ import { ApiError } from '../errors/api-error';
 import type { AuthenticatedRequest } from './auth-middleware';
 import { AuthRepository } from '../repositories/auth-repository';
 import { isInitialDiagnosticRequired } from '../config/initial-diagnostic-feature';
-import { localEmailVerificationCapture } from '../services/local-email-capture';
+import { localEmailVerificationCapture } from '../services/email/local-email-capture';
 
 type RequirementGuardDependencies = {
   isRequired: () => boolean;
