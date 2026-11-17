@@ -20,6 +20,14 @@ O JurisSim apoia a preparação para a primeira fase do Exame da OAB. O aluno re
 
 O sistema possui frontend React com Vite, API Express e persistência PostgreSQL por meio do Prisma. A publicação utiliza Vercel para o site, Render para a API e Supabase para o banco.
 
+## Versão da entrega
+
+- Repositório: [FernandoTakagi-code/JurisSim-pfc](https://github.com/FernandoTakagi-code/JurisSim-pfc).
+- Branch de entrega: **`main`**, após a integração da `entrega-16-11`.
+- Código integrado de referência: [`16a0524`](https://github.com/FernandoTakagi-code/JurisSim-pfc/commit/16a0524). Esta atualização modifica somente a documentação.
+
+Para identificar a revisão exata que será apresentada, execute `git rev-parse HEAD` após atualizar a cópia e informe esse hash no Teams junto do link do repositório. A branch pode avançar; o hash identifica uma revisão fixa.
+
 ## Funcionalidades por perfil
 
 | Perfil | Recursos implementados |
@@ -40,10 +48,10 @@ Instale **Git, Node.js 24 ou superior e npm**. É necessário acesso autorizado 
 ```powershell
 git clone https://github.com/FernandoTakagi-code/JurisSim-pfc.git
 cd JurisSim-pfc
-git switch entrega-16-11
+git switch main
 ```
 
-A branch acima reúne o trabalho desta etapa. Para reproduzir a entrega, utilize o **commit informado pela equipe**, pois a branch pode receber novas alterações.
+Em uma cópia existente e sem alterações locais pendentes, atualize com `git pull --ff-only origin main`. Preserve os arquivos `.env` já configurados. Para reproduzir a entrega, utilize o **commit informado pela equipe**.
 
 ### 2. Preparar as dependências e o ambiente
 
@@ -74,7 +82,24 @@ Esse comando verifica o formato da configuração, sem testar conexão com o ban
 
 Credenciais ficam fora do Git. Variáveis `VITE_*` são públicas no navegador e não devem conter senhas, tokens privados ou conexões do banco.
 
-### 3. Iniciar a aplicação
+### 3. Conferir os módulos usados na apresentação
+
+O arquivo de exemplo é um modelo seguro de configuração; os módulos opcionais ficam desligados inicialmente. Para reproduzir o ambiente da equipe, obtenha as variáveis autorizadas pelo canal privado e confira a correspondência entre frontend, backend, schema e acervo.
+
+| Recurso | Configuração a conferir |
+| --- | --- |
+| Diagnóstico inicial | Backend: `INITIAL_DIAGNOSTIC_API_ENABLED`; frontend: `VITE_INITIAL_DIAGNOSTIC_UI_ENABLED`; composição/acervo de acordo com o guia |
+| Treino por questões | Backend: `QUESTION_PRACTICE_SCHEMA_ENABLED` e `QUESTION_PRACTICE_API_ENABLED`; frontend: `VITE_QUESTION_PRACTICE_UI_ENABLED` |
+| Questões com liberação administrativa para treino | `QUESTION_PRACTICE_OWNER_AUTHORIZATION_ENABLED` habilita a leitura das autorizações já registradas; não cadastra nem aprova questões automaticamente |
+| Revisão de questões | Backend: `QUESTION_REVIEW_SCHEMA_ENABLED` e `QUESTION_REVIEW_API_ENABLED`; frontend: `VITE_QUESTION_REVIEW_UI_ENABLED` |
+| Simulado individual | Backend: `INDIVIDUAL_EXAM_SCHEMA_ENABLED` e `INDIVIDUAL_EXAM_API_ENABLED`; frontend: `VITE_INDIVIDUAL_EXAM_UI_ENABLED` |
+| Administração e área institucional | `ADMINISTRATION_ENABLED`, `INSTITUTIONS_ENABLED` e capacidades específicas de cadastro, convites e gestão, conforme os vínculos e a configuração da equipe |
+
+Não habilite todas as opções indiscriminadamente. Os lotes piloto e as integrações têm requisitos próprios no [guia de ambiente](docs/variaveis-de-ambiente.md) e no [guia do acervo](docs/acervo.md). Uma disciplina pode ter questões cadastradas, mas nenhuma elegível para novos treinos no filtro escolhido.
+
+Reinicie a API após alterar suas variáveis. Reinicie o Vite após alterar as variáveis do frontend; na hospedagem, mudanças `VITE_*` exigem um novo build.
+
+### 4. Iniciar a aplicação
 
 Abra dois terminais na raiz do projeto.
 
@@ -107,7 +132,14 @@ git rev-parse HEAD
 git status --short
 ```
 
-O README reúne as instruções de execução. O [checklist de entrega](docs/entrega.md) orienta o registro das funcionalidades, integrações e pendências. A monografia e o relatório de acompanhamento devem ser entregues conforme solicitado pelo orientador.
+Este README atende às instruções de execução. Para a entrega, a equipe deve disponibilizar também:
+
+1. **Repositório, branch e commit:** indicar a `main` e o hash exato apresentado, confirmando o acesso do orientador.
+2. **Monografia final:** requisitos, regras de negócio e diagramas coerentes com o sistema implementado.
+3. **Relatório/checklist de acompanhamento:** registrar o que foi desenvolvido, os apontamentos corrigidos, as pendências e as dúvidas. O [checklist](docs/entrega.md) é um roteiro a preencher com os resultados da equipe.
+4. **Evidências de execução:** capturas, vídeo ou relatórios que permitam conferir as funcionalidades e integrações, identificando ambiente, versão, passos e resultado.
+
+O repositório não deve incluir senhas, tokens nem dados pessoais reais nas evidências. Modificações após o marco de entrega devem seguir o alinhamento com o orientador.
 
 As evidências selecionadas estão no [índice de evidências](docs/evidence/README.md), com capturas históricas identificadas, resultados de testes e o que ainda precisa ser registrado na versão final.
 
@@ -139,9 +171,18 @@ npm --prefix frontend run build
 npm --prefix frontend run test:delivery-static
 ```
 
-Na conferência local de **16/11/2026**, após incorporar as atualizações da equipe, passaram **1.499 testes isolados do backend**, os builds, a checagem de tipos dos testes e as verificações estáticas do frontend. A extração dos componentes institucionais também passou no build e nas verificações estáticas. Essa organização foi registrada até o [commit af729c9](https://github.com/FernandoTakagi-code/JurisSim-pfc/commit/af729c9).
+Na conferência de **16/11/2026**, a reorganização dos services no código-base [`5bbc202`](https://github.com/FernandoTakagi-code/JurisSim-pfc/commit/5bbc202) passou em **1.501 testes isolados antes e depois da mudança**, nos builds, na checagem de tipos dos testes e nas verificações estáticas do frontend. A conferência posterior do professor incluiu **30 testes de integração aprovados em PostgreSQL descartável** e gravação/consulta de rascunhos no localhost com o banco configurado pela equipe.
 
-Testes isolados e estáticos não comprovam gravação no banco real, entrega de e-mail ou equivalência com a hospedagem. Os testes de integração com PostgreSQL não foram reexecutados nessa etapa de organização. Para integração e carga, utilize o ambiente descartável previsto nos scripts, separado do banco compartilhado.
+Esses resultados se referem às execuções e ao código-base indicados, não a uma nova execução completa após o merge. O [índice versionado de evidências](docs/evidence/README.md) preserva os registros anteriores, incluindo o relatório de 1.499 testes e capturas históricas identificadas. As capturas e o relatório mais recentes da conferência do professor permanecem no arquivo local da equipe e devem acompanhar a entrega por canal apropriado.
+
+Testes isolados e estáticos não comprovam gravação no banco real, entrega de e-mail ou equivalência com a hospedagem. Para conferir o fluxo docente com persistência em um banco de teste, o harness abaixo cria e valida um cluster descartável próprio. Ele exige os binários PostgreSQL disponíveis no computador e não utiliza o Supabase compartilhado como destino:
+
+```powershell
+# Execute dentro da pasta backend; substitua o caminho pelos binários locais.
+node scripts/test-migrations-local.cjs "<DIRETORIO_BIN_DO_POSTGRESQL>" --teacher-questions-only
+```
+
+Para outros testes de integração e carga, consulte os guias e utilize o ambiente descartável previsto nos scripts, separado do banco compartilhado.
 
 - [Procedimento de testes de carga](docs/testes-de-carga.md).
 - [Relatório do teste de carga de 14/11](docs/relatorios/carga-2026-11-14.md), com escopo e limitações próprios.
@@ -158,6 +199,7 @@ JurisSim-pfc/
 │   └── tests/               Verificações da interface
 ├── backend/
 │   ├── src/                 Rotas, controllers, services e acesso a dados
+│   │   └── services/        Contas, instituições, questões, diagnóstico, avaliações, estudo e e-mail
 │   ├── tests/               Testes isolados, integração, fixtures e preparação
 │   ├── prisma/              Schema e histórico de migrations
 │   └── scripts/             Manutenção, acervo e ambientes de teste
@@ -172,7 +214,7 @@ JurisSim-pfc/
 | --- | --- |
 | [Execução da equipe](docs/execucao-equipe.md) | Preparação local, inicialização e cuidados com o banco |
 | [Ambiente e publicação](docs/variaveis-de-ambiente.md) | Variáveis, provedores e ativação de funcionalidades |
-| [Arquitetura](docs/arquitetura.md) | Organização do código, testes e responsabilidades |
+| [Arquitetura](docs/arquitetura.md) | Camadas, organização dos testes e mapa das funções dos services |
 | [Acervo](docs/acervo.md) | Origem, elegibilidade e limites das questões piloto |
 | [Segurança e privacidade](docs/seguranca-e-privacidade.md) | Controles e orientações de proteção de dados |
 | [Entrega](docs/entrega.md) | Conferência, evidências e pendências |
