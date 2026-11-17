@@ -52,7 +52,9 @@ function loadLessonChunk(discipline: string): Promise<Partial<Record<string, Stu
   return import("./labor-lessons").then(module => module.laborLessons);
 }
 
-export function StudyTrail({ userId, result, onQuestions, recommendationLoading = false }: { userId: string; result?: StudyResult; onQuestions: (discipline: string) => void; recommendationLoading?: boolean }) {
+export type PracticeFocus = { discipline: string; topic: string; total: number; percentage: number };
+
+export function StudyTrail({ userId, result, onQuestions, recommendationLoading = false, practiceFocus, practiceDisciplines }: { userId: string; result?: StudyResult; onQuestions: (discipline: string) => void; recommendationLoading?: boolean; practiceFocus?: PracticeFocus | null; practiceDisciplines?: { discipline: string; percentage: number | null }[] }) {
   const moduleArea = useRef<HTMLDivElement>(null);
   const [discipline, setDiscipline] = useState<string>(studyDisciplines[0]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -65,13 +67,19 @@ export function StudyTrail({ userId, result, onQuestions, recommendationLoading 
   const selectedLesson = selected?.lesson ?? (selected ? lazyLessons[selected.id] : undefined);
   const metrics = result?.performances?.filter(metric => metric.tipo === "DISCIPLINA") ?? [];
   const weakest = metrics.length ? [...metrics].sort((a, b) => a.percentual - b.percentual)[0] : undefined;
-  const priorityDiscipline = result?.trail?.disciplinaPrioritaria || weakest?.disciplina;
+  // Same source as the dashboard: answers from every completed activity. The
+  // diagnostic trail is only a fallback, so both screens recommend the same subject.
+  const usePracticeFocus = Boolean(practiceFocus && practiceFocus.percentage < 100);
+  const priorityDiscipline = usePracticeFocus ? practiceFocus!.discipline : result?.trail?.disciplinaPrioritaria || weakest?.disciplina;
   const priorityDisciplineCanonical = priorityDiscipline ? canonicalDiscipline(priorityDiscipline) : undefined;
-  const priorityMetric = metrics.find(metric => canonicalDiscipline(metric.disciplina) === priorityDisciplineCanonical);
-  const recommendedLevel = result?.trail?.nivelRecomendado;
+  const practiceMetric = practiceDisciplines?.find(item => canonicalDiscipline(item.discipline) === priorityDisciplineCanonical && item.percentage !== null);
+  const diagnosticMetric = metrics.find(metric => canonicalDiscipline(metric.disciplina) === priorityDisciplineCanonical);
+  const priorityPercentage = usePracticeFocus ? practiceMetric?.percentage ?? undefined : diagnosticMetric?.percentual;
+  const recommendedLevel = !usePracticeFocus || (result?.trail?.disciplinaPrioritaria && canonicalDiscipline(result.trail.disciplinaPrioritaria) === priorityDisciplineCanonical) ? result?.trail?.nivelRecomendado : undefined;
   const levelLabels: Record<string, string> = { BASICO: 'Básico', INTERMEDIARIO: 'Intermediário', AVANCADO: 'Avançado' };
-  const priorityModule = result?.trail?.assuntoPrioritario
-    ? studyModules.find(module => module.discipline === priorityDisciplineCanonical && normalize(module.title).includes(normalize(result.trail!.assuntoPrioritario!)))
+  const priorityTopic = usePracticeFocus ? practiceFocus!.topic : result?.trail?.assuntoPrioritario;
+  const priorityModule = priorityTopic
+    ? studyModules.find(module => module.discipline === priorityDisciplineCanonical && normalize(module.title).includes(normalize(priorityTopic)))
     : undefined;
   const resumableModule = studyModules.find(module => progress.inProgress.includes(module.id));
   const completedCount = progress.completed.length;
@@ -139,9 +147,10 @@ export function StudyTrail({ userId, result, onQuestions, recommendationLoading 
     {resumableModule && !selected && <article className="panel study-continue"><h2>Continue seu estudo</h2><p>{resumableModule.discipline} · {resumableModule.title}</p><button className="primary" disabled={Boolean(loadingModuleId)} onClick={() => { chooseDiscipline(resumableModule.discipline); openModule(resumableModule); }}>Continuar aula</button></article>}
 
     {recommendationLoading ? <aside className="study-adaptive-note study-priority-card" role="status"><div><h2>Carregando sua recomendação…</h2><p>Consultando o resultado disponível na sua conta.</p></div></aside> : priorityDiscipline ? <aside className="study-adaptive-note study-priority-card" aria-labelledby="study-priority-title">
-      <div className="study-priority-copy"><h2 id="study-priority-title">Prioridade sugerida pelo seu resultado disponível</h2><p className="study-priority-discipline">{priorityDisciplineCanonical ?? priorityDiscipline}</p>
-        <dl className="study-priority-metrics"><div><dt>Acertos nesta disciplina</dt><dd>{priorityMetric ? `${priorityMetric.percentual.toLocaleString('pt-BR')}%` : 'Sem percentual disponível'}</dd></div><div><dt>Nível sugerido</dt><dd>{recommendedLevel ? levelLabels[recommendedLevel] ?? recommendedLevel : 'Sem nível disponível'}</dd></div></dl>
-        <small>Orientação baseada no resultado disponível da sua conta.</small>
+      <div className="study-priority-copy"><h2 id="study-priority-title">{usePracticeFocus ? 'Prioridade sugerida pelo seu desempenho' : 'Prioridade sugerida pelo seu resultado disponível'}</h2><p className="study-priority-discipline">{priorityDisciplineCanonical ?? priorityDiscipline}</p>
+        {usePracticeFocus && <p>{practiceFocus!.topic} · {practiceFocus!.percentage.toLocaleString('pt-BR')}% em {practiceFocus!.total} respostas</p>}
+        <dl className="study-priority-metrics"><div><dt>Acertos nesta disciplina</dt><dd>{priorityPercentage !== undefined ? `${priorityPercentage.toLocaleString('pt-BR')}%` : 'Sem percentual disponível'}</dd></div><div><dt>Nível sugerido</dt><dd>{recommendedLevel ? levelLabels[recommendedLevel] ?? recommendedLevel : 'Sem nível disponível'}</dd></div></dl>
+        <small>{usePracticeFocus ? 'Orientação baseada nas respostas das suas atividades concluídas, a mesma usada no seu painel.' : 'Orientação baseada no resultado disponível da sua conta.'}</small>
       </div>
       {priorityDisciplineCanonical && <button type="button" className="primary study-priority-button" disabled={Boolean(loadingModuleId)} aria-busy={Boolean(loadingModuleId)} onClick={() => {
         chooseDiscipline(priorityDisciplineCanonical);

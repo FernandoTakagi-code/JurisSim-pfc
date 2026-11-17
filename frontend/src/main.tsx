@@ -211,7 +211,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
   const diagnosticReviewRoute = /^\/resultados\/diagnostico\/([^/]+)\/correcao$/.exec(route);
   if (diagnosticReviewRoute) return <DiagnosticReview attemptId={diagnosticReviewRoute[1]} onBack={() => navigate(`/resultados/diagnostico/${diagnosticReviewRoute[1]}`)} />;
   if (route === "/historico") return <StudentHistory />;
-  if (route === "/estudar") return <StudyTrail userId={userId} result={result} recommendationLoading={progress.loading} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
+  if (route === "/estudar") return <StudyTrail userId={userId} result={result} recommendationLoading={progress.loading} practiceFocus={!progress.error ? progress.data?.learning?.priorityTopic : undefined} practiceDisciplines={!progress.error ? progress.data?.learning?.disciplines : undefined} onQuestions={(discipline) => navigate(`/questoes?disciplina=${encodeURIComponent(discipline)}`)} />;
   if (route === "/trilha") return <AdaptiveTrail progress={progress} />;
   if (resultRoute) return <PersistedResult type={resultRoute[1] as "diagnostico" | "diagnostico-inicial" | "trilha"} id={resultRoute[2]} />;
 

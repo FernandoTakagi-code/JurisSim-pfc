@@ -99,6 +99,9 @@ const timestamp = (date: string) =>
     timeStyle: "short",
   });
 
+const levelLabels: Record<string, string> = { BASICO: "Básico", INTERMEDIARIO: "Intermediário", AVANCADO: "Avançado" };
+const levelLabel = (level: string) => levelLabels[level] ?? level;
+
 function useRemote<T>(path: string) {
   const [data, setData] = useState<T>(),
     [loading, setLoading] = useState(true),
@@ -265,7 +268,7 @@ export function GoalsPage() {
       <p className="gold">ORGANIZAÇÃO DOS ESTUDOS</p>
       <h1>Metas de estudo</h1>
       <State {...summary} />
-      {summary.data && <article className="panel goal-streak"><h2>Frequência de estudo</h2><p>{summary.data.streak.current} dia(s) consecutivo(s) · recorde de {summary.data.streak.longest} dia(s)</p><p className="muted">Última atividade: {summary.data.streak.lastActivityDate ? calendar(summary.data.streak.lastActivityDate) : 'nenhuma atividade registrada'} · {summary.data.totalAnsweredQuestions} respostas persistidas · nível atual: {summary.data.currentLevel ?? 'ainda não classificado'}</p>{summary.data.todayGoal ? <p>Hoje: {summary.data.todayAnsweredQuestions} de {summary.data.todayGoal.targetQuestions} questões ({summary.data.todayGoal.progressPercentage}%).</p> : <p>Hoje: {summary.data.todayAnsweredQuestions} questão(ões). Crie uma meta abaixo para acompanhar o progresso diário.</p>}</article>}
+      {summary.data && <article className="panel goal-streak"><h2>Frequência de estudo</h2><p>{summary.data.streak.current} dia(s) consecutivo(s) · recorde de {summary.data.streak.longest} dia(s)</p><p className="muted">Última atividade: {summary.data.streak.lastActivityDate ? calendar(summary.data.streak.lastActivityDate) : 'nenhuma atividade registrada'} · {summary.data.totalAnsweredQuestions} respostas persistidas · nível atual: {summary.data.currentLevel ? levelLabel(summary.data.currentLevel) : 'ainda não classificado'}</p>{summary.data.todayGoal ? <p>Hoje: {summary.data.todayAnsweredQuestions} de {summary.data.todayGoal.targetQuestions} questões ({summary.data.todayGoal.progressPercentage}%).</p> : <p>Hoje: {summary.data.todayAnsweredQuestions} questão(ões). Crie uma meta abaixo para acompanhar o progresso diário.</p>}</article>}
       <p className="muted">
         Defina sua quantidade diária de questões. O progresso usa respostas
         salvas na data escolhida, no horário de Brasília. Metas da mesma data
@@ -729,7 +732,7 @@ function ClassReportContent({ classId,onStudentSelected }: { classId: string;onS
         <>
           <h2>{data.turma.nome}</h2>
           <ReportMetrics data={data.summary} />
-          <article className="panel"><h2>Distribuição por nível atual</h2>{data.levelDistribution.length ? data.levelDistribution.map(item => <p key={item.level}>{item.level}: {item.students} aluno(s)</p>) : <p className="muted">Nenhum aluno desta turma possui nível classificado.</p>}</article>
+          <article className="panel"><h2>Distribuição por nível atual</h2>{data.levelDistribution.length ? data.levelDistribution.map(item => <p key={item.level}>{levelLabel(item.level)}: {item.students} aluno(s)</p>) : <p className="muted">Nenhum aluno desta turma possui nível classificado.</p>}</article>
           <article className="panel"><h2>Desempenho por disciplina</h2>{data.disciplineMetrics.length ? data.disciplineMetrics.map(item => <div className="metric" key={item.discipline}><span>{item.discipline}</span><div><i style={{ width: `${item.percentage ?? 0}%` }} /></div><b>{item.percentage ?? 0}%</b><small>{item.correctAnswers}/{item.totalQuestions} acertos</small></div>) : <p className="muted">As métricas por disciplina aparecerão após tentativas concluídas das avaliações da turma.</p>}</article>
           <article className="panel">
             <h2>Evolução das médias por avaliação</h2>

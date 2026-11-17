@@ -25,7 +25,7 @@ export function TeacherWorkspace({ session, onSair }: { session: Session; onSair
   const individual = /^\/professor\/desempenho\/turmas\/([^/]+)\/alunos\/([^/]+)$/.exec(path);
   if (individual) return academic(<StudentClassReport key={individual[1] + ':' + individual[2]} classId={individual[1]} studentId={individual[2]} onBack={()=>navigate(`/professor/desempenho/turmas/${encodeURIComponent(individual[1])}`)} />);
   const report = /^\/professor\/(relatorios|desempenho)(?:\/turmas\/([^/]+))?$/.exec(path);
-  if (report) return academic(<TeacherReports key={report[2] ?? 'all'} classId={report[2]} mode="performance" onClassSelected={id=>navigate(`/professor/desempenho/turmas/${encodeURIComponent(id)}`)} onStudentSelected={(classId,studentId)=>navigate(`/professor/desempenho/turmas/${encodeURIComponent(classId)}/alunos/${encodeURIComponent(studentId)}`)} />);
+  if (report) return academic(<TeacherReports classId={report[2]} mode="performance" onClassSelected={id=>navigate(`/professor/desempenho/turmas/${encodeURIComponent(id)}`)} onStudentSelected={(classId,studentId)=>navigate(`/professor/desempenho/turmas/${encodeURIComponent(classId)}/alunos/${encodeURIComponent(studentId)}`)} />);
   if (path === '/professor/questoes' || path === '/professor/questoes/nova' || /^\/professor\/turmas\/[^/]+\/questoes\/nova$/.test(path) || /^\/professor\/questoes\/[^/]+\/editar$/.test(path)) {
     const { user } = session;
     return academic(<ProfessorArea userId={user.id} nome={user.nome} email={user.email} role={user.role} onSair={onSair} />);
