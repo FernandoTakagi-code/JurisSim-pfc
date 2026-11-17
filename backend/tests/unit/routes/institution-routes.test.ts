@@ -150,7 +150,7 @@ it("reports invitation sending unavailable when the server invitation mode is mi
   vi.stubEnv("NODE_ENV", "");
   const availability = await (await request("/availability", "GET", undefined, false)).json();
   expect(availability.capabilities).toMatchObject({ teacherManagement: true, teacherInvitations: false });
-  expect(availability.teacherInvitationReason).toContain("Configure o ambiente");
+  expect(availability.teacherInvitationReason).toContain("ainda não estão configurados neste ambiente");
 });
 it.each([
   "/admin/summary",

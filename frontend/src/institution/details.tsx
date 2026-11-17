@@ -19,7 +19,7 @@ export function InstitutionCard({
     <div className="institution-profile-page">
       <header className="institution-page-hero">
         <div><p className="eyebrow">IDENTIDADE INSTITUCIONAL</p><h1>Minha instituição</h1><p>Dados cadastrais, situação atual e informações autorizadas para gestão.</p></div>
-        <div className="institution-statuses" aria-label="Situação institucional"><span className="status success"><i />Cadastro {statusNames[institution.status] ?? institution.status}</span><span className="status success"><i />Operacional neste painel</span></div>
+        <div className="institution-statuses" aria-label="Situação institucional"><span className="status success"><i />Cadastro {statusNames[institution.status] ?? institution.status}</span>{readOnly ? <span className="status"><i />Modo de leitura · gestão aguardando ativação</span> : <span className="status success"><i />Operacional neste painel</span>}</div>
       </header>
       <div className="institution-layout">
       <section className="panel profile-card">

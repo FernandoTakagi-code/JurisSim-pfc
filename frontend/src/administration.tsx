@@ -396,6 +396,16 @@ const auditNames: Record<string, string> = {
   INSTITUTION_RESPONSIBLE_CHANGED: 'Responsável institucional alterado', PERMISSION_CHANGED: 'Permissão alterada',
   ACCOUNT_SUSPENDED: 'Conta suspensa', ACCOUNT_REACTIVATED: 'Conta reativada', CLASS_CREATED: 'Turma criada',
   CLASS_CODE_ROTATED: 'Código de convite renovado', ACCESS_DENIED: 'Acesso bloqueado',
+  OPERATIONAL_ERROR: 'Erro no servidor', AUTHENTICATION_REJECTED: 'Autenticação recusada', ACCOUNT_CREATED: 'Conta criada',
+  ACCOUNT_DELETED: 'Conta excluída', ACCOUNT_DEACTIVATED: 'Conta desativada', ACCOUNT_DELETED_EMAIL_RELEASED: 'Conta excluída (e-mail liberado)', ACCOUNT_DELETED_EMAIL_BLOCKED: 'Conta excluída (e-mail bloqueado)',
+  CLASS_UPDATED: 'Turma atualizada', CLASS_ARCHIVED: 'Turma arquivada', CLASS_DELETED: 'Turma excluída', CLASS_SOFT_DELETED: 'Turma retirada da gestão', CLASS_CODE_DISABLED: 'Código de convite desativado',
+  CLASS_TEACHER_ASSIGNED: 'Professor designado para turma', CLASS_TEACHER_REMOVED: 'Professor retirado da turma',
+  STUDENT_ADDED: 'Aluno vinculado à turma', STUDENT_REMOVED: 'Aluno removido da turma', STUDENT_JOIN_REQUESTED: 'Entrada em turma solicitada', STUDENT_JOIN_APPROVED: 'Entrada em turma aprovada', STUDENT_JOIN_REJECTED: 'Entrada em turma recusada',
+  TEACHER_INVITED: 'Professor convidado', TEACHER_INVITATION_RESENT: 'Convite reenviado', TEACHER_INVITATION_CANCELLED: 'Convite cancelado', TEACHER_INVITATION_ACCEPTED: 'Convite aceito', TEACHER_INVITATION_DECLINED: 'Convite recusado', TEACHER_UNLINKED: 'Professor desvinculado',
+  INVITATION_REVOKED: 'Convite revogado', INVITATION_EXPIRED: 'Convite expirado', INVITATION_ACCEPTED: 'Convite aceito', INVITATION_DECLINED: 'Convite recusado', INVITATION_DELIVERY_FAILED: 'Falha no envio do convite',
+  EXAM_CLOSED: 'Simulado encerrado', EXAM_ARCHIVED: 'Simulado arquivado', EXAM_DRAFT_DELETED: 'Rascunho de simulado excluído', ACTIVITY_CLOSED: 'Atividade encerrada', ACTIVITY_CANCELLED: 'Atividade cancelada',
+  QUESTION_LEGAL_REVIEW_RECORDED: 'Revisão jurídica registrada', QUESTION_PEDAGOGICAL_REVIEW_RECORDED: 'Revisão pedagógica registrada', QUESTION_EDITORIAL_RELEASED: 'Questão liberada no acervo', QUESTION_EDITORIAL_METADATA_UPDATED: 'Dados editoriais da questão atualizados',
+  EMAIL_REUSE_BLOCK_REVOKED: 'Bloqueio de e-mail revogado',
 };
 const auditName = (code: string) => auditNames[code] ?? 'Outro evento registrado';
 const severityName = (code: string) => ({ INFO: 'Informação', WARN: 'Atenção', ERROR: 'Erro' }[code] ?? 'Registro');
@@ -893,7 +903,7 @@ function GlobalIndicators({ enabled }: { enabled: boolean }) {
     ["classes", "Turmas ativas", "Turmas operacionais visíveis"],
     ["pending", "Solicitações pendentes", "Aguardando análise"],
     ["publishedExams", "Simulados publicados", "Avaliações disponíveis"],
-    ["publishedActivities", "Atividades publicadas", "Indisponível se a estrutura não estiver instalada"],
+    ["publishedActivities", "Atividades publicadas", "Atividades disponíveis para os alunos"],
     ["completedActivities", "Atividades concluídas", "Entregas finalizadas"],
     ["newUsers", "Novos cadastros", "Últimos 30 dias"],
   ];
