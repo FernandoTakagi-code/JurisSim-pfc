@@ -24,6 +24,9 @@ export function createInitialDiagnosticRequirementGuard({
     // Only trusted staff operations in the selected institution bypass this
     // student study prerequisite; personal study still requires the diagnostic.
     if(request.auth.institutionAdmin && request.auth.institutionId && /^\/(turmas|reports|avaliacoes|questoes)(\/|\?|$)/.test(request.originalUrl)) return next();
+    // Institutional applicants never take the student diagnostic; the profile
+    // photo is account data, not study content, so it must not be gated for them.
+    if (request.auth.institutionalAccount && /^\/profile\/photo(\/|\?|$)/.test(request.originalUrl)) return next();
 
     try {
       if (await hasCompletedInitialDiagnostic(request.auth.userId)) return next();

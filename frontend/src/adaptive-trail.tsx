@@ -11,6 +11,11 @@ export function AdaptiveTrail({ progress }: { progress: ReturnType<typeof useStu
   const trail = result?.trail;
   const data = available ? progress.data : undefined;
   const attempts = data?.learning?.trailProgress ?? [];
+  // With every diagnostic subject at 100% there is no weak area to prioritise;
+  // point to the focus from completed activities, as the dashboard does.
+  const diagnosticMetrics = result?.performances?.filter(metric => metric.tipo === "DISCIPLINA") ?? [];
+  const perfectDiagnostic = diagnosticMetrics.length > 0 && diagnosticMetrics.every(metric => metric.percentual >= 100);
+  const practiceFocus = data?.learning?.priorityTopic;
   const diagnosticPath = data?.latestDiagnosticId
     ? `/resultados/${data.latestDiagnosticInitial ? "diagnostico-inicial" : "diagnostico"}/${encodeURIComponent(data.latestDiagnosticId)}`
     : undefined;
@@ -28,7 +33,9 @@ export function AdaptiveTrail({ progress }: { progress: ReturnType<typeof useStu
           <h2>{trail.disciplinaPrioritaria}</h2>
           <p>{trail.assuntoPrioritario ?? "Conteúdos gerais da disciplina"}</p>
           <p className="muted">Nível recomendado: {levels[trail.nivelRecomendado] ?? trail.nivelRecomendado} · Até {trail.quantidadeRecomendada} questões, conforme disponibilidade.</p>
-          <p>{trail.justificativa || result?.recommendation}</p>
+          {perfectDiagnostic
+            ? <p>Você acertou todas as questões do diagnóstico, então ele não aponta uma disciplina com dificuldade. Os exercícios desta trilha servem para consolidar o conteúdo.{practiceFocus && practiceFocus.percentage < 100 ? ` Pelas respostas das suas atividades concluídas, o foco sugerido agora é ${practiceFocus.discipline} · ${practiceFocus.topic} (${practiceFocus.percentage.toLocaleString("pt-BR")}% em ${practiceFocus.total} respostas).` : ""}</p>
+            : <p>{trail.justificativa || result?.recommendation}</p>}
           <TrailLaunchButton trail={trail} />
         </> : <>
           <h2>{progress.resultError ? "Recomendação indisponível" : "Nenhuma recomendação disponível"}</h2>

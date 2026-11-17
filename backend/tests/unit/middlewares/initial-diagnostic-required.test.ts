@@ -43,6 +43,21 @@ describe('initial diagnostic completion guard', () => {
     next.mockClear();req.originalUrl='/question-practice';const res=response();await guard(req,res as never,next);
     expect(res.status).toHaveBeenCalledWith(403);expect(next).not.toHaveBeenCalled();
   });
+  it('lets institutional applicants manage their profile photo without a personal diagnostic', async () => {
+    const completion = vi.fn().mockResolvedValue(false), next = vi.fn();
+    const guard = createInitialDiagnosticRequirementGuard({ isRequired: () => true, hasCompletedInitialDiagnostic: completion });
+    const req = request({ userId: 'owner', role: 'ALUNO', institutionalAccount: true });
+    req.originalUrl = '/profile/photo'; await guard(req, response() as never, next);
+    expect(next).toHaveBeenCalledWith(); expect(completion).not.toHaveBeenCalled();
+    next.mockClear(); req.originalUrl = '/question-practice'; const res = response(); await guard(req, res as never, next);
+    expect(res.status).toHaveBeenCalledWith(403); expect(next).not.toHaveBeenCalled();
+  });
+  it('keeps the profile photo gated for ordinary students without the diagnostic', async () => {
+    const next = vi.fn(), res = response();
+    const req = request({ userId: 'student', role: 'ALUNO' }); req.originalUrl = '/profile/photo';
+    await createInitialDiagnosticRequirementGuard({ isRequired: () => true, hasCompletedInitialDiagnostic: vi.fn().mockResolvedValue(false) })(req, res as never, next);
+    expect(res.status).toHaveBeenCalledWith(403); expect(next).not.toHaveBeenCalled();
+  });
   it('does not query completion when disabled', async () => {
     const hasCompleted = vi.fn();
     const next = vi.fn();

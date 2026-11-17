@@ -345,7 +345,7 @@ function InstitutionWorkspace({
                     </div>
                   </div>
                 )}
-                {(section === "teachers" || section === "invitations") && !teacherInvitationsAvailable && <p className="institution-teacher-status" role="status">{teacherInvitationReason ?? "Teacher invitations are unavailable in this backend."}</p>}
+                {(section === "teachers" || section === "invitations") && !teacherInvitationsAvailable && <p className="institution-teacher-status" role="status">{teacherInvitationReason ?? "Os convites de professores ainda não estão disponíveis neste ambiente."}</p>}
                 {invitationNotice && (section === "teachers" || section === "invitations") && <p className="institution-invite-success" role="status">{invitationNotice}</p>}
                 {section === "overview" && (
                   <Overview

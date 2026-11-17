@@ -63,10 +63,10 @@ institutionRoutes.get("/availability", (_req, res) => {
     } catch {
       teacherInvitationReason = process.env.INSTITUTION_HOMOLOGATION_ENABLED === 'true'
         ? 'A configuração de homologação não permite convites neste perfil.'
-        : 'Configure o ambiente, o modo de convites e o serviço de e-mail no backend.';
+        : 'Os convites de professores ainda não estão configurados neste ambiente.';
     }
   } else {
-    teacherInvitationReason = 'A gestão de professores está desativada no backend.';
+    teacherInvitationReason = 'A gestão de professores ainda não foi ativada neste ambiente.';
   }
   res.json({
     ...availability,
