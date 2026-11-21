@@ -114,12 +114,9 @@ export class AuthController {
         : { status: 'accepted', message: verification.message };
     } catch (error) {
       console.error('Não foi possível enviar a confirmação de e-mail após o cadastro.');
-      const deliveryUnknown = error instanceof ApiError && error.message.includes('O provedor não confirmou');
       emailVerification = {
         status: 'unavailable',
-        message: deliveryUnknown
-          ? 'Conta criada. O recebimento do e-mail não foi confirmado; confira a caixa de entrada e o spam antes de pedir outro link.'
-          : 'Conta criada, mas não foi possível enviar a confirmação de e-mail. Entre e solicite o reenvio.',
+        message: 'Conta criada, mas não foi possível enviar a confirmação de e-mail. Entre e solicite o reenvio.',
       };
     }
     response.status(201).json({ ...resultado, emailVerification });

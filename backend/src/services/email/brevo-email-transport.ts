@@ -14,7 +14,7 @@ export interface TransactionalEmailTransport {
   send(email: TransactionalEmail): Promise<void>;
 }
 
-export const BREVO_API_SEND_DEADLINE_MS = 8_000;
+export const BREVO_API_SEND_DEADLINE_MS = 20_000;
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
 export class BrevoApiTransport implements TransactionalEmailTransport {

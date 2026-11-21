@@ -72,7 +72,13 @@ export class AuthService {
     await assertEmailReusable(email);
     assertValidPassword(senha);
     await assertCurrentAcceptance(acceptance);
-    if (await this.repository.findByEmail(email)) throw new ApiError(409, 'E-mail já cadastrado.');
+    const existing = await this.repository.findByEmail(email);
+    if (existing && !existing.emailVerifiedAt) {
+      // O link de confirmação vale 30 minutos; quem tenta se cadastrar de novo depois disso precisa de outro caminho.
+      // Por segurança o reenvio exige a senha: a pessoa entra e usa "Reenviar e-mail de confirmação".
+      throw new ApiError(409, 'Esta conta já existe e aguarda a confirmação do e-mail. Entre com sua senha para receber um novo link de confirmação.', undefined, 'EMAIL_PENDING_CONFIRMATION');
+    }
+    if (existing) throw new ApiError(409, 'E-mail já cadastrado.');
     const senhaHash = await bcrypt.hash(senha, 10);
     try {
       const user = await this.repository.createUser(nome, email, senhaHash, acceptance, registrationIntent);

@@ -6,6 +6,7 @@ import { pendingInvitation } from './invitation-token';
 import { navigate } from './navigation';
 import { LegalLinks } from './legal';
 import { currentLegalAcceptance } from './terms-of-use';
+import { isPendingConfirmation, PendingConfirmationNotice } from './registration-errors';
 import { PASSWORD_MIN_LENGTH, passwordError, passwordRequirements, validPasswordConfirmation } from '../../backend/src/password-policy';
 import { validateRegistration } from './registration-validation';
 import { INITIAL_DIAGNOSTIC_ATTEMPT_COUNT, INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT } from '../../backend/src/services/diagnostics/initial-diagnostic-config';
@@ -78,6 +79,7 @@ export function AuthGate({initialEmail='',initialNotice='',invitationLogin=false
   );
   const [nome, setNome] = useState("");
   const [loginEmail, setLoginEmail] = useState(initialEmail);
+  const [pendingConfirmation, setPendingConfirmation] = useState<{ email: string; message: string } | null>(null);
   const [loginSenha, setLoginSenha] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerSenha, setRegisterSenha] = useState("");
@@ -198,6 +200,7 @@ export function AuthGate({initialEmail='',initialNotice='',invitationLogin=false
     if (loading) return;
     setLoading(true);
     setError("");
+    setPendingConfirmation(null);
     try {
       if ((mode === 'register' && registerSenha !== confirmacaoSenha) || (mode === 'reset' && newPassword !== confirmNewPassword)) throw new Error('As senhas não coincidem.');
       if (mode === 'register' || mode === 'reset') {
@@ -242,7 +245,12 @@ export function AuthGate({initialEmail='',initialNotice='',invitationLogin=false
         await estabelecerSessao(login.token);
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Erro inesperado.");
+      if (mode === "register" && isPendingConfirmation(cause)) {
+        setPendingConfirmation({ email: registerEmail.trim(), message: (cause as Error).message });
+        setError("");
+      } else {
+        setError(cause instanceof Error ? cause.message : "Erro inesperado.");
+      }
     } finally {
       setLoading(false);
     }
@@ -442,6 +450,7 @@ export function AuthGate({initialEmail='',initialNotice='',invitationLogin=false
               <input id="legal-acceptance" type="checkbox" required checked={accepted} onChange={(event) => setAccepted(event.target.checked)} aria-labelledby="legal-consent-label" />
               <span id="legal-consent-label"><label htmlFor="legal-acceptance">Li e aceito </label>os <a href="#/termos">Termos de Uso</a> e a <a href="#/privacidade">Política de Privacidade</a>.</span>
             </div>}
+            {isRegister && pendingConfirmation && <PendingConfirmationNotice email={pendingConfirmation.email} message={pendingConfirmation.message} onLogin={() => { setLoginEmail(pendingConfirmation.email); setPendingConfirmation(null); setChoosingRegistration(false); setMode("login"); }} />}
             {isRegister && registrationValidation.firstError && <p id="registration-feedback" className="password-feedback" role="status" aria-live="polite">{registrationValidation.firstError}</p>}
             <button type="submit" className="auth-submit" disabled={loading || (isRegister && !registrationValidation.valid) || (mode === "forgot" && (recoveryRequested || !recoveryEmail)) || (mode === "reset" && (!resetToken || !validPasswordConfirmation(newPassword, confirmNewPassword)))}>
               {loading ? "Aguarde..." : isLogin ? "Entrar" : isRegister ? institutionalEntry ? "Criar acesso de responsável" : "Criar conta de estudante" : mode === "forgot" ? "Enviar instruções" : "Salvar nova senha"}

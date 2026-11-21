@@ -8,6 +8,8 @@ import { classifyEmailDeliveryFailure } from '../email/email-delivery-failure';
 import { emailFrontendUrl } from '../email/email-frontend';
 import { emailAccepted, emailFailed } from '../email/transactional-email-log';
 
+export const PENDING_DELIVERY_MESSAGE = 'O envio está demorando para ser confirmado. O e-mail pode levar alguns minutos para chegar; confira a caixa de entrada e o spam antes de pedir outro link.';
+
 export class EmailVerificationService {
   constructor(
     private readonly repository = new AuthRepository(),
@@ -41,11 +43,11 @@ export class EmailVerificationService {
     } catch (error) {
       emailFailed('email_verification',record.id,error);
       const indeterminate = classifyEmailDeliveryFailure(error).outcome==='indeterminate';
-      if (!indeterminate) await this.repository.markTokenUsed(record.id);
       console.error('Falha no envio do e-mail de confirmação.');
-      throw new ApiError(503, indeterminate
-        ? 'O provedor não confirmou o recebimento. Confira a caixa e o spam antes de pedir outro link.'
-        : 'A confirmação de e-mail está temporariamente indisponível.');
+      // Sem confirmação do provedor, o e-mail costuma chegar mesmo assim: o link continua válido e não é exibido erro.
+      if (indeterminate) return { delivery: 'pending' as const, message: PENDING_DELIVERY_MESSAGE };
+      await this.repository.markTokenUsed(record.id);
+      throw new ApiError(503, 'A confirmação de e-mail está temporariamente indisponível.');
     }
 
     return { message: 'O provedor aceitou o envio do link de confirmação. A entrega na caixa de entrada pode levar alguns minutos.' };

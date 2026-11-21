@@ -113,7 +113,7 @@ describe('AuthService.login() - perfil escolhido na tela de login', () => {
 describe('AuthService.register()', () => {
   it('deveLancarApiError409ENaoCriarUsuarioQuandoEmailJaEstaCadastrado', async () => {
     // Preparação
-    const repositorio = criarRepositorioFalso(usuario('ALUNO'));
+    const repositorio = criarRepositorioFalso({ ...usuario('ALUNO'), emailVerifiedAt: new Date() } as ReturnType<typeof usuario>);
     const service = new AuthService(repositorio as never);
     const aceite = { accepted: true, termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion };
 
@@ -122,6 +122,24 @@ describe('AuthService.register()', () => {
 
     // Verificação
     await expect(tentativa).rejects.toMatchObject({ statusCode: 409, message: 'E-mail já cadastrado.' });
+    expect(repositorio.createUser).not.toHaveBeenCalled();
+  });
+
+  it('orienta a entrar e pedir novo link quando a conta existe mas o e-mail não foi confirmado', async () => {
+    // Preparação
+    const repositorio = criarRepositorioFalso({ ...usuario('ALUNO'), emailVerifiedAt: null } as ReturnType<typeof usuario>);
+    const service = new AuthService(repositorio as never);
+    const aceite = { accepted: true, termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion };
+
+    // Execução
+    const tentativa = service.register('Ana', 'teste@jurissim.local', 'Senha-segura1!', aceite);
+
+    // Verificação
+    await expect(tentativa).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'EMAIL_PENDING_CONFIRMATION',
+      message: 'Esta conta já existe e aguarda a confirmação do e-mail. Entre com sua senha para receber um novo link de confirmação.',
+    });
     expect(repositorio.createUser).not.toHaveBeenCalled();
   });
 });

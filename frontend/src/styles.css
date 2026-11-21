@@ -279,3 +279,6 @@
 .legal-update-card .legal-consent { display: flex; gap: .6rem; align-items: flex-start; text-align: left; margin: .5rem 0 1rem; }
 /* Quebras de linha simples dentro de um parágrafo dos Termos */
 .legal-document section p, .legal-update-text p { white-space: pre-line; }
+/* Cadastro repetido de conta que aguarda confirmação */
+.pending-confirmation-notice { margin: .75rem 0; padding: .9rem 1rem; border-left: 3px solid #c69b48; border-radius: .5rem; background: rgba(198,155,72,.08); }
+.pending-confirmation-notice p { margin: 0 0 .5rem; }

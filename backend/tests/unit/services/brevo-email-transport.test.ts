@@ -71,7 +71,8 @@ describe('transporte HTTPS da API transacional Brevo (fetch simulado)', () => {
 
   it('requires an API key and uses a bounded default deadline', () => {
     expect(new BrevoApiTransport('').isConfigured).toBe(false);
-    expect(BREVO_API_SEND_DEADLINE_MS).toBe(8_000);
+    // 20 s cobre o "acordar" do servidor e a primeira conexão TLS com o Brevo após um período parado.
+    expect(BREVO_API_SEND_DEADLINE_MS).toBe(20_000);
   });
 
   it('does not fall back to available SMTP credentials when API is selected but unconfigured', () => {

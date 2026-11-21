@@ -21,7 +21,7 @@ export class AuthRepository {
       select: {
         id: true, nome: true, email: true, senhaHash: true, role: true, sessionVersion: true,
         legalAcceptedAt: true, termsVersion: true, privacyVersion: true,
-        deletedAt: true,
+        deletedAt: true, emailVerifiedAt: true,
       },
     });
     if (matches.length > 1) throw new ApiError(409, 'Há mais de uma conta com este e-mail. Procure o suporte para evitar vinculação incorreta.');
