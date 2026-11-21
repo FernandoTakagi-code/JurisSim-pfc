@@ -16,23 +16,23 @@ describe('getLevel() - fronteiras de classificação', () => {
     [80, 'AVANCADO'],
     [100, 'AVANCADO'],
   ] as const)('deveClassificar %s%% como %s', (percentual, nivelEsperado) => {
-    // Act + Assert
+    // Execução + verificação
     expect(getLevel(percentual)).toBe(nivelEsperado);
   });
 });
 
 describe('analyzeDiagnostic() - motor de recomendação', () => {
   it('deveRecomendarADisciplinaEOAssuntoComMenorTaxaDeAcerto', () => {
-    // Arrange
+    // Preparação
     const diagnostico = [
       ...respostas('Direito Civil', 'Contratos', 1, 4),
       ...respostas('Direito Penal', 'Crimes contra a vida', 4, 4),
     ];
 
-    // Act
+    // Execução
     const resultado = analyzeDiagnostic(diagnostico);
 
-    // Assert
+    // Verificação
     expect(resultado.overallPercentage).toBe(62.5);
     expect(resultado.level).toBe('INTERMEDIARIO');
     expect(resultado.trail.priorityDiscipline).toBe('Direito Civil');
@@ -42,22 +42,22 @@ describe('analyzeDiagnostic() - motor de recomendação', () => {
   });
 
   it('deveLancarErroQuandoODiagnosticoNaoTemRespostas', () => {
-    // Act + Assert
+    // Execução + verificação
     expect(() => analyzeDiagnostic([])).toThrow(Error);
     expect(() => analyzeDiagnostic([])).toThrow('Nao e possivel analisar um diagnostico sem respostas.');
   });
 
   it('deveDesempatarDisciplinasComMesmoDesempenhoPelaOrdemAlfabetica', () => {
-    // Arrange - caso-limite: duas disciplinas com exatamente o mesmo percentual
+    // Preparação - caso-limite: duas disciplinas com exatamente o mesmo percentual
     const diagnostico = [
       ...respostas('Direito Penal', 'Penas', 1, 2),
       ...respostas('Direito Administrativo', 'Licitações', 1, 2),
     ];
 
-    // Act
+    // Execução
     const resultado = analyzeDiagnostic(diagnostico);
 
-    // Assert
+    // Verificação
     expect(resultado.trail.priorityDiscipline).toBe('Direito Administrativo');
   });
 
@@ -66,13 +66,13 @@ describe('analyzeDiagnostic() - motor de recomendação', () => {
     [7, 10, 'INTERMEDIARIO', 10],
     [9, 10, 'AVANCADO', 5],
   ] as const)('deveRecomendarQuantidadeConformeNivel (%s de %s acertos -> %s, %s questões)', (acertos, total, nivel, quantidade) => {
-    // Arrange
+    // Preparação
     const diagnostico = respostas('Direito Constitucional', 'Controle de constitucionalidade', acertos, total);
 
-    // Act
+    // Execução
     const resultado = analyzeDiagnostic(diagnostico);
 
-    // Assert
+    // Verificação
     expect(resultado.trail.recommendedLevel).toBe(nivel);
     expect(resultado.trail.recommendedQuantity).toBe(quantidade);
   });
@@ -80,10 +80,10 @@ describe('analyzeDiagnostic() - motor de recomendação', () => {
 
 describe('buildTrailFilters()', () => {
   it('deveMontarFiltrosDoMaisEspecificoParaOMaisAmploQuandoHaAssunto', () => {
-    // Act
+    // Execução
     const filtros = buildTrailFilters('Direito Civil', 'Contratos', 'BASICO');
 
-    // Assert
+    // Verificação
     expect(filtros).toEqual([
       { disciplina: 'Direito Civil', assunto: 'Contratos', nivel: 'BASICO' },
       { disciplina: 'Direito Civil', assunto: 'Contratos', nivel: null },
@@ -93,10 +93,10 @@ describe('buildTrailFilters()', () => {
   });
 
   it('deveMontarApenasFiltrosPorDisciplinaQuandoNaoHaAssunto', () => {
-    // Act
+    // Execução
     const filtros = buildTrailFilters('Direito Civil', null, 'AVANCADO');
 
-    // Assert
+    // Verificação
     expect(filtros).toEqual([
       { disciplina: 'Direito Civil', assunto: null, nivel: 'AVANCADO' },
       { disciplina: 'Direito Civil', assunto: null, nivel: null },

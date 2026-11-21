@@ -33,7 +33,7 @@ function load(folder: string): EnvironmentValues {
     const file = path.join(root, folder, name);
     if (existsSync(file)) values = { ...values, ...parse(readFileSync(file)) };
   }
-  return { ...values, ...process.env }; // Hosting/Actions variables override local files.
+  return { ...values, ...process.env }; // As variáveis da hospedagem/Actions sobrescrevem os arquivos locais.
 }
 let failures = 0;
 for (const folder of ["backend", "frontend"]) {

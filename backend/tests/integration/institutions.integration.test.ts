@@ -1,5 +1,5 @@
 import { institutionApplication } from '../fixtures/institution-request';
-// Real PostgreSQL + real Express/services. Only external delivery is captured.
+// PostgreSQL real + Express/serviços reais. Apenas a entrega externa é capturada.
 import {
   afterAll,
   beforeAll,
@@ -211,7 +211,7 @@ beforeAll(async () => {
   base = "http://127.0.0.1:" + (server.address() as { port: number }).port;
 });
 beforeEach(async () => {
-  resetAuthRoutes(); // Each test owns a fresh rate-limit window; production limits remain intact.
+  resetAuthRoutes(); // Cada teste tem uma janela de limite de requisições nova; os limites de produção continuam intactos.
   resetInstitutionRoutes();
   vi.stubEnv("INSTITUTIONS_ENABLED", "true");
   vi.stubEnv("INSTITUTION_TEACHER_MANAGEMENT_ENABLED", "false");

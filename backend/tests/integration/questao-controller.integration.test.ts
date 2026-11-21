@@ -41,32 +41,32 @@ async function criarQuestao(token: string, sobrescrever: Record<string, unknown>
 
 describe('GET /questoes', () => {
   it('listar_comQuestaoCadastrada_deveRetornar200ComAQuestaoNaLista', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const criada = await criarQuestao(professor.token, { assunto: 'Despejo' });
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'GET', '/questoes', { token: professor.token });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(200);
     expect(resposta.corpo).toHaveLength(1);
     expect(resposta.corpo[0]).toMatchObject({ id: criada.id, assunto: 'Despejo', autorId: professor.usuario.id });
   });
 
   it('listar_comoAluno_deveRetornar200SemOGabaritoDasAlternativas', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const aluno = await loginPelaApi(baseUrl, 'ALUNO');
     const criada = await criarQuestao(professor.token);
 
-    // Simulate a historical global question; teacher CRUD cannot publish it.
+    // Simula uma questão global histórica; o CRUD do professor não pode publicá-la.
     await prisma.questao.update({ where: { id: criada.id }, data: { publica: true, turmaId: null } });
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'GET', '/questoes', { token: aluno.token });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(200);
     expect(resposta.corpo.map((q: { id: string }) => q.id)).toEqual([criada.id]);
     expect(resposta.corpo[0].alternativas).toHaveLength(4);
@@ -74,13 +74,13 @@ describe('GET /questoes', () => {
   });
 
   it('listar_comNivelInexistenteNoFiltro_deveRetornar422ComIssues', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'GET', '/questoes?nivel=IMPOSSIVEL', { token: professor.token });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(422);
     expect(resposta.corpo.message).toBe('Dados invalidos.');
     expect(resposta.corpo.issues[0].path).toEqual(['nivel']);
@@ -89,14 +89,14 @@ describe('GET /questoes', () => {
 
 describe('GET /questoes/:id', () => {
   it('buscarPorId_comIdExistente_deveRetornar200ComTodosOsCampos', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const criada = await criarQuestao(professor.token);
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'GET', `/questoes/${criada.id}`, { token: professor.token });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(200);
     expect(resposta.corpo).toMatchObject({
       id: criada.id,
@@ -114,13 +114,13 @@ describe('GET /questoes/:id', () => {
   });
 
   it('buscarPorId_comIdInexistente_deveRetornar404ComMensagem', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'GET', `/questoes/${randomUUID()}`, { token: professor.token });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(404);
     expect(resposta.corpo).toEqual({ message: 'Questão não encontrada' });
   });
@@ -128,18 +128,18 @@ describe('GET /questoes/:id', () => {
 
 describe('POST /questoes', () => {
   it('criar_comoProfessorAutenticado_deveRetornar201EPersistirQuestaoComAlternativas', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const corpo = await corpoDocente(professor.token, { nivel: 'AVANCADO' });
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token: professor.token, corpo });
 
-    // Assert - resposta
+    // Verificação - resposta
     expect(resposta.status).toBe(201);
     expect(resposta.corpo.id).toEqual(expect.any(String));
     expect(resposta.corpo).toMatchObject({ enunciado: corpo.enunciado, nivel: 'AVANCADO', autorId: professor.usuario.id });
-    // Assert - persistido no banco com as 4 alternativas e o log de auditoria
+    // Verificação - persistido no banco com as 4 alternativas e o log de auditoria
     const noBanco = await prisma.questao.findUnique({ where: { id: resposta.corpo.id }, include: { alternativas: true } });
     expect(noBanco?.enunciado).toBe(corpo.enunciado);
     expect(noBanco?.alternativas).toHaveLength(4);
@@ -148,30 +148,30 @@ describe('POST /questoes', () => {
   });
 
   it('criar_semToken_deveRetornar401ENaoGravar', async () => {
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', { corpo: questaoUnica() });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(401);
     expect(resposta.corpo).toEqual({ message: 'Autenticacao obrigatoria.' });
     expect(await prisma.questao.count()).toBe(0);
   });
 
   it('criar_comoAluno_deveRetornar403ENaoGravar', async () => {
-    // Arrange
+    // Preparação
     const aluno = await loginPelaApi(baseUrl, 'ALUNO');
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token: aluno.token, corpo: questaoUnica() });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(403);
     expect(resposta.corpo).toEqual({ message: 'Acesso negado para este papel.' });
     expect(await prisma.questao.count()).toBe(0);
   });
 
   it('criar_comDuasAlternativasCorretas_deveRetornar400ComMensagem', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const corpo = questaoUnica({
       alternativas: [
@@ -182,25 +182,25 @@ describe('POST /questoes', () => {
       ],
     });
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token: professor.token, corpo });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(400);
     expect(resposta.corpo).toMatchObject({ message: 'A questão deve ter exatamente uma alternativa correta' });
     expect(await prisma.questao.count()).toBe(0);
   });
 
   it('criar_comConteudoDuplicado_deveRetornar409EManterApenasAOriginal', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const corpo = await corpoDocente(professor.token);
     await requisicao(baseUrl, 'POST', '/questoes', { token: professor.token, corpo });
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token: professor.token, corpo });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(409);
     expect(resposta.corpo).toEqual({ message: 'Já existe uma questão com este conteúdo.' });
     expect(await prisma.questao.count()).toBe(1);
@@ -209,17 +209,17 @@ describe('POST /questoes', () => {
 
 describe('PUT /questoes/:id', () => {
   it('atualizar_comNovoAssunto_deveRetornar200EGravarAlteracao', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const criada = await criarQuestao(professor.token);
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'PUT', `/questoes/${criada.id}`, {
       token: professor.token,
       corpo: { assunto: 'Ação renovatória' },
     });
 
-    // Assert - resposta
+    // Verificação - resposta
     expect(resposta.status).toBe(200);
     expect(resposta.corpo).toMatchObject({ id: criada.id, assunto: 'Ação renovatória', enunciado: criada.enunciado });
     // Assert - efeito observável pela própria API
@@ -228,47 +228,47 @@ describe('PUT /questoes/:id', () => {
   });
 
   it('atualizar_comIdInexistente_deveRetornar404ComMensagem', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'PUT', `/questoes/${randomUUID()}`, {
       token: professor.token,
       corpo: { assunto: 'Qualquer' },
     });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(404);
     expect(resposta.corpo).toEqual({ message: 'Questão não encontrada' });
   });
 
   it('atualizar_questaoDeOutroProfessor_deveRetornar403EManterOriginal', async () => {
-    // Arrange
+    // Preparação
     const autor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const outroProfessor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const criada = await criarQuestao(autor.token);
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'PUT', `/questoes/${criada.id}`, {
       token: outroProfessor.token,
       corpo: { assunto: 'Invasão' },
     });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(403);
     expect(resposta.corpo).toEqual({ message: 'Você não pode alterar esta questão.' });
     expect((await prisma.questao.findUnique({ where: { id: criada.id } }))?.assunto).toBe('Locação');
   });
 
   it('atualizar_comCorpoVazio_deveRetornar400ComMensagem', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const criada = await criarQuestao(professor.token);
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'PUT', `/questoes/${criada.id}`, { token: professor.token, corpo: {} });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(400);
     expect(resposta.corpo.erro._errors).toContain('Informe ao menos um campo para atualizar.');
   });
@@ -276,14 +276,14 @@ describe('PUT /questoes/:id', () => {
 
 describe('DELETE /questoes/:id', () => {
   it('remover_comIdExistente_deveRetornar204EQuestaoDeixaDeExistir', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
     const criada = await criarQuestao(professor.token);
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'DELETE', `/questoes/${criada.id}`, { token: professor.token });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(204);
     expect(resposta.corpo).toBeNull();
     const consulta = await requisicao(baseUrl, 'GET', `/questoes/${criada.id}`, { token: professor.token });
@@ -292,13 +292,13 @@ describe('DELETE /questoes/:id', () => {
   });
 
   it('remover_comIdInexistente_deveRetornar404ComMensagem', async () => {
-    // Arrange
+    // Preparação
     const professor = await loginPelaApi(baseUrl, 'PROFESSOR');
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'DELETE', `/questoes/${randomUUID()}`, { token: professor.token });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(404);
     expect(resposta.corpo).toEqual({ message: 'Questão não encontrada' });
   });

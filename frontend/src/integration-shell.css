@@ -1,5 +1,5 @@
-/* v0 navigation/profile adapted to the existing Vite app. All rules are scoped;
-   the original dashboard and CRUD stylesheet remains unchanged. */
+/* Navegação/perfil do v0 adaptados ao app Vite existente. Todas as regras têm escopo;
+   o painel original e a folha de estilo do CRUD continuam inalterados. */
 .v0-app {
   --v0-bg: #f6f7f9;
   --v0-panel: #fff;
@@ -257,7 +257,7 @@
 .v0-backdrop {
   display: none;
 }
-/* Keep original page bodies and their data flows intact; the shared frame owns navigation. */
+/* Mantém intactos os corpos de página originais e seus fluxos de dados; o frame compartilhado cuida da navegação. */
 .v0-original[hidden] {
   display: none;
 }
@@ -512,7 +512,7 @@
 .v0-collapsed .v0-sidebar-account {
   margin-inline: 6px;
 }
-/* Dark treatment is confined to authenticated content; no global main overrides. */
+/* O tratamento escuro fica restrito ao conteúdo autenticado; sem sobrescritas globais de main. */
 .v0-dark .v0-original {
   color: var(--v0-text);
 }

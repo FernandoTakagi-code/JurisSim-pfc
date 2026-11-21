@@ -41,8 +41,8 @@ export type InitialDiagnosticFinalizeOutcome =
 
 export interface InitialDiagnosticResolutionRepository {
   findOwnedAttempt(studentId: string, attemptId: string): Promise<InitialDiagnosticResolutionAttempt | null>;
-  // 'SAVED' alone makes the service re-read the attempt; the object form carries the
-  // persisted values from the same write and avoids that second full read.
+  // 'SAVED' sozinho faz o serviço reler a tentativa; a forma de objeto traz os
+  // valores persistidos da mesma gravação e evita essa segunda leitura completa.
   saveOrUpdateAnswer(studentId: string, attemptId: string, questionId: string, alternativeId: string): Promise<
     'NOT_FOUND' | 'FINALIZED' | 'QUESTION_NOT_FOUND' | 'ALTERNATIVE_NOT_FOUND' | 'SAVED'
     | { status: 'SAVED'; selectedAlternativeId: string | null; respondedAt: Date }
@@ -167,7 +167,7 @@ export class InitialDiagnosticResolutionService {
 
     const attempt = await this.getOwnedAttempt(studentId, attemptId);
     const question = attempt.questions.find(item => item.questionId === questionId)!;
-    // Never reveal correctness or explanation while an answer key is still active.
+    // Nunca revelar acerto ou explicação enquanto um gabarito ainda estiver ativo.
     return { questionId, selectedOptionId: question.selectedAlternativeId, respondedAt: question.answeredAt };
   }
 

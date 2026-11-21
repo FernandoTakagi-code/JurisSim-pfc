@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 
-/** Insert a local seed account when absent; never rewrite an existing account. */
+/** Insere uma conta local de seed quando ausente; nunca reescreve uma conta existente. */
 export function createSeedAccountIfMissing(
   client: Pick<PrismaClient, 'user'>,
   email: string,

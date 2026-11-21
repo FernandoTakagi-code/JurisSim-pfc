@@ -1,6 +1,6 @@
-// Creates a restricted, recoverable public-schema backup from the configured
-// direct PostgreSQL URL, then proves it can be restored to a fresh local PG17.
-// Never prints or puts database credentials on the process command line.
+// Cria um backup restrito e recuperável do schema public a partir da URL direta do
+// PostgreSQL configurada e comprova que ele pode ser restaurado em um PG17 local novo.
+// Nunca imprime nem coloca credenciais do banco na linha de comando do processo.
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');

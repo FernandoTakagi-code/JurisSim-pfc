@@ -106,7 +106,7 @@ try {
       if (message.error) task.reject(new Error(message.error.message));
       else task.resolve(message.result);
     }
-    // Defense in depth: only Vite assets may actually use the network.
+    // Defesa em profundidade: apenas os assets do Vite podem de fato usar a rede.
     if (message.method === "Fetch.requestPaused") {
       const allowed = message.params.request.url.startsWith(origin + "/");
       void send(
@@ -155,8 +155,8 @@ try {
     }
     throw new Error(`Condition failed: ${expression}`);
   };
-  // Browser interaction checks only. All API responses below are isolated
-  // fixtures, not proof of a live Supabase deployment or email delivery.
+  // Apenas verificações de interação no navegador. Todas as respostas de API abaixo são
+  // fixtures isoladas, não prova de uma implantação ativa no Supabase nem de envio de e-mail.
   const session = {
     user: {
       id: "admin-ui",

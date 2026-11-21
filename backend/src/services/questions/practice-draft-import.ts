@@ -25,7 +25,7 @@ const normalized = (value: string) => value.normalize('NFKC').replace(/\s+/gu, '
 export function preparePracticeDraftImport(input: unknown) {
   const batch = batchSchema.parse(input);
   for (const q of batch.questions) {
-    // Keep the shared CRUD's alternative validation, including normalized duplicates.
+    // Mantém a validação de alternativas do CRUD compartilhado, incluindo duplicatas normalizadas.
     criarQuestaoSchema.parse({ ...q, turmaId: undefined });
     if (q.alternativas.map(a => a.letra).join('') !== 'ABCD' || q.alternativas.find(a => a.correta)?.letra !== q.gabarito) throw new Error('Gabarito ou letras inconsistentes.');
   }
@@ -35,7 +35,7 @@ export function preparePracticeDraftImport(input: unknown) {
   return { batch, fingerprints, hash };
 }
 
-/** Maintenance import only. Private storage is intentionally separate from release. */
+/** Importação apenas para manutenção. O armazenamento privado é propositalmente separado da liberação. */
 export async function importPracticeDrafts(db: PrismaClient, input: unknown, operatorId: string) {
   const { batch, fingerprints, hash } = preparePracticeDraftImport(input);
   return db.$transaction(async tx => {

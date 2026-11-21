@@ -1,4 +1,4 @@
-/* Academic workspace only; the question CRUD is outside this scope. */
+/* Apenas o espaço acadêmico; o CRUD de questões está fora deste escopo. */
 .teacher-workspace { --teacher-navy:#122c50; --teacher-gold:#ba914e; width:min(1440px,calc(100% - 64px)); max-width:1440px; margin:28px auto; min-width:0; color:var(--v0-text,#17243a); }
 .teacher-workspace>.page {width:100%;max-width:none;margin:0;padding:0;}
 .teacher-workspace h1 {font-size:clamp(25px,2.3vw,34px);line-height:1.2;letter-spacing:-.6px;margin:8px 0 12px;overflow-wrap:anywhere;}
@@ -49,7 +49,7 @@
 @media(max-width:420px){.teacher-shortcuts {grid-template-columns:1fr;}.teacher-indicators {gap:10px;}.teacher-indicators>div {padding:15px;}.teacher-indicators dd {font-size:28px;}.teacher-workspace .panel {padding:17px;}.teacher-workspace fieldset {padding:12px;}}
 @media(prefers-reduced-motion:reduce){.teacher-workspace button {transition:none;}}
 
-/* Teaching workspace: clear hierarchy, compact actions and consistent states. */
+/* Espaço de ensino: hierarquia clara, ações compactas e estados consistentes. */
 .v0-teacher .v0-workspace { background:var(--v0-bg,#f5f7fa); }
 .teacher-workspace { width:min(1180px,calc(100% - 56px)); margin:30px auto 48px; }
 .teacher-workspace .teacher-workspace { width:100%; margin:0; }

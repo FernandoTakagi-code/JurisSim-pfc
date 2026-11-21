@@ -1,5 +1,5 @@
-// Keep invitation credentials in memory, never in local/session storage or URLs
-// after capture. Reopen the email link if this tab is reloaded before acceptance.
+// Mantém as credenciais do convite em memória, nunca no local/session storage nem em URLs
+// após a captura. Reabra o link do e-mail se esta aba for recarregada antes do aceite.
 let invitationToken: string | undefined;
 let confirmationProof: string | undefined;
 let capturedAt=0;

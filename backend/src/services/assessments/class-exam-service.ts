@@ -24,7 +24,7 @@ const attemptInclude = { avaliacao: { select: { id: true, titulo: true, turmas: 
 type Attempt = Prisma.SimuladoGetPayload<{ include: typeof attemptInclude }>;
 const inviteHash = (code: string) => 'sha256:' + createHash('sha256').update(code).digest('hex');
 const pageOf = <T>(items: T[], page: number) => ({ items: items.slice(0, 50), page, hasMore: items.length > 50 });
-// Assessment selection uses the existing bank, never grants bank-management rights.
+// A seleção da avaliação usa o banco existente e nunca concede direitos de gestão do banco.
 const eligibleForExam = (q:{publica:boolean;autorId?:string|null;turmaId?:string|null;alternativas:{correta:boolean}[]},actor:Actor,ids:string[]) => {
   const readable=q.publica||(!q.turmaId&&q.autorId===actor.userId)||!!(q.turmaId&&ids.includes(q.turmaId));
   const shareable=q.publica||!q.turmaId||ids.every(id=>id===q.turmaId);
@@ -47,7 +47,7 @@ async function lock(tx: Prisma.TransactionClient, table: 'Turma' | 'Avaliacao' |
   await tx.$queryRaw(Prisma.sql`SELECT id FROM ${Prisma.raw('"' + table + '"')} WHERE id = ${id} FOR UPDATE`);
 }
 export function staff(actor: Actor) {
-  homologationClassBoundary(); // Refuse stale scope before any legacy fallback.
+  homologationClassBoundary(); // Recusa escopo desatualizado antes de qualquer fallback legado.
   if(restrictedInstitutionId()) {
     if(!restrictedOperationsEnabled()) throw new ApiError(403,'Vínculo institucional ativo obrigatório.');
     assertRestrictedInstitution(actor.institutionId ?? '');
@@ -71,8 +71,8 @@ const managedExam = async (actor: Actor,history=false): Promise<Prisma.Avaliacao
   turmas:{every:await managedClass(actor,history),some:await managedClass(actor,history)},
 });
 const activeInstitutionClass = (): Prisma.TurmaWhereInput => homologationClassBoundary() ?? (institutionsEnabled() ? { OR: [{ institutionalClass: null }, { institutionalClass: { institution: { status: 'ACTIVE' } } }] } : {});
-// Legacy enrollments may have no request record. A pending/refused/removed
-// request never grants access, even if an inconsistent relation still exists.
+// Matrículas legadas podem não ter registro de solicitação. Uma solicitação pendente/recusada/removida
+// nunca concede acesso, mesmo que ainda exista uma relação inconsistente.
 export const enrolledClass = async (studentId: string): Promise<Prisma.TurmaWhereInput> => ({ alunos: { some: { id: studentId } },
   AND: [await visibleClasses(), activeInstitutionClass(), { OR: [
     { joinRequests: { none: { studentId } } }, { joinRequests: { some: { studentId, status: 'APPROVED' } } },
@@ -332,7 +332,7 @@ export class ClassExamService {
   }
 
   async join(actor: Actor, code: string) {
-    homologationClassBoundary(); // Revalidate any request scope before legacy fallback.
+    homologationClassBoundary(); // Revalida qualquer escopo de solicitação antes do fallback legado.
     if (actor.role !== 'ALUNO'||actor.institutionAdmin) throw new ApiError(403, 'Somente alunos no contexto pessoal podem solicitar matrícula. Professores são designados pela instituição.');
     return transaction(async tx => {
       if(restrictedInstitutionId() && !await fixtureProvenance(tx,homologationManifest()!)) throw new ApiError(403,'Fixture sem provisionamento autorizado.');
@@ -347,8 +347,8 @@ export class ClassExamService {
         select: { id: true, alunos: { where: { id: actor.userId }, select: { id: true } } } });
       if (!turma) throw new ApiError(404, 'Convite inválido, expirado ou turma indisponível.');
       if (turma.alunos.length) return { joined: false, message: 'Você já está matriculado nesta turma.' };
-      // Legacy classes without institutional enrollment workflow retain direct invite joining.
-      // When the workflow is enabled, all requests remain subject to teacher approval.
+      // Turmas legadas sem fluxo institucional de matrícula mantêm a entrada direta por convite.
+      // Quando o fluxo está habilitado, todas as solicitações dependem da aprovação do professor.
       if (!institutionsEnabled() && !homologationManifest()) {
         const enrollment = await tx.classJoinRequest.findUnique({ where: { classId_studentId: { classId: turma.id, studentId: actor.userId } } });
         await tx.classJoinRequest.upsert({ where: { classId_studentId: { classId: turma.id, studentId: actor.userId } },
@@ -544,7 +544,7 @@ export class ClassExamService {
     await tx.$queryRaw(Prisma.sql`SELECT id FROM "Turma" WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`);
     const classes = await tx.turma.count({ where: { id: { in: ids }, archivedAt: null, ...await managedClass(actor) } });
     if (classes !== ids.length) throw new ApiError(403, 'Selecione somente turmas ativas sob sua gestão.');
-    // Lock question rows as well so edits and publication cannot race.
+    // Aplica lock também nas linhas das questões, para que edições e publicação não concorram.
     await tx.$queryRaw(Prisma.sql`SELECT id FROM "Questao" WHERE id IN (${Prisma.join([...data.questaoIds].sort())}) ORDER BY id FOR UPDATE`);
     const questions = await tx.questao.findMany({ where: { id: { in: data.questaoIds } }, include: { alternativas: true } });
     if (questions.length !== data.questaoIds.length || questions.some(q => activity ? !activityQuestionSelectable(q,ids[0]) : !eligibleForExam(q,actor,ids))) throw new ApiError(403, 'Há questões indisponíveis ou privadas incompatíveis com as turmas selecionadas.');

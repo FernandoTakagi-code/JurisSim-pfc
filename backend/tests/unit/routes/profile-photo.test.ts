@@ -11,7 +11,7 @@ import { normalizePhoto, MAX_PHOTO_BYTES } from "../../../src/services/accounts/
 import { errorHandler } from "../../../src/middlewares/error-handler";
 let server: Server, base: string, token: string;
 const secret = 'profile-photo-unit-test-secret-over-32-chars';
-const user = (role = 'ALUNO') => ({ id: 'owner', role, emailVerifiedAt: new Date(), deletedAt: null, sessionVersion: 0 });
+const user = (role = 'ALUNO') => ({ id: 'owner', role, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', deletedAt: null, sessionVersion: 0 });
 const request = (method = 'GET', route = '', body?: string | Buffer, type = 'application/json', bearer: string | null = token) => fetch(base + '/profile/photo' + route, { method, headers: { 'Content-Type': type, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) }, body: Buffer.isBuffer(body) ? Uint8Array.from(body) : body });
 beforeAll(async () => {
   process.env.JWT_SECRET = secret;

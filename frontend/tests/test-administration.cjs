@@ -1,4 +1,4 @@
-// Isolated rendering tests: hook states are injected; no API effects execute.
+// Testes de renderização isolados: os estados dos hooks são injetados; nenhum efeito de API é executado.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -39,6 +39,22 @@ vm.runInNewContext(
   ).outputText,
   { exports: availabilityHelpers },
 );
+function loadModule(file, requireFn) {
+  const out = {};
+  vm.runInNewContext(
+    ts.transpileModule(fs.readFileSync(path.join(root, file), "utf8"), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2020 },
+    }).outputText,
+    { exports: out, URLSearchParams, require: requireFn },
+  );
+  return out;
+}
+const summaryPeriod = loadModule("src/admin-summary-period.ts", () => { throw Error("sem dependências"); });
+const summaryView = loadModule("src/admin-summary-view.tsx", (name) => {
+  if (name === "react/jsx-runtime") return require(name);
+  if (name === "./admin-summary-period") return summaryPeriod;
+  throw Error(`Unexpected import: ${name}`);
+});
 vm.runInNewContext(compiled, {
   URLSearchParams,
   exports: exportsObject,
@@ -73,6 +89,9 @@ vm.runInNewContext(compiled, {
         },
       };
     if (name === "./admin-navigation") return navigation;
+    if (name === "./admin-summary-period") return summaryPeriod;
+    if (name === "./admin-summary-view") return summaryView;
+    if (name === "./terms-admin") return { TermsAdministration: () => React.createElement("section", { className: "terms-admin-stub" }, "Termos de uso do ADMIN") };
     if (name === "./institution-navigation") return { institutionNavigate() {}, canViewInstitution: () => true };
     if (name === "./navigation") return { usePath: () => route, navigate() {} };
     if (name === "./auth-session")
@@ -109,6 +128,7 @@ const sections = [
   "Solicitações de cadastro",
   "Usuários",
   "Logs e auditoria",
+  "Termos de uso",
 ];
 let checks = 0;
 function check(name, fn) {
@@ -134,7 +154,7 @@ check(
 );
 check("indicadores reais e ausência das métricas fictícias do v0", () => {
   const { html, paths } = render("overview", true, {
-    4: { users: 17, teachers: 4 },
+    7: { users: 17, teachers: 4 },
   });
   assert.ok(html.includes(">17</strong>"));
   assert.ok(html.includes("Professores vinculados"));
@@ -147,14 +167,14 @@ check('activity indicators stay hidden until their real counters are available',
     { publishedActivities: null, completedActivities: null },
     {},
   ]) {
-    const { html } = render('overview', true, { 4: { users: 15, ...activityData } });
+    const { html } = render('overview', true, { 7: { users: 15, ...activityData } });
     assert.ok(!html.includes('Atividades publicadas'));
     assert.ok(!html.includes('Atividades concluídas'));
     assert.ok(html.includes('Contas cadastradas'));
     assert.ok(html.includes('>15</strong>'));
   }
   const { html } = render('overview', true, {
-    4: { publishedActivities: 0, completedActivities: 3 },
+    7: { publishedActivities: 0, completedActivities: 3 },
   });
   assert.ok(html.includes('Atividades publicadas'));
   assert.ok(html.includes('Atividades concluídas'));
@@ -258,7 +278,7 @@ check('auditoria separa históricos e mantém IDs apenas nos detalhes',()=>{
  assert.ok(!accounts.html.includes('Próxima'));
 });
 check('visão geral prioriza decisões administrativas e atalhos úteis',()=>{
- const result=render('overview',true,{4:{users:17,teachers:4},8:{items:[{id:'decision',event:'PERMISSION_CHANGED',occurredAt:'2026-11-16T00:00:00Z',result:'SUCCESS',severity:'INFO'}],hasMore:false}});
+ const result=render('overview',true,{7:{users:17,teachers:4},11:{items:[{id:'decision',event:'PERMISSION_CHANGED',occurredAt:'2026-11-16T00:00:00Z',result:'SUCCESS',severity:'INFO'}],hasMore:false}});
  assert.ok(result.html.includes('Permissão alterada'));
  assert.ok(!result.html.includes('\\u00'));
  assert.ok(result.html.includes('Evolução de cadastros'));

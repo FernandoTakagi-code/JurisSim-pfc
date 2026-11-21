@@ -23,6 +23,7 @@ import { classRoutes, examRoutes } from './routes/class-exam-routes';
 import { goalRoutes, reportRoutes } from './routes/goals-reports-routes';
 import { profilePhotoRoutes } from './routes/profile-photo-routes';
 import { institutionRoutes } from './routes/institution-routes';
+import { legalRoutes } from './routes/legal-routes';
 import { administrationAudit } from './middlewares/administration-audit';
 import { localReadOnlyNavigation } from './middlewares/local-read-only-navigation';
 import { createQuestionEditorialRoutes } from './routes/question-editorial-routes';
@@ -64,10 +65,11 @@ app.get('/health', (_req, res) => {
 });
 app.use('/auth', authRoutes);
 app.use('/institutions', institutionRoutes);
+app.use('/legal', legalRoutes);
 app.use('/question-editorial', createQuestionEditorialRoutes());
 app.use(['/questoes','/trilhas','/diagnostics','/initial-diagnostic','/students/me','/turmas','/atividades', '/avaliacoes','/goals','/reports','/question-practice','/individual-exams','/question-review'],requireAuth,denyGlobalAcademicAccess);
-// These study routes are behind a server-side initial-diagnostic gate. Auth is
-// checked here before the gate; route-level authorization remains in place.
+// Estas rotas de estudo ficam atrás de um bloqueio de diagnóstico inicial no servidor. A
+// autenticação é verificada aqui antes do bloqueio; a autorização no nível da rota continua valendo.
 app.use([
   '/questoes', '/trilhas', '/diagnostics', '/students/me', '/turmas',
   '/atividades', '/avaliacoes', '/goals', '/reports', '/question-practice', '/profile/photo', '/individual-exams', '/question-review',
@@ -94,7 +96,7 @@ app.use(errorHandler);
 const PORT = Number(env.PORT);
 
 async function startServer() {
-  // Refuse activation before listen, rather than silently demoting legacy teachers.
+  // Recusa a ativação antes do listen, em vez de rebaixar silenciosamente professores legados.
   try { await assertInstitutionActivationReady(prisma); }
   catch (error) {
     console.error(error instanceof InstitutionActivationBlocked ? error.message

@@ -24,7 +24,7 @@ beforeAll(async () => {
 afterAll(async () => { await new Promise<void>(resolve => server.close(() => resolve())); });
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.user.mockResolvedValue({ id, role: 'ALUNO', emailVerifiedAt: new Date(), deletedAt: null, sessionVersion: 0 });
+  mocks.user.mockResolvedValue({ id, role: 'ALUNO', emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', deletedAt: null, sessionVersion: 0 });
   mocks.overview.mockResolvedValue({ latestDiagnosticId: null, evolution: [], recentActivities: [], totals: { completedActivities: 0 } });
   mocks.learning.mockResolvedValue({ disciplines: [], priorityTopic: null, trailProgress: [] });
   mocks.history.mockResolvedValue([]);
@@ -42,13 +42,13 @@ describe('student history HTTP authorization and pagination', () => {
     expect(mocks.overview).not.toHaveBeenCalled(); expect(mocks.history).not.toHaveBeenCalled();
   });
   it.each(['PROFESSOR', 'ADMIN'])('rejects current database role %s', async role => {
-    mocks.user.mockResolvedValue({ id, role, emailVerifiedAt: new Date(), sessionVersion: 0 });
+    mocks.user.mockResolvedValue({ id, role, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', sessionVersion: 0 });
     expect((await get('/students/me/activities')).status).toBe(403); expect(mocks.history).not.toHaveBeenCalled();
   });
   it.each([
     { id, role: 'ALUNO', emailVerifiedAt: null, sessionVersion: 0 },
-    { id, role: 'ALUNO', emailVerifiedAt: new Date(), deletedAt: new Date(), sessionVersion: 0 },
-    { id, role: 'ALUNO', emailVerifiedAt: new Date(), sessionVersion: 1 },
+    { id, role: 'ALUNO', emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', deletedAt: new Date(), sessionVersion: 0 },
+    { id, role: 'ALUNO', emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', sessionVersion: 1 },
     null,
   ])('rejects pending, deleted, revoked or absent account', async user => {
     mocks.user.mockResolvedValue(user);
@@ -79,7 +79,7 @@ describe('student history HTTP authorization and pagination', () => {
     mocks.performance.mockClear();
     for (const query of ['?kind=unknown','?studentId=other','?kind=practice&alunoId=other']) expect((await get('/students/me/performance'+query)).status).toBe(422);
     expect(mocks.performance).not.toHaveBeenCalled();
-    mocks.user.mockResolvedValue({id,role:'ADMIN',emailVerifiedAt:new Date(),sessionVersion:0});
+    mocks.user.mockResolvedValue({id,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',sessionVersion:0});
     expect((await get('/students/me/performance')).status).toBe(403);
   });
 });

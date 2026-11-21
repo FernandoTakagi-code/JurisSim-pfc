@@ -58,7 +58,7 @@ try {
     return result.result.value;
   };
   const until = async expression => {
-    // 15 s budget: 5 s was too short on a loaded machine and made the suite flaky.
+    // Limite de 15 s: 5 s era curto demais em uma máquina carregada e deixava a suíte instável.
     for (let i = 0; i < 300; i++) { if (await evaluate(expression)) return; await sleep(50); }
     throw new Error(`Condition failed: ${expression}; UI: ${await evaluate('document.body.innerText.slice(0, 500)')}`);
   };
@@ -308,7 +308,7 @@ try {
   await evaluate('[...document.querySelectorAll(".v0-sidebar nav button")].find(button=>button.textContent.includes("Início")).click()');
   await until('!!document.querySelector(".dashboard-page")');
   console.log('PASS: autofill separado; erro do resultado antigo não descarta o overview; rota e responsividade do Dashboard; navegação Dashboard -> desempenho -> Dashboard -> estudar.');
-  // All auth calls are intercepted before app startup: no real delivery or DB writes.
+  // Todas as chamadas de autenticação são interceptadas antes de iniciar o app: sem envio real nem gravação no banco.
   await cdp('Page.enable');
   const authStub = await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.authRequests = { resend: 0, confirm: 0 };

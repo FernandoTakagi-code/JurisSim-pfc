@@ -7,8 +7,8 @@ export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 export const AVATAR_IDS = ['scholar-1', 'scholar-2', 'scholar-3', 'scholar-4', 'scholar-5', 'scholar-6', 'books', 'justice'] as const;
 export type Photo = { kind: 'default' } | { kind: 'avatar'; avatarId: string; version: string } | { kind: 'image'; dataUrl: string; version: string };
 
-// Decoder allowlist, pixel limit and re-encoding prevent SVG, metadata and
-// executable/trailing bytes from being stored, regardless of claimed MIME/name.
+// A lista de decodificadores permitidos, o limite de pixels e a recodificação impedem que SVG,
+// metadados e bytes executáveis/extras sejam armazenados, seja qual for o MIME/nome informado.
 export async function normalizePhoto(input: Buffer): Promise<Buffer> {
   if (!input.length) throw new ApiError(422, 'Selecione uma imagem JPEG, PNG ou WebP.');
   if (input.length > MAX_PHOTO_BYTES) throw new ApiError(413, 'A imagem deve ter no máximo 5 MB.');
@@ -36,8 +36,8 @@ export class ProfilePhotoService {
       : { kind: 'image', dataUrl: `data:image/webp;base64,${Buffer.from(row.image!).toString('base64')}`, version: row.version };
   }
   private async store(userId: string, content: { avatarId: string | null; image: Buffer | null }) {
-    // Explicitly lock the same User row as account anonymization. A racing
-    // upload cannot recreate a photo after deletion/confirmation revocation.
+    // Aplica lock explícito na mesma linha de User usada pela anonimização da conta. Um
+    // upload concorrente não consegue recriar uma foto após a exclusão/revogação da confirmação.
     const data = { avatarId: content.avatarId, image: content.image ? Uint8Array.from(content.image) : null };
     await prisma.$transaction(async tx => {
       const owners = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "User" WHERE "id" = ${userId} AND "deletedAt" IS NULL AND "emailVerifiedAt" IS NOT NULL FOR UPDATE`;

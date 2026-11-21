@@ -8,8 +8,8 @@ const mocks = vi.hoisted(() => ({
   user: vi.fn(), findByIdForAuth: vi.fn(), recordLogin: vi.fn(), diagnostic: vi.fn(), trail: vi.fn(), questions: vi.fn(),
   create: vi.fn(), attempt: vi.fn(), answer: vi.fn(), finalize: vi.fn(), level: vi.fn(),
 }));
-// Only persistence is mocked: use the actual server, login, middleware,
-// routers, controllers, services and adaptive engine.
+// Apenas a persistência usa mock: usa o servidor, login, middlewares, roteadores,
+// controllers, serviços e mecanismo adaptativo reais.
 vi.mock("../../../src/repositories/auth-repository", async importOriginal => ({
   ...await importOriginal<typeof import("../../../src/repositories/auth-repository")>(),
   AuthRepository: class {
@@ -72,8 +72,8 @@ beforeAll(async () => {
   process.env.DATABASE_URL ||= 'postgresql://test:test@localhost:5432/test';
   process.env.DIRECT_URL ||= process.env.DATABASE_URL;
   mocks.user.mockResolvedValue({ id: ids.user, nome: 'Aluno', email: 'aluno@example.com', role: 'ALUNO', sessionVersion: 0, senhaHash: await bcrypt.hash('senha-teste', 4) });
-  // Import server.ts itself so removing its app.use('/trilhas', ...) breaks this test.
-  // Replace only listen's port/bind address; no production changes for testability.
+  // Importa o próprio server.ts para que remover o app.use('/trilhas', ...) quebre este teste.
+  // Substitui apenas a porta/endereço de bind do listen; sem mudanças em produção para facilitar o teste.
   const listen = vi.spyOn(express.application, 'listen').mockImplementation(function (this: express.Express) {
     server = createServer(this);
     server.listen(0, '127.0.0.1');
@@ -105,7 +105,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.findByIdForAuth.mockImplementation(async (id: string) => {
     const role = id === ids.user ? 'ALUNO' : Object.keys(otherIds).find(role => otherIds[role] === id);
-    return role ? { id, role, deletedAt: null, emailVerifiedAt: new Date(), sessionVersion: 0 } : null;
+    return role ? { id, role, deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', sessionVersion: 0 } : null;
   });
   mocks.diagnostic.mockResolvedValue({ ...attempt(true), id: ids.diagnostic, finalizadoEm: new Date(), trilhaAdaptativa: trail });
   mocks.trail.mockResolvedValue(trail);

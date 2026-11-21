@@ -1,4 +1,4 @@
-// Real database verification is read-only. No session/token is manufactured.
+// A verificação no banco real é somente leitura. Nenhuma sessão/token é fabricado.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {PrismaClient}=require('@prisma/client'),dotenv=require('dotenv');
 const backend=path.resolve(__dirname,'..'),cfg=dotenv.parse(fs.readFileSync(path.join(backend,'.env')));

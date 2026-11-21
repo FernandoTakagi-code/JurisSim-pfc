@@ -7,8 +7,8 @@ import type { PrismaClient } from '@prisma/client';
 const refusal = 'Testes de banco exigem o cluster descartável do harness local. Execute node scripts/test-migrations-local.cjs <PostgreSQL-bin>. Nenhuma URL externa ou de banco existente é aceita.';
 const fail = () => { throw new Error(refusal); };
 
-// Validate before creating clients or executing SQL. Never load .env or accept
-// a URL merely because its database/schema contains "test".
+// Valida antes de criar clientes ou executar SQL. Nunca carrega .env nem aceita
+// uma URL só porque o banco/schema contém "test".
 function wslDisposableDatabaseConfig(environment: NodeJS.ProcessEnv) {
   const failWsl = (): never => { throw new Error('WSL PostgreSQL integration target or identity proof is invalid.'); };
   try {
@@ -117,8 +117,8 @@ export function disposableDatabaseConfig(environment: NodeJS.ProcessEnv = proces
   } catch { return fail(); }
 }
 
-// Recheck the actual client connection before every TRUNCATE. This identity
-// query is read-only; no data can be modified before cluster ownership matches.
+// Reverifica a conexão real do cliente antes de cada TRUNCATE. Esta consulta de
+// identidade é somente leitura; nenhum dado pode ser alterado antes de confirmar a posse do cluster.
 export async function assertDisposableDatabase(client: Pick<PrismaClient, '$queryRaw'>, environment: NodeJS.ProcessEnv = process.env) {
   const config = disposableDatabaseConfig(environment);
   const rows = await client.$queryRaw<{ directory: string; database: string; owner: string; port: number; address: string; systemIdentifier: string }[]>`

@@ -49,9 +49,9 @@ export async function limparBanco() {
     WHERE schemaname = current_schema() AND tablename <> '_prisma_migrations'`;
   if (tabelas.length === 0) return;
   const lista = tabelas.map(({ tablename }) => `"${tablename.replace(/"/g, '""')}"`).join(', ');
-  // This helper has already verified the harness-owned disposable cluster.
-  // Reset all fixture tables in one transaction without weakening the deployed
-  // append-only audit trigger. LOCAL restores trigger enforcement on commit.
+  // Este helper já verificou o cluster descartável do harness.
+  // Limpa todas as tabelas de fixture em uma única transação sem enfraquecer o trigger
+  // de auditoria somente-anexação implantado. O LOCAL restaura a aplicação do trigger no commit.
   await prisma.$transaction(async tx => {
     await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
     await tx.$executeRawUnsafe(`TRUNCATE TABLE ${lista} RESTART IDENTITY CASCADE`);

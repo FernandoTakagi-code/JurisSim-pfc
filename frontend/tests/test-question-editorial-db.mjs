@@ -1,12 +1,12 @@
-// Called only by the guarded disposable-PostgreSQL integration test. No fixtures
-// replace fetch/session: the login form and every API request use real Express.
+// Chamado apenas pelo teste de integração protegido em PostgreSQL descartável. Nenhuma fixture
+// substitui fetch/sessão: o formulário de login e todas as requisições à API usam o Express real.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from 'node:url';
-// This executable only accepts the disposable harness, never the real backend.
+// Este executável aceita apenas o harness descartável, nunca o backend real.
 assert.equal(process.env.NODE_ENV,'test');
 const api=new URL(process.env.JURISSIM_DB_UI_API ?? '');
 const database=new URL(process.env.DATABASE_URL ?? '');
@@ -18,7 +18,7 @@ const email=process.env.JURISSIM_DB_UI_OWNER, password=process.env.JURISSIM_DB_U
 assert.match(email ?? '',/@example\.invalid$/); assert.ok(password);
 assert.equal(process.env.GOOGLE_CLIENT_ID,'');
 const origin='http://127.0.0.1:5187', profile=await mkdtemp(path.join(tmpdir(),'jurissim-editorial-db-browser-'));
-// Keep bounded diagnostics, not credentials, pages, request bodies or tokens.
+// Mantém diagnósticos limitados, sem credenciais, páginas, bodies de requisição ou tokens.
 const sanitize = (value) => String(value)
   .replaceAll(password, '[REDACTED]')
   .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, '[DATABASE_URL]')
@@ -30,7 +30,7 @@ const diagnostics = { vite: '', chrome: '', runtime: '', network: '', lifecycle:
 const pendingRequests = new Map();
 const startedAt = Date.now();
 const remember = (source, value) => { diagnostics[source] = sanitize(diagnostics[source] + String(value)).slice(-12000); };
-// A fresh checkout on CI has neither the developer's .env nor a warm Vite cache.
+// Um checkout novo no CI não tem o .env do desenvolvedor nem um cache do Vite já aquecido.
 const viteConfig = path.join(profile, 'vite.config.mjs');
 await writeFile(viteConfig, `import config from ${JSON.stringify(pathToFileURL(path.resolve('vite.config.ts')).href)};\nexport default {...config, root:${JSON.stringify(process.cwd())}, envDir:false, cacheDir:${JSON.stringify(path.join(profile, 'vite-cache'))}};\n`);
 const vite = spawn(
@@ -60,9 +60,9 @@ vite?.stdout.on('data', value => remember('vite', value));
 vite?.stderr.on('data', value => remember('vite', value));
 vite?.on('error', error => remember('vite', error.message));
 vite?.on('exit', (code, signal) => remember('vite', `\nexit=${code}; signal=${signal}\n`));
-// The disposable harness deliberately drops the user's environment. Google's
-// Linux launcher still needs writable HOME/XDG directories (even with
-// --user-data-dir); keep all of them private to this browser run.
+// O harness descartável propositalmente descarta o ambiente do usuário. O inicializador
+// do Google no Linux ainda precisa de diretórios HOME/XDG graváveis (mesmo com
+// --user-data-dir); mantém todos eles privados a esta execução do navegador.
 const browserEnvironment = { ...process.env, HOME: profile,
   XDG_CONFIG_HOME: path.join(profile, 'config'),
   XDG_CACHE_HOME: path.join(profile, 'cache'),

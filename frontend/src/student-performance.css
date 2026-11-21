@@ -1,8 +1,8 @@
 .performance-more {
   margin-top: 16px;
 }
-/* Page-owned surfaces keep the shared dark theme from pairing pale text with
-   the light backgrounds below. The same navy cards are used in both themes. */
+/* As superfícies próprias da página impedem que o tema escuro compartilhado combine texto claro
+   com os fundos claros abaixo. Os mesmos cards azul-marinho são usados nos dois temas. */
 .v0-app .v0-original .performance-page {
   --performance-surface: #192b43;
   --performance-hover: #203852;

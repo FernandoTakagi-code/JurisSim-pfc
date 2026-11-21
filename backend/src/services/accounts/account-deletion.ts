@@ -5,8 +5,8 @@ import { emailReuseBlocksEnabled, normalizeReusableEmail } from './email-reuse-p
 import { institutionalTransaction, requireGlobal, type InstitutionActor } from '../institutions/institution-service';
 import { accountDeletionEnabled, accountDeletionUnavailableMessage, studentSelfDeletionEnabled } from '../../account-deletion-availability';
 
-// Profile self-deletion: students and teachers. A teacher's classes stay active
-// (other teachers and students keep access); admins use the administrative flow.
+// Autoexclusão pelo perfil: alunos e professores. As turmas de um professor continuam ativas
+// (outros professores e alunos mantêm o acesso); administradores usam o fluxo administrativo.
 const selfDeletableRoles = new Set<string>(['ALUNO', 'PROFESSOR']);
 
 export function assertAccountDeletionEnabled() {
@@ -44,9 +44,9 @@ export class AccountDeletionService {
   private async remove(actor: InstitutionActor, userId: string, blockEmail: boolean, reason?: string, expectedHash?: string | null, expectedVersion?: number) {
     if (!emailReuseBlocksEnabled()) throw new ApiError(503, 'Exclusão de conta ainda não habilitada neste ambiente.');
     await institutionalTransaction(async tx => {
-      // Same lock as suspension/permission changes, including last-admin checks.
+      // Mesmo lock das alterações de suspensão/permissão, incluindo as verificações do último admin.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(710911)`;
-      // Lock actor and target in stable order; recheck authority inside the transaction.
+      // Aplica lock no ator e no alvo em ordem estável; reverifica a autoridade dentro da transação.
       for (const id of [...new Set([actor.userId, userId])].sort()) await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${id} FOR UPDATE`;
       const currentActor = await tx.user.findUnique({ where: { id: actor.userId } });
       if (!currentActor || currentActor.deletedAt || (await tx.accountControl.findUnique({ where: { userId: actor.userId } }))?.suspended) throw new ApiError(403, 'Acesso revogado.');

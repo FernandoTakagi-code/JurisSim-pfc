@@ -1,4 +1,4 @@
-// Explicit private-batch allowlist. A malformed list authorizes no private batch.
+// Lista explícita de lotes privados permitidos. Uma lista malformada não autoriza nenhum lote privado.
 export function pilotBatchIds(prefix: string): string[] {
   if (process.env[`${prefix}_PILOT_ENABLED`] !== 'true') return [];
   const value = process.env[`${prefix}_PILOT_BATCH_IDS`]?.trim()

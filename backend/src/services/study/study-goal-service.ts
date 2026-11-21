@@ -53,8 +53,8 @@ async function counts(tx: Tx, studentId: string, days: string[]) {
   return new Map(rows.map(row => [row.day, row.total]));
 }
 function dto(goal: MetaDiaria, count: number) {
-  // Completed goals retain the real count verified at completion. Pending goals
-  // reflect the responses currently recorded for their calendar day.
+  // Metas concluídas mantêm a contagem real verificada na conclusão. Metas pendentes
+  // refletem as respostas registradas atualmente para o respectivo dia.
   const resolvedQuestions = goal.cumprida ? goal.questoesResolvidas : count;
   return { id: goal.id, date: dayOf(goal.data), targetQuestions: goal.metaQuestoes,
     resolvedQuestions, completed: goal.cumprida, canComplete: !goal.cumprida && resolvedQuestions >= goal.metaQuestoes,

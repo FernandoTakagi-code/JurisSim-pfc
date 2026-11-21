@@ -1,6 +1,6 @@
-// Standalone, opt-in homologation. Never imported by the application or npm test.
-// --simulate sends nothing. --authorized-three requires a separately authorized
-// recipient in JURISSIM_BREVO_RECIPIENT. Never rerun a real batch automatically.
+// Homologação independente e opcional. Nunca é importada pela aplicação nem pelo npm test.
+// --simulate não envia nada. --authorized-three exige um destinatário autorizado
+// separadamente em JURISSIM_BREVO_RECIPIENT. Nunca repita um lote real automaticamente.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -34,8 +34,8 @@ const tokenOf = mail => new URLSearchParams(new URL(mail.url).hash.split('?')[1]
 function assertTokenLifetime(record, minutes, requestStartedAt, requestFinishedAt) {
   const createdAt = record.createdAt.getTime(), expiresAt = record.expiresAt.getTime();
   const ttl = minutes * 60000;
-  // The service computes expiry before the repository timestamps persistence.
-  // Check expiry against the request window, not exact equality to createdAt.
+  // O serviço calcula a expiração antes de o repositório registrar o horário da persistência.
+  // Verifique a expiração em relação à janela da solicitação, não por igualdade exata com createdAt.
   assert.ok(Number.isFinite(createdAt) && Number.isFinite(expiresAt));
   assert.ok(createdAt >= requestStartedAt && createdAt <= requestFinishedAt);
   assert.ok(expiresAt >= requestStartedAt + ttl && expiresAt <= requestFinishedAt + ttl);
@@ -51,8 +51,8 @@ function save() {
   }, null, 2));
 }
 function pass(label) { step = label; checkpoints.push(label); save(); console.log('PASS: ' + label); }
-// Allow only OS/runtime environment into subprocesses; no inherited databases,
-// email keys, VITE variables, service files or cloud credentials.
+// Permite apenas o ambiente do SO/runtime nos subprocessos; sem bancos herdados,
+// chaves de e-mail, variáveis VITE, arquivos de serviço ou credenciais de nuvem.
 const childEnv = {};
 for (const [key, value] of Object.entries(process.env)) {
   if (['path', 'systemroot', 'windir', 'comspec', 'pathext', 'temp', 'tmp',
@@ -106,13 +106,13 @@ async function main() {
     GOOGLE_CLIENT_ID: '', GROQ_API_KEY: '' });
   const dotenv = require('../node_modules/dotenv');
   if (real) {
-    // Read only the two SMTP values; never import private DB/JWT configuration.
+    // Lê apenas os dois valores de SMTP; nunca importa a configuração privada de banco/JWT.
     const privateEnv = dotenv.parse(fs.readFileSync(path.join(backend, '.env')));
     assert.ok(privateEnv.BREVO_SMTP_USER?.trim() && privateEnv.BREVO_SMTP_KEY?.trim());
     process.env.BREVO_SMTP_USER = privateEnv.BREVO_SMTP_USER;
     process.env.BREVO_SMTP_KEY = privateEnv.BREVO_SMTP_KEY;
   }
-  // Application imports must not subsequently load unrelated private values.
+  // As importações da aplicação não devem carregar depois valores privados não relacionados.
   dotenv.config = () => ({ parsed: {} });
   require('tsx/cjs');
   const { EMAIL_VERIFICATION_TOKEN_TTL_MINUTES, PASSWORD_RECOVERY_TOKEN_TTL_MINUTES } = require('../src/services/accounts/auth-token-policy.ts');
@@ -145,7 +145,7 @@ async function main() {
         const parsedLink = new URL(link);
         assert.equal(parsedLink.origin, origin); assert.ok(message.html.includes(link));
         assert.ok(parsedLink.hash.startsWith(kind === 'verification' ? '#/verificar-email?token=' : '#/reset-password?token='));
-        attempts++; save(); // Reserve the attempt before touching the network. No retry.
+        attempts++; save(); // Reserva a tentativa antes de acessar a rede. Sem nova tentativa.
         let info;
         try { info = await sendMail(message); } catch { throw new Error('SMTP attempt failed; provider details suppressed.'); }
         assert.ok(info.accepted.some(address => String(address).toLowerCase() === recipient.toLowerCase()));
@@ -220,7 +220,7 @@ async function main() {
       throw new Error('Local browser checkpoint timed out; details suppressed.');
     }
     async function navigate(url) {
-      // Switching tabs must retain the application's normal focus/session checks.
+      // Trocar de aba deve manter as verificações normais de foco/sessão da aplicação.
       await cdp('Page.bringToFront');
       const marker = randomBytes(8).toString('hex'); await evaluate('window.homologationMarker=' + JSON.stringify(marker));
       const result = await cdp('Page.navigate', { url: url.startsWith('http') ? url : origin + url });
@@ -274,7 +274,7 @@ async function main() {
   await page.navigate(messages[1].url); await page.until('document.querySelector(".recovery-notice")?.textContent.includes("confirmado com sucesso")');
   assert.equal(await page.evaluate('location.hash'), '');
   assert.ok((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).emailVerifiedAt);
-  // Reopening an email link is a new visit, not a hash update on the same form.
+  // Reabrir um link de e-mail é uma nova visita, não uma atualização de hash no mesmo formulário.
   const confirmationReplay = await tab();
   await confirmationReplay.navigate(messages[1].url);
   await confirmationReplay.until('document.querySelector("[role=alert]")?.textContent.includes("utilizado")');
@@ -330,16 +330,16 @@ async function cleanup() {
     try {
       assert.ok(disposableIdentityVerified, 'Refuse cleanup without verified disposable ownership.');
       await prisma.$transaction(async tx => {
-        // Revalidate the live connection before deleting anything. No external
-        // URL, existing cluster, or mismatched data directory may be cleaned.
+        // Revalide a conexão ativa antes de excluir qualquer coisa. Nenhuma URL externa,
+        // cluster existente ou diretório de dados divergente pode ser limpo.
         const [identity] = await tx.$queryRawUnsafe('SELECT current_database() AS database, current_user AS owner, current_setting(\'data_directory\') AS directory, inet_server_port() AS port');
         assert.equal(identity.database, database); assert.equal(identity.owner, owner);
         assert.equal(identity.port, Number(childEnv.PGPORT));
         assert.equal(fs.realpathSync(identity.directory).toLowerCase(), fs.realpathSync(data).toLowerCase());
         const fixtures = await tx.user.findMany({ select: { email: true, nome: true } });
         assert.ok(fixtures.every(user => user.email === recipient && user.nome === 'Aluno Homologacao Brevo'));
-        // AuditLog restricts user deletion. Remove only this disposable database's
-        // audit rows first; existing cascades remove the fixture's auth tokens.
+        // O AuditLog restringe a exclusão de usuários. Remova primeiro apenas as linhas de auditoria
+        // deste banco descartável; as cascatas existentes removem os tokens de autenticação da fixture.
         await tx.auditLog.deleteMany();
         await tx.user.deleteMany();
         assert.equal(await tx.user.count(), 0);

@@ -1,4 +1,4 @@
-// Shared JurisSim palette, scoped styles and card contrast; no network/database.
+// Paleta compartilhada do JurisSim, estilos com escopo e contraste dos cards; sem rede/banco.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');

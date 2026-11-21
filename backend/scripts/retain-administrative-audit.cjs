@@ -1,4 +1,4 @@
-// Private maintenance; no HTTP endpoint can change or purge audit history.
+// Manutenção privada; nenhum endpoint HTTP pode alterar ou apagar o histórico de auditoria.
 require("dotenv").config({ quiet: true });
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();

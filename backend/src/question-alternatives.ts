@@ -2,7 +2,7 @@ export const QUESTION_LETTERS = ['A', 'B', 'C', 'D'] as const;
 
 type Alternative = { texto: string; correta: boolean };
 
-/** Shared by the API, business rules and question forms. Letters follow array order. */
+/** Compartilhado pela API, pelas regras de negócio e pelos formulários de questão. As letras seguem a ordem do array. */
 export function questionAlternativesError(alternatives: readonly Alternative[]): string | null {
   if (alternatives.length !== QUESTION_LETTERS.length) return 'A questão deve ter exatamente quatro alternativas (A–D).';
   if (alternatives.some(alternative => !alternative.texto.trim())) return 'Preencha o texto de todas as alternativas.';

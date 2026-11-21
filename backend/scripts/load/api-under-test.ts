@@ -20,7 +20,7 @@ async function main() {
     }) + '\n');
     previousCpu = cpu; previousTime = now; previousLoop = loop;
   }, 1000).unref();
-  // A parent interruption must not leave a benchmark API running indefinitely.
+  // Uma interrupção do processo pai não deve deixar uma API de benchmark rodando indefinidamente.
   setTimeout(() => process.exit(2), 9 * 60_000).unref();
 }
 void main().catch(() => { console.error('Isolated benchmark API startup refused.'); process.exitCode = 1; });

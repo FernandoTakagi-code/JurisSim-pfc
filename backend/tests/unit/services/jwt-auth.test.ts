@@ -17,7 +17,7 @@ vi.mock("../../../src/repositories/auth-repository", async importOriginal => ({
   recordLogin = mocks.recordLogin;
   hasCompletedDiagnostic = mocks.hasCompletedDiagnostic;
 } }));
-// Keep the real diagnostic router/controller; isolate database/business operations.
+// Mantém o roteador/controller real do diagnóstico; isola as operações de banco/negócio.
 vi.mock("../../../src/services/diagnostics/diagnostic-service", () => ({ DiagnosticService: class { start = mocks.start; } }));
 vi.mock("../../../src/services/questions/QuestaoService", () => ({ QuestaoService: class { static criar = mocks.createQuestion; } }));
 
@@ -39,9 +39,9 @@ beforeAll(async () => {
   mocks.findByEmail.mockImplementation(async (email: string) => ({
     ...accounts.find(account => account.email === email), nome: 'Teste', sessionVersion: 0, senhaHash,
   }));
-  mocks.findById.mockResolvedValue({ id: userId, nome: 'Teste', email: 'aluno@example.com', role: 'ALUNO', emailVerifiedAt: new Date() });
+  mocks.findById.mockResolvedValue({ id: userId, nome: 'Teste', email: 'aluno@example.com', role: 'ALUNO', emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1' });
   mocks.findByIdForAuth.mockImplementation(async (id: string) => accounts.some(account => account.id === id)
-    ? { ...accounts.find(account => account.id === id), deletedAt: null, emailVerifiedAt: new Date(), sessionVersion: 0 }
+    ? { ...accounts.find(account => account.id === id), deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', sessionVersion: 0 }
     : null);
   mocks.hasCompletedDiagnostic.mockResolvedValue(false);
   mocks.start.mockResolvedValue({ id: 'diagnostic-test', questoes: [{}], iniciadoEm: new Date() });
@@ -77,7 +77,7 @@ describe('JWT do login e consumidores', () => {
   it('login emite id/role válidos aceitos pelo middleware e sessão oficiais', async () => {
     const token = await login();
     const payload = jwt.verify(token, secret, { algorithms: ['HS256'] }) as jwt.JwtPayload;
-    // Boolean assertions avoid printing a JWT if this test regresses.
+    // Asserções booleanas evitam imprimir um JWT se este teste regredir.
     expect(payload.id === userId && payload.role === 'ALUNO').toBe(true);
     expect(payload.sub === undefined && typeof payload.exp === 'number').toBe(true);
     const headers = { Authorization: `Bearer ${token}` };

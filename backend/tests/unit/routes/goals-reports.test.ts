@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import type { Server } from 'node:http';
 const mocks = vi.hoisted(() => ({ user: vi.fn(), goals: vi.fn(), create: vi.fn(), update: vi.fn(), complete: vi.fn(), classes: vi.fn(), report: vi.fn(), individual: vi.fn(), overview: vi.fn() }));
 vi.mock("../../../src/repositories/auth-repository", () => ({ AuthRepository: class { findByIdForAuth = mocks.user; } }));
-// Legacy HTTP guards have no database-backed institutional context in this suite.
+// As proteções HTTP legadas não têm contexto institucional baseado no banco nesta suíte.
 vi.mock("../../../src/services/institutions/institution-service", () => ({ currentAccess: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../../../src/services/study/study-goal-service", () => ({ StudyGoalService: class { list = mocks.goals; create = mocks.create; update = mocks.update; complete = mocks.complete; } }));
 vi.mock("../../../src/services/assessments/class-report-service", () => ({ ClassReportService: class { classes = mocks.classes; report = mocks.report; individual = mocks.individual; overview = mocks.overview; } }));
@@ -14,7 +14,7 @@ const id = '00000000-0000-4000-8000-000000000081', otherId = '00000000-0000-4000
 const secret = 'goal-report-http-only-test-key-over-32-characters';
 let server: Server, base: string, token: string;
 const request = (method: string, path: string, body?: unknown, bearer: string | null = token) => fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-const dbUser = (role = 'ALUNO') => ({ id, role, sessionVersion: 0, emailVerifiedAt: new Date(), deletedAt: null });
+const dbUser = (role = 'ALUNO') => ({ id, role, sessionVersion: 0, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', deletedAt: null });
 it('overview requires current academic role, rejects query scope and forwards only the authenticated actor', async () => {
   mocks.user.mockResolvedValue(dbUser('ALUNO'));
   expect((await request('GET', '/reports/overview')).status).toBe(403);

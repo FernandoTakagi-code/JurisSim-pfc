@@ -1,8 +1,8 @@
 import { defineConfig } from 'vitest/config';
 import { disposableDatabaseConfig } from "./tests/integration/disposable-database";
 
-// Reject unowned/mismatched targets before test modules or clients are loaded.
-// Never load .env or silently replace DATABASE_URL with a less-validated URL.
+// Rejeita alvos sem posse/divergentes antes de carregar os módulos de teste ou os clientes.
+// Nunca carrega .env nem substitui silenciosamente DATABASE_URL por uma URL menos validada.
 const { url, port } = disposableDatabaseConfig();
 const database = process.env.JURISSIM_TEST_INTEGRATION_DATABASE!;
 

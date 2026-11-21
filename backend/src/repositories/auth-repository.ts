@@ -46,12 +46,14 @@ export class AuthRepository {
       role: true,
       emailVerifiedAt: true,
       deletedAt: true,
+      termsVersion: true,
+      privacyVersion: true,
     } as const;
 
-    // Routing is based on persisted account intent even while institutional
-    // operations are disabled. Keep compatibility with databases that have
-    // not received the additive column, falling back only for that schema
-    // mismatch; connection and query failures must still surface normally.
+    // O roteamento se baseia na intenção de conta persistida, mesmo com as operações
+    // institucionais desativadas. Mantém compatibilidade com bancos que não receberam
+    // a coluna aditiva, usando o fallback apenas para essa divergência de schema;
+    // falhas de conexão e de consulta ainda devem aparecer normalmente.
     try {
       return await prisma.user.findUnique({
         where: { id },
@@ -72,13 +74,17 @@ export class AuthRepository {
       });
       return institution?.status;
     } catch (error) {
-      // Older installations may predate the optional institution tables. This
-      // read is informational only and never affects authorization.
+      // Instalações mais antigas podem ser anteriores às tabelas opcionais de instituição. Esta
+      // leitura é apenas informativa e nunca afeta a autorização.
       if (error && typeof error === 'object' && 'code' in error && error.code === 'P2021') return undefined;
       throw error;
     }
   }
-  findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, registrationIntent:true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true } }); }
+  findByIdForAuth(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, role: true, registrationIntent:true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true, termsVersion: true, privacyVersion: true } }); }
+  /** Novo aceite de uma conta existente: grava as versões no usuário e o registro de auditoria. */
+  recordLegalAcceptance(id: string, acceptance: unknown) {
+    return prisma.user.update({ where: { id }, data: acceptanceData(acceptance), select: { id: true } });
+  }
   findByIdWithSenha(id: string) { return prisma.user.findUnique({ where: { id }, select: { id: true, senhaHash: true } }); }
 
   createUser(nome: string, email: string, senhaHash: string, acceptance: unknown, registrationIntent?: 'INSTITUTION') {
@@ -196,7 +202,7 @@ export class AuthRepository {
       if (!user || user.deletedAt || user.senhaHash !== expectedPasswordHash)
         throw new ApiError(409, 'Conta ou credenciais alteradas. Entre novamente antes de desativar.');
       if (user.role === 'ADMIN') throw new ApiError(409, 'A desativação de administrador geral exige transferência de responsabilidade pelo suporte.');
-      // Ownership still matters while institutional feature flags are off.
+      // A posse continua importando enquanto as flags de instituição estão desligadas.
       if (await tx.institution.findFirst({ where: { ownerId: id }, select: { id: true } }))
         throw new ApiError(409, 'Transfira a responsabilidade institucional antes de desativar sua conta.');
       if (await tx.institutionalMembership.findFirst({ where: { userId: id, role: 'INSTITUTION_ADMIN', active: true }, select: { id: true } }))
@@ -216,8 +222,8 @@ export class AuthRepository {
 
   anonymizeUser(id: string) {
     return prisma.$transaction(async tx => {
-      // Same lock order as photo replacement, so concurrent uploads cannot
-      // restore personal image bytes after the account has been anonymized.
+      // Mesma ordem de lock da troca de foto, para que uploads concorrentes não possam
+      // restaurar os bytes da imagem pessoal depois que a conta foi anonimizada.
       await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${id} FOR UPDATE`;
       return tx.user.update({
         where: { id },
@@ -235,8 +241,8 @@ export class AuthRepository {
 
   async exportData(id: string, page: number) {
     const skip = (page - 1) * 100;
-    // Explicit projections: never export password hashes, reset tokens, answer keys,
-    // another student's identity, or internal administrative security records.
+    // Projeções explícitas: nunca exportar hashes de senha, tokens de redefinição, gabaritos,
+    // a identidade de outro aluno nem registros internos de segurança administrativa.
     const [profile, attempts, goals, reviews, audit] = await prisma.$transaction([
       prisma.user.findUnique({ where: { id, deletedAt: null }, select: {
         id: true, nome: true, email: true, role: true, createdAt: true,

@@ -32,7 +32,7 @@ async function exitCode(child: ChildProcess) {
 }
 const pause = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 async function main() {
-  await assertDisposableDatabase(prisma); // Before the first write, HTTP call or fixture creation.
+  await assertDisposableDatabase(prisma); // Antes da primeira gravação, chamada HTTP ou criação de fixture.
   assert.ok(process.env.JURISSIM_K6_BIN && fs.statSync(process.env.JURISSIM_K6_BIN).isFile(), 'Official k6 executable required.');
   fs.mkdirSync(output, { recursive: true });
   console.log('LOAD: isolated reports: ' + output);
@@ -72,7 +72,7 @@ async function main() {
   let ready = false;
   while (performance.now() - started < 20000) {
     if (api.exitCode !== null) throw new Error('Benchmark API exited during startup. Inspect its local log.');
-    try { ready = (await fetch(baseUrl + '/health', { signal: AbortSignal.timeout(1000) })).ok; } catch { /* Startup is measured separately. */ }
+    try { ready = (await fetch(baseUrl + '/health', { signal: AbortSignal.timeout(1000) })).ok; } catch { /* A inicialização é medida separadamente. */ }
     if (ready) break;
     await pause(200);
   }

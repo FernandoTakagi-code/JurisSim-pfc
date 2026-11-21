@@ -2,7 +2,7 @@ import { individualExamPilotBatchIds } from '../../config/individual-exam-featur
 import { toEligibleCandidate, type InventoryRow } from '../../repositories/prisma-initial-diagnostic-repository';
 import { draftPilotInventoryWhere, isDraftPilotQuestion } from '../questions/draft-pilot-eligibility';
 
-// An explicit provisional path, not an approval or a change to the standard bank.
+// Um caminho provisório explícito, não uma aprovação nem uma alteração no banco padrão.
 export function individualExamInventoryWhere() { return draftPilotInventoryWhere(individualExamPilotBatchIds()); }
 export function isIndividualExamPilotQuestion(row: InventoryRow) {
   return isDraftPilotQuestion(row, individualExamPilotBatchIds());

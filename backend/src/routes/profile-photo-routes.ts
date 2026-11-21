@@ -13,8 +13,8 @@ const noQuery = z.object({}).strict();
 profilePhotoRoutes.use((req, _res, next) => { noQuery.parse(req.query); next(); });
 profilePhotoRoutes.get('/', async (req: AuthenticatedRequest, res) => { res.json(await service.get(req.auth!.userId)); });
 profilePhotoRoutes.put('/avatar', async (req: AuthenticatedRequest, res) => { res.json(await service.avatar(req.auth!.userId, avatar.parse(req.body).avatarId)); });
-// Raw binary upload avoids multipart filenames, temporary files and base64
-// request amplification. Authenticate BEFORE buffering/decompressing anything.
+// O upload binário bruto evita nomes de arquivo multipart, arquivos temporários e a
+// ampliação da requisição por base64. Autenticar ANTES de bufferizar/descompactar qualquer coisa.
 profilePhotoRoutes.put('/image', (req, res, next) => {
   if (!['image/jpeg', 'image/png', 'image/webp', 'application/octet-stream'].includes(req.get('content-type')?.split(';')[0].trim() ?? '')) return next(new ApiError(415, 'Envie uma imagem JPEG, PNG ou WebP como arquivo binário.'));
   if (req.get('content-encoding') && req.get('content-encoding') !== 'identity') return next(new ApiError(415, 'Imagens comprimidas no transporte não são aceitas.'));

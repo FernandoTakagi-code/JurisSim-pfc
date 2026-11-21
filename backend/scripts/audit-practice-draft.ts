@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { criarQuestaoSchema } from '../src/schemas/questao-schemas';
 
-// Offline editorial audit: never imports Prisma, environment files or server code.
-// Run from backend: npx tsx scripts/audit-practice-draft.ts [--reference file] [--out file]
+// Auditoria editorial offline: nunca importa o Prisma, arquivos de ambiente ou código do servidor.
+// Execute a partir do backend: npx tsx scripts/audit-practice-draft.ts [--reference arquivo] [--out arquivo]
 const args = process.argv.slice(2);
 const option = (name: string) => {
   const index = args.indexOf(name);
@@ -84,7 +84,7 @@ const referenceStatements = new Set(references.map(q => normalize(q.statement)))
 const exactDuplicates = questions.filter(q => referenceStatements.has(normalize(q.enunciado))).map(q => q._draftSlot);
 assert.deepEqual(exactDuplicates, [], 'Repeated normalized statement in existing reference material');
 
-// Lexical signal only: shared concepts and equivalent legal rules require human review.
+// Apenas um sinal léxico: conceitos compartilhados e regras jurídicas equivalentes exigem revisão humana.
 const stop = new Set('a o as os de da do das dos e em no na nos nas um uma uns umas que se ao aos para por com sem qual quais segundo considerando sobre como pelo pela pelos pelas sua seu suas seus esse essa isso caso regra lei art'.split(' '));
 const tokens = (text: string) => new Set(normalize(text).match(/[\p{L}\p{N}]+/gu)?.filter(t => t.length > 2 && !stop.has(t)) ?? []);
 const similarity = (a: string, b: string) => {

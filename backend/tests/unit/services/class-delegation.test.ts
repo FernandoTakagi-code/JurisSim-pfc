@@ -4,7 +4,7 @@ const db=vi.hoisted(()=>{
   return {turma:model(),avaliacao:model(),simulado:model(),institutionalMembership:model(),institutionalClass:model(),administrativeEvent:model(),$queryRaw:vi.fn(),$transaction:vi.fn()};
 });
 vi.mock("../../../src/lib/prisma",()=>({prisma:db}));
-// Isolate authorization scenarios from any private local homologation registry.
+// Isola os cenários de autorização de qualquer registro privado local de homologação.
 vi.mock("../../../src/config/institution-homologation", async importOriginal => ({
   ...await importOriginal<typeof import("../../../src/config/institution-homologation")>(),
   homologationClassBoundary: () => undefined,

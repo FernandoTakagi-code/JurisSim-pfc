@@ -1,18 +1,18 @@
-// Activate only after the additive migration has been approved and applied.
-// Disabled by default so existing shared databases continue to work unchanged.
+// Ative somente depois que a migração aditiva tiver sido aprovada e aplicada.
+// Desativado por padrão para que os bancos compartilhados existentes continuem funcionando sem alteração.
 import { restrictedOperationsEnabled } from './institution-homologation';
 export const institutionsGloballyEnabled = () => process.env.INSTITUTIONS_ENABLED === 'true';
 export const institutionsEnabled = () => institutionsGloballyEnabled() || restrictedOperationsEnabled();
-// Narrow capability for managing only institution-owned teacher links and
-// invitations. It does not activate classes, exams, activities or lifecycle APIs.
+// Capacidade restrita para gerenciar apenas vínculos e convites de professores da
+// própria instituição. Não ativa turmas, simulados, atividades nem APIs de ciclo de vida.
 export const institutionalTeacherManagementEnabled = () =>
   institutionsGloballyEnabled() || process.env.INSTITUTION_TEACHER_MANAGEMENT_ENABLED === 'true' || restrictedOperationsEnabled();
-// Institutional exams are an independent capability. Teacher invitation/link
-// settings alone never grant access to create or publish academic assessments.
+// Os simulados institucionais são uma capacidade independente. As configurações de
+// convite/vínculo de professores, sozinhas, nunca dão acesso para criar ou publicar avaliações acadêmicas.
 export const institutionalExamManagementEnabled = () =>
   institutionsEnabled() || process.env.INSTITUTION_EXAM_MANAGEMENT_ENABLED === 'true';
 
-// Explicit opt-ins; the original full module remains backward compatible.
+// Ativações explícitas; o módulo completo original continua retrocompatível.
 export const administrationEnabled = () => institutionsGloballyEnabled() || process.env.ADMINISTRATION_ENABLED === 'true';
 export const institutionRegistrationEnabled = () => institutionsGloballyEnabled() || process.env.INSTITUTION_REGISTRATION_ENABLED === 'true';
 export function administrativeCapabilities() {

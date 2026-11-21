@@ -3,8 +3,8 @@ import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { assertDisposableDatabase, disposableDatabaseConfig } from './disposable-database';
 
-// Verify the cluster already created/migrated by the local harness.
-// No reset, migration command, dotenv, or destructive SQL here.
+// Verifica o cluster já criado/migrado pelo harness local.
+// Sem reset, comando de migração, dotenv ou SQL destrutivo aqui.
 export default async function setup() {
   const config = disposableDatabaseConfig();
   const client = new PrismaClient({ datasourceUrl: config.url });

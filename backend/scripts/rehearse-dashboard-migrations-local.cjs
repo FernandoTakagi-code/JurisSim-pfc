@@ -1,4 +1,4 @@
-// Standalone disposable PostgreSQL 17 rehearsal. No dotenv, remote URLs or SMTP.
+// Ensaio independente em PostgreSQL 17 descartável. Sem dotenv, URLs remotas ou SMTP.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -22,8 +22,8 @@ const earlier = names.filter(n => n < targets[0]);
 const read = name => fs.readFileSync(path.join(migrations, name, 'migration.sql'), 'utf8');
 const digest = name => createHash('sha256').update(fs.readFileSync(path.join(migrations, name, 'migration.sql'))).digest('hex');
 const originalHashes = names.map(digest);
-// Prisma runs from the temporary workspace, with a copied schema/history, so its
-// automatic .env discovery cannot load the project's private environment files.
+// O Prisma roda a partir do workspace temporário, com cópia do schema/histórico, para que
+// a descoberta automática de .env não carregue os arquivos de ambiente privados do projeto.
 const localPrisma = path.join(directory, 'prisma');
 fs.mkdirSync(path.join(localPrisma, 'migrations'), { recursive: true });
 fs.copyFileSync(path.join(backend, 'prisma/schema.prisma'), path.join(localPrisma, 'schema.prisma'));

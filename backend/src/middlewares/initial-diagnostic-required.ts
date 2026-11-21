@@ -20,12 +20,12 @@ export function createInitialDiagnosticRequirementGuard({
     if (!isRequired()) return next();
     if (!request.auth) return next(new ApiError(401, 'Autenticacao obrigatoria.'));
     if (request.auth.role !== 'ALUNO') return next();
-    // An individual institutional owner keeps ALUNO as their personal role.
-    // Only trusted staff operations in the selected institution bypass this
-    // student study prerequisite; personal study still requires the diagnostic.
+    // Um proprietário institucional individual mantém ALUNO como seu papel pessoal.
+    // Somente operações confiáveis da equipe na instituição selecionada ignoram este
+    // pré-requisito de estudo do aluno; o estudo pessoal continua exigindo o diagnóstico.
     if(request.auth.institutionAdmin && request.auth.institutionId && /^\/(turmas|reports|avaliacoes|questoes)(\/|\?|$)/.test(request.originalUrl)) return next();
-    // Institutional applicants never take the student diagnostic; the profile
-    // photo is account data, not study content, so it must not be gated for them.
+    // Solicitantes institucionais nunca fazem o diagnóstico do aluno; a foto de perfil
+    // é dado da conta, não conteúdo de estudo, então não deve ser bloqueada para eles.
     if (request.auth.institutionalAccount && /^\/profile\/photo(\/|\?|$)/.test(request.originalUrl)) return next();
 
     try {
@@ -37,7 +37,7 @@ export function createInitialDiagnosticRequirementGuard({
         message: 'Conclua o Diagnostico Inicial para acessar esta funcionalidade.',
       });
     } catch (error) {
-      // A database failure must never turn into permission to skip the gate.
+      // Uma falha no banco nunca deve virar permissão para pular o bloqueio.
       next(error);
     }
   };

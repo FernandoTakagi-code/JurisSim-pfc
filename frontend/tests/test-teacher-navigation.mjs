@@ -1,4 +1,4 @@
-﻿// Real diagnostic UI with isolated responses; never uses the shared API or real accounts.
+﻿// Interface real do diagnóstico com respostas isoladas; nunca usa a API compartilhada nem contas reais.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -114,7 +114,7 @@ try {
   await evaluate('window.failEnrollment=true');await click('Adicionar à turma');
   await until('document.body.textContent.includes("Falha temporária de matrícula.")');
   await click('Adicionar à turma');
-  // Count only the roster panel: the search results above also render a .class-students list.
+  // Conta apenas o painel da lista de alunos: os resultados da busca acima também renderizam uma lista .class-students.
   await until('document.body.textContent.includes("Aluno vinculado à turma.")&&[...document.querySelectorAll(".teacher-enrollments .panel")].find(p=>p.querySelector(":scope > h2")?.textContent==="Alunos matriculados")?.querySelectorAll(".class-students li").length===1');
   await until('[...document.querySelectorAll(".enrollment-search button")].some(b=>b.textContent==="Já matriculado"&&b.disabled)');
   assert.equal(await evaluate('document.body.textContent.includes("Turma: Turma vazia")'),true);

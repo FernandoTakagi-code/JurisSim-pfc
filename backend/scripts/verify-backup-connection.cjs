@@ -1,4 +1,4 @@
-// Diagnostics only. No pg_dump, application-table queries, backup or fallback execution.
+// Apenas diagnóstico. Sem pg_dump, consultas a tabelas da aplicação, backup ou execução de fallback.
 const fs = require('node:fs');
 const path = require('node:path');
 const { diagnose } = require('./lib/backup-preflight.cjs');
@@ -8,8 +8,8 @@ function main() {
   if (!(args.length === 0 || (args.length === 2 && args[0] === '--ca'))) throw new Error();
   const caPath = args[1] ? path.resolve(args[1]) : 'system';
   if (caPath !== 'system' && !fs.statSync(caPath).isFile()) throw new Error();
-  // CA must come from the official dashboard; never trust a certificate fetched
-  // from an unverified database handshake or change the global trust store.
+  // A CA deve vir do painel oficial; nunca confie em um certificado obtido de um
+  // handshake de banco não verificado nem altere o repositório global de confiança.
   const config = require('dotenv').parse(fs.readFileSync(path.resolve(__dirname, '../.env')));
   for (const mode of ['require', 'verify-full']) {
     console.log(JSON.stringify(diagnose({ url: config.DIRECT_URL, mode, caPath,

@@ -30,7 +30,7 @@ export function StudyLessonView({ module, userId, status, openedSections, onOpen
   const [exerciseState, setExerciseState] = useState<ExerciseProgress>(() => readExerciseState(key, lesson?.exercises ?? []));
   const [reviewMode, setReviewMode] = useState(false);
   useEffect(() => {
-    try { localStorage.setItem(key, JSON.stringify(exerciseState)); } catch { /* Exercise results remain available for this session. */ }
+    try { localStorage.setItem(key, JSON.stringify(exerciseState)); } catch { /* Os resultados dos exercícios continuam disponíveis nesta sessão. */ }
   }, [exerciseState, key]);
   if (!lesson) return null;
   const totalSections = lesson.sections.length + 4;

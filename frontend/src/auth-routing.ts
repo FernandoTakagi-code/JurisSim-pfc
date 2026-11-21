@@ -19,7 +19,7 @@ export function sessionDestination(session: SessionRoute, personalContextSelecte
   return session.nextStep === 'DASHBOARD' ? '/dashboard' : '/';
 }
 
-/** Returns the redirect before rendering a protected student page. */
+/** Retorna o redirecionamento antes de renderizar uma página protegida do aluno. */
 export function sessionRedirectTarget(session: SessionRoute, path: string, search='', personalContextSelected = false): string | null {
   if(session.user.role==='ALUNO'&&session.registrationIntent==='TEACHER_INVITATION')return path==='/convite-professor'?null:'/convite-professor';
   const profile = profileRoute(session.user.role, path, search);

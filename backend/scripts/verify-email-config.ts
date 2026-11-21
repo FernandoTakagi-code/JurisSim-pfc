@@ -20,7 +20,7 @@ async function main() {
     console.log('SMTP: configuração local presente. Modo offline: nenhuma conexão ou envio; autenticação não validada.');
     return;
   }
-  // verify() checks DNS, STARTTLS and authentication; it never sends a message.
+  // verify() verifica DNS, STARTTLS e autenticação; nunca envia mensagem.
   try {
     await smtp.verify();
     console.log('SMTP: conexão, STARTTLS e autenticação aprovados. Nenhum e-mail enviado.');

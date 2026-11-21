@@ -1,5 +1,5 @@
-// Targeted fixture tests only. Never reads .env, accepts a remote URL or uses an
-// existing PostgreSQL service. Creates and stops its own loopback cluster.
+// Apenas testes direcionados com fixtures. Nunca lê .env, aceita URL remota ou usa um
+// serviço PostgreSQL existente. Cria e encerra o próprio cluster em loopback.
 const assert = require("node:assert/strict");
 const fs = require("node:fs"),
   path = require("node:path"),

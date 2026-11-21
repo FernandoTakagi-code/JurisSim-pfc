@@ -1,4 +1,4 @@
-// Isolated component contract test; no network or shared database access.
+// Teste de contrato de componente isolado; sem rede nem acesso ao banco compartilhado.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');

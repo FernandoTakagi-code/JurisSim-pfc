@@ -29,8 +29,8 @@ const registerSchema = z.object({
   email: emailSchema,
   senha: passwordSchema,
   confirmacaoSenha: z.string().optional(),
-  // The public registration endpoint may only request a student account.
-  // The repository assigns ALUNO itself and does not trust this field.
+  // O endpoint público de cadastro só pode solicitar uma conta de aluno.
+  // O próprio repositório atribui ALUNO e não confia neste campo.
   role: z.literal('ALUNO').optional(),
   registrationIntent: z.literal('INSTITUTION').optional(),
   acceptance: acceptanceSchema,
@@ -170,6 +170,11 @@ export class AuthController {
 
   logout = async (request: AuthenticatedRequest, response: Response) => {
     response.json(await this.service.logout(request.auth!.userId));
+  };
+
+  aceitarTermos = async (request: AuthenticatedRequest, response: Response) => {
+    await this.service.acceptLegalTerms(request.auth!.userId, request.body);
+    response.status(204).end();
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {

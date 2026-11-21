@@ -1,4 +1,4 @@
-// Run only on the harness-owned disposable local cluster. No dotenv or remote URLs.
+// Execute somente no cluster local descartável do harness. Sem dotenv ou URLs remotas.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -117,7 +117,7 @@ async function main() {
   await request(`/reports/classes/${classB}`, admin, 'GET', undefined, 403);
   pass('individual reports are class-scoped, unfinished scores stay private and global ADMIN remains blocked even with an explicit teacher link');
 
-  // Explicit timestamps exercise both local-day boundaries and all existing study types.
+  // Horários explícitos exercitam os dois limites do dia local e todos os tipos de estudo existentes.
   const sharedResponses = await prisma.resposta.findMany({ where: { simuladoId: aliceShared }, orderBy: { questaoId: 'asc' } });
   await prisma.resposta.update({ where: { id: sharedResponses[0].id }, data: { respondidoEm: new Date('2026-10-15T03:00:00Z') } });
   await prisma.resposta.update({ where: { id: sharedResponses[1].id }, data: { respondidoEm: new Date('2026-10-16T02:59:59Z') } });
@@ -171,7 +171,7 @@ async function main() {
   await request('/reports/classes', b, 'GET', undefined, 403);
   pass('goal ownership, forged progress, current roles, expired/revoked JWTs and mandatory confirmation remain enforced');
 
-  // Both list bounds are tested without changing report totals or creating fictional scores.
+  // Os dois limites da lista são testados sem alterar os totais do relatório nem criar notas fictícias.
   for (let i = 0; i < 22; i++) await prisma.metaDiaria.create({ data: { alunoId: users.alice.id, data: new Date('2099-02-01T00:00:00Z'), metaQuestoes: i + 1 } });
   const first = await request('/goals?page=1', alice), second = await request('/goals?page=2', alice);
   assert.equal(first.items.length, 20); assert.equal(first.hasMore, true);

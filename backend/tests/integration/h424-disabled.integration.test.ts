@@ -32,8 +32,8 @@ beforeAll(async () => {
   server = app.listen(0, '127.0.0.1'); await new Promise<void>(resolve => server.once('listening', resolve));
   base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 });
-// Enable only the existing administrative routing in this disposable test;
-// deletion availability remains hard-disabled independently of these flags.
+// Habilita apenas o roteamento administrativo existente neste teste descartável;
+// a disponibilidade da exclusão continua desativada de forma fixa, independente destas flags.
 beforeEach(() => vi.stubEnv('ADMINISTRATION_ENABLED', 'true'));
 afterEach(() => vi.unstubAllEnvs());
 afterAll(async () => { if (server) { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); } await prisma.$disconnect(); });
@@ -101,8 +101,8 @@ describe('H4.24 current safety policy against disposable PostgreSQL', () => {
 });
 
 describe('Student self-deletion against disposable PostgreSQL', () => {
-  // DELETE /auth/conta allows 5 requests per 15 min per route instance; the
-  // suite above already spent that budget, so these scenarios get a fresh app.
+  // DELETE /auth/conta permite 5 requisições a cada 15 min por instância da rota; a
+  // suíte acima já gastou esse limite, então estes cenários recebem uma aplicação nova.
   let selfServer: Server, sharedBase = '';
   beforeAll(async () => {
     const app = express(); app.use(express.json()); app.use('/auth', createAuthRoutes()); app.use(errorHandler);
@@ -132,7 +132,7 @@ describe('Student self-deletion against disposable PostgreSQL', () => {
   });
   it('does not let ADMIN delete itself through the profile route', async () => {
     vi.stubEnv('EMAIL_REUSE_BLOCKS_ENABLED', 'true');
-    // Service-level check keeps the route's rate-limit budget for the scenarios above.
+    // A verificação no nível do serviço preserva o limite de requisições da rota para os cenários acima.
     const user = await fixture('ADMIN');
     await expect(service.self(user.id, { senhaAtual: password })).rejects.toMatchObject({ statusCode: 403 });
     expect(await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).toEqual(user);

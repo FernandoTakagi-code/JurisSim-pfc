@@ -1,4 +1,4 @@
-// Executed only by the disposable-cluster harness. Never loads remote URLs.
+// Executado apenas pelo harness de cluster descartável. Nunca carrega URLs remotas.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -64,9 +64,9 @@ async function main() {
   assert.deepEqual((await (await request('/students/me/activities', bobToken)).json()).items, []);
   pass('empty accounts return empty history and actual zero counts, with no artificial scores');
 
-  // Real diagnostic and trail flows write the persistence used by history.
-  // Trails only draw editorially released questions (official discipline, A-D,
-  // legal and pedagogical review), so the fixtures carry that metadata.
+  // Os fluxos reais de diagnóstico e trilha gravam a persistência usada pelo histórico.
+  // As trilhas só sorteiam questões liberadas editorialmente (disciplina oficial, A-D,
+  // revisão jurídica e pedagógica), por isso as fixtures carregam esses metadados.
   const reviewedAt = new Date();
   for (let i = 0; i < 3; i++) await prisma.questao.create({ data: {
     enunciado: `History fixture ${i}`, disciplina: 'Direito Civil', assunto: 'History Contratos', nivel: 'BASICO',
@@ -112,7 +112,7 @@ async function main() {
   assert.equal(data.latestDiagnosticId, diagnosticId);
   pass('trail activity and persisted result agree with the existing engine; diagnostic evolution does not mix exercise sessions');
 
-  // Cursor tie-breaking and bounds are exercised with identical timestamps.
+  // O desempate e os limites do cursor são exercitados com horários idênticos.
   const tied = new Date('2026-10-17T12:00:00.123Z');
   for (let i = 0; i < 32; i++) await prisma.simulado.create({ data: { id: randomUUID(), alunoId: alice.id, tipo: 'DIAGNOSTICO', iniciadoEm: tied, finalizadoEm: tied,
     questoes: { create: { questaoId: questions[0].id, posicao: 1 } } } });

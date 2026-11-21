@@ -8,8 +8,8 @@ const databaseUnavailableCodes = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P
 const databaseConnectionFailure = /can't reach database server|connection (?:timed out|refused)|connect(?:ion)? timed out|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH/i;
 
 function databaseFailure(error: unknown): { prismaCode?: string } | undefined {
-  // Inspect only data properties: an exception getter must not break the error
-  // handler or cause private values to be copied into logs.
+  // Inspeciona apenas propriedades de dados: um getter da exceção não deve quebrar o
+  // tratador de erros nem fazer valores privados serem copiados para os logs.
   try {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       const code = Object.getOwnPropertyDescriptor(error, 'code')?.value;
@@ -22,7 +22,7 @@ function databaseFailure(error: unknown): { prismaCode?: string } | undefined {
       if (typeof message === 'string' && databaseConnectionFailure.test(message)) return {};
     }
   } catch {
-    // Malformed errors fall through to the generic, protected classifier.
+    // Erros malformados seguem para o classificador genérico e protegido.
   }
   return undefined;
 }

@@ -1,5 +1,5 @@
-/* Institutional adapters use the same Manrope family and v0 theme tokens as
-   integration-shell.css. Keep this palette local to the institutional root. */
+/* Os adaptadores institucionais usam a mesma família Manrope e os tokens de tema v0 de
+   integration-shell.css. Mantenha esta paleta local à raiz institucional. */
 .institution-workspace {
   --v0-bg: #f6f7f9;
   --v0-panel: #fff;
@@ -1120,7 +1120,7 @@
   color: var(--muted);
 }
 
-/* H4.22: shared institutional visual language. */
+/* H4.22: linguagem visual institucional compartilhada. */
 .institution-workspace {
   --focus-ring: #9b742d;
   --success: #28734b;
@@ -1628,7 +1628,7 @@
   }
 }
 
-/* Local integration and shared-component adapters; no selectors escape this root. */
+/* Adaptadores de integração local e de componentes compartilhados; nenhum seletor escapa desta raiz. */
 .institution-workspace .v0-page > .gold,
 .institution-workspace .v0-page > h1 {
   display: none;
@@ -1993,7 +1993,7 @@
   .institution-workspace.institution-dialog-layer .modal .modal-head, .institution-workspace.institution-dialog-layer .institution-dialog-body, .institution-workspace.institution-dialog-layer .modal .modal-footer { padding: 14px 16px; }
 }
 
-/* Teacher invitation modal */
+/* Modal de convite de professor */
 .institution-workspace.institution-dialog-layer .modal.institution-invitation-dialog {
   width: min(620px, 100%);
   border: 1px solid color-mix(in srgb, var(--gold) 28%, var(--line));

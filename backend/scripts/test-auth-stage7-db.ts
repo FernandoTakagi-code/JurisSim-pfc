@@ -1,4 +1,4 @@
-// This script is never imported by the production server. No dotenv is loaded.
+// Este script nunca é importado pelo servidor de produção. Nenhum dotenv é carregado.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -58,7 +58,7 @@ async function main() {
   const app = express(); app.use(cors({ origin: frontendOrigin })); app.use(express.json()); app.use('/auth', createAuthRoutes(controller));
   app.use('/students/me', studentHistoryRoutes); app.use('/goals', goalRoutes); app.use('/reports', reportRoutes); app.use('/profile/photo', profilePhotoRoutes);
   app.use('/turmas', classRoutes); app.use('/avaliacoes', examRoutes); app.use('/questoes', questaoRoutes);
-  // Local fixture mail viewer: exists ONLY in this guarded test script, never in src/server.
+  // Visualizador local de e-mails de fixture: existe SOMENTE neste script de teste protegido, nunca em src/server.
   app.get('/__fixture/mail', (req, res) => { if (req.get('x-fixture-key') !== fixtureKey) { res.sendStatus(403); return; } res.set('Cache-Control', 'no-store').json(outbox); });
   app.use(errorHandler); server = app.listen(0, '127.0.0.1'); await new Promise<void>(resolve => server!.once('listening', resolve)); base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   const password = 'Isolated-stage7-original1!', nextPassword = 'Isolated-stage7-replacement1!';
@@ -140,7 +140,7 @@ async function main() {
   const failedUser = await prisma.user.findUniqueOrThrow({ where: { email: failedEmail } });
   assert.equal(failedUser.emailVerifiedAt, null); assert.ok((await prisma.authToken.findFirstOrThrow({ where: { userId: failedUser.id } })).usedAt);
   const failedToken = await login(failedEmail); await request('/goals', undefined, failedToken, 403, 'GET');
-  // Existing token tables provide a durable hourly limit, including concurrent requests.
+  // As tabelas de tokens existentes garantem um limite por hora durável, inclusive com requisições concorrentes.
   await prisma.authToken.updateMany({ where: { userId: failedUser.id }, data: { createdAt: new Date(Date.now() - 61000) } });
   const replies = await Promise.all([1, 2, 3].map(async () => (await fetch(base + '/auth/email-verification', { method: 'POST', headers: { Authorization: `Bearer ${failedToken}` } })).status));
   assert.deepEqual(replies.sort(), [202, 429, 429]);
@@ -162,7 +162,7 @@ async function main() {
   await request('/goals', undefined, await login(uncertainEmail), 403, 'GET');
   pass('indeterminate delivery preserves the potentially delivered token without granting confirmed access');
 
-  // Deleted accounts and stale JWT permissions remain rejected across stage-1–6 resources.
+  // Contas excluídas e permissões de JWT desatualizadas continuam rejeitadas nos recursos das etapas 1 a 6.
   await prisma.user.update({ where: { id: failedUser.id }, data: { deletedAt: new Date() } });
   await request('/auth/login', { email: failedEmail, senha: password }, undefined, 401);
   const mailCount = outbox.length; assert.deepEqual(await request('/auth/password-recovery', { email: failedEmail }, undefined, 202), neutral); assert.equal(outbox.length, mailCount);
@@ -172,7 +172,7 @@ async function main() {
   pass('deleted-account issuance/recovery and changed roles cannot bypass authorization; goals, photos and reports keep existing guards');
 
   if (process.env.JURISSIM_RUN_BROWSER_TEST === '1') {
-    // Browser/Vite validation is an explicit opt-in phase, separate from database checks.
+    // A validação no navegador/Vite é uma fase opcional explícita, separada das verificações de banco.
     await new Promise<void>((resolve, reject) => {
       const child = spawn(process.execPath, [path.resolve('../frontend/tests/test-auth-local.mjs')], { cwd: path.resolve('../frontend'), windowsHide: true, env: { ...process.env, JURISSIM_TEST_API: base, JURISSIM_TEST_MAIL_KEY: fixtureKey }, stdio: ['ignore', 'pipe', 'pipe'] });
       child.stdout.on('data', chunk => process.stdout.write(chunk)); child.stderr.on('data', chunk => process.stderr.write(chunk)); child.on('error', reject);

@@ -15,9 +15,9 @@ const selectableInventoryWhere = (): Prisma.QuestaoWhereInput => ownerPracticeEn
 
 type SessionRow = { id: string; simuladoId: string; alunoId: string; disciplina: string; assunto?: string | null; finalizadoEm: Date | null };
 
-// "Inéditas" excludes what the student already answered, except in the initial
-// diagnostic: it draws 6 questions per discipline from this same pilot inventory and
-// would otherwise exhaust small disciplines (Civil, Administrativo) before any practice.
+// "Inéditas" exclui o que o aluno já respondeu, exceto no diagnóstico inicial:
+// ele sorteia 6 questões por disciplina deste mesmo inventário piloto e, caso contrário,
+// esgotaria as disciplinas pequenas (Civil, Administrativo) antes de qualquer prática.
 export const practiceExclusionScope = (studentId: string): Prisma.SimuladoWhereInput =>
   ({ alunoId: studentId, diagnosticoInicial: { is: null } });
 type AttemptRow = Prisma.SimuladoGetPayload<{ select: {
@@ -87,8 +87,8 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
   }
 
   async listCatalogTopics(discipline: string) {
-    // Only public, unscoped metadata is discoverable. Never expose private class
-    // topics, question bodies or answer keys through this catalog.
+    // Somente metadados públicos e sem escopo podem ser descobertos. Nunca expor temas
+    // privados de turmas, enunciados de questões ou gabaritos por este catálogo.
     const rows = await this.db.questao.findMany({
       where: { publica: true, turmaId: null, disciplina: discipline }, select: inventorySelect,
     });
@@ -137,8 +137,8 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
     }
     const sessionId = randomUUID();
     const result = await this.db.$transaction(async tx => {
-      // Serialize starts per student without adding a global active-session
-      // constraint; retries from concurrent POSTs converge on one attempt.
+      // Serializa os inícios por aluno sem adicionar uma restrição global de sessão
+      // ativa; novas tentativas de POSTs concorrentes convergem para uma única tentativa.
       const lockedStudent = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "User" WHERE "id" = ${studentId} FOR UPDATE`;
       if (!lockedStudent.length) throw new Error('Practice student not found.');
       const active = await tx.$queryRaw<{ simuladoId: string }[]>`
@@ -153,7 +153,7 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
       const authorized = await ownerPracticeAuthorizedIds(tx, currentRows);
       const valid = new Map(currentRows.flatMap(row => { const q = questionFromRow(row, authorized.has(row.id)); return q ? [[q.id, q] as const] : []; }));
       if (valid.size !== questions.length) throw new ApiError(409, 'O acervo disponível mudou. Atualize a disponibilidade.');
-      // Use the freshly validated content for the persisted snapshot.
+      // Usa o conteúdo recém-validado no snapshot persistido.
       questions = questions.map(q => valid.get(q.id)!);
       const answered = await tx.resposta.findMany({ where: { simulado: practiceExclusionScope(studentId), questaoId: { in: questions.map(q => q.id) } }, select: { questaoId: true } });
       if (answered.length) throw new ApiError(409, 'O estoque mudou. Atualize a disponibilidade para iniciar um treino inédito.');

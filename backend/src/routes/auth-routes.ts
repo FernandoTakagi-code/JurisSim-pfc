@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth-controller';
-import { requireAuth, requireLimitedAuth } from '../middlewares/auth-middleware';
+import { requireAuth, requireAuthAllowingTermsUpdate, requireLimitedAuth } from '../middlewares/auth-middleware';
 import { authRateLimit } from '../middlewares/auth-rate-limit';
 import { ApiError } from '../errors/api-error';
 import { isAllowedCorsOrigin } from '../config/cors-policy';
@@ -23,9 +23,10 @@ export function createAuthRoutes(controller = new AuthController()) {
   authRoutes.post('/password-reset', authRateLimit(30, 900000), controller.redefinirSenha);
   authRoutes.post('/logout', requireLimitedAuth, controller.logout);
   authRoutes.get('/session', requireLimitedAuth, controller.session);
+  authRoutes.post('/legal-acceptance', requireLimitedAuth, authRateLimit(30, 3600000), controller.aceitarTermos);
   authRoutes.put('/nome', requireAuth, controller.atualizarNome);
   authRoutes.get('/dados', requireLimitedAuth, authRateLimit(60, 3600000), controller.exportarDados);
-  authRoutes.delete('/conta', requireAuth, authRateLimit(5, 900000), controller.excluirConta);
+  authRoutes.delete('/conta', requireAuthAllowingTermsUpdate, authRateLimit(5, 900000), controller.excluirConta);
   authRoutes.post('/conta/desativacao', requireAuth, authRateLimit(5, 900000), controller.desativarConta);
   authRoutes.post('/email-verification', requireLimitedAuth, authRateLimit(30, 3600000), controller.solicitarConfirmacaoEmail);
   authRoutes.post('/email-verification/confirm', authRateLimit(60, 900000), controller.confirmarEmail);

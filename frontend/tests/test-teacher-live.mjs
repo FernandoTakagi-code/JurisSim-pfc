@@ -1,4 +1,4 @@
-// Real browser -> authenticated Express API -> harness-owned disposable PostgreSQL.
+// Navegador real -> API Express autenticada -> PostgreSQL descartável do harness.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";

@@ -49,7 +49,7 @@ const userId = '00000000-0000-4000-8000-000000000001';
 const resourceId = '00000000-0000-4000-8000-000000000002';
 const secret = 'stage-two-local-test-key-with-at-least-32-characters';
 const confirmation = 'v'.repeat(64);
-type Account = { id: string; nome: string; email: string; role: Role; sessionVersion: number; emailVerifiedAt: Date | null; deletedAt: Date | null; senhaHash: string };
+type Account = { id: string; nome: string; email: string; role: Role; sessionVersion: number; emailVerifiedAt: Date | null; deletedAt: Date | null; senhaHash: string; termsVersion: string | null; privacyVersion: string | null };
 let account: Account | null;
 let passwordHash: string;
 let server: Server | undefined;
@@ -87,14 +87,14 @@ beforeAll(async () => {
   vi.stubEnv('INSTITUTIONS_ENABLED', 'false');
   vi.stubEnv('ADMINISTRATION_ENABLED', 'false');
   vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED', 'false');
-  // Isolate credentials even when this suite is run from a configured shell.
+  // Isola as credenciais mesmo quando esta suíte é executada a partir de um shell configurado.
   vi.stubEnv('JWT_SECRET', secret);
   vi.stubEnv('DATABASE_URL', 'postgresql://test:test@127.0.0.1:1/test');
   vi.stubEnv('DIRECT_URL', 'postgresql://test:test@127.0.0.1:1/test');
   vi.stubEnv('APP_PUBLIC_URL', 'http://localhost:5173');
   vi.stubEnv('CORS_ORIGINS', 'http://localhost:5173,https://staging.jurissim.test');
-  // This suite mocks nodemailer; select SMTP explicitly so the mock is used
-  // even when Vitest's global safety defaults select the unconfigured API.
+  // Esta suíte usa mock do nodemailer; seleciona SMTP explicitamente para que o mock seja usado
+  // mesmo quando os padrões globais de segurança do Vitest selecionam a API não configurada.
   vi.stubEnv('BREVO_EMAIL_TRANSPORT', 'smtp');
   vi.stubEnv('BREVO_SMTP_USER', 'fixture@smtp-brevo.com');
   vi.stubEnv('BREVO_SMTP_KEY', 'local-fixture-only');
@@ -117,7 +117,7 @@ afterAll(async () => {
 beforeEach(() => {
   vi.resetAllMocks();
   claimed = false;
-  account = { id: userId, nome: 'Fixture', email: 'user@example.invalid', role: 'ALUNO', sessionVersion: 0, emailVerifiedAt: null, deletedAt: null, senhaHash: passwordHash };
+  account = { id: userId, nome: 'Fixture', email: 'user@example.invalid', role: 'ALUNO', sessionVersion: 0, emailVerifiedAt: null, deletedAt: null, senhaHash: passwordHash, termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1' };
   mocks.userFind.mockImplementation(async ({ where }) => account && (where.id === account.id || where.email === account.email) ? { ...account } : null);
   mocks.userList.mockImplementation(async ({ where }) => account && where.email.equals.toLowerCase() === account.email.toLowerCase() ? [{ ...account }] : []);
   mocks.userUpdate.mockImplementation(async () => { account!.emailVerifiedAt = new Date(); return { id: userId }; });
@@ -225,7 +225,7 @@ describe('confirmação obrigatória em todas as operações protegidas', () => 
     }
     for (const operation of resourceCalls()) expect(operation).not.toHaveBeenCalled();
     expect(mocks.diagnosticFind).not.toHaveBeenCalled();
-    expect(mocks.userFind).toHaveBeenCalledWith({ where: { id: userId }, select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true, registrationIntent: true } });
+    expect(mocks.userFind).toHaveBeenCalledWith({ where: { id: userId }, select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true, sessionVersion: true, registrationIntent: true, termsVersion: true, privacyVersion: true } });
   });
 
   it.each(['inexistente', 'excluída'])('recusa conta %s em recursos, sessão limitada e reenvio', async state => {
@@ -279,7 +279,7 @@ describe('permissões seguem o perfil atual, independentemente do JWT', () => {
     expect((await call('POST', '/questoes', bearer, question)).status).toBe(403);
     account!.emailVerifiedAt = null;
     expect((await call('GET', '/questoes', bearer)).status).toBe(403);
-    // Five separate requests each revalidate; nested guards reuse that request's result.
+    // Cinco requisições separadas revalidam cada uma; as proteções aninhadas reutilizam o resultado daquela requisição.
     expect(mocks.userFind).toHaveBeenCalledTimes(5);
   });
 });
@@ -293,6 +293,8 @@ describe('exceções limitadas e continuidade dos fluxos', () => {
     expect(await response.json()).toEqual({
       user: { id: userId, nome: account!.nome, email: account!.email, role, emailVerificado: false },
       nextStep: role === 'ALUNO' ? 'DIAGNOSTIC' : 'PROFESSOR',
+      legalUpdateRequired: false,
+      legalVersions: { termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1' },
     });
     if (role === 'ALUNO') {
       expect(mocks.diagnosticFind).toHaveBeenCalledWith({
@@ -485,7 +487,7 @@ describe('revogação de sessões após redefinir senha', () => {
     expect(session.status).toBe(200);
     expect((await session.json()).user.emailVerificado).toBe(false);
     expect((await call('GET', '/questoes', bearer)).status).toBe(403);
-    // Reset invalidates previously issued verification/email-change links.
+    // A redefinição invalida os links de verificação/troca de e-mail emitidos anteriormente.
     expect((await call('POST', '/auth/email-verification/confirm', undefined, { token: confirmation })).status).toBe(400);
     expect((await call('POST', '/auth/email-verification', bearer)).status).toBe(202);
     expect((await call('POST', '/auth/email-verification/confirm', undefined, { token: confirmation })).status).toBe(200);

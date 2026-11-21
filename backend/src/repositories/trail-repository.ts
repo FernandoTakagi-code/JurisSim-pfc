@@ -10,8 +10,8 @@ const trailAttemptDetails = {
   questoes: { orderBy: { posicao: 'asc' }, include: { questao: { include: { alternativas: true } }, resposta: true } },
 } satisfies Prisma.SimuladoInclude;
 type Attempt = Prisma.SimuladoGetPayload<{ include: typeof trailAttemptDetails }>;
-// A generated-trail link is the positive identity of this modality. It does
-// not depend on the practice flag or on the optional practice schema.
+// Um vínculo de trilha gerada é a identidade positiva desta modalidade. Ele não
+// depende da flag de prática nem do schema opcional de prática.
 export const trailScope = { tipo: 'PERSONALIZADO', trilhaOrigem: { isNot: null } } satisfies Prisma.SimuladoWhereInput;
 
 export class TrailRepository {

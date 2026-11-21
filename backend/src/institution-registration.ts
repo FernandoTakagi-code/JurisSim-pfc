@@ -1,4 +1,4 @@
-// Shared, dependency-free registration checks. CNPJ DV follows Receita Federal's manual.
+// Verificações de cadastro compartilhadas e sem dependências. O DV do CNPJ segue o manual da Receita Federal.
 export function validRegistrationNumber(value: string): boolean {
   if (!/^[A-Z0-9]{12}[0-9]{2}$/.test(value) || /^(.)\1{13}$/.test(value)) return false;
   const digit = (base: string) => {

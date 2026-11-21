@@ -21,7 +21,7 @@ export class TrailService {
 
     const filters = buildTrailFilters(trilha.disciplinaPrioritaria, trilha.assuntoPrioritario, trilha.nivelRecomendado);
     const questions = await this.repository.findQuestionsForTrail(filters, trilha.quantidadeRecomendada);
-    // The locked repository first recovers a concurrent winner, then checks inventory.
+    // O repositório com lock primeiro recupera um vencedor concorrente e depois verifica o inventário.
     return this.repository.createTrailAttempt(trilha.simulado.alunoId, trilha.id, questions.map((question) => question.id));
   }
 

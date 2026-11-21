@@ -135,7 +135,7 @@ export class QuestionPracticeService {
       throw new ApiError(409, 'Responda todas as questões antes de finalizar a prática.');
     }
     const completed = await this.repository.finalize(studentId, attemptId);
-    // The repository finalizes and updates the level of non-provisional attempts atomically.
+    // O repositório finaliza e atualiza o nível das tentativas não provisórias de forma atômica.
     return this.result(completed);
   }
 

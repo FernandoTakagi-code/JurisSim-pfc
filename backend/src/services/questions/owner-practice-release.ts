@@ -17,8 +17,8 @@ export function ownerPracticeContentValid(q:InventoryRow) {
     && INITIAL_DIAGNOSTIC_DISCIPLINES.includes(q.disciplina as typeof INITIAL_DIAGNOSTIC_DISCIPLINES[number])
     && hasCompleteContent(q) && new Set(q.alternativas.map(a=>normalize(a.texto))).size===4;
 }
-// Same digest as the approved read-only manifest. Review/release timestamps are
-// intentionally not fabricated or reused as proof of owner authorization.
+// Mesmo digest do manifesto somente leitura aprovado. Os horários de revisão/liberação
+// propositalmente não são inventados nem reutilizados como prova da autorização do proprietário.
 export function ownerPracticeDigest(q:InventoryRow) {
   return createHash('sha256').update(JSON.stringify({enunciado:q.enunciado,disciplina:q.disciplina,assunto:q.assunto,
     nivel:q.nivel,explicacao:q.fundamentacaoJuridica,origem:q.origem,

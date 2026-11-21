@@ -1,4 +1,4 @@
-// Only the harness-owned local cluster is accepted. No production seeds or bypasses.
+// Só é aceito o cluster local pertencente ao harness. Sem seeds de produção ou desvios.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -100,8 +100,8 @@ async function main() {
   await expectStatus(`/avaliacoes/${exam.id}/publish`, b, 'POST', undefined, 404);
   assert.equal((await expectStatus('/avaliacoes', alice)).items.length, 0);
   await expectStatus(`/avaliacoes/${exam.id}/attempts`, alice, 'POST', undefined, 404);
-  // Public bank question: teachers cannot manage it at all (403). The 409 for a used
-  // private class question is covered by teacher-class-questions.integration.test.ts.
+  // Questão do banco público: professores não podem gerenciá-la de forma alguma (403). O 409
+  // para uma questão privada de turma já usada é coberto por teacher-class-questions.integration.test.ts.
   await expectStatus(`/questoes/${question.id}`, a, 'PUT', { enunciado: 'Forbidden question mutation' }, 403);
   await expectStatus(`/avaliacoes/${exam.id}/publish`, a, 'POST');
   await expectStatus(`/avaliacoes/${exam.id}`, a, 'PUT', input, 409);

@@ -78,7 +78,7 @@ beforeEach(() => {
   mocks.authUser.mockImplementation(async (id: string) => ({
     id,
     role: id === 'teacher-123' ? 'PROFESSOR' : 'ALUNO',
-    emailVerifiedAt: new Date(),
+    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',
     deletedAt: null,
     sessionVersion: 0,
   }));

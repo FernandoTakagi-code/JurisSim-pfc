@@ -1,29 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import versions from '../../backend/src/legal-versions.json';
-
-export const legalAcceptance = {
-  accepted: true,
-  termsVersion: versions.termsVersion,
-  privacyVersion: versions.privacyVersion,
-};
+import { loadCurrentLegal, type CurrentTerms, type TermsSection } from './terms-of-use';
 
 export function LegalLinks() {
   return <div className="legal-links"><a href="#/termos">Termos de Uso</a><span aria-hidden="true"> | </span><a href="#/privacidade">Aviso de Privacidade</a></div>;
 }
-
-const terms = [
-  ['1. Sobre o JurisSim', 'O JurisSim é uma plataforma educacional de apoio à preparação para a primeira fase do Exame de Ordem. Reúne questões, simulados, resultados de desempenho e recomendações de exercícios. O serviço é independente e não representa a Ordem dos Advogados do Brasil (OAB), não presta consultoria jurídica e não garante aprovação.'],
-  ['2. Aceitação e acesso', 'Ao criar uma conta, você declara que leu e aceita estes Termos de Uso e o Aviso de Privacidade. O sistema registra a data e hora e as versões aceitas. Esse aceite formaliza as regras de uso; por si só, não constitui consentimento genérico para todo tratamento de dados pessoais. O cadastro público cria uma conta de aluno. O acesso como professor depende de vínculo e autorização institucional; os recursos são liberados conforme as permissões verificadas pelo serviço.'],
-  ['3. Conta e segurança', 'Forneça nome e endereço de e-mail corretos, mantenha seus dados atualizados e proteja suas credenciais. A conta é pessoal; não compartilhe senha nem sessão. Você responde pelas atividades realizadas por sua conta, ressalvadas as responsabilidades que a legislação atribui ao serviço. Avise o responsável pelo JurisSim se suspeitar de uso não autorizado.'],
-  ['4. Uso permitido', 'Use a plataforma para fins educacionais e de acordo com estes Termos e a legislação. Não tente acessar contas, dados ou áreas sem autorização; contornar controles de acesso; interferir no funcionamento; enviar código malicioso; explorar falhas; manipular resultados; ou publicar conteúdo ilícito, ofensivo ou que viole direitos de terceiros. Não inclua dados pessoais de terceiros em questões ou materiais sem fundamento e autorização adequados.'],
-  ['5. Questões e conteúdos enviados', 'Questões, alternativas e fundamentações podem ser disponibilizadas publicamente ou em contexto de turma, conforme as permissões aplicáveis. Ao cadastrar conteúdo, você declara ter direito de fazê-lo e autoriza sua utilização na plataforma para disponibilização e funcionamento dos recursos educacionais. Você mantém os direitos que possuir sobre o material. O conteúdo deve respeitar direitos autorais e demais direitos de terceiros.'],
-  ['6. Resultados e recomendações', 'As respostas e o desempenho podem ser utilizados para calcular resultados por disciplina, assunto e nível e recomendar exercícios. Essas recomendações apoiam a organização do estudo; não constituem avaliação profissional, diagnóstico de capacidade, decisão sobre acesso a oportunidades ou previsão de aprovação. Confira a legislação e fontes oficiais: questões e fundamentações podem conter imprecisões ou deixar de refletir alterações normativas.'],
-  ['7. Propriedade intelectual', 'A plataforma, sua organização, marca, interface e componentes próprios são protegidos pela legislação aplicável. Você pode utilizar os recursos nos limites destes Termos. Não copie, distribua, explore comercialmente ou remova avisos de titularidade de conteúdos sem autorização ou outra base legal. Conteúdos de terceiros permanecem sujeitos aos direitos de seus respectivos titulares.'],
-  ['8. Disponibilidade e responsabilidade', 'O JurisSim é fornecido para apoio educacional e sua disponibilidade pode sofrer interrupções por manutenção, falhas técnicas ou fatores externos. Empregamos esforços razoáveis para manter os recursos acessíveis e corrigir problemas. Na extensão permitida pela lei, o serviço não responde por indisponibilidade causada por fatores fora de seu controle, nem por decisões de estudo tomadas exclusivamente com base em resultados ou recomendações da plataforma. Nada nestes Termos exclui direitos ou responsabilidades que não possam ser afastados por lei.'],
-  ['9. Suspensão e encerramento', 'O acesso poderá ser restringido quando necessário para proteger a plataforma, usuários ou terceiros, apurar violação destes Termos ou cumprir obrigação legal. Sempre que razoável, a medida será proporcional à situação. O encerramento da conta não elimina dados cuja conservação seja necessária para cumprir obrigação legal, exercer direitos ou atender outra hipótese permitida pela legislação; os detalhes constam no Aviso de Privacidade.'],
-  ['10. Alterações', 'Estes Termos podem ser atualizados para refletir mudanças no serviço ou na legislação. A versão e sua data de vigência são indicadas neste documento. Quando uma alteração exigir novo aceite, ele será solicitado antes de continuar o uso dos recursos correspondentes.'],
-  ['11. Lei aplicável', 'Aplicam-se as leis da República Federativa do Brasil, observadas as regras legais de competência e os direitos do consumidor, quando aplicáveis.'],
-];
 
 const privacy = [
   ['1. Quem trata os dados', 'A equipe responsável pelo projeto acadêmico JurisSim define as finalidades e os meios essenciais do tratamento de dados pessoais e assume a responsabilidade pelo atendimento aos titulares. O contato da equipe é jurissimplataforma@gmail.com. Prestadores de serviços podem atuar como operadores, tratando dados sob as instruções do controlador e para a execução de suas funções.'],
@@ -42,8 +23,22 @@ const privacy = [
   ['14. Atualizações e vigência', 'Este Aviso poderá ser atualizado para refletir alterações no tratamento ou na legislação. A versão e a data de vigência identificam o texto aplicável. Mudanças relevantes serão comunicadas por meio adequado, e eventual consentimento será solicitado separadamente quando exigido.'],
 ];
 
+export function TermsSections({ sections }: { sections: TermsSection[] }) {
+  // Linhas em branco no texto digitado pelo ADMIN separam parágrafos; títulos podem se repetir, então a chave é a posição.
+  return <>{sections.map(({ title, body }, index) => <section key={index}><h2>{title}</h2>{body.split(/\n\s*\n/).map(paragraph => paragraph.trim()).filter(Boolean).map((paragraph, i) => <p key={i}>{paragraph}</p>)}</section>)}</>;
+}
+
 export function LegalPage({ kind, onBack }: { kind: 'terms' | 'privacy'; onBack: () => void }) {
   const title = kind === 'terms' ? 'Termos de Uso' : 'Aviso de Privacidade';
+  // Os Termos de Uso são versionados pelo ADMIN e vêm da API; o Aviso de Privacidade continua no código.
+  const [terms, setTerms] = useState<CurrentTerms | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (kind !== 'terms') return;
+    let active = true;
+    loadCurrentLegal().then(current => { if (active) setTerms(current.terms); }).catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [kind]);
   useEffect(() => {
     const previous = document.title;
     document.title = `${title} — JurisSim`;
@@ -55,15 +50,21 @@ export function LegalPage({ kind, onBack }: { kind: 'terms' | 'privacy'; onBack:
     <article className="legal-document">
       <p className="gold">JURISSIM · DOCUMENTOS</p>
       <h1>{title} — JurisSim</h1>
-      <p className="muted">Versão {kind === 'terms' ? versions.termsVersion : versions.privacyVersion} · Vigência: {versions.date}</p>
-      {(kind === 'terms' ? terms : privacy).map(([heading, content]) => <section key={heading}><h2>{heading}</h2><p>{content}</p></section>)}
+      {kind === 'privacy' ? <>
+        <p className="muted">Versão {versions.privacyVersion} · Vigência: {versions.date}</p>
+        {privacy.map(([heading, content]) => <section key={heading}><h2>{heading}</h2><p>{content}</p></section>)}
+      </> : terms ? <>
+        <p className="muted">Versão {terms.version} · Vigência desde {new Date(terms.publishedAt).toLocaleDateString('pt-BR')}</p>
+        <TermsSections sections={terms.sections} />
+      </> : failed ? <p role="alert" className="error">Não foi possível carregar os Termos de Uso. Verifique sua conexão e tente novamente.</p>
+        : <p role="status">Carregando os Termos de Uso…</p>}
       {kind === 'privacy' && <p>Referências: <a href="https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709compilado.htm" target="_blank" rel="noreferrer">Lei Geral de Proteção de Dados Pessoais</a> e orientações da <a href="https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados/direito-dos-titulares" target="_blank" rel="noreferrer">ANPD sobre direitos dos titulares</a>.</p>}
       <LegalLinks />
     </article>
   </main>;
 }
 
-// Keep the underlying form/simulation mounted while a public document is read.
+// Mantém o formulário/simulação de fundo montado enquanto um documento público é lido.
 export function LegalBoundary({ children }: { children: ReactNode }) {
   const [hash, setHash] = useState(window.location.hash);
   useEffect(() => {

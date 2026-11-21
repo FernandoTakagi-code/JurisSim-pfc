@@ -1,4 +1,4 @@
-// Only the cluster created and validated by test-migrations-local.cjs is allowed.
+// Só é permitido o cluster criado e validado por test-migrations-local.cjs.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';

@@ -32,5 +32,5 @@ const institutionRequestFields = z.object({
 const websiteChoice = (v: {website?: string; noWebsite?: boolean}) => Boolean(v.website) !== (v.noWebsite === true);
 const websiteError = {message: 'Informe o site ou declare que a instituição não possui site.', path: ['website']};
 export const institutionRequestSchema = institutionRequestFields.refine(websiteChoice, websiteError);
-// Used only by the administrative fixture service; never by the public route.
+// Usado apenas pelo serviço administrativo de fixtures; nunca pela rota pública.
 export const institutionFixtureSchema = institutionRequestFields.omit({registrationNumber:true}).refine(websiteChoice, websiteError);

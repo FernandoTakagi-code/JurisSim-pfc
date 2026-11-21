@@ -112,9 +112,9 @@ export class PrismaInitialDiagnosticResolutionRepository implements InitialDiagn
   }
 
   async saveOrUpdateAnswer(studentId: string, attemptId: string, questionId: string, alternativeId: string) {
-    // Every mutation locks the attempt before reading its state. ReadCommitted
-    // sees the committed winner after waiting and avoids cross-student SSI
-    // predicate conflicts; the snapshot, answer upsert and finalization remain atomic.
+    // Toda mutação aplica lock na tentativa antes de ler seu estado. O ReadCommitted
+    // enxerga o vencedor já confirmado após a espera e evita conflitos de predicado SSI
+    // entre alunos; o snapshot, o upsert da resposta e a finalização continuam atômicos.
     return withSerializableRetry(() => this.db.$transaction(async tx => {
       if (!await this.lockOwnedAttempt(tx, studentId, attemptId)) return 'NOT_FOUND' as const;
       const identity = await this.findOwnedAttemptInTransaction(tx, studentId, attemptId);

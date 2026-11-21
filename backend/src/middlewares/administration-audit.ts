@@ -4,8 +4,8 @@ import { administrationEnabled, institutionRegistrationEnabled } from "../config
 import { prisma } from "../lib/prisma";
 import { localReadOnlyNavigationEnabled } from './local-read-only-navigation';
 
-// Security/operational events never contain URLs, query strings, bodies, IPs,
-// tokens, email addresses, stack traces or arbitrary exception messages.
+// Eventos de segurança/operação nunca contêm URLs, query strings, bodies, IPs,
+// tokens, e-mails, stack traces ou mensagens arbitrárias de exceção.
 export const administrationAudit: RequestHandler = (
   request: AuthenticatedRequest,
   response,
@@ -41,7 +41,7 @@ export const administrationAudit: RequestHandler = (
           data: {
             event,
             actorId: request.auth?.userId,
-            // Denied events do not trust a client-provided institution header.
+            // Eventos negados não confiam em um cabeçalho de instituição enviado pelo cliente.
             institutionId: request.auth?.institutionId,
             result: status < 400 ? "SUCCESS" : "FAILED",
             severity: status >= 500 ? "ERROR" : status >= 400 ? "WARN" : "INFO",

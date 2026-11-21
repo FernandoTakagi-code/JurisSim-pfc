@@ -128,8 +128,8 @@ beforeAll(async () => {
     }
   }
   await original([0, 1, 2, 3, 4, 5], true, (i) => i >= 3, "2026-01-01");
-  await original([0], true, () => true, "2026-02-01"); // Most recent completed response wins.
-  await original([0, 6], false, () => false, "2026-03-01"); // Never leaks unfinished exam keys.
+  await original([0], true, () => true, "2026-02-01"); // A resposta concluída mais recente prevalece.
+  await original([0, 6], false, () => false, "2026-03-01"); // Nunca vaza gabaritos de simulados não finalizados.
   const app = express();
   app.use(express.json());
   app.use(

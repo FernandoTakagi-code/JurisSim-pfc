@@ -21,14 +21,14 @@ export interface InitialDiagnosticAttempt {
   id: string;
   provisional?: boolean;
   state: InitialDiagnosticAttemptState;
-  /** Persisted question IDs in their stable attempt order. */
+  /** IDs das questões persistidas na ordem estável da tentativa. */
   orderedQuestionIds: readonly string[];
 }
 
 export interface CreateInitialDiagnosticInput {
   studentId: string;
   provisional?: boolean;
-  /** The order is significant and must be saved as the attempt's positions. */
+  /** A ordem é significativa e deve ser salva como as posições da tentativa. */
   orderedQuestionIds: readonly string[];
 }
 
@@ -38,14 +38,14 @@ export interface CreateOrGetInitialDiagnosticResult {
 }
 
 /**
- * Persistence boundary for initial diagnostics.
+ * Fronteira de persistência dos diagnósticos iniciais.
  *
- * A PostgreSQL adapter must implement createInitialOrGetExisting atomically:
- * create Simulado + DiagnosticoInicial identity + all ordered question links
- * in one transaction, enforce one initial per student with a unique constraint,
- * and fetch/return the winning attempt on uniqueness conflict. A mocked port can
- * test service behavior but cannot prove database concurrency or transaction
- * guarantees; those require later disposable-PostgreSQL integration tests.
+ * Um adaptador PostgreSQL deve implementar createInitialOrGetExisting de forma atômica:
+ * criar o Simulado + a identidade DiagnosticoInicial + todos os vínculos ordenados de questões
+ * em uma única transação, garantir um único diagnóstico inicial por aluno com uma restrição única
+ * e buscar/retornar a tentativa vencedora em caso de conflito de unicidade. Uma porta com mock pode
+ * testar o comportamento do serviço, mas não comprova a concorrência do banco nem as garantias
+ * de transação; isso exige testes de integração posteriores em PostgreSQL descartável.
  */
 export interface InitialDiagnosticRepository {
   findInitialAttempt(studentId: string): Promise<InitialDiagnosticAttempt | null>;
@@ -92,8 +92,8 @@ export class InitialDiagnosticService {
       throw new Error('A composição do Diagnóstico Inicial deve conter exatamente 30 questões distintas.');
     }
 
-    // The persistence contract handles a concurrent winner and returns that
-    // attempt, so the caller never receives an alternative or partial selection.
+    // O contrato de persistência trata um vencedor concorrente e retorna essa
+    // tentativa, então quem chama nunca recebe uma seleção alternativa ou parcial.
     const provisional = Boolean(this.pilotBatchId && composition.questions.some(q => q.draftPilotBatchId === this.pilotBatchId));
     const persisted = await this.repository.createInitialOrGetExisting({ studentId, orderedQuestionIds,
       ...(provisional ? { provisional: true } : {}) });

@@ -3,8 +3,8 @@ import { defineConfig } from 'vitest/config';
 // Testes unitários e de rota com dependências mockadas (não acessam banco).
 export default defineConfig({
   test: {
-    // Prevent dotenv or an inherited shell from enabling real provider calls.
-    // Delivery suites explicitly supply fixtures and mock network clients.
+    // Impede que o dotenv ou um shell herdado habilite chamadas reais a provedores.
+    // As suítes de envio fornecem fixtures explicitamente e usam mock dos clientes de rede.
     setupFiles: ['./tests/setup/no-database.ts'],
     env: { NODE_ENV: 'test',
       DATABASE_URL: 'postgresql://disabled:disabled@127.0.0.1:1/jurissim_unit_test',
@@ -17,7 +17,7 @@ export default defineConfig({
       TEACHER_INVITATIONS_MODE: '', INSTITUTION_HOMOLOGATION_ENABLED: 'false',
       INSTITUTION_TEACHER_MANAGEMENT_ENABLED: 'false', INSTITUTION_EXAM_MANAGEMENT_ENABLED: 'false',
       CLASS_ACTIVITY_PILOT_ENABLED: 'false', CLASS_ACTIVITY_PILOT_BATCH_ID: '', CLASS_ACTIVITY_PILOT_BATCH_IDS: '',
-      // Local pilot activation must not change unrelated route/auth fixtures.
+      // A ativação local do piloto não deve alterar fixtures de rota/autenticação não relacionadas.
       INITIAL_DIAGNOSTIC_REQUIRED: 'false', INITIAL_DIAGNOSTIC_API_ENABLED: 'false',
       INITIAL_DIAGNOSTIC_PILOT_ENABLED: 'false', INITIAL_DIAGNOSTIC_PILOT_BATCH_ID: '',
       INITIAL_DIAGNOSTIC_COMPOSITION_MODE: 'MISTA_15_15',

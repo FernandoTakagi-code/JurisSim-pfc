@@ -41,9 +41,9 @@ beforeAll(async () => {
 });
 afterAll(async () => { if (server) await new Promise<void>(resolve => server.close(() => resolve())); await prisma.$disconnect(); });
 
-// Preserved legacy positive scenarios. Unavailable while production deletion is
-// deliberately blocked; no environment flag can enable this suite or feature.
-// Current real-database refusal coverage lives in h424-disabled.integration.test.ts.
+// Cenários positivos legados preservados. Indisponíveis enquanto a exclusão em produção
+// estiver bloqueada de propósito; nenhuma flag de ambiente pode habilitar esta suíte ou funcionalidade.
+// A cobertura atual de recusa com banco real fica em h424-disabled.integration.test.ts.
 describe.skipIf(!accountDeletionEnabled())('H4.24 positive PostgreSQL scenarios — pending explicit activation review', () => {
   it('requires authentication, strict confirmation, and current password', async () => {
     const user = await fixture();

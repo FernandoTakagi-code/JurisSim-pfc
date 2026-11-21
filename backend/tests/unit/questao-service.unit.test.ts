@@ -36,7 +36,7 @@ beforeEach(() => {
 
 describe('QuestaoService.criar() - regra de alternativas', () => {
   it('deveCriarQuestaoQuandoHaExatamenteUmaAlternativaCorreta', async () => {
-    // Arrange
+    // Preparação
     const dados = dadosQuestao([
       { texto: 'A locação se extingue', correta: false },
       { texto: 'Prorroga-se por prazo indeterminado', correta: true },
@@ -45,10 +45,10 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     ]);
     repositorio.criar.mockResolvedValue({ id: 'questao-1', ...dados } as never);
 
-    // Act
+    // Execução
     const questao = await QuestaoService.criar(dados, PROFESSOR_ID, 'PROFESSOR');
 
-    // Assert
+    // Verificação
     expect(questao).toMatchObject({ id: 'questao-1', disciplina: 'Direito Civil' });
     expect(repositorio.criar).toHaveBeenCalledTimes(1);
     expect(repositorio.criar).toHaveBeenCalledWith(dados, PROFESSOR_ID, 'PROFESSOR');
@@ -59,13 +59,13 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     ['duas alternativas corretas', [true, true, false, false]],
     ['todas as alternativas corretas', [true, true, true, true]],
   ])('deveRecusarQuestaoCom %s', async (_cenario, gabarito) => {
-    // Arrange
+    // Preparação
     const dados = dadosQuestao(gabarito.map((correta, i) => ({ texto: `Alternativa ${i + 1}`, correta })));
 
-    // Act
+    // Execução
     const tentativa = QuestaoService.criar(dados, PROFESSOR_ID, 'PROFESSOR');
 
-    // Assert
+    // Verificação
     await expect(tentativa).rejects.toBeInstanceOf(ApiError);
     await expect(tentativa).rejects.toMatchObject({
       statusCode: 400,
@@ -82,10 +82,10 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     ]);
     repositorio.criar.mockResolvedValue({ id: 'questao-2', ...dados } as never);
 
-    // Act
+    // Execução
     await expect(QuestaoService.criar(dados, PROFESSOR_ID, 'PROFESSOR')).rejects.toMatchObject({ statusCode: 400, message: 'A questão deve ter exatamente quatro alternativas (A–D).' });
 
-    // Assert
+    // Verificação
     expect(repositorio.criar).not.toHaveBeenCalled();
   });
 
@@ -93,10 +93,10 @@ describe('QuestaoService.criar() - regra de alternativas', () => {
     // Uma única alternativa também deve ser recusada.
     const dados = dadosQuestao([{ texto: 'Única alternativa', correta: true }]);
 
-    // Act
+    // Execução
     const tentativa = QuestaoService.criar(dados, PROFESSOR_ID, 'PROFESSOR');
 
-    // Assert
+    // Verificação
     await expect(tentativa).rejects.toMatchObject({
       statusCode: 400,
       message: 'A questão deve ter exatamente quatro alternativas (A–D).',
@@ -116,13 +116,13 @@ describe('QuestaoService.listar() - visibilidade por perfil', () => {
   };
 
   it('deveOcultarOGabaritoQuandoQuemListaEAluno', async () => {
-    // Arrange
+    // Preparação
     repositorio.listar.mockResolvedValue([questaoDoBanco] as never);
 
-    // Act
+    // Execução
     const [questao] = await QuestaoService.listar({}, 'ALUNO', 'aluno-1');
 
-    // Assert
+    // Verificação
     expect(questao.alternativas).toEqual([
       { id: 'alt-1', texto: 'Alternativa A' },
       { id: 'alt-2', texto: 'Alternativa B' },
@@ -131,13 +131,13 @@ describe('QuestaoService.listar() - visibilidade por perfil', () => {
   });
 
   it('deveFiltrarSomenteAsQuestoesDoProfessorQuandoSolicitado', async () => {
-    // Arrange
+    // Preparação
     repositorio.listar.mockResolvedValue([questaoDoBanco] as never);
 
-    // Act
+    // Execução
     const [questao] = await QuestaoService.listar({ disciplina: 'Direito Civil' }, 'PROFESSOR', PROFESSOR_ID, true);
 
-    // Assert
+    // Verificação
     expect(questao.alternativas[0]).toHaveProperty('correta', true);
     expect(repositorio.listar).toHaveBeenCalledWith({ disciplina: 'Direito Civil' }, PROFESSOR_ID, 'PROFESSOR', true, undefined);
   });

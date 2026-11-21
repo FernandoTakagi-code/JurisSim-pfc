@@ -26,7 +26,7 @@ export type InitialDiagnosticAlternative = {
   text: string;
 };
 
-/** No answer key is part of the client contract for an in-progress attempt. */
+/** Nenhum gabarito faz parte do contrato do cliente para uma tentativa em andamento. */
 export type InitialDiagnosticQuestion = {
   id: string;
   position: number;
@@ -108,7 +108,7 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
     try {
       if (id) sessionStorage.setItem(storageKey, id);
       else sessionStorage.removeItem(storageKey);
-    } catch { /* Server remains the source of truth when storage is unavailable. */ }
+    } catch { /* O servidor continua sendo a fonte de verdade quando o armazenamento não está disponível. */ }
   };
 
   const loadAttempt = async (id: string) => {
@@ -167,9 +167,9 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
   useEffect(() => {
     if (!initialDiagnosticUiEnabled) return;
     let storedId: string | null = null;
-    try { storedId = sessionStorage.getItem(storageKey); } catch { /* Optional resume hint. */ }
+    try { storedId = sessionStorage.getItem(storageKey); } catch { /* Dica opcional para retomar. */ }
     if (storedId) void resumeAttempt(storedId);
-    // This effect intentionally runs once per authenticated student.
+    // Este efeito roda propositalmente uma vez por aluno autenticado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId]);
 
@@ -246,7 +246,7 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
     setError(null);
     try {
       await finalizeInitialDiagnostic(attemptId);
-      // The result screen is shown only after re-reading the persisted result.
+      // A tela de resultado só é exibida depois de reler o resultado persistido.
       const persistedResult = await getInitialDiagnosticResult(attemptId);
       setResult(persistedResult);
       setConfirmFinalize(false);
@@ -259,7 +259,7 @@ export function InitialDiagnosticPage({ onBack, studentId, mandatory = false, on
           setConfirmFinalize(false);
           setPhase("result");
           return;
-        } catch { /* Keep the attempt open if the server has not completed it. */ }
+        } catch { /* Mantém a tentativa aberta se o servidor não a concluiu. */ }
       }
       const mapped = mapApiError(cause);
       setError(mapped);

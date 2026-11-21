@@ -1,8 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-// Remove only this backend's generated output, so moved/deleted source files
-// cannot leave old modules or tests in a later build.
+// Remove apenas a saída gerada deste backend, para que arquivos-fonte movidos/excluídos
+// não deixem módulos ou testes antigos em um build posterior.
 const backend = path.resolve(__dirname, '..');
 const output = path.resolve(backend, 'dist');
 if (path.dirname(output) !== backend || path.basename(output) !== 'dist') {

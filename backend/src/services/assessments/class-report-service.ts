@@ -12,8 +12,8 @@ const managed=async(actor:Actor,history=false):Promise<Prisma.TurmaWhereInput> =
   return {AND:[base,...(boundary?[boundary]:[]),visible]};
 };
 type Tx = Prisma.TransactionClient;
-// Every report uses current enrollment AND the exam's target class. Membership
-// in another class never grants access to personal diagnostics or other exams.
+// Todo relatório usa a matrícula atual E a turma-alvo do simulado. Ser membro de
+// outra turma nunca dá acesso a diagnósticos pessoais nem a outros simulados.
 function scope(classId: string, studentId?: string) {
   return Prisma.sql`
     WITH roster AS MATERIALIZED (
@@ -93,7 +93,7 @@ export class ClassReportService {
     return prisma.$transaction(async tx => {
       const classes = await tx.turma.count({ where });
       const activeClasses = await tx.turma.count({ where: { ...where, archivedAt: null } });
-      // Count identities/exams once, even when shared by multiple managed classes.
+      // Conta identidades/simulados uma única vez, mesmo quando compartilhados por várias turmas gerenciadas.
       const students = await tx.user.count({ where: { role: 'ALUNO', deletedAt: null, turmasComoAluno: { some: where } } });
       const publishedExams = await tx.avaliacao.count({ where: { publishedAt: { not: null }, turmas: { some: where } } });
       return { classes, activeClasses, students, publishedExams };
@@ -108,8 +108,8 @@ export class ClassReportService {
   private async authorize(tx: Tx, actor: Actor, classId: string) {
     if (actor.allowedClassIds && !actor.allowedClassIds.includes(classId)) throw new ApiError(404, 'Turma indisponível neste vínculo institucional.');
     if (actor.role==='ADMIN'||!(actor.role==='PROFESSOR'||(actor.institutionAdmin&&actor.institutionId))) throw new ApiError(403, 'Relatórios exclusivos de professores responsáveis pela turma.');
-    // Read-only reports remain available to currently authorized teachers after
-    // logical deletion. Operational listings and mutations still exclude them.
+    // Os relatórios somente leitura continuam disponíveis para os professores autorizados atualmente
+    // após a exclusão lógica. Listagens operacionais e mutações continuam a excluí-los.
     const turma = await tx.turma.findFirst({ where: { id: classId, ...await managed(actor,true) },
       select: { id: true, nome: true, archivedAt: true } });
     if (!turma) throw new ApiError(404, 'Turma indisponível para relatórios desta conta.');

@@ -1,7 +1,8 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {apiRequest,ApiError} from './api';
 import {AuthGate} from './auth-gate';
-import {legalAcceptance,LegalLinks} from './legal';
+import {LegalLinks} from './legal';
+import {currentLegalAcceptance} from './terms-of-use';
 import {pendingInvitation,pendingInvitationProof,clearInvitation,clearInvitationProof,invitationContextState} from './invitation-token';
 import {EmailConfirmationGate} from './email-confirmation-gate';
 import {refreshSession,useSession,logoutSession,sessionDestination} from './auth-session';
@@ -48,8 +49,11 @@ export function TeacherInvitationLanding(){
     const problem=passwordError(password);
     if(problem||password!==confirmation){setError(problem??'As senhas não coincidem.');return;}
     if(!proof&&!accepted){setError('Aceite os Termos de Uso e a Política de Privacidade.');return;}
-    const body=proof?{token,proof,password,confirmation}:{token,nome,password,confirmation,acceptance:legalAcceptance};
-    void run(proof?'/institutions/invitations/complete':'/institutions/invitations/register',body,false,async()=>{setCompletedEmail(details?.email??'');clearInvitation();clearInvitationProof();setDetails(undefined);setPassword('');setConfirmation('');setFirstAccess(false);setLogin(true);setRetry(v=>v+1);});
+    void (async()=>{
+      // O aceite segue a versão dos Termos em vigor, vinda da API.
+      const body=proof?{token,proof,password,confirmation}:{token,nome,password,confirmation,acceptance:await currentLegalAcceptance()};
+      void run(proof?'/institutions/invitations/complete':'/institutions/invitations/register',body,false,async()=>{setCompletedEmail(details?.email??'');clearInvitation();clearInvitationProof();setDetails(undefined);setPassword('');setConfirmation('');setFirstAccess(false);setLogin(true);setRetry(v=>v+1);});
+    })();
   }
   if(login&&session.status!=='ready')return <AuthGate initialEmail={completedEmail||details?.email||''} initialNotice={notice} invitationLogin onInvitationBack={()=>{setLogin(false);setRetry(v=>v+1);}}/>;
   if(token&&session.status==='ready'&&!session.session?.user.emailVerificado)return <EmailConfirmationGate invitationPending email={session.session!.user.email} onSair={()=>void logoutSession().then(ok=>{if(ok)setLogin(true);})}/>;

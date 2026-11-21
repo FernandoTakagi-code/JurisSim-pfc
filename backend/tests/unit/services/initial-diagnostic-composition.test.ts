@@ -79,8 +79,8 @@ describe('composição e rotação do Diagnóstico Inicial definitivo', () => {
   it('prioriza as questões ainda não respondidas antes de reutilizar as vistas', () => {
     const inventory = makeInventory();
     const answered = new Set<string>();
-    // Leave exactly one unseen candidate per required category. For categories
-    // requiring two questions, one previous question must be reused.
+    // Deixa exatamente um candidato não visto por categoria exigida. Nas categorias
+    // que exigem duas questões, uma questão anterior precisa ser reutilizada.
     for (const slot of INITIAL_DIAGNOSTIC_COMPOSITION) {
       const category = inventory.filter(question => question.discipline === slot.discipline
         && question.level === slot.level && question.origin === slot.origin);

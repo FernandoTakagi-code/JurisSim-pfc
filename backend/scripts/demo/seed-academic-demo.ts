@@ -109,8 +109,8 @@ async function main() {
     }
   }
   const diagnosticCount = sequence;
-  // Extra synthetic AI fixtures let practice and the adaptive trail have enough
-  // distinct items at a single declared topic without changing the 30-slot mix.
+  // Fixtures sintéticas extras de IA dão à prática e à trilha adaptativa itens distintos
+  // suficientes em um único tema declarado, sem alterar a composição de 30 vagas.
   for (const discipline of INITIAL_DIAGNOSTIC_DISCIPLINES) {
     for (let n = 0; n < 5; n++) {
       sequence++;

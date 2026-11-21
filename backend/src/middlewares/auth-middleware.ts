@@ -4,12 +4,14 @@ import { AuthRepository } from '../repositories/auth-repository';
 import { ApiError } from '../errors/api-error';
 import { currentAccess } from '../services/institutions/institution-service';
 import { prisma } from '../lib/prisma';
+import { currentLegalVersions } from '../services/accounts/terms-of-use';
+import { isCurrentAcceptance } from '../services/accounts/legal-acceptance';
 import { homologationParticipant, institutionRequestScope } from '../config/institution-homologation';
 import { institutionsGloballyEnabled, institutionalTeacherManagementEnabled, institutionalExamManagementEnabled } from '../config/institution-feature';
 
 const service = new AuthService();
 const repository = new AuthRepository();
-// Reuse only within one Express request; revocations are checked anew on the next.
+// Reutilizado apenas dentro de uma mesma requisição Express; as revogações são verificadas de novo na próxima.
 const authenticatedRequests = new WeakSet<Request>();
 function isTeacherManagementWrite(request: Request) {
   if (!institutionalTeacherManagementEnabled()) return false;
@@ -42,13 +44,19 @@ export async function requireAuth(request: AuthenticatedRequest, response: Respo
   }, false);
 }
 
-// Explicit exception for session inspection, personal export, logout and confirmation resend.
+// Exige e-mail confirmado, mas não o aceite dos Termos novos: quem não concorda ainda pode excluir a conta.
+export async function requireAuthAllowingTermsUpdate(request: AuthenticatedRequest, response: Response, next: NextFunction) {
+  response.set('Cache-Control', 'no-store');
+  return authenticate(request, next, false, true);
+}
+
+// Exceção explícita para inspeção de sessão, exportação pessoal, logout e reenvio da confirmação.
 export async function requireLimitedAuth(request: AuthenticatedRequest, response: Response, next: NextFunction) {
   response.set('Cache-Control', 'no-store');
   return authenticate(request, next, true);
 }
 
-async function authenticate(request: AuthenticatedRequest, next: NextFunction, allowUnverified: boolean) {
+async function authenticate(request: AuthenticatedRequest, next: NextFunction, allowUnverified: boolean, allowOutdatedTerms = false) {
   const [scheme, token] = request.header('authorization')?.split(' ') ?? [];
   if (scheme !== 'Bearer' || !token) {
     return next(new ApiError(401, 'Autenticacao obrigatoria.'));
@@ -61,6 +69,11 @@ async function authenticate(request: AuthenticatedRequest, next: NextFunction, a
     }
     if (!allowUnverified && !user.emailVerifiedAt) {
       return next(new ApiError(403, 'Confirme seu e-mail para acessar este recurso.'));
+    }
+    // Termos atualizados: só as rotas limitadas (sessão, logout, aceite) seguem até o novo aceite.
+    // A versão em vigor vem de cache em memória; os campos do usuário já vieram na consulta acima.
+    if (!allowUnverified && !allowOutdatedTerms && !isCurrentAcceptance(user, await currentLegalVersions())) {
+      return next(new ApiError(403, 'Os Termos de Uso foram atualizados. Aceite a nova versão para continuar.', undefined, 'LEGAL_UPDATE_REQUIRED'));
     }
     const access = await currentAccess(
       user.id,
@@ -76,7 +89,7 @@ async function authenticate(request: AuthenticatedRequest, next: NextFunction, a
       const institutionIds=[...new Set(memberships.map(m=>m.institutionId))];
       const selected = requested ? memberships.find(m => m.institutionId === requested) : institutionIds.length === 1 ? memberships[0] : undefined;
       request.auth.institutionAdmin = !!selected && administrativeContext;
-      // Session and invitation routes remain accessible before a context is selected.
+      // As rotas de sessão e de convite continuam acessíveis antes de um contexto ser selecionado.
       if (requested && !selected) return next(new ApiError(403, 'Vínculo institucional não autorizado.'));
       if(administrativeContext&&!selected) return next(new ApiError(403,'Selecione uma instituição com administração ativa e autorizada.'));
       if (administrativeContext && 'readOnly' in access && access.readOnly && !['GET', 'HEAD', 'OPTIONS'].includes(request.method ?? 'GET') && !isTeacherManagementWrite(request) && !isInstitutionExamWrite(request))
@@ -88,8 +101,8 @@ async function authenticate(request: AuthenticatedRequest, next: NextFunction, a
     const restricted = !institutionsGloballyEnabled() ? homologationParticipant(user.id) : null;
     if(access?.restricted && !restricted) return next(new ApiError(403,'Escopo de homologação revogado.'));
     if (restricted) {
-      // The question module is outside this preparation and must not inherit
-      // broader class visibility from the request-scoped institutional flag.
+      // O módulo de questões está fora desta preparação e não deve herdar a visibilidade
+      // mais ampla de turmas vinda da flag institucional da requisição.
       if (/^\/questoes(?:\/|\?|$)/.test(request.originalUrl)) return next(new ApiError(403,'Gestão de questões não integra o escopo de homologação institucional.'));
       return institutionRequestScope.run({userId:user.id,institutionId:restricted.institutionId,operational:access?.enabled === true}, () => next());
     }

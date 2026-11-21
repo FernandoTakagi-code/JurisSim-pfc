@@ -16,6 +16,7 @@ import { institutionsGloballyEnabled } from '../config/institution-feature';
 import { teacherInvitationMode } from '../config/teacher-invitations';
 import { InstitutionDecisionEmail } from '../services/institutions/institution-decision-email';
 import { requireGlobal } from '../services/institutions/institution-service';
+import { parseSummaryPeriod } from '../services/institutions/admin-summary-period';
 import { emailFrontendContext } from '../services/email/email-frontend';
 import { AccountDeletionService } from '../services/accounts/account-deletion';
 
@@ -45,8 +46,8 @@ export const logFilters = z
 export function createInstitutionRoutes(service = new InstitutionService(), onboarding = new InvitationOnboardingService(), decisionEmails = new InstitutionDecisionEmail()) {
 const institutionRoutes = Router();
 institutionRoutes.use(emailFrontendContext);
-// Optional authenticated availability, and authenticated UUID scope before the
-// feature gate. Anonymous clients receive only the global availability.
+// Disponibilidade autenticada opcional, e escopo de UUID autenticado antes do
+// bloqueio da funcionalidade. Clientes anônimos recebem apenas a disponibilidade global.
 institutionRoutes.use((req, res, next) => {
   if (homologationManifest() && req.get('authorization')) return requireAuth(req, res, next);
   next();
@@ -80,20 +81,20 @@ institutionRoutes.use((_req, res, next) => {
   const path = _req.path;
   const invitationEntry = ['/invitations/inspect','/invitations/accept','/invitations/decline'].includes(path);
   if (!institutionsGloballyEnabled() && homologationManifest() && invitationEntry && (_req as AuthenticatedRequest).auth && homologationParticipant((_req as AuthenticatedRequest).auth!.userId)) return next();
-  // Invitation tokens are independently scoped credentials. Keep the complete
-  // invitation lifecycle available when teacher management is enabled, without
-  // enabling institution-wide operations or academic modules.
+  // Tokens de convite são credenciais com escopo próprio. Mantém o ciclo de vida completo
+  // do convite disponível quando a gestão de professores está habilitada, sem
+  // habilitar operações de toda a instituição nem módulos acadêmicos.
   const teacherInvitationFlow = caps.teacherInvitations && [
     '/invitations/inspect', '/invitations/accept', '/invitations/decline',
     '/invitations/register', '/invitations/decline-new',
     '/invitations/complete', '/invitations/decline-proof',
   ].includes(path);
-  // First-time account creation via invitation cannot authorize an unknown UUID.
-  // Restricted participants register/confirm normally before invitation acceptance.
+  // A criação de conta pela primeira vez via convite não pode autorizar um UUID desconhecido.
+  // Participantes restritos se cadastram/confirmam normalmente antes de aceitar o convite.
   if (restrictedInstitutionId() && ['/invitations/register','/invitations/onboarding','/invitations/complete','/invitations/decline-proof'].includes(path)) return next(new ApiError(403,'Use uma conta individual previamente cadastrada e confirmada.'));
-  // These GETs are read models. Their services still verify the caller's
-  // ownership/membership, so they remain safe while operational writes wait
-  // for explicit activation and the pending migrations.
+  // Estes GETs são modelos de leitura. Seus serviços ainda verificam a posse/vínculo
+  // de quem chama, então continuam seguros enquanto as gravações operacionais aguardam
+  // a ativação explícita e as migrações pendentes.
   const authorizedRead = _req.method === 'GET' && (
     path === '/mine' ||
     path === '/notifications' ||
@@ -216,10 +217,10 @@ institutionRoutes.post(
 institutionRoutes.get(
   "/admin/summary",
   async (req: AuthenticatedRequest, res) => {
-    res.json(await service.summary(req.auth!));
+    res.json(await service.summary(req.auth!, parseSummaryPeriod(req.query as Record<string, unknown>)));
   },
 );
-// Preserve legacy URLs as explicit denials; no global academic service is called.
+// Preserva as URLs legadas como negações explícitas; nenhum serviço acadêmico global é chamado.
 institutionRoutes.get('/admin/classes',(_req,_res,next)=>next(new ApiError(403,'Turmas pertencem à administração institucional autorizada.')));
 institutionRoutes.patch('/admin/classes/:id',(_req,_res,next)=>next(new ApiError(403,'A administração global não pode gerir turmas.')));
 institutionRoutes.get(

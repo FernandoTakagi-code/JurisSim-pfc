@@ -5,8 +5,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { parse } from 'dotenv';
 import bcrypt from 'bcrypt';
-// The production deletion gate stays hard-disabled. This double exists only in
-// this test process, after the disposable database identity is checked.
+// O bloqueio de exclusão em produção continua desativado de forma fixa. Este dublê existe apenas
+// neste processo de teste, depois que a identidade do banco descartável é verificada.
 vi.mock("../../src/account-deletion-availability", () => ({ accountDeletionEnabled: () => true, studentSelfDeletionEnabled: () => true, accountDeletionUnavailableMessage: 'isolated test only' }));
 import { prisma, criarUsuario, limparBanco, encerrar, tokenPara } from './helpers';
 import { assertDisposableDatabase } from './disposable-database';
@@ -148,7 +148,7 @@ it.skipIf(process.env.JURISSIM_PROFILE_SEND_REAL_EMAIL !== 'true')('sends two re
   await assertDisposableDatabase(prisma);
   const recipient = process.env.JURISSIM_PROFILE_TEST_RECIPIENT;
   if (!recipient?.includes('@')) throw new Error('An explicitly authorized test recipient is required.');
-  // Read only mail configuration; never load the production database URL.
+  // Lê apenas a configuração de e-mail; nunca carrega a URL do banco de produção.
   const config = parse(readFileSync('.env'));
   const transport = (config.BREVO_EMAIL_TRANSPORT ?? 'api').trim() === 'smtp'
     ? createBrevoSmtpTransport(config.BREVO_SMTP_USER, config.BREVO_SMTP_KEY) : new BrevoApiTransport(config.BREVO_API_KEY);
@@ -164,7 +164,7 @@ it.skipIf(process.env.JURISSIM_PROFILE_SEND_REAL_EMAIL !== 'true')('sends two re
   const user = await account();
   const emailChange = new AccountEmailChangeService({ isConfigured: true,
     async sendConfirmation(to, url, ttl) { confirmationUrl = url; await realSender.sendConfirmation(to, url, ttl); },
-    async sendChangedNotice() { /* The old address is synthetic; never send to it. */ },
+    async sendChangedNotice() { /* O endereço antigo é sintético; nunca enviar para ele. */ },
   }, appUrl);
   await emailChange.request(user.id, { newEmail: recipient, confirmationEmail: recipient, senhaAtual: password });
   await emailChange.confirm(hashToken(confirmationUrl));

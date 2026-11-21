@@ -24,7 +24,7 @@ compile(path.join(__dirname, '../src/account-deletion.tsx'), components, name =>
   throw new Error(name);
 });
 let html = renderToStaticMarkup(React.createElement(components.AccountDeletion));
-// Student self-deletion is enabled: the button is active and no "unavailable" notice is shown.
+// A autoexclusão do aluno está habilitada: o botão fica ativo e nenhum aviso de "indisponível" é exibido.
 assert.match(html, /Excluir minha conta/); assert.doesNotMatch(html, /disabled=""/); assert.doesNotMatch(html, /ainda não está disponível/);
 assert.doesNotMatch(html, /Suas turmas continuam ativas/);
 role = 'PROFESSOR'; html = renderToStaticMarkup(React.createElement(components.AccountDeletion));

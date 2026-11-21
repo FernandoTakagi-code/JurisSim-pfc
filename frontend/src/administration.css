@@ -9,7 +9,7 @@
 .admin-page details > summary { cursor: pointer; padding: 10px 0; }
 .admin-page dd, .admin-page article p { overflow-wrap: anywhere; }
 
-/* Integrated ADMIN content uses the same dashboard classes as student/teacher. */
+/* O conteúdo integrado do ADMIN usa as mesmas classes de painel de aluno/professor. */
 .admin-integrated {
   --panel-bg: var(--v0-panel, white);
   --text-color: var(--v0-text, #17243a);
@@ -275,7 +275,7 @@
   border-radius: 10px;
   color: var(--muted-color, #526477);
 }
-/* H4.23.1: this portal is rendered outside InstitutionDashboard. */
+/* H4.23.1: este portal é renderizado fora do InstitutionDashboard. */
 .institution-portal .institution-portal-header {
   padding: clamp(20px,3vw,34px);
   border: 1px solid color-mix(in srgb, var(--text-color, #182b43) 14%, transparent);
@@ -322,7 +322,7 @@
   .institution-request-status { grid-template-columns: 1fr; gap: 10px; }
 }
 
-/* Administrative adaptation of the v0 layout; never target the shared shell. */
+/* Adaptação administrativa do layout v0; nunca mirar no shell compartilhado. */
 .admin-workspace .admin-section-nav {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -424,3 +424,23 @@
 .admin-workspace .admin-audit-details dl { font-size:.85rem; overflow-wrap:anywhere; }
 .admin-workspace .admin-audit-details dt { font-weight:600; margin-top:.75rem; }
 .admin-workspace .admin-audit-details dd { margin:.25rem 0 .75rem; white-space:pre-wrap; }
+/* Filtro por período da Visão geral */
+.admin-workspace .admin-summary-filter { margin-bottom: 1.25rem; }
+.admin-workspace .admin-summary-filter h2 { font-size: 1rem; margin: 0 0 .75rem; }
+.admin-workspace .admin-summary-filter-fields { display:flex; flex-wrap:wrap; align-items:flex-end; gap:.75rem 1rem; }
+.admin-workspace .admin-summary-filter-fields label { display:grid; gap:.35rem; font-weight:600; }
+.admin-workspace .admin-summary-groupby { display:flex; gap:.4rem; }
+.admin-workspace .admin-summary-groupby button { padding:.6rem .9rem; border:1px solid var(--border, #cbd5e1); border-radius:.6rem; }
+.admin-workspace .admin-summary-groupby button[aria-pressed="true"] { background:#17345e; color:#fff; border-color:#17345e; }
+.admin-workspace .admin-summary-groupby button:disabled { opacity:.45; cursor:not-allowed; }
+.admin-workspace .admin-charts .dashboard-panel > .muted { margin:-.25rem 0 .75rem; font-size:.85rem; }
+/* Termos de uso do ADMIN */
+.admin-workspace .admin-terms { display:grid; gap:1.25rem; }
+.admin-workspace .admin-terms-section { display:grid; gap:.6rem; padding:1rem; margin:0 0 1rem; border:1px solid var(--border, #cbd5e1); border-radius:.75rem; }
+.admin-workspace .admin-terms-section label { display:grid; gap:.35rem; font-weight:600; }
+.admin-workspace .admin-terms-section textarea { resize:vertical; line-height:1.5; }
+.admin-workspace .admin-terms-section-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+.admin-workspace .admin-terms-preview { padding:1rem 1.25rem; border:1px solid var(--border, #cbd5e1); border-radius:.75rem; line-height:1.6; }
+.admin-workspace .admin-terms-confirm { border-left:3px solid #c69b48; }
+.admin-workspace .admin-terms-history ul { list-style:none; padding:0; margin:0; display:grid; gap:.6rem; }
+.admin-workspace .admin-terms-history li { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; }

@@ -10,8 +10,8 @@ type Class = { id: string; nome: string; archivedAt?: string | null; _count?: { 
 type Exam = { id: string; titulo: string; status?: string };
 type Overview = { classes: number; activeClasses: number; students: number; publishedExams: number };
 
-// Home is independent of the question editor/bank. Data remains protected by
-// the existing class/exam APIs and the validated institution context.
+// A tela inicial é independente do editor/banco de questões. Os dados continuam protegidos
+// pelas APIs existentes de turmas/simulados e pelo contexto institucional validado.
 export function TeacherDashboard({ session }: { session: Session }) {
   const access = teacherAccess(session, sessionStorage.getItem('jurissim_institution'));
   const classes = useResource<Page<Class>>(access.canLoadAcademicData ? '/turmas?page=1' : null);

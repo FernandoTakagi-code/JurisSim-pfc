@@ -12,8 +12,8 @@ export interface RecoveryEmailSender {
   sendPasswordRecovery(email: PasswordRecoveryEmail): Promise<void>;
 }
 
-// Intentionally has no fallback that prints or returns the recovery URL.
-// A provider adapter must be selected and configured before delivery is enabled.
+// Propositalmente não há fallback que imprima ou retorne a URL de recuperação.
+// Um adaptador de provedor deve ser selecionado e configurado antes de habilitar o envio.
 export class UnconfiguredRecoveryEmailSender implements RecoveryEmailSender {
   readonly isConfigured = false;
 

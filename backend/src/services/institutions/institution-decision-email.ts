@@ -27,7 +27,7 @@ function payload(value: string): Delivery | null {
   } catch { return null; }
 }
 
-// Sequence, not timestamp/UUID ordering, defines the append-only state stream.
+// É a sequência, e não a ordenação por timestamp/UUID, que define o fluxo de estados somente-anexação.
 async function project(client: Reader, event: { id: string; institutionId: string | null }, root: Delivery): Promise<Projection> {
   const rows = await client.administrativeEvent.findMany({
     where: { event: decisionEmailTransitionEvent, institutionId: event.institutionId, resourceId: event.id },
@@ -54,7 +54,7 @@ async function project(client: Reader, event: { id: string; institutionId: strin
   return result;
 }
 
-// The same lock protects EVERY reservation/completion. SMTP is outside the tx.
+// O mesmo lock protege TODA reserva/conclusão. O SMTP fica fora da transação.
 async function locked<T>(eventId: string, work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   return prisma.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(710915, hashtext(${eventId}))`;
@@ -134,7 +134,7 @@ export class InstitutionDecisionEmail {
         await append(tx, event, { ...transition, sequence: current.sequence + 1, state, at: new Date().toISOString(), smtpAttempted: true, ...(error ? { error } : {}) });
       });
     } catch {
-      // A failed final append leaves durable SENDING. Never resend blindly.
+      // Uma anexação final com falha deixa o estado SENDING persistido. Nunca reenviar às cegas.
       console.warn('email.institution.result_persistence_failed', { deliveryId: event.id, stage: 'result_persistence', outcome: 'indeterminate' });
       return 'UNKNOWN';
     }

@@ -1,5 +1,5 @@
-// Runs only inside the harness-owned disposable PostgreSQL cluster.
-// Never loads .env and never creates a real SMTP connection.
+// Roda apenas dentro do cluster PostgreSQL descartável do harness.
+// Nunca carrega .env e nunca cria uma conexão SMTP real.
 import { beforeAll, beforeEach, afterAll, it, expect, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 const smtp = vi.hoisted(() => ({ createTransport: vi.fn(), sendMail: vi.fn() }));

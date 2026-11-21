@@ -161,8 +161,8 @@ it('H4.32 inspection is read-only; first access creates a professor and accepts 
   const item=await directInvite();const before=await prisma.user.count();
   for(let n=0;n<2;n++){const inspected=await post('/institutions/invitations/inspect',{token:item.token});expect(inspected.status).toBe(200);expect(inspected.body).toMatchObject({email:item.email,accountExists:false});}
   expect(await prisma.user.count()).toBe(before);
-  // Teacher invitations are an independent capability; the full institutions
-  // switch remains off while the invite itself authorizes this first access.
+  // Os convites de professores são uma capacidade independente; a chave completa de
+  // instituições continua desligada enquanto o próprio convite autoriza este primeiro acesso.
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','true');vi.stubEnv('TEACHER_INVITATIONS_MODE','institutional');
   expect((await post('/institutions/invitations/register',registration(item.token))).status).toBe(201);
   const user=await prisma.user.findUniqueOrThrow({where:{email:item.email}});

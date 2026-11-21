@@ -7,7 +7,7 @@ export type InitialDiagnosticDiscipline = typeof INITIAL_DIAGNOSTIC_DISCIPLINES[
 
 export interface InitialDiagnosticCandidate extends QuestionCandidate {
   discipline: string;
-  /** Only an explicitly selected provisional batch may carry this marker. */
+  /** Somente um lote provisório selecionado explicitamente pode carregar este marcador. */
   draftPilotBatchId?: string;
 }
 
@@ -44,7 +44,7 @@ const authorialComposition: readonly InitialDiagnosticSlot[] = Object.freeze(
 );
 
 export function getInitialDiagnosticComposition(mode: InitialDiagnosticCompositionMode): readonly InitialDiagnosticSlot[] {
-  // Validate at runtime too: scripts receive untrusted command-line strings.
+  // Valida também em tempo de execução: os scripts recebem strings de linha de comando não confiáveis.
   return parseInitialDiagnosticCompositionMode(mode) === 'AUTORAL_30'
     ? authorialComposition : INITIAL_DIAGNOSTIC_COMPOSITION;
 }
@@ -84,11 +84,11 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
 }
 
 /**
- * Composes a 30-question diagnostic using the explicitly selected policy.
- * Eligibility and review requirements remain independent of that policy.
- * The caller must persist the returned ordered IDs when creating an
- * attempt; refreshes must read that attempt instead of calling this selector.
- * No partial attempt is returned if any of the 30 slots lacks inventory.
+ * Monta um diagnóstico de 30 questões usando a política selecionada explicitamente.
+ * Os requisitos de elegibilidade e revisão continuam independentes dessa política.
+ * Quem chama deve persistir os IDs ordenados retornados ao criar uma
+ * tentativa; recarregamentos devem ler essa tentativa em vez de chamar este seletor.
+ * Nenhuma tentativa parcial é retornada se alguma das 30 vagas não tiver inventário.
  */
 export function composeInitialDiagnostic(
   inventory: readonly InitialDiagnosticCandidate[],
@@ -134,7 +134,7 @@ export function composeInitialDiagnostic(
     const seen = shuffle(candidates.filter((question) => previouslyAnsweredIds.has(question.id)), random);
     const chosen = [...unseen, ...seen].slice(0, slot.quantity);
 
-    // Inventory was checked above; this guards against accidental policy drift.
+    // O inventário foi verificado acima; isto protege contra um desvio acidental da política.
     if (chosen.length !== slot.quantity) {
       throw new Error(`A composição mudou durante a seleção: ${slot.discipline}/${slot.level}/${slot.origin}.`);
     }

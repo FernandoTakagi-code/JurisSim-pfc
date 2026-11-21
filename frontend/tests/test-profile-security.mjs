@@ -1,4 +1,4 @@
-﻿// Real diagnostic UI with isolated responses; never uses the shared API or real accounts.
+﻿// Interface real do diagnóstico com respostas isoladas; nunca usa a API compartilhada nem contas reais.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -85,7 +85,7 @@ try {
         assert.ok(state.cards.length>=1);assert.ok(state.cards.every(c=>c.bg===state.cards[0].bg));
         if(tab==='security')assert.equal(state.cards.length,1,'security has one principal card');
         if(width===1440||width===390){const capture=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});await writeFile(path.join(evidence,theme+'-'+width+'-'+tab+'.png'),Buffer.from(capture.data,'base64'));}
-        // Keep a canonical RGB surface for comparison across tab changes.
+        // Mantém uma superfície RGB canônica para comparar entre trocas de aba.
         if(tab==='personal')baseline.surface=state.cards[0].bg;
         else assert.equal(state.cards[0].bg,baseline.surface,'all tabs share theme surface');
       }

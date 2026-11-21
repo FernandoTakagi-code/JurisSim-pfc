@@ -1,5 +1,5 @@
-// Render the real area wrapper: disabling the full module must not override
-// the per-feature capabilities subsequently checked by InstitutionDashboard.
+// Renderiza o wrapper real da área: desativar o módulo completo não deve sobrescrever
+// as capacidades por funcionalidade verificadas em seguida pelo InstitutionDashboard.
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
 const ts=require('typescript'),React=require('react');
 const exportsObject={},Dashboard=()=>null,Gate=()=>null,Shell=()=>null;

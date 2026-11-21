@@ -1,4 +1,4 @@
-﻿// Real diagnostic UI with isolated responses; never uses the shared API or real accounts.
+﻿// Interface real do diagnóstico com respostas isoladas; nunca usa a API compartilhada nem contas reais.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';

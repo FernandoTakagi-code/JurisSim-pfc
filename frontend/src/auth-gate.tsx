@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { pendingInvitation } from './invitation-token';
 import { navigate } from './navigation';
-import { LegalLinks, legalAcceptance } from './legal';
+import { LegalLinks } from './legal';
+import { currentLegalAcceptance } from './terms-of-use';
 import { PASSWORD_MIN_LENGTH, passwordError, passwordRequirements, validPasswordConfirmation } from '../../backend/src/password-policy';
 import { validateRegistration } from './registration-validation';
 import { INITIAL_DIAGNOSTIC_ATTEMPT_COUNT, INITIAL_DIAGNOSTIC_DISCIPLINES, INITIAL_DIAGNOSTIC_QUESTION_COUNT } from '../../backend/src/services/diagnostics/initial-diagnostic-config';
@@ -181,7 +182,7 @@ export function AuthGate({initialEmail='',initialNotice='',invitationLogin=false
         ...(invitationLogin?{existingAccountOnly:true}:{}),
         ...(window.location.pathname === '/instituicoes' ? { registrationIntent: 'INSTITUTION' } : {}),
         nonce: googleNonce,
-        acceptance: legalAcceptance,
+        acceptance: await currentLegalAcceptance(),
       });
       if (result.requiresAcceptance) throw new Error("Confirme o aceite para continuar.");
       setPendingGoogleCredential(undefined);
@@ -227,14 +228,14 @@ export function AuthGate({initialEmail='',initialNotice='',invitationLogin=false
           email: registerEmail,
           senha: registerSenha,
           confirmacaoSenha,
-          acceptance: legalAcceptance,
+          acceptance: await currentLegalAcceptance(),
           ...(window.location.pathname === '/instituicoes' ? { registrationIntent: 'INSTITUTION' } : {}),
         });
         setRegisterSenha("");
         setConfirmacaoSenha("");
         setAccepted(false);
-        // Registration grants only a limited session. The server-confirmed
-        // email status still gates every protected screen and operation.
+        // O cadastro concede apenas uma sessão limitada. O status do e-mail confirmado
+        // pelo servidor continua controlando toda tela e operação protegida.
         await establishSession(registration.token);
       } else {
         const login = await post("/auth/login", { email: loginEmail, senha: loginSenha });

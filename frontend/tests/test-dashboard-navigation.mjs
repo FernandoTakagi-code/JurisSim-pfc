@@ -46,7 +46,7 @@ try {
       const task = pending.get(message.id); pending.delete(message.id); clearTimeout(task.timer);
       if (message.error) task.reject(new Error(message.error.message)); else task.resolve(message.result);
     }
-    // Defense in depth: only Vite assets may actually use the network.
+    // Defesa em profundidade: apenas os assets do Vite podem de fato usar a rede.
     if (message.method === 'Fetch.requestPaused') {
       const allowed = message.params.request.url.startsWith(origin + '/');
       void send(allowed ? 'Fetch.continueRequest' : 'Fetch.failRequest', {
@@ -387,7 +387,7 @@ try {
   assert.equal(await evaluate('window.b1.writes'),4); pass('B1 lost write response reconciles; summary retry does not repeat write');
   await boot({session:user()}, '/dashboard');
   await evaluate('window.b1.summaryFails=true');
-  // Force a remount without a document reload so the controlled API remains installed.
+  // Força uma remontagem sem recarregar o documento, para que a API controlada continue instalada.
   await evaluate('history.pushState({},"","/administracao");window.dispatchEvent(new PopStateEvent("popstate"))');
   await until('document.body.textContent.includes("exclusiva")');
   await evaluate('history.pushState({},"","/dashboard");window.dispatchEvent(new PopStateEvent("popstate"))');

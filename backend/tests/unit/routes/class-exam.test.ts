@@ -4,8 +4,8 @@ import jwt from 'jsonwebtoken';
 import type { Server } from 'node:http';
 const mocks = vi.hoisted(() => ({ user: vi.fn(), list: vi.fn(), create: vi.fn(), update: vi.fn(), invite: vi.fn(), join: vi.fn(), students: vi.fn(), exams: vi.fn(), eligible:vi.fn(),preview:vi.fn(),save: vi.fn(), publish: vi.fn(), start: vi.fn(), attempt: vi.fn(), answer: vi.fn(), finalize: vi.fn() }));
 vi.mock("../../../src/repositories/auth-repository", () => ({ AuthRepository: class { findByIdForAuth = mocks.user; } }));
-// This suite tests legacy HTTP role guards, not database-backed memberships.
-// Keep configured local flags from causing accidental Prisma calls in unit tests.
+// Esta suíte testa as proteções legadas de papel no HTTP, não vínculos baseados no banco.
+// Evita que flags locais configuradas causem chamadas acidentais ao Prisma nos testes unitários.
 vi.mock("../../../src/services/institutions/institution-service", () => ({ currentAccess: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../../../src/services/assessments/class-exam-service", () => ({ ClassExamService: class {
   listClasses = mocks.list; createClass = mocks.create; updateClass = mocks.update; rotateInvite = mocks.invite;
@@ -31,7 +31,7 @@ beforeAll(async () => {
 });
 afterAll(async () => { await new Promise<void>(resolve => server.close(() => resolve())); });
 beforeEach(() => {
-  vi.clearAllMocks(); mocks.user.mockResolvedValue({ id, role: 'PROFESSOR', sessionVersion: 0, emailVerifiedAt: new Date(), deletedAt: null });
+  vi.clearAllMocks(); mocks.user.mockResolvedValue({ id, role: 'PROFESSOR', sessionVersion: 0, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', deletedAt: null });
   for (const [name, mock] of Object.entries(mocks)) if (name !== 'user') mock.mockResolvedValue({ items: [], page: 1, hasMore: false });
 });
 
@@ -41,7 +41,7 @@ describe('class and teacher-exam HTTP guards', () => {
     expect((await request('GET',path)).status).toBe(200);
     expect(mocks.preview).toHaveBeenCalledWith(expect.objectContaining({role:'PROFESSOR'}),[id],id);
     mocks.preview.mockClear();expect((await request('GET',`/avaliacoes/eligible-questions/${id}?turmaIds=invalid`)).status).toBe(422);
-    for(const role of ['ALUNO','ADMIN']){mocks.user.mockResolvedValue({id,role,emailVerifiedAt:new Date(),sessionVersion:0});expect((await request('GET',path)).status).toBe(403);}
+    for(const role of ['ALUNO','ADMIN']){mocks.user.mockResolvedValue({id,role,emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',sessionVersion:0});expect((await request('GET',path)).status).toBe(403);}
     expect(mocks.preview).not.toHaveBeenCalled();expect((await request('GET',path,undefined,null)).status).toBe(401);
   });
 
@@ -53,7 +53,7 @@ describe('class and teacher-exam HTTP guards', () => {
     expect((await request('GET','/avaliacoes/eligible-questions?'+query)).status).toBe(422);expect(mocks.eligible).not.toHaveBeenCalled();
   });
   it.each(['ALUNO','ADMIN'])('catalog denies %s without invoking the read service',async role=>{
-    mocks.user.mockResolvedValue({id,role,emailVerifiedAt:new Date(),sessionVersion:0});
+    mocks.user.mockResolvedValue({id,role,emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',sessionVersion:0});
     expect((await request('GET',`/avaliacoes/eligible-questions?turmaIds=${id}`)).status).toBe(403);expect(mocks.eligible).not.toHaveBeenCalled();
   });
   it.each([
@@ -73,7 +73,7 @@ describe('class and teacher-exam HTTP guards', () => {
     ['POST', `/turmas/${id}/invite`, {}], ['GET', `/turmas/${id}/students`, undefined], ['GET', '/turmas/students', undefined],
     ['POST', '/avaliacoes', input], ['PUT', `/avaliacoes/${id}`, input], ['POST', `/avaliacoes/${id}/publish`, {}],
   ])('student cannot manage classes/exams: %s %s', async (method, path, body) => {
-    mocks.user.mockResolvedValue({ id, role: 'ALUNO', sessionVersion: 0, emailVerifiedAt: new Date() });
+    mocks.user.mockResolvedValue({ id, role: 'ALUNO', sessionVersion: 0, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1' });
     expect((await request(method as string, path as string, body)).status).toBe(403);
   });
   it.each([
@@ -119,7 +119,7 @@ describe('class and teacher-exam HTTP guards', () => {
     expect((await request('GET', '/turmas' + query)).status).toBe(422); expect(mocks.list).not.toHaveBeenCalled();
   });
   it('uses current profile and rejects a revoked JWT', async () => {
-    mocks.user.mockResolvedValue({ id, role: 'ALUNO', emailVerifiedAt: new Date(), sessionVersion: 1 });
+    mocks.user.mockResolvedValue({ id, role: 'ALUNO', emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', sessionVersion: 1 });
     expect((await request('GET', '/avaliacoes')).status).toBe(401); expect(mocks.exams).not.toHaveBeenCalled();
   });
 });

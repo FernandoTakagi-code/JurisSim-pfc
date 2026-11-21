@@ -1,6 +1,6 @@
-// Creates its own disposable PostgreSQL cluster. Never accepts a database URL,
-// loads connection settings from .env, connects to an existing server, or deletes
-// databases/data files. Prisma receives explicit disposable connection settings.
+// Cria o próprio cluster PostgreSQL descartável. Nunca aceita uma URL de banco, carrega
+// configurações de conexão do .env, conecta-se a um servidor existente nem exclui
+// bancos/arquivos de dados. O Prisma recebe configurações explícitas da conexão descartável.
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const { createHash, randomBytes } = require('node:crypto');
@@ -49,8 +49,8 @@ const requiredTail = [
 const pgBin = process.argv[2];
 const preflightOnly = process.argv[3] === '--preflight-only';
 const startupDiagnosticOnly = process.argv[3] === '--startup-diagnostic-only';
-// Same disposable cluster and migration checks, but only the Vitest integration suite
-// (skips the standalone scripts/test-*-db.ts scenario runners).
+// Mesmo cluster descartável e mesmas verificações de migração, mas apenas a suíte de integração do Vitest
+// (ignora os executores de cenário independentes scripts/test-*-db.ts).
 const functionalSuite = process.argv[3] === '--functional-suite';
 const editorialSuite = process.argv[3] === '--question-editorial-only';
 
@@ -121,8 +121,8 @@ const passwordFile = path.join(artifacts, 'postgres-password.txt');
 const emptyPasswordFile = path.join(artifacts, 'empty-pgpass');
 const user = 'jurissim_migration_test';
 const testPassword = randomBytes(32).toString('hex');
-// Unpredictable database names make a port takeover fail closed even if a
-// different local PostgreSQL instance uses trust authentication.
+// Nomes de banco imprevisíveis fazem uma tomada da porta falhar de forma segura, mesmo que
+// outra instância local do PostgreSQL use autenticação trust.
 const runId = randomBytes(16).toString('hex');
 const historyDatabase = `js_hist_${runId}`;
 const freshDatabase = `js_fresh_${runId}`;
@@ -134,12 +134,12 @@ let isolatedSchemaDirectoryCreated = false;
 const allowedEnvironment = new Set([
   'PATH', 'PATHEXT', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'TEMP', 'TMP',
   'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA',
-  // Browser location only (Linux CI); the browser scripts already default to Windows Chrome.
+  // Apenas a localização do navegador (CI Linux); os scripts de navegador já usam o Chrome do Windows por padrão.
   'CHROME_PATH',
 ]);
 const env = Object.fromEntries(Object.entries(process.env)
   .filter(([key]) => allowedEnvironment.has(key.toUpperCase())));
-// Explicit mail smoke test opt-in; no database URL or mail credential is inherited.
+// Smoke test de e-mail opcional e explícito; nenhuma URL de banco ou credencial de e-mail é herdada.
 if (profileSecurityOnly && process.env.JURISSIM_PROFILE_SEND_REAL_EMAIL === 'true') {
   env.JURISSIM_PROFILE_SEND_REAL_EMAIL = 'true';
   env.JURISSIM_PROFILE_TEST_RECIPIENT = process.env.JURISSIM_PROFILE_TEST_RECIPIENT ?? '';
@@ -164,11 +164,11 @@ function redact(value) {
 
 function run(command, args, input, allowAfterStop = false, environment = env) {
   if (stopRequested && !allowAfterStop) throw new Error('Harness interrupted; refusing further database commands.');
-  // On Windows, postgres can inherit pg_ctl's pipe handles and keep spawnSync
-  // waiting after pg_ctl has exited. The server already writes to postgres.log.
+  // No Windows, o postgres pode herdar os handles de pipe do pg_ctl e deixar o spawnSync
+  // esperando depois que o pg_ctl terminou. O servidor já grava em postgres.log.
   const controller = path.basename(command).startsWith('pg_ctl') && ['start', 'stop'].includes(args.at(-1));
-  // A full Vitest integration run takes ~90 s on a fast machine and exceeds the
-  // 2-minute cap on slower ones; give it its own budget instead of killing it.
+  // Uma execução completa da integração do Vitest leva ~90 s em uma máquina rápida e passa
+  // do limite de 2 minutos nas mais lentas; ela recebe um orçamento próprio em vez de ser encerrada.
   const vitestRun = args.some(arg => String(arg).includes('vitest'));
   const result = spawnSync(command, args, { cwd: backend, env: environment, input,
     stdio: controller ? 'ignore' : 'pipe', encoding: 'utf8', windowsHide: true, timeout: vitestRun ? 1_800_000 : 120_000 });
@@ -287,7 +287,7 @@ function sql(database, input) {
 }
 function prisma(database, args) {
   targetEnvironment(database);
-  // A psql assertion precedes every Prisma CLI call that could reach a database.
+  // Uma asserção via psql precede toda chamada da CLI do Prisma que possa alcançar um banco.
   sql(database, 'SELECT 1;');
   const url = `postgresql://${user}:${testPassword}@127.0.0.1:${env.PGPORT}/${database}?schema=public`;
   Object.assign(env, { DATABASE_URL: url, DIRECT_URL: url, SHADOW_DATABASE_URL: url });
@@ -349,8 +349,8 @@ INSERT INTO "PasswordRecoveryToken" (id, "userId", "tokenHash", "expiresAt") VAL
 `;
 async function main() {
   console.log(`Artifacts (retained; no automatic deletion): ${artifacts}`);
-  // Prove isolated generation and current runtime-client compatibility before
-  // initializing or starting PostgreSQL.
+  // Comprova a geração isolada e a compatibilidade com o client de runtime atual antes de
+  // inicializar ou iniciar o PostgreSQL.
   generatePrismaClientIsolated();
   if (preflightOnly) {
     console.log('Preflight passed. PostgreSQL was not initialized or started.');
@@ -382,16 +382,16 @@ async function main() {
   } finally {
     if (fs.existsSync(passwordFile)) removeOwnedFile(passwordFile);
   }
-  // Choose the port immediately before bind. If another process wins the small
-  // close-to-bind race, pg_ctl fails and no client is allowed to probe that port.
+  // Escolhe a porta imediatamente antes do bind. Se outro processo vencer a pequena
+  // corrida entre fechar e fazer o bind, o pg_ctl falha e nenhum cliente pode sondar essa porta.
   port = await chooseAvailableLoopbackPort();
   console.log(`Selected loopback port: ${port}`);
   targetEnvironment('postgres');
   startAttempted = true;
   const pgCtlStdout = path.join(artifacts, 'pg_ctl-start.stdout.log');
   const pgCtlStderr = path.join(artifacts, 'pg_ctl-start.stderr.log');
-  // All clients use guarded loopback TCP. Do not require write permissions on
-  // the host's shared /var/run/postgresql or expose a shared Unix socket.
+  // Todos os clientes usam TCP em loopback protegido. Não exigir permissão de escrita em
+  // /var/run/postgresql compartilhado do host nem expor um socket Unix compartilhado.
   const socketOptions = process.platform === 'win32' ? '' : ' -c unix_socket_directories=';
   const startArgs = ['-D', data, '-l', log, '-o', `-h 127.0.0.1 -p ${port}${socketOptions}`, '-w', '-t', '30', 'start'];
   const startResult = runCaptured(executable('pg_ctl'), startArgs, pgCtlStdout, pgCtlStderr, env);
@@ -413,7 +413,7 @@ async function main() {
   sql('postgres', 'CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN;');
   sql('postgres', `CREATE DATABASE ${quote(historyDatabase)}; CREATE DATABASE ${quote(freshDatabase)};`);
 
-  // Upgrade path: replay the untouched history and preserve rows in every table.
+  // Caminho de atualização: reaplica o histórico intacto e preserva as linhas de todas as tabelas.
   for (const name of historical) sql(historyDatabase, fs.readFileSync(path.join(migrations, name, 'migration.sql'), 'utf8'));
   console.log(`PASS: ${historical.length} historical migrations replayed`);
   const beforeDiff = prisma(historyDatabase, ['migrate', 'diff', '--from-url', `postgresql://${user}:${testPassword}@127.0.0.1:${port}/${historyDatabase}?schema=public`, '--to-schema-datamodel', 'prisma/schema.prisma']);
@@ -447,7 +447,7 @@ async function main() {
   `);
   console.log('PASS: nullable password, both auth token types and all four new audit labels accept fixture inserts');
 
-  // Stage 3: preserve every stage-1 column and fixture row while adding versioning.
+  // Etapa 3: preserva todas as colunas e linhas de fixture da etapa 1 enquanto adiciona o versionamento.
   const stage1Tables = JSON.parse(sql(historyDatabase, `SELECT json_agg(t ORDER BY name) FROM (
     SELECT table_name AS name, array_agg(column_name ORDER BY ordinal_position) AS columns
     FROM information_schema.columns WHERE table_schema = 'public' GROUP BY table_name
@@ -515,7 +515,7 @@ async function main() {
   console.log('PASS: question-import migration preserves historical rows and enforces RLS/grants plus nullable/unique fingerprints');
   assertNoDrift(historyDatabase);
 
-  // Fresh installation: exercise Prisma's real migration runner and ledger.
+  // Instalação nova: exercita o executor real de migrações do Prisma e seu registro.
   prisma(freshDatabase, ['validate', '--schema', 'prisma/schema.prisma']);
   prisma(freshDatabase, ['migrate', 'deploy', '--schema', 'prisma/schema.prisma']);
   assertNoDrift(freshDatabase);
@@ -526,7 +526,7 @@ async function main() {
   assert.deepEqual(previousMigrations.map(digest), checksums, 'Historical migration files changed');
   console.log('PASS: historical migration checksums unchanged');
 
-  // Run the actual repositories and HTTP authentication against only this cluster.
+  // Executa os repositórios reais e a autenticação HTTP apenas contra este cluster.
   const runtimeUrl = `postgresql://${user}:${testPassword}@127.0.0.1:${port}/${freshDatabase}?schema=public`;
   Object.assign(env, { DATABASE_URL: runtimeUrl, DIRECT_URL: runtimeUrl, SHADOW_DATABASE_URL: runtimeUrl,
     PGDATABASE: freshDatabase, JURISSIM_TEST_DB_PASSWORD: testPassword,
@@ -539,7 +539,7 @@ async function main() {
   if (!integrationSuiteOnly || accountPrivacyOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-profile-photo-db.ts', data]));
   if (!integrationSuiteOnly) console.log(run(process.execPath, ['--import', 'tsx', 'scripts/test-auth-stage7-db.ts', data]));
 
-  // Separate database for main's suite, within this same freshly created cluster.
+  // Banco separado para a suíte da main, dentro deste mesmo cluster recém-criado.
   sql('postgres', `CREATE DATABASE ${quote(integrationDatabase)};`);
   prisma(integrationDatabase, ['migrate', 'deploy', '--schema', 'prisma/schema.prisma']);
   const integrationUrl = `postgresql://${user}:${testPassword}@127.0.0.1:${port}/${integrationDatabase}?schema=public`;

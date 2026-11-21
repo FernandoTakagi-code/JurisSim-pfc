@@ -86,8 +86,8 @@ async function setupServer() {
   app.use('/institutions',createInstitutionRoutes());
   app.use('/question-review',createQuestionReviewRoutes());
   app.use('/goals',goalRoutes);
-  // Enable only within this isolated integration server. This does not alter
-  // the real process environment or the production feature flags.
+  // Habilita apenas dentro deste servidor de integração isolado. Isto não altera
+  // o ambiente real do processo nem as flags de produção.
   app.use('/question-practice', createQuestionPracticeRoutes({ isEnabled: () => true }));
   app.use('/students/me', studentHistoryRoutes);
   app.use(errorHandler);
@@ -223,7 +223,7 @@ describe('question practice with disposable PostgreSQL', () => {
     expect(started.status, JSON.stringify(started.body)).toBe(201);
     expect(started.body.attempt.questions.map((q: { id: string }) => q.id).sort()).toEqual([...ids].sort());
 
-    // Answers from any other activity still count as already seen.
+    // Respostas de qualquer outra atividade continuam contando como já vistas.
     const other = await prisma.simulado.create({ data: { tipo: 'PERSONALIZADO', alunoId: student.id, finalizadoEm: new Date() } });
     await answer(other.id, ids[0], 1);
     expect([...await repository.listAnsweredQuestionIds(student.id, 'Direito do Trabalho')]).toEqual([ids[0]]);
@@ -433,7 +433,7 @@ it('owner release rejects private, changed, duplicate and published-exam content
   const exam=await prisma.avaliacao.create({data:{titulo:'Published isolated exam',autorId:f.owner.id,publishedAt:new Date(),questoes:{create:{questaoId:f.ids[0],posicao:1}}}});
   await expect(publishOwnerPractice(prisma,f.manifest,f.owner.email,'Owner isolated authorization')).rejects.toThrow('impedimentos');
   expect(await prisma.administrativeEvent.count()).toBe(0);
-  // Only isolated fixtures are updated; no existing exam is touched.
+  // Apenas as fixtures isoladas são atualizadas; nenhum simulado existente é alterado.
   await prisma.avaliacao.update({where:{id:exam.id},data:{publishedAt:null}});
   const published=await publishOwnerPractice(prisma,f.manifest,f.owner.email,'Owner isolated authorization');
   expect(published.published).toBe(5);
