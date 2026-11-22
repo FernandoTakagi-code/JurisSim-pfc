@@ -242,9 +242,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
               <div><p className="gold">JURISSIM · OAB</p><h1>Seu espaço de estudos</h1><p className="muted">Acompanhe seu preparo e continue de onde parou.</p></div>
               <div className="dashboard-heading-actions">
                 <button className="primary" onClick={() => navigate("/estudar")}>Estudar agora <b>→</b></button>
-                <button className="text-button" onClick={() => navigate("/trilha")}>Minha Trilha Adaptativa</button>
-                <button className="text-button" onClick={() => navigate("/diagnostico-inicial")}>Conhecer o novo diagnóstico</button>
-              </div>
+                <button className="text-button" onClick={() => navigate("/trilha")}>Minha Trilha Adaptativa</button>              </div>
             </div>
             <article className="dashboard-recommendation">
               <div className="recommendation-icon">✦</div>
