@@ -165,6 +165,12 @@ export async function linkDemoInstitution(db: PrismaClient, adminEmail: string) 
   const turmas = await db.turma.findMany({ where: { nome: { startsWith: DEMO_PREFIX } }, select: { id: true, institutionalClass: { select: { institutionId: true } } } });
   if (!turmas.length) throw new Error('Não há dados de demonstração. Rode --apply antes.');
   if (turmas.some(t => t.institutionalClass && t.institutionalClass.institutionId !== institutionId)) throw new Error('As turmas [DEMO] já estão em outra instituição. Rode --remove e --apply antes.');
+  // Para os números baterem com o painel do ADMIN, os alunos fake sem turma entram nas turmas [DEMO] (sem tentativas).
+  const loose = await db.user.findMany({ where: { email: { endsWith: DEMO_EMAIL_DOMAIN }, role: 'ALUNO', turmasComoAluno: { none: {} } }, orderBy: { email: 'asc' }, select: { id: true } });
+  for (const [i, t] of turmas.entries()) {
+    const ids = loose.filter((_, k) => k % turmas.length === i).map(s => ({ id: s.id }));
+    for (const part of chunk(ids)) await db.turma.update({ where: { id: t.id }, data: { alunos: { connect: part } } });
+  }
   await db.$transaction([
     db.institutionalMembership.createMany({ data: teachers.map(t => ({ institutionId, userId: t.id, role: 'TEACHER' })), skipDuplicates: true }),
     db.institutionalClass.createMany({ data: turmas.map(t => ({ classId: t.id, institutionId })), skipDuplicates: true }),

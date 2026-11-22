@@ -48,7 +48,8 @@ it('gera contas e atividades de demonstração visíveis no painel do ADMIN e re
   await expect(linkDemoInstitution(prisma, realStudent.email)).rejects.toThrow('Nenhuma instituição');
   const linked = await linkDemoInstitution(prisma, responsible.email);
   expect(linked).toMatchObject({ institution: 'Instituição de teste', teachers: 6, classes: 3 });
-  expect(linked.students).toBeGreaterThan(50);
+  expect(linked.students).toBe(300); // todos os alunos fake, igual ao total do painel do ADMIN
+  expect(await prisma.simulado.count()).toBe(created.attempts); // matricular não cria tentativas
   expect(await prisma.institutionalMembership.count({ where: { institutionId: institution.id, role: 'TEACHER', active: true } })).toBe(6);
   expect(await prisma.institutionalClass.count({ where: { institutionId: institution.id } })).toBe(3);
   expect(await linkDemoInstitution(prisma, responsible.email)).toMatchObject({ teachers: 6, classes: 3 }); // repetir não duplica
