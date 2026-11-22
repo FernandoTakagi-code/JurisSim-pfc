@@ -22,16 +22,20 @@ export function restorableWhere(sourceBatchId: string, disciplines: string[]): P
 type Tx = Prisma.TransactionClient;
 
 async function planRestore(tx: Tx, options: RestoreOptions) {
-  if (options.sourceBatchId === options.targetBatchId) throw new Error('Os lotes de origem e destino devem ser diferentes.');
   if (!Number.isInteger(options.target) || options.target < 1 || options.target > 60) throw new RangeError('Alvo por disciplina inválido.');
   for (const discipline of options.disciplines) {
     if (!(INITIAL_DIAGNOSTIC_DISCIPLINES as readonly string[]).includes(discipline)) throw new RangeError(`Disciplina fora do simulado: ${discipline}.`);
   }
-  const batches = await tx.loteImportacao.findMany({ where: { id: { in: [options.sourceBatchId, options.targetBatchId] } }, select: { id: true } });
-  if (batches.length !== 2) throw new Error('Lote de origem ou de destino não encontrado.');
+  // Origem e destino podem ser o mesmo lote: então só a revisão incompleta é desfeita, sem mover a questão.
+  const ids = [...new Set([options.sourceBatchId, options.targetBatchId])];
+  const batches = await tx.loteImportacao.findMany({ where: { id: { in: ids } }, select: { id: true } });
+  if (batches.length !== ids.length) throw new Error('Lote de origem ou de destino não encontrado.');
   const current = await pilotBatchCounts(tx, options.targetBatchId, options.disciplines);
   const candidates = await tx.questao.findMany({
-    where: restorableWhere(options.sourceBatchId, options.disciplines),
+    // No próprio lote, só interessam as que hoje estão fora do simulado (as válidas já contam em `current`).
+    where: options.sourceBatchId === options.targetBatchId
+      ? { AND: [restorableWhere(options.sourceBatchId, options.disciplines), { OR: [{ publica: true }, { revisaoPedagogicaEm: { not: null } }, { revisorPedagogicoId: { not: null } }, { liberadaAcervoEm: { not: null } }, { liberadaAcervoPorId: { not: null } }] }] }
+      : restorableWhere(options.sourceBatchId, options.disciplines),
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     select: { id: true, disciplina: true, nivel: true, assunto: true, publica: true, revisaoPedagogicaEm: true, revisorPedagogicoId: true, liberadaAcervoEm: true, liberadaAcervoPorId: true, loteImportacaoId: true, fonteReferencia: true },
   });
@@ -71,8 +75,10 @@ export async function restoreQuestionsToPilot(db: PrismaClient, options: Restore
         result: JSON.stringify({ status: 'SUCCESS', previous, targetBatchId: options.targetBatchId }) } });
     }
     if (items.length) {
-      await tx.loteImportacao.update({ where: { id: options.sourceBatchId }, data: { totalQuestoes: { decrement: items.length } } });
-      await tx.loteImportacao.update({ where: { id: options.targetBatchId }, data: { totalQuestoes: { increment: items.length } } });
+      if (options.sourceBatchId !== options.targetBatchId) {
+        await tx.loteImportacao.update({ where: { id: options.sourceBatchId }, data: { totalQuestoes: { decrement: items.length } } });
+        await tx.loteImportacao.update({ where: { id: options.targetBatchId }, data: { totalQuestoes: { increment: items.length } } });
+      }
       // Confere com a mesma regra que o simulado usa; qualquer questão recusada desfaz tudo.
       const rows = await tx.questao.findMany({ where: { id: { in: items.map(q => q.id) } }, select: inventorySelect });
       const rejected = rows.filter(row => !isDraftPilotQuestion(row as never, options.targetBatchId));

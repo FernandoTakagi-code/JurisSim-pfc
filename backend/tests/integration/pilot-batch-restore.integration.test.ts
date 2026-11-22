@@ -91,5 +91,27 @@ it('recusa responsável que não é ADMIN e lotes iguais ou inexistentes, sem gr
   await expect(restoreQuestionsToPilot(prisma, { ...options, operatorId: teacher.id })).rejects.toThrow('Responsável pela manutenção não autorizado.');
   const admin = await criarUsuario('PROFESSOR'); await prisma.user.update({ where: { id: admin.id }, data: { role: 'ADMIN' } });
   await expect(restoreQuestionsToPilot(prisma, { ...options, operatorId: admin.id })).rejects.toThrow('Lote de origem ou de destino não encontrado.');
-  await expect(restoreQuestionsToPilot(prisma, { ...options, targetBatchId: options.sourceBatchId, operatorId: admin.id })).rejects.toThrow('Os lotes de origem e destino devem ser diferentes.');
+});
+
+it('no próprio lote ativo, desfaz só a revisão pedagógica incompleta e o simulado volta a iniciar', async () => {
+  await limparBanco();
+  const admin = await criarUsuario('PROFESSOR'); await prisma.user.update({ where: { id: admin.id }, data: { role: 'ADMIN' } });
+  const active = await importPracticeDrafts(prisma, draft('authorial-practice-60'), admin.id);
+  // Produção: as 12 de Administrativo do lote ativo ganharam revisão pedagógica e saíram do simulado.
+  await prisma.questao.updateMany({ where: { loteImportacaoId: active.batchId, disciplina: ADM }, data: { revisaoPedagogicaEm: new Date('2026-11-16T12:00:00Z'), revisorPedagogicoId: admin.id } });
+  process.env.INDIVIDUAL_EXAM_PILOT_ENABLED = 'true'; process.env.INDIVIDUAL_EXAM_PILOT_BATCH_ID = active.batchId;
+  const student = await criarUsuario('ALUNO'), token = tokenPara(student);
+  expect((await request('GET', '/availability', token)).body.canStart).toBe(false);
+
+  const options = { sourceBatchId: active.batchId, targetBatchId: active.batchId, disciplines: [ADM, CIV], target: 12, operatorId: admin.id };
+  const result = await restoreQuestionsToPilot(prisma, options);
+  expect(result.moved).toEqual({ [ADM]: 12, [CIV]: 0 });
+  expect(result.after).toEqual({ [ADM]: 12, [CIV]: 12 });
+  expect((await prisma.loteImportacao.findUniqueOrThrow({ where: { id: active.batchId } })).totalQuestoes).toBe(60);
+  expect(await prisma.administrativeEvent.count({ where: { event: 'PILOT_QUESTION_RESTORED' } })).toBe(12);
+
+  const started = await request('POST', '/', token, {});
+  expect(started.status).toBe(201);
+  expect(started.body.attempt.questions).toHaveLength(30);
+  expect((await restoreQuestionsToPilot(prisma, options)).items).toHaveLength(0);
 });
