@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
 import versions from '../../legal-versions.json';
+import { inventorySelect } from '../../repositories/prisma-initial-diagnostic-repository';
+import { ownerPracticeContentValid } from '../questions/owner-practice-release';
+import { isPracticeSelectable } from '../questions/question-practice-pilot';
 
 // Dados de demonstração para o painel do ADMIN. Tudo é identificável e removível:
 // e-mails no domínio reservado .invalid (nunca recebe e-mail), contas sem senha e turmas/avaliações com prefixo.
@@ -86,12 +89,15 @@ export async function countDemoData(db: PrismaClient) {
 /** Grava o plano. Recusa se já houver dados de demonstração (remova antes para gerar de novo). */
 export async function createDemoData(db: PrismaClient, plan: DemoPlan) {
   if ((await countDemoData(db)).users) throw new Error('Já existem dados de demonstração. Remova-os antes de gerar de novo.');
+  // Avaliação publicada tira a questão do treino; por isso a demonstração usa só questões públicas
+  // que não podem ir para o treino (nem liberadas nem liberáveis pelo proprietário).
   const questions = await db.questao.findMany({
-    where: { turmaId: null, alternativas: { some: { correta: true } } },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 60,
-    select: { id: true, alternativas: { orderBy: { letra: 'asc' }, select: { id: true, correta: true } } },
+    where: { publica: true, turmaId: null, alternativas: { some: { correta: true } } },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: inventorySelect,
   });
-  const usable = questions.filter(q => q.alternativas.length === 4 && q.alternativas.filter(a => a.correta).length === 1);
+  const usable = questions.filter(q => q.alternativas.length === 4 && q.alternativas.filter(a => a.correta).length === 1
+    && !ownerPracticeContentValid(q) && !isPracticeSelectable(q)).slice(0, 60);
   if (usable.length < 5) throw new Error('São necessárias ao menos 5 questões com 4 alternativas no banco.');
 
   for (const part of chunk(plan.users)) {

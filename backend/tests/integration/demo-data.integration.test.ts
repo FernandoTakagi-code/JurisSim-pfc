@@ -13,6 +13,11 @@ it('gera contas e atividades de demonstração visíveis no painel do ADMIN e re
   const admin = await criarUsuario('PROFESSOR'); await prisma.user.update({ where: { id: admin.id }, data: { role: 'ADMIN' } });
   const realStudent = await criarUsuario('ALUNO');
   await importPracticeDrafts(prisma, JSON.parse(readFileSync(resolve('scripts/drafts/authorial-practice-60.draft.json'), 'utf8')), admin.id);
+  // Questões públicas de professor: servem para a demonstração e nunca vão para o treino.
+  for (let i = 0; i < 5; i++) await prisma.questao.create({ data: { enunciado: `Questão pública de professor para demonstração número ${i + 1}.`,
+    disciplina: 'Direito Civil', assunto: 'Demonstração', nivel: 'BASICO', fundamentacaoJuridica: 'Fundamentação de teste.', autorId: admin.id,
+    publica: true, origem: 'PROFESSOR', alternativas: { create: ['A', 'B', 'C', 'D'].map((letra, k) => ({ letra: letra as 'A', texto: `Alternativa ${letra} ${i}`, correta: k === 0 })) } } });
+  const draftIds = (await prisma.questao.findMany({ where: { origem: 'IA' }, select: { id: true } })).map(q => q.id);
   const realQuestions = await prisma.questao.count();
 
   const plan = planDemoData({ students: 300, teachers: 6, months: 6, now: new Date(), seed: 7 });
@@ -30,6 +35,7 @@ it('gera contas e atividades de demonstração visíveis no painel do ADMIN e re
   expect(summary.registrationsByDay.length).toBeGreaterThan(0);
   expect(summary.participationByDay.reduce((total: number, day: { students: number }) => total + day.students, 0)).toBeGreaterThan(0);
 
+  expect(await prisma.avaliacaoQuestao.count({ where: { questaoId: { in: draftIds } } })).toBe(0); // nada do treino nas avaliações [DEMO]
   await expect(createDemoData(prisma, plan)).rejects.toThrow('Já existem dados de demonstração.');
 
   const removed = await removeDemoData(prisma);

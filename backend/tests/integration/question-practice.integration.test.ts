@@ -418,11 +418,11 @@ it.each([5,10,20])('owner authorization supports %i-question training without fa
 it('owner release rejects private, changed, duplicate and published-exam content atomically and excludes it after subsequent changes',async()=>{
   const f=await ownerFixture(5);
   await expect(publishOwnerPractice(prisma,f.manifest,f.student.email,'Unauthorized student test')).rejects.toThrow('ADMIN');
-  for(const data of [{publica:false},{fundamentacaoJuridica:'Changed explanation'}]){
+  for(const data of [{origem:'PROFESSOR' as const},{fundamentacaoJuridica:'Changed explanation'}]){
     const prior=await prisma.questao.findUniqueOrThrow({where:{id:f.ids[0]}});
     await prisma.questao.update({where:{id:f.ids[0]},data});
     await expect(publishOwnerPractice(prisma,f.manifest,f.owner.email,'Owner isolated authorization')).rejects.toThrow('impedimentos');
-    await prisma.questao.update({where:{id:f.ids[0]},data:{publica:prior.publica,fundamentacaoJuridica:prior.fundamentacaoJuridica}});
+    await prisma.questao.update({where:{id:f.ids[0]},data:{origem:prior.origem,fundamentacaoJuridica:prior.fundamentacaoJuridica}});
   }
   const original=await prisma.questao.findUniqueOrThrow({where:{id:f.ids[1]}});
   const first=await prisma.questao.findUniqueOrThrow({where:{id:f.ids[0]}});

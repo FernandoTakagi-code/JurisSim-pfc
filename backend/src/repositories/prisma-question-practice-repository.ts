@@ -90,9 +90,11 @@ export class PrismaQuestionPracticeRepository implements QuestionPracticeReposit
     // Somente metadados públicos e sem escopo podem ser descobertos. Nunca expor temas
     // privados de turmas, enunciados de questões ou gabaritos por este catálogo.
     const rows = await this.db.questao.findMany({
-      where: { publica: true, turmaId: null, disciplina: discipline }, select: inventorySelect,
+      where: { turmaId: null, disciplina: discipline, OR: [{ publica: true }, ...(ownerPracticeEnabled() ? [ownerPracticeScope] : [])] }, select: inventorySelect,
     });
     const authorized = await ownerPracticeAuthorizedIds(this.db, rows);
+    // Rascunhos privados só aparecem no catálogo depois de liberados pelo proprietário.
+    for (let i = rows.length - 1; i >= 0; i--) if (!rows[i].publica && !authorized.has(rows[i].id)) rows.splice(i, 1);
     const topics = new Map<string, { name: string; catalogCount: number; pendingReviewCount: number }>();
     for (const row of rows) {
       if (!row.assunto.trim()) continue;
