@@ -84,6 +84,17 @@ assert.match(filtered, /15\/01\/2026 a 10\/03\/2026 · por mês/);
 assert.equal((filtered.match(/summary-bar-column/g) || []).length, 9); // 3 meses x 3 gráficos
 assert.match(filtered, /02\/26/);
 assert.doesNotMatch(filtered, /últimos 30 dias/i);
+// Com muitas barras, só alguns rótulos aparecem (primeiro, último e espaçados), para não se sobreporem.
+const thirtyDays = Array.from({ length: 30 }, (_, i) => ({ day: `2026-11-${String(i + 1).padStart(2, "0")}`, count: i + 1 }));
+const crowded = render({ data: { ...baseData, period: null, registrationsByDay: thirtyDays, institutionGrowthByDay: [], participationByDay: [] } });
+const labels = [...crowded.matchAll(/<\/span><small>([^<]*)<\/small>/g)].map(m => m[1]).filter(Boolean);
+assert.ok(labels.length <= 8, `rótulos demais: ${labels.length}`);
+assert.equal(labels[0], "01");
+assert.equal(labels.at(-1), "30");
+assert.equal((crowded.match(/summary-bar-column/g) || []).length, 30, "todas as barras continuam");
+assert.match(crowded, /title="2026-11-15: 15"/, "a data de cada barra segue no tooltip");
+const few = render({ data: { ...baseData, period: null, registrationsByDay: thirtyDays.slice(0, 5), institutionGrowthByDay: [], participationByDay: [] } });
+assert.deepEqual([...few.matchAll(/<\/span><small>([^<]*)<\/small>/g)].map(m => m[1]).filter(Boolean), ["01", "02", "03", "04", "05"]);
 console.log("OK: indicadores com e sem período");
 
 const bar = (props) => renderToStaticMarkup(React.createElement(view.SummaryFilterBar, {

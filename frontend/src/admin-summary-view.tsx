@@ -36,6 +36,8 @@ export function SummaryBars({ title, items, valueKey = "count", period }: { titl
         .map(item => ({ key: item.bucket, label: bucketLabel(item.bucket, period.groupBy), value: item[valueKey] ?? 0 }))
     : items.map(item => ({ key: item.day ?? "", label: (item.day ?? "").slice(8), value: item[valueKey] ?? 0 }));
   const max = Math.max(1, ...rows.map(row => row.value));
+  // No máximo ~8 rótulos no eixo para não sobrepor; a data de cada barra segue no tooltip.
+  const labelStep = Math.max(1, Math.ceil((rows.length - 1) / 7));
   const description = period ? periodTitle(period) : "dados dos últimos 30 dias";
   return (
     <section className="panel dashboard-panel">
@@ -43,10 +45,10 @@ export function SummaryBars({ title, items, valueKey = "count", period }: { titl
       {period && <p className="muted">{periodTitle(period)}</p>}
       {rows.length && (period || items.length) ? (
         <div className="summary-bars" role="img" aria-label={`${title}, ${description}`}>
-          {rows.map(row => (
+          {rows.map((row, i) => (
             <div className="summary-bar-column" key={row.key} title={`${row.key}: ${row.value}`}>
               <span style={{ height: `${Math.max(3, (row.value / max) * 100)}%` }} />
-              <small>{row.label}</small>
+              <small>{i % labelStep === 0 || i === rows.length - 1 ? row.label : ""}</small>
             </div>
           ))}
         </div>
