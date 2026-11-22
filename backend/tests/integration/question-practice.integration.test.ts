@@ -477,3 +477,23 @@ it('completes five-question practice in all five disciplines and a separate Civi
   expect(await prisma.resposta.count({where:{simulado:{alunoId:f.student.id}}})).toBe(25);
   expect(await prisma.sessaoRevisaoQuestao.count({where:{alunoId:f.student.id,disciplina:'Direito Civil',finalizadaEm:{not:null}}})).toBe(1);
 },120000);
+
+it('planOwnerPracticeBatch monta lote novo só com questões ainda não liberadas e o lote publica no treino', async () => {
+  const { planOwnerPracticeBatch } = await import('../../src/services/questions/owner-practice-batch');
+  const f = await ownerFixture(5);
+  await publishOwnerPractice(prisma, f.manifest, f.owner.email, 'Primeiro lote no teste isolado');
+  const author = await criarUsuario('PROFESSOR');
+  const extra = await createQuestionSet(author.id, 'Direito Penal', 6);
+  for (const [i, id] of extra.entries()) await prisma.questao.update({ where: { id }, data: { enunciado: `Enunciado penal exclusivo do segundo lote número ${i + 1}.` } });
+  const plan = await planOwnerPracticeBatch(prisma);
+  const ids = plan.manifest.questions.map(q => q.id);
+  expect(ids.some(id => f.ids.includes(id))).toBe(false);
+  expect(extra.every(id => ids.includes(id))).toBe(true);
+  expect(plan.manifest.selectionSha256).toBe(ownerManifestSelectionDigest(plan.manifest.questions));
+  const limited = await planOwnerPracticeBatch(prisma, { perDiscipline: 2 });
+  expect(Math.max(...Object.values(limited.manifest.discipline))).toBeLessThanOrEqual(2);
+  const result = await publishOwnerPractice(prisma, plan.manifest, f.owner.email, 'Segundo lote no teste isolado');
+  expect(result.published).toBe(plan.manifest.candidateCount);
+  expect((await planOwnerPracticeBatch(prisma)).manifest.candidateCount).toBe(0);
+  expect(await new PrismaQuestionPracticeRepository(prisma).listEligibleQuestions('Direito Penal')).toHaveLength(6);
+});
