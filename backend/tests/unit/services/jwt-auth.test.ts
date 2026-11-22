@@ -39,9 +39,9 @@ beforeAll(async () => {
   mocks.findByEmail.mockImplementation(async (email: string) => ({
     ...accounts.find(account => account.email === email), nome: 'Teste', sessionVersion: 0, senhaHash,
   }));
-  mocks.findById.mockResolvedValue({ id: userId, nome: 'Teste', email: 'aluno@example.com', role: 'ALUNO', emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1' });
+  mocks.findById.mockResolvedValue({ id: userId, nome: 'Teste', email: 'aluno@example.com', role: 'ALUNO', emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1' });
   mocks.findByIdForAuth.mockImplementation(async (id: string) => accounts.some(account => account.id === id)
-    ? { ...accounts.find(account => account.id === id), deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', sessionVersion: 0 }
+    ? { ...accounts.find(account => account.id === id), deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', sessionVersion: 0 }
     : null);
   mocks.hasCompletedDiagnostic.mockResolvedValue(false);
   mocks.start.mockResolvedValue({ id: 'diagnostic-test', questoes: [{}], iniciadoEm: new Date() });

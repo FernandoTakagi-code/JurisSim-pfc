@@ -46,7 +46,7 @@ beforeAll(async () => {
 afterAll(async () => { delete process.env.TEST_QUESTION_PRACTICE_ENABLED; await new Promise<void>(resolve => server.close(() => resolve())); });
 beforeEach(() => {
   vi.clearAllMocks(); delete process.env.TEST_QUESTION_PRACTICE_ENABLED;
-  authMock.user.mockImplementation(async (id: string) => ({ id, role: id.includes('teacher') ? 'PROFESSOR' : 'ALUNO', emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', deletedAt: null, sessionVersion: 0 }));
+  authMock.user.mockImplementation(async (id: string) => ({ id, role: id.includes('teacher') ? 'PROFESSOR' : 'ALUNO', emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', deletedAt: null, sessionVersion: 0 }));
 });
 
 describe('question practice routes', () => {

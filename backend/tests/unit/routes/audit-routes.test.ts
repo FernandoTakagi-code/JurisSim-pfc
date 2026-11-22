@@ -31,7 +31,7 @@ afterAll(async () => { if (server) await new Promise<void>(resolve => server.clo
 beforeEach(() => {
   db.findMany.mockReset().mockResolvedValue([]);
   db.userFindUnique.mockReset().mockImplementation(async ({ where }) => accounts.some(account => account.id === where.id)
-    ? { ...accounts.find(account => account.id === where.id), deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', sessionVersion: 0 }
+    ? { ...accounts.find(account => account.id === where.id), deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', sessionVersion: 0 }
     : null);
 });
 

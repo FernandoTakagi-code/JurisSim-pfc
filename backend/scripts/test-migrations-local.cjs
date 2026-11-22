@@ -45,6 +45,7 @@ const requiredTail = [
   '20261113220000_teacher_questions_in_exams',
   '20261115193000_class_lifecycle',
   '20261115203000_class_activities',
+  '20261121120000_terms_of_use_versions',
 ];
 const pgBin = process.argv[2];
 const preflightOnly = process.argv[3] === '--preflight-only';

@@ -117,7 +117,7 @@ afterAll(async () => {
 beforeEach(() => {
   vi.resetAllMocks();
   claimed = false;
-  account = { id: userId, nome: 'Fixture', email: 'user@example.invalid', role: 'ALUNO', sessionVersion: 0, emailVerifiedAt: null, deletedAt: null, senhaHash: passwordHash, termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1' };
+  account = { id: userId, nome: 'Fixture', email: 'user@example.invalid', role: 'ALUNO', sessionVersion: 0, emailVerifiedAt: null, deletedAt: null, senhaHash: passwordHash, termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1' };
   mocks.userFind.mockImplementation(async ({ where }) => account && (where.id === account.id || where.email === account.email) ? { ...account } : null);
   mocks.userList.mockImplementation(async ({ where }) => account && where.email.equals.toLowerCase() === account.email.toLowerCase() ? [{ ...account }] : []);
   mocks.userUpdate.mockImplementation(async () => { account!.emailVerifiedAt = new Date(); return { id: userId }; });
@@ -294,7 +294,7 @@ describe('exceções limitadas e continuidade dos fluxos', () => {
       user: { id: userId, nome: account!.nome, email: account!.email, role, emailVerificado: false },
       nextStep: role === 'ALUNO' ? 'DIAGNOSTIC' : 'PROFESSOR',
       legalUpdateRequired: false,
-      legalVersions: { termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1' },
+      legalVersions: { termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1' },
     });
     if (role === 'ALUNO') {
       expect(mocks.diagnosticFind).toHaveBeenCalledWith({

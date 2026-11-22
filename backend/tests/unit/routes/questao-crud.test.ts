@@ -83,7 +83,7 @@ beforeEach(() => {
   db.user.findUnique.mockImplementation(async ({ where }) => {
     const key = Object.keys(accountIds).find(key => accountIds[key] === where.id);
     const role = key ? accountRoles[key] : undefined;
-    return role ? { id: where.id, role, deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', sessionVersion: 0 } : null;
+    return role ? { id: where.id, role, deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', sessionVersion: 0 } : null;
   });
   db.questao.create.mockImplementation(async ({ data }) => {
     const id = `question-${++sequence}`;

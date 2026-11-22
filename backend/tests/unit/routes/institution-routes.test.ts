@@ -97,7 +97,7 @@ beforeEach(() => {
   mocks.user.mockResolvedValue({
     id: userId,
     role: "ALUNO",
-    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',
+    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',
     sessionVersion: 0,
   });
   mocks.db.accountControl.findUnique.mockResolvedValue(null);
@@ -177,7 +177,7 @@ it("allows the current global administrator to query persistent audit events", a
   mocks.user.mockResolvedValue({
     id: userId,
     role: "ADMIN",
-    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',
+    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',
     sessionVersion: 0,
   });
   const response = await request("/admin/logs?page=2&severity=ERROR");
@@ -220,7 +220,7 @@ it.each([
   mocks.user.mockResolvedValue({
     id: userId,
     role: "ADMIN",
-    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',
+    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',
     sessionVersion: 0,
   });
   expect((await request("/admin/logs" + query)).status).toBe(422);
@@ -259,7 +259,7 @@ it("blocks suspended and session-revoked accounts", async () => {
   mocks.user.mockResolvedValue({
     id: userId,
     role: "ADMIN",
-    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',
+    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',
     sessionVersion: 1,
   });
   expect((await request("/admin/summary")).status).toBe(401);
@@ -274,7 +274,7 @@ it.each(['registrationNumber','institutionType','postalCode','street','number','
 });
 it('receives a first request with no prior membership and with valid CNPJ while full operations are off',async()=>{
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','true');
-  mocks.db.user.findUnique.mockResolvedValue({email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',deletedAt:null});
+  mocks.db.user.findUnique.mockResolvedValue({email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null});
   mocks.db.institution.create.mockResolvedValue({id:institutionId,status:'PENDING'});
   expect((await request('/requests','POST',registration)).status).toBe(201);
   expect(mocks.db.institution.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({ownerId:userId,status:'PENDING',email:'owner@example.invalid',description:expect.stringContaining('Curso preparatório')})}));
@@ -283,7 +283,7 @@ it('receives a first request with no prior membership and with valid CNPJ while 
   expect([403,503]).toContain((await request('/invitations/accept','POST',{token:'a'.repeat(64)})).status);
 });
 it('rejects duplicate applications before creating memberships or another institution',async()=>{
-  mocks.db.user.findUnique.mockResolvedValue({email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1'});
+  mocks.db.user.findUnique.mockResolvedValue({email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1'});
   mocks.db.institution.findFirst.mockResolvedValue({id:institutionId});
   expect((await request('/requests','POST',registration)).status).toBe(409);
   expect(mocks.db.institution.create).not.toHaveBeenCalled();
@@ -296,14 +296,14 @@ it.each([
   '?from=2021-11-12&to=2026-11-21&groupBy=day',
 ])('recusa período inválido no resumo administrativo %s', async (query) => {
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('ADMINISTRATION_ENABLED','true');
-  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',sessionVersion:0});
+  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   const response = await request('/admin/summary' + query);
   expect(response.status).toBe(400);
   expect(mocks.db.user.count).not.toHaveBeenCalled();
 });
 it('repassa o período válido ao resumo administrativo', async () => {
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('ADMINISTRATION_ENABLED','true');
-  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',sessionVersion:0});
+  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   for (const model of [mocks.db.user, mocks.db.institution, mocks.db.institutionalMembership, mocks.db.turma, mocks.db.administrativeEvent, mocks.db.avaliacao, mocks.db.classActivity, mocks.db.simulado]) model.count.mockResolvedValue(0);
   mocks.db.$queryRaw.mockResolvedValue([]);
   const response = await request('/admin/summary?from=2026-11-01&to=2026-11-10&groupBy=week');
@@ -312,7 +312,7 @@ it('repassa o período válido ao resumo administrativo', async () => {
 });
 it('permits global read/control scopes without activating institutional teacher requirements',async()=>{
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('ADMINISTRATION_ENABLED','true');
-  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',sessionVersion:0});
+  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   mocks.db.user.count.mockResolvedValue(9);mocks.db.institution.count.mockResolvedValue(0);mocks.db.institutionalMembership.count.mockResolvedValue(0);mocks.db.turma.count.mockResolvedValue(0);mocks.db.administrativeEvent.count.mockResolvedValue(0);
   expect((await request('/admin/summary')).status).toBe(200);
   expect((await request(`/admin/classes/${institutionId}`,'PATCH',{institutionId})).status).toBe(403);
@@ -330,9 +330,9 @@ it.each([{...registration,institutionType:'ADMIN'},{...registration,registration
 });
 it.each(['ACTIVE','REJECTED'] as const)('allows ADMIN decision %s with only registration enabled, without global promotion',async status=>{
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','true');
-  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',sessionVersion:0});
+  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   mocks.db.institution.findUnique.mockResolvedValue({...institutionApplication, registrationNumber:'12ABC34501DE35',description:'Declara\u00e7\u00e3o: institui\u00e7\u00e3o sem site oficial.',id:institutionId,ownerId:userId,status:'PENDING'});
-  mocks.db.user.findUnique.mockResolvedValue({emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1',deletedAt:null});
+  mocks.db.user.findUnique.mockResolvedValue({emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null});
   mocks.db.institution.update.mockResolvedValue({id:institutionId,status});
   expect((await request(`/admin/institutions/${institutionId}`,'PATCH',{status,reason:'Documentação conferida'})).status).toBe(200);
   expect(mocks.db.user.update).not.toHaveBeenCalled();

@@ -105,7 +105,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.findByIdForAuth.mockImplementation(async (id: string) => {
     const role = id === ids.user ? 'ALUNO' : Object.keys(otherIds).find(role => otherIds[role] === id);
-    return role ? { id, role, deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', sessionVersion: 0 } : null;
+    return role ? { id, role, deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', sessionVersion: 0 } : null;
   });
   mocks.diagnostic.mockResolvedValue({ ...attempt(true), id: ids.diagnostic, finalizadoEm: new Date(), trilhaAdaptativa: trail });
   mocks.trail.mockResolvedValue(trail);

@@ -14,7 +14,7 @@ const id = '00000000-0000-4000-8000-000000000081', otherId = '00000000-0000-4000
 const secret = 'goal-report-http-only-test-key-over-32-characters';
 let server: Server, base: string, token: string;
 const request = (method: string, path: string, body?: unknown, bearer: string | null = token) => fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-const dbUser = (role = 'ALUNO') => ({ id, role, sessionVersion: 0, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-13.1', deletedAt: null });
+const dbUser = (role = 'ALUNO') => ({ id, role, sessionVersion: 0, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', deletedAt: null });
 it('overview requires current academic role, rejects query scope and forwards only the authenticated actor', async () => {
   mocks.user.mockResolvedValue(dbUser('ALUNO'));
   expect((await request('GET', '/reports/overview')).status).toBe(403);
