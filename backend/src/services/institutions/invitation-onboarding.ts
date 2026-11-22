@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../errors/api-error';
 import { assertTeacherInvitationsAvailable } from '../../config/teacher-invitations';
 import { administrativeEvent, hashInvitation, institutionalTransaction, InstitutionService, fixtureProvenance, type Tx } from './institution-service';
-import { acceptanceData, assertCurrentAcceptance } from '../accounts/legal-acceptance';
+import { acceptanceData, acceptanceSchema, assertCurrentAcceptance } from '../accounts/legal-acceptance';
 import { assertValidPassword } from '../accounts/password-policy';
 import { createBrevoEmailTransport, type TransactionalEmailTransport } from '../email/brevo-email-transport';
 import { isValidAppUrl } from '../email/app-url';
@@ -62,7 +62,7 @@ export class InvitationOnboardingService {
   async register(token:string,nome:string,password:string,confirmation:string,acceptance:unknown) {
     nome=nome.trim();
     if(nome.length<2||nome.length>120)throw new ApiError(422,'Informe seu nome completo.');
-    await assertCurrentAcceptance(acceptance);assertValidPassword(password);
+    acceptanceSchema.parse(acceptance);await assertCurrentAcceptance(acceptance);assertValidPassword(password);
     if(password!==confirmation)throw new ApiError(422,'As senhas não coincidem.');
     const senhaHash=await bcrypt.hash(password,10);
     return institutionalTransaction(async tx=>{
@@ -87,7 +87,7 @@ export class InvitationOnboardingService {
   }
   /** Compatibilidade legada para fixtures de regressão isoladas. Nenhuma rota pública chama este método. */
   async start(token:string,nome:string,acceptance:unknown) {
-    await assertCurrentAcceptance(acceptance);
+    acceptanceSchema.parse(acceptance);await assertCurrentAcceptance(acceptance);
     const publicAppUrl=emailFrontendUrl();
     if(!this.mail.isConfigured || !isValidAppUrl(publicAppUrl)) throw new ApiError(503,'Primeiro acesso indisponível. Procure o responsável institucional.');
     const proof=randomBytes(32).toString('hex'), initialPasswordHash=await bcrypt.hash(randomBytes(32).toString('hex'),10);

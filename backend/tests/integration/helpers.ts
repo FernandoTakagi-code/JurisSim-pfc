@@ -7,6 +7,8 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { prisma } from "../../src/lib/prisma";
+import initialTerms from "../../src/terms-of-use/initial-terms.json";
+import { resetTermsCache } from "../../src/services/accounts/terms-of-use";
 import { prisma as prismaQuestoes } from "../../src/config/prisma";
 import { authRoutes } from "../../src/routes/auth-routes";
 import questaoRoutes from "../../src/routes/questaoRoutes";
@@ -46,7 +48,8 @@ export async function limparBanco() {
   await assertDisposableDatabase(prisma);
   const tabelas = await prisma.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables
-    WHERE schemaname = current_schema() AND tablename <> '_prisma_migrations'`;
+    WHERE schemaname = current_schema() AND tablename NOT IN ('_prisma_migrations', 'TermsOfUseVersion')`;
+  // TermsOfUseVersion é dado de referência gravado pela migração (versão em vigor dos Termos), como o histórico de migrations.
   if (tabelas.length === 0) return;
   const lista = tabelas.map(({ tablename }) => `"${tablename.replace(/"/g, '""')}"`).join(', ');
   // Este helper já verificou o cluster descartável do harness.
@@ -55,13 +58,22 @@ export async function limparBanco() {
   await prisma.$transaction(async tx => {
     await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
     await tx.$executeRawUnsafe(`TRUNCATE TABLE ${lista} RESTART IDENTITY CASCADE`);
+    // O CASCADE a partir de "User" também esvazia TermsOfUseVersion (FK de quem publicou).
+    // Regrava a versão inicial exatamente como a migração, para os Termos continuarem em vigor.
+    await tx.termsOfUseVersion.upsert({
+      where: { version: '2026-11-13.1' },
+      create: { id: '00000000-0000-4000-8000-0000000013a1', version: '2026-11-13.1', sections: initialTerms, publishedAt: new Date('2026-11-13T03:00:00.000Z') },
+      update: {},
+    });
   });
+  resetTermsCache();
 }
 
 export async function criarUsuario(role: 'ALUNO' | 'PROFESSOR', senha = 'senha-de-teste') {
   return prisma.user.create({
     data: {
       nome: role === 'PROFESSOR' ? 'Prof. Carla' : 'Aluno João',
+      termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', legalAcceptedAt: new Date(),
       email: `${role.toLowerCase()}-${randomUUID()}@jurissim.test`,
       role,
       senhaHash: await bcrypt.hash(senha, 4),

@@ -16,7 +16,7 @@ const password = 'Disabled-deletion-fixture1!';
 let server: Server, base: string, hash: string;
 const service = new AccountDeletionService();
 async function fixture(role: 'ALUNO' | 'PROFESSOR' | 'ADMIN' = 'ALUNO') {
-  return prisma.user.create({ data: { nome: 'Disposable blocked-deletion fixture', email: `disabled-${randomUUID()}@example.invalid`, role, senhaHash: hash, emailVerifiedAt: new Date() } });
+  return prisma.user.create({ data: {termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', legalAcceptedAt: new Date(),  nome: 'Disposable blocked-deletion fixture', email: `disabled-${randomUUID()}@example.invalid`, role, senhaHash: hash, emailVerifiedAt: new Date() } });
 }
 type User = Awaited<ReturnType<typeof fixture>>;
 async function request(method: string, route: string, user?: User, body?: object) {

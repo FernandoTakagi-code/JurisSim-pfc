@@ -23,7 +23,7 @@ const service = new AccountDeletionService();
 let server: Server, base: string, admin: Awaited<ReturnType<typeof fixture>>;
 const ids: string[] = [];
 async function fixture(role: 'ALUNO' | 'PROFESSOR' | 'ADMIN' = 'ALUNO', google = false) {
-  const user = await prisma.user.create({ data: { nome: 'H424 disposable fixture', email: `${prefix}-${randomUUID()}@example.invalid`, role, senhaHash: google ? '!GOOGLE_OAUTH_ACCOUNT!' : await bcrypt.hash(password, 4), emailVerifiedAt: new Date() } });
+  const user = await prisma.user.create({ data: {termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', legalAcceptedAt: new Date(),  nome: 'H424 disposable fixture', email: `${prefix}-${randomUUID()}@example.invalid`, role, senhaHash: google ? '!GOOGLE_OAUTH_ACCOUNT!' : await bcrypt.hash(password, 4), emailVerifiedAt: new Date() } });
   ids.push(user.id);
   return user;
 }

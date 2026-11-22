@@ -87,6 +87,7 @@ async function account(role: "ALUNO" | "PROFESSOR" | "ADMIN" = "ALUNO") {
   const user = await prisma.user.create({
     data: {
       nome: "Isolated integration fixture",
+      termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', legalAcceptedAt: new Date(),
       email: randomUUID() + "@example.invalid",
       role,
       senhaHash: await bcrypt.hash(password, 4),

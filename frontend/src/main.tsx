@@ -33,6 +33,9 @@ const StudyTrail = lazy(() => import('./study-trail').then(module => ({ default:
 import { useAttemptResume } from './attempt-resume';
 import { ConfirmAccountEmailChange } from './account-security';
 
+// Diagnóstico do início dos estudos: curto, para o aluno começar logo; a API usa o acervo público disponível.
+const LEGACY_DIAGNOSTIC_QUESTION_COUNT = 5;
+
 
 type Alternative = { id: string; text: string };
 type Question = {
@@ -313,7 +316,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     try {
       const attempt = await call<{ id: string }>("/diagnostics", {
         method: "POST",
-        body: JSON.stringify({ questionCount: 30 }),
+        body: JSON.stringify({ questionCount: LEGACY_DIAGNOSTIC_QUESTION_COUNT }),
       });
       navigate(`/diagnostico?tentativa=${encodeURIComponent(attempt.id)}`);
       recovery.retry();
