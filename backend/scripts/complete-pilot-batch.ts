@@ -4,17 +4,19 @@
 //   npx.cmd tsx scripts/complete-pilot-batch.ts --list-batches
 //   npx.cmd tsx scripts/complete-pilot-batch.ts --batch-id <lote> --disciplines "Direito Administrativo,Direito Civil" --target 10
 //   npx.cmd tsx scripts/complete-pilot-batch.ts --batch-id <lote> --disciplines "..." --target 10 --operator-email <admin> --apply
+//   npx.cmd tsx scripts/complete-pilot-batch.ts --batch-id <lote-ativo> --restore-from <lote-de-origem> --disciplines "..." --target 12 [--operator-email <admin> --apply]
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { resolveInventoryCheckDatabaseUrl } from '../src/config/inventory-check-database-url';
 import { INITIAL_DIAGNOSTIC_DISCIPLINES } from '../src/services/diagnostics/initial-diagnostic-config';
 import { completePilotBatch, pilotBatchCounts, planPilotBatchCompletion } from '../src/services/questions/pilot-batch-completion';
+import { PILOT_RESTORE_EVENT, previewRestoreToPilot, restoreQuestionsToPilot } from '../src/services/questions/pilot-batch-restore';
 
 const DRAFT_FILES = ['authorial-practice-60', 'authorial-practice-expansion-60'];
 
 function parseArgs(argv: string[]) {
-  const allowed = new Set(['--list-batches', '--batch-id', '--disciplines', '--target', '--operator-email', '--apply']);
+  const allowed = new Set(['--list-batches', '--restore-from', '--batch-id', '--disciplines', '--target', '--operator-email', '--apply']);
   const flags = new Map<string, string>();
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
@@ -54,6 +56,31 @@ async function main() {
     if (!selected.length) throw new Error('Informe --disciplines, separadas por vírgula.');
     const goal = Number(flags.get('--target') ?? '10');
     const drafts = DRAFT_FILES.map(name => JSON.parse(readFileSync(resolve(__dirname, 'drafts', `${name}.draft.json`), 'utf8')));
+
+    // Devolve ao lote ativo rascunhos de treino publicados no meio da revisão (sem revisão jurídica).
+    const restoreFrom = flags.get('--restore-from');
+    if (restoreFrom) {
+      const options = { sourceBatchId: restoreFrom, targetBatchId: batchId, disciplines: selected, target: goal };
+      if (!flags.has('--apply')) {
+        const plan = await previewRestoreToPilot(db, options);
+        console.log('\nPRÉVIA (nada foi gravado): devolver ao lote ativo');
+        for (const p of plan) {
+          const final = p.current + p.items.length;
+          console.log(`  ${p.discipline}: tem ${p.current}, volta(m) ${p.items.length} de ${p.available} possíveis -> ${final}${final < goal ? `  (ATENÇÃO: abaixo de ${goal})` : ''}`);
+          for (const q of p.items) console.log(`    ${q.nivel.padEnd(13)} ${q.assunto}  [publica=${q.publica} revisaoPedagogica=${Boolean(q.revisaoPedagogicaEm)}]`);
+        }
+        console.log('\nPara gravar, repita o comando com --operator-email <e-mail de uma conta ADMIN> --apply');
+        return;
+      }
+      const email = flags.get('--operator-email');
+      if (!email) throw new Error('Informe --operator-email com o e-mail de uma conta ADMIN.');
+      const operator = await db.user.findFirst({ where: { email: { equals: email.trim(), mode: 'insensitive' }, deletedAt: null, role: 'ADMIN' }, select: { id: true } });
+      if (!operator) throw new Error('Nenhuma conta ADMIN ativa com esse e-mail.');
+      const result = await restoreQuestionsToPilot(db, { ...options, operatorId: operator.id });
+      console.log(`\nGRAVADO: ${result.items.length} questões devolvidas ao lote ${batchId} (estado anterior registrado na auditoria: ${PILOT_RESTORE_EVENT}).`);
+      for (const discipline of selected) console.log(`  ${discipline}: ${result.before[discipline]} -> ${result.after[discipline]}${result.shortfall[discipline] ? `  (faltam ${result.shortfall[discipline]} para ${goal})` : ''}`);
+      return;
+    }
 
     if (!flags.has('--apply')) {
       const plan = await db.$transaction(async tx => {
