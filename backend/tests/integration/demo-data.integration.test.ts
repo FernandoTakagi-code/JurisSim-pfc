@@ -4,7 +4,7 @@ import { beforeAll, expect, it } from 'vitest';
 import { criarUsuario, prisma, limparBanco } from './helpers';
 import { assertDisposableDatabase } from './disposable-database';
 import { importPracticeDrafts } from "../../src/services/questions/practice-draft-import";
-import { countDemoData, createDemoData, planDemoData, removeDemoData } from "../../src/services/demo/demo-data";
+import { countDemoData, createDemoData, linkDemoTeacher, planDemoData, removeDemoData } from "../../src/services/demo/demo-data";
 import { InstitutionService } from "../../src/services/institutions/institution-service";
 
 beforeAll(async () => { await assertDisposableDatabase(prisma); await limparBanco(); });
@@ -36,11 +36,15 @@ it('gera contas e atividades de demonstração visíveis no painel do ADMIN e re
   expect(summary.participationByDay.reduce((total: number, day: { students: number }) => total + day.students, 0)).toBeGreaterThan(0);
 
   expect(await prisma.avaliacaoQuestao.count({ where: { questaoId: { in: draftIds } } })).toBe(0); // nada do treino nas avaliações [DEMO]
+  const realTeacher = await criarUsuario('PROFESSOR');
+  expect(await linkDemoTeacher(prisma, realTeacher.email)).toEqual({ teacher: realTeacher.email, classes: 3 });
+  expect(await prisma.turma.count({ where: { professores: { some: { id: realTeacher.id } } } })).toBe(3);
+  await expect(linkDemoTeacher(prisma, realStudent.email)).rejects.toThrow('PROFESSOR');
   await expect(createDemoData(prisma, plan)).rejects.toThrow('Já existem dados de demonstração.');
 
   const removed = await removeDemoData(prisma);
   expect(removed).toMatchObject({ users: 306, classes: 3, exams: 9, attempts: created.attempts, answers: created.answers });
   expect(await countDemoData(prisma)).toEqual({ users: 0, classes: 0, exams: 0, attempts: 0 });
-  expect(await prisma.user.count({ where: { id: { in: [admin.id, realStudent.id] } } })).toBe(2);
+  expect(await prisma.user.count({ where: { id: { in: [admin.id, realStudent.id, realTeacher.id] } } })).toBe(3);
   expect(await prisma.questao.count()).toBe(realQuestions);
 });

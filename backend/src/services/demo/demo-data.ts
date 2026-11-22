@@ -141,6 +141,16 @@ export async function createDemoData(db: PrismaClient, plan: DemoPlan) {
   return { ...(await countDemoData(db)), answers, createdAttempts: attempts };
 }
 
+/** Vincula uma conta real de PROFESSOR às turmas [DEMO], para o painel dela mostrar alunos e avaliações. O --remove desfaz. */
+export async function linkDemoTeacher(db: PrismaClient, email: string) {
+  const teacher = await db.user.findUnique({ where: { email }, select: { id: true, role: true, deletedAt: true } });
+  if (!teacher || teacher.deletedAt || teacher.role !== 'PROFESSOR') throw new Error('Conta de PROFESSOR não encontrada com esse e-mail.');
+  const turmas = await db.turma.findMany({ where: { nome: { startsWith: DEMO_PREFIX } }, select: { id: true } });
+  if (!turmas.length) throw new Error('Não há turmas de demonstração. Rode --apply antes.');
+  for (const t of turmas) await db.turma.update({ where: { id: t.id }, data: { professores: { connect: { id: teacher.id } } } });
+  return { teacher: email, classes: turmas.length };
+}
+
 /** Remove somente os dados de demonstração (e-mails .invalid e turmas/avaliações com o prefixo). */
 export async function removeDemoData(db: PrismaClient) {
   return db.$transaction(async tx => {
