@@ -127,9 +127,26 @@ export async function currentAccess(userId: string, originalRole: string, instit
   // escrita aguardam a ativação explícita. Todo consumidor ainda verifica o vínculo ACTIVE.
   const readOnlyInstitutionAccess = !institutionsGloballyEnabled() && institutionalReadOnly;
   if (!administrationEnabled() && !institutionRegistrationEnabled() && !restricted && !readOnlyInstitutionAccess) return undefined;
-  const restriction = await prisma.accountControl.findUnique({
-    where: { userId },
-  });
+  // A suspensão e os vínculos não dependem um do outro: buscar juntos economiza uma ida ao banco.
+  // A ordem das verificações abaixo não muda (conta suspensa continua barrada antes de tudo).
+  const readOnlyBranch = !institutionsGloballyEnabled() && !restricted && institutionalReadOnly;
+  const fullBranch = !readOnlyBranch && !restricted && institutionsGloballyEnabled();
+  const [restriction, prefetchedMemberships] = await Promise.all([
+    prisma.accountControl.findUnique({ where: { userId } }),
+    readOnlyBranch
+      ? prisma.institutionalMembership.findMany({
+          where: { ...institutionMemberWhere(userId), role: 'INSTITUTION_ADMIN' },
+          select: { institutionId: true, role: true, institution: { select: { name: true } } },
+          orderBy: { institutionId: 'asc' },
+        })
+      : fullBranch
+        ? prisma.institutionalMembership.findMany({
+            where: institutionMemberWhere(userId),
+            select: { institutionId: true, role: true, institution: { select: { name: true } } },
+            orderBy: { institutionId: "asc" },
+          })
+        : undefined,
+  ]);
   if (restriction?.suspended)
     throw new ApiError(
       403,
@@ -137,11 +154,7 @@ export async function currentAccess(userId: string, originalRole: string, instit
     );
   // Controles globais não devem ativar os requisitos de vínculo institucional.
   if (!institutionsGloballyEnabled() && !restricted && institutionalReadOnly) {
-    const memberships = await prisma.institutionalMembership.findMany({
-      where: { ...institutionMemberWhere(userId), role: 'INSTITUTION_ADMIN' },
-      select: { institutionId: true, role: true, institution: { select: { name: true } } },
-      orderBy: { institutionId: 'asc' },
-    });
+    const memberships = prefetchedMemberships!;
     return {
       // A resolução do vínculo permite apenas identidade e acesso de leitura autorizado;
       // as permissões operacionais continuam desativadas até a ativação explícita da funcionalidade.
@@ -159,7 +172,7 @@ export async function currentAccess(userId: string, originalRole: string, instit
   // dependem de vínculo para sessões não relacionadas de ADMIN, professor e aluno.
   if (!institutionsGloballyEnabled() && !restricted) return undefined;
   if(restricted && !await fixtureProvenance(prisma,restricted)) return {enabled:false,restricted:true,teacherManagementEnabled:false,globalAdmin:originalRole==='ADMIN',needsInstitutionLink:originalRole==='PROFESSOR',memberships:[],effectiveRole:originalRole};
-  const memberships = await prisma.institutionalMembership.findMany({
+  const memberships = prefetchedMemberships ?? await prisma.institutionalMembership.findMany({
     where: {...institutionMemberWhere(userId), ...(restricted ? {institutionId: restricted.institutionId} : {})},
     select: {
       institutionId: true,
