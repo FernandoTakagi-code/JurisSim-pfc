@@ -8,7 +8,7 @@
 //   opÃ§Ãµes: --students 2000 --teachers 40 --months 6 --seed 2026
 import { PrismaClient } from '@prisma/client';
 import { resolveInventoryCheckDatabaseUrl } from '../src/config/inventory-check-database-url';
-import { countDemoData, createDemoData, linkDemoTeacher, planDemoData, removeDemoData } from '../src/services/demo/demo-data';
+import { countDemoData, createDemoData, linkDemoInstitution, linkDemoTeacher, planDemoData, removeDemoData } from '../src/services/demo/demo-data';
 
 function parseArgs(argv: string[]) {
   const switches = new Set(['--status', '--apply', '--remove']);
@@ -28,8 +28,9 @@ function parseArgs(argv: string[]) {
 
 async function main() {
   const argv = process.argv.slice(2);
-  const link = argv[0] === '--link-teacher' ? argv[1] : undefined;
-  if (argv[0] === '--link-teacher' && (!link || argv.length !== 2)) throw new Error('Use: --link-teacher <email do professor>');
+  const linkMode = ['--link-teacher', '--link-institution'].includes(argv[0]) ? argv[0] : undefined;
+  const link = linkMode ? argv[1] : undefined;
+  if (linkMode && (!link || argv.length !== 2)) throw new Error('Use: --link-teacher <email do professor> ou --link-institution <email de quem administra a instituição>');
   const flags = link ? new Map<string, string>([['--status', 'true']]) : parseArgs(argv);
   const plan = planDemoData({
     students: Number(flags.get('--students') ?? 2000), teachers: Number(flags.get('--teachers') ?? 40),
@@ -52,7 +53,7 @@ async function main() {
   console.log(`Banco: ${target.hostname}:${target.port || '5432'}${target.pathname}`);
   const db = new PrismaClient({ datasources: { db: { url } } });
   try {
-    if (link) { console.log('VINCULADO:', await linkDemoTeacher(db, link)); return; }
+    if (link) { console.log('VINCULADO:', linkMode === '--link-teacher' ? await linkDemoTeacher(db, link) : await linkDemoInstitution(db, link)); return; }
     if (flags.has('--status')) { console.log('Dados de demonstraÃ§Ã£o no banco:', await countDemoData(db)); return; }
     if (flags.has('--remove')) { console.log('REMOVIDO:', await removeDemoData(db)); return; }
     console.log('Gravando... (pode levar alguns minutos)');

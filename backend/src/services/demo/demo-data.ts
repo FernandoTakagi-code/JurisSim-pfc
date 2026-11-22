@@ -153,6 +153,26 @@ export async function linkDemoTeacher(db: PrismaClient, email: string) {
   return { teacher: email, classes: turmas.length, exams: exams.count };
 }
 
+/**
+ * Liga os dados de demonstração à instituição de quem administra (INSTITUTION_ADMIN): os professores fake viram
+ * docentes ativos e as turmas [DEMO] passam a ser da instituição (com isso, os alunos delas também). O --remove desfaz.
+ */
+export async function linkDemoInstitution(db: PrismaClient, adminEmail: string) {
+  const memberships = await db.institutionalMembership.findMany({ where: { role: 'INSTITUTION_ADMIN', active: true, institution: { status: 'ACTIVE' }, user: { email: adminEmail, deletedAt: null } }, select: { institutionId: true, institution: { select: { name: true } } } });
+  if (memberships.length !== 1) throw new Error(memberships.length ? 'Essa conta administra mais de uma instituição.' : 'Nenhuma instituição ativa administrada por esse e-mail.');
+  const { institutionId, institution } = memberships[0];
+  const teachers = await db.user.findMany({ where: { email: { endsWith: DEMO_EMAIL_DOMAIN }, role: 'PROFESSOR' }, select: { id: true } });
+  const turmas = await db.turma.findMany({ where: { nome: { startsWith: DEMO_PREFIX } }, select: { id: true, institutionalClass: { select: { institutionId: true } } } });
+  if (!turmas.length) throw new Error('Não há dados de demonstração. Rode --apply antes.');
+  if (turmas.some(t => t.institutionalClass && t.institutionalClass.institutionId !== institutionId)) throw new Error('As turmas [DEMO] já estão em outra instituição. Rode --remove e --apply antes.');
+  await db.$transaction([
+    db.institutionalMembership.createMany({ data: teachers.map(t => ({ institutionId, userId: t.id, role: 'TEACHER' })), skipDuplicates: true }),
+    db.institutionalClass.createMany({ data: turmas.map(t => ({ classId: t.id, institutionId })), skipDuplicates: true }),
+  ]);
+  const students = await db.user.count({ where: { email: { endsWith: DEMO_EMAIL_DOMAIN }, turmasComoAluno: { some: { id: { in: turmas.map(t => t.id) } } } } });
+  return { institution: institution.name, teachers: teachers.length, classes: turmas.length, students };
+}
+
 /** Remove somente os dados de demonstração (e-mails .invalid e turmas/avaliações com o prefixo). */
 export async function removeDemoData(db: PrismaClient) {
   return db.$transaction(async tx => {
@@ -167,6 +187,9 @@ export async function removeDemoData(db: PrismaClient) {
     for (const id of exams) await tx.avaliacao.update({ where: { id }, data: { turmas: { set: [] } } });
     await tx.avaliacao.deleteMany({ where: { id: { in: exams } } });
     const turmas = (await tx.turma.findMany({ where: { nome: { startsWith: DEMO_PREFIX } }, select: { id: true } })).map(t => t.id);
+    // Vínculos criados pelo --link-institution.
+    await tx.institutionalClass.deleteMany({ where: { classId: { in: turmas } } });
+    await tx.institutionalMembership.deleteMany({ where: { userId: { in: users } } });
     for (const id of turmas) await tx.turma.update({ where: { id }, data: { alunos: { set: [] }, professores: { set: [] } } });
     await tx.turma.deleteMany({ where: { id: { in: turmas } } });
     const removedUsers = await tx.user.deleteMany({ where: { id: { in: users } } });
