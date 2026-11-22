@@ -37,7 +37,8 @@ it('gera contas e atividades de demonstração visíveis no painel do ADMIN e re
 
   expect(await prisma.avaliacaoQuestao.count({ where: { questaoId: { in: draftIds } } })).toBe(0); // nada do treino nas avaliações [DEMO]
   const realTeacher = await criarUsuario('PROFESSOR');
-  expect(await linkDemoTeacher(prisma, realTeacher.email)).toEqual({ teacher: realTeacher.email, classes: 3 });
+  expect(await linkDemoTeacher(prisma, realTeacher.email)).toEqual({ teacher: realTeacher.email, classes: 3, exams: 9 });
+  expect(await prisma.avaliacao.count({ where: { autorId: realTeacher.id } })).toBe(9);
   expect(await prisma.turma.count({ where: { professores: { some: { id: realTeacher.id } } } })).toBe(3);
   await expect(linkDemoTeacher(prisma, realStudent.email)).rejects.toThrow('PROFESSOR');
   await expect(createDemoData(prisma, plan)).rejects.toThrow('Já existem dados de demonstração.');

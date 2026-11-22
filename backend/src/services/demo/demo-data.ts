@@ -148,14 +148,17 @@ export async function linkDemoTeacher(db: PrismaClient, email: string) {
   const turmas = await db.turma.findMany({ where: { nome: { startsWith: DEMO_PREFIX } }, select: { id: true } });
   if (!turmas.length) throw new Error('Não há turmas de demonstração. Rode --apply antes.');
   for (const t of turmas) await db.turma.update({ where: { id: t.id }, data: { professores: { connect: { id: teacher.id } } } });
-  return { teacher: email, classes: turmas.length };
+  // O professor só vê as avaliações que ele mesmo criou; as [DEMO] passam para ele.
+  const exams = await db.avaliacao.updateMany({ where: { titulo: { startsWith: DEMO_PREFIX }, turmas: { some: { id: { in: turmas.map(t => t.id) } } } }, data: { autorId: teacher.id } });
+  return { teacher: email, classes: turmas.length, exams: exams.count };
 }
 
 /** Remove somente os dados de demonstração (e-mails .invalid e turmas/avaliações com o prefixo). */
 export async function removeDemoData(db: PrismaClient) {
   return db.$transaction(async tx => {
     const users = (await tx.user.findMany({ where: { email: { endsWith: DEMO_EMAIL_DOMAIN } }, select: { id: true } })).map(u => u.id);
-    const exams = (await tx.avaliacao.findMany({ where: { titulo: { startsWith: DEMO_PREFIX }, autorId: { in: users } }, select: { id: true } })).map(a => a.id);
+    // Avaliações [DEMO] de autor fake ou repassadas a um professor real pelo --link-teacher (sempre ligadas a turmas [DEMO]).
+    const exams = (await tx.avaliacao.findMany({ where: { titulo: { startsWith: DEMO_PREFIX }, OR: [{ autorId: { in: users } }, { turmas: { some: { nome: { startsWith: DEMO_PREFIX } } } }] }, select: { id: true } })).map(a => a.id);
     const simulados = (await tx.simulado.findMany({ where: { OR: [{ alunoId: { in: users } }, { avaliacaoId: { in: exams } }] }, select: { id: true } })).map(s => s.id);
     const respostas = await tx.resposta.deleteMany({ where: { simuladoId: { in: simulados } } });
     await tx.questaoSimulado.deleteMany({ where: { simuladoId: { in: simulados } } });
