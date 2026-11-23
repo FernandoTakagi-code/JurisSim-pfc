@@ -40,11 +40,11 @@ describe('Fluxo turma -> questão privada da turma -> aluno matriculado', () => 
     const visaoDeFora = await requisicao(baseUrl, 'GET', '/questoes', { token: deFora.token });
     const filtroDeFora = await requisicao(baseUrl, 'GET', `/questoes?turmaId=${turmaId}`, { token: deFora.token });
 
-    // Assert
+    // Verificação
     expect(antesDeIngressar.corpo).toEqual([]);
     expect(ingresso.corpo.joined).toBe(true);
     expect(questoesDaTurma.status).toBe(200);
-    // Private content is delivered through authorized evaluations, not raw CRUD.
+    // O conteúdo privado é entregue por avaliações autorizadas, não pelo CRUD bruto.
     expect(questoesDaTurma.corpo).toEqual([]);
     expect(visaoDeFora.corpo).toEqual([]);
     expect(filtroDeFora.status).toBe(403);

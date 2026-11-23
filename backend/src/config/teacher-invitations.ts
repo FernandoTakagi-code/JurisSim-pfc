@@ -5,7 +5,7 @@ import { institutionalTeacherManagementEnabled, institutionsGloballyEnabled } fr
 export type TeacherInvitationMode = 'restricted' | 'institutional' | 'production';
 const unavailable = () => new ApiError(503, 'Convites docentes indisponíveis neste ambiente. Procure o responsável pela plataforma.');
 
-/** Server configuration only. No request headers, query/body fields or account roles select a mode. */
+/** Apenas configuração do servidor. Nenhum cabeçalho, campo de query/body ou papel de conta seleciona um modo. */
 export function teacherInvitationMode(): TeacherInvitationMode {
   const env = process.env;
   const restricted = env.INSTITUTION_HOMOLOGATION_ENABLED === 'true';
@@ -26,7 +26,7 @@ export function teacherInvitationMode(): TeacherInvitationMode {
     if (transport === 'api' ? !env.BREVO_API_KEY?.trim() : !env.BREVO_SMTP_USER?.trim() || !env.BREVO_SMTP_KEY?.trim()) throw unavailable();
     return 'production';
   }
-  // Existing explicitly enabled development/test institutions are not production.
+  // Instituições de desenvolvimento/teste já habilitadas explicitamente não são produção.
   if ((env.NODE_ENV === 'development' || env.NODE_ENV === 'test') && institutional && (!configured || configured === 'institutional')) return 'institutional';
   throw unavailable();
 }

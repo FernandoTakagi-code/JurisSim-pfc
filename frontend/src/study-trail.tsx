@@ -40,7 +40,7 @@ function readState(userId: string): LearningState {
       }));
       return { completed, inProgress, openedSections };
     }
-  } catch { /* Local progress is optional and never blocks studying. */ }
+  } catch { /* O progresso local é opcional e nunca impede o estudo. */ }
   return { completed: [], inProgress: [], openedSections: {} };
 }
 
@@ -67,8 +67,8 @@ export function StudyTrail({ userId, result, onQuestions, recommendationLoading 
   const selectedLesson = selected?.lesson ?? (selected ? lazyLessons[selected.id] : undefined);
   const metrics = result?.performances?.filter(metric => metric.tipo === "DISCIPLINA") ?? [];
   const weakest = metrics.length ? [...metrics].sort((a, b) => a.percentual - b.percentual)[0] : undefined;
-  // Same source as the dashboard: answers from every completed activity. The
-  // diagnostic trail is only a fallback, so both screens recommend the same subject.
+  // Mesma fonte do painel: respostas de todas as atividades concluídas. A trilha
+  // do diagnóstico é apenas um fallback, para que as duas telas recomendem o mesmo assunto.
   const usePracticeFocus = Boolean(practiceFocus && practiceFocus.percentage < 100);
   const priorityDiscipline = usePracticeFocus ? practiceFocus!.discipline : result?.trail?.disciplinaPrioritaria || weakest?.disciplina;
   const priorityDisciplineCanonical = priorityDiscipline ? canonicalDiscipline(priorityDiscipline) : undefined;
@@ -90,7 +90,7 @@ export function StudyTrail({ userId, result, onQuestions, recommendationLoading 
     setSelectedId(null);
   }, [userId]);
   useEffect(() => {
-    try { localStorage.setItem(storageKey(userId), JSON.stringify(progress)); } catch { /* Progress remains usable in this session. */ }
+    try { localStorage.setItem(storageKey(userId), JSON.stringify(progress)); } catch { /* O progresso continua utilizável nesta sessão. */ }
   }, [progress, userId]);
   function chooseDiscipline(value: string) {
     setDiscipline(canonicalDiscipline(value) ?? value);

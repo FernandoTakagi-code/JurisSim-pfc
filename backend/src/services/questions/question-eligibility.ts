@@ -1,6 +1,6 @@
-/** Pure eligibility and inventory allocation policy for future question modes.
- * This module deliberately has no database or route integration. The existing
- * Diagnostic and class evaluation flows continue to use their current rules.
+/** Política pura de elegibilidade e de alocação de inventário para futuros modos de questão.
+ * Este módulo propositalmente não tem integração com banco nem com rotas. Os fluxos
+ * existentes de Diagnóstico e de avaliação da turma continuam usando suas regras atuais.
  */
 
 export type QuestionLevel = 'BASICO' | 'INTERMEDIARIO' | 'AVANCADO';
@@ -10,15 +10,15 @@ export interface QuestionCandidate {
   id: string;
   origin: QuestionOrigin;
   level: QuestionLevel;
-  /** Platform-wide scope. Publication and review are checked separately. */
+  /** Escopo de toda a plataforma. Publicação e revisão são verificadas separadamente. */
   public: boolean;
   complete: boolean;
   annulled: boolean;
   published: boolean;
-  /** Required for AI authored questions. */
+  /** Obrigatório para questões criadas por IA. */
   legalReviewApproved: boolean;
   pedagogicalReviewApproved: boolean;
-  /** Required for official material before integral reproduction. */
+  /** Obrigatório para material oficial antes da reprodução integral. */
   reproductionRightsDocumented: boolean;
 }
 
@@ -58,7 +58,7 @@ function hasValidCommonState(question: QuestionCandidate): boolean {
   return question.public && question.complete && !question.annulled && question.published;
 }
 
-/** Origin and difficulty remain independent: this checks provenance/review only. */
+/** Origem e dificuldade continuam independentes: isto verifica apenas procedência/revisão. */
 export function isEligiblePublicQuestion(question: QuestionCandidate): boolean {
   if (!hasValidCommonState(question)) return false;
 
@@ -68,8 +68,8 @@ export function isEligiblePublicQuestion(question: QuestionCandidate): boolean {
     case 'OAB_OFICIAL':
       return question.reproductionRightsDocumented && question.legalReviewApproved && question.pedagogicalReviewApproved;
     case 'PROFESSOR':
-      // Teacher-authored items are never pulled into the public pool implicitly,
-      // even if a malformed/imported record happens to be marked public.
+      // Itens criados por professores nunca entram implicitamente no acervo público,
+      // mesmo que um registro malformado/importado esteja marcado como público.
       return false;
   }
 }
@@ -99,8 +99,8 @@ function requiredCounts(request: SelectionRequest): Partial<Record<QuestionOrigi
   let oab = Math.floor(oabExact);
   let remainder = request.quantity - ia - oab;
 
-  // Largest remainder allocation. Ties go to IA, making odd 50/50 batches
-  // deterministic (e.g. 3 => 2 IA + 1 OAB), never changing source silently.
+  // Alocação pelo maior resto. Os empates vão para IA, tornando lotes 50/50 ímpares
+  // determinísticos (ex.: 3 => 2 IA + 1 OAB), sem nunca mudar a origem silenciosamente.
   while (remainder > 0) {
     if (iaExact - ia >= oabExact - oab) ia++;
     else oab++;
@@ -110,9 +110,9 @@ function requiredCounts(request: SelectionRequest): Partial<Record<QuestionOrigi
 }
 
 /**
- * Produces an all-or-nothing plan from a supplied inventory. On shortage it
- * returns per-origin deficits and no IDs; callers must ask the user to change
- * quantity/composition explicitly rather than substituting another origin.
+ * Produz um plano tudo-ou-nada a partir de um inventário fornecido. Em caso de falta,
+ * retorna os déficits por origem e nenhum ID; quem chama deve pedir ao usuário que altere
+ * a quantidade/composição explicitamente, em vez de substituir por outra origem.
  */
 export function planQuestionSelection(
   inventory: readonly QuestionCandidate[],

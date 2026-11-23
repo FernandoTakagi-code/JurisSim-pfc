@@ -19,6 +19,7 @@ import { representationDeclarationVersion, institutionRequestSchema, institution
 import { homologationManifest, fixtureApprovalAllowed, type HomologationManifest } from '../../config/institution-homologation';
 import { institutionPendingFields, noWebsiteDeclaration } from '../../institution-registration';
 import { classActivitiesReady, visibleClasses } from '../assessments/class-lifecycle';
+import type { SummaryPeriod } from './admin-summary-period';
 
 export type InstitutionActor = {
   userId: string;
@@ -48,8 +49,8 @@ async function fixtureEligibility(tx: Pick<Tx, 'administrativeEvent'>, actor: In
   const manifest=homologationManifest()!;
   return fixtureProvenance(tx,manifest);
 }
-// Shared by the ADMIN read model and the transactional decision. The public
-// registration schema never receives or accepts an exemption from the client.
+// Compartilhado pelo modelo de leitura do ADMIN e pela decisão transacional. O schema
+// público de cadastro nunca recebe nem aceita uma isenção vinda do cliente.
 async function institutionRegistrationReview(tx: Pick<Tx,'administrativeEvent'>,actor:InstitutionActor,institution:Record<string,unknown>&{id:string;ownerId?:string;registrationNumber?:string|null}) {
   const homologationApproval=await fixtureEligibility(tx,actor,institution);
   const pendingFields=institutionPendingFields(institution).filter(field=>!homologationApproval||field!=='CNPJ');
@@ -122,28 +123,41 @@ export async function institutionAdmin(
 }
 export async function currentAccess(userId: string, originalRole: string, institutionalReadOnly = false) {
   const restricted = !institutionsGloballyEnabled() ? homologationParticipant(userId) : null;
-  // Read-only institutional identity is safe to resolve while write operations
-  // await explicit activation. Every consumer still checks ACTIVE membership.
+  // É seguro resolver a identidade institucional somente leitura enquanto as operações de
+  // escrita aguardam a ativação explícita. Todo consumidor ainda verifica o vínculo ACTIVE.
   const readOnlyInstitutionAccess = !institutionsGloballyEnabled() && institutionalReadOnly;
   if (!administrationEnabled() && !institutionRegistrationEnabled() && !restricted && !readOnlyInstitutionAccess) return undefined;
-  const restriction = await prisma.accountControl.findUnique({
-    where: { userId },
-  });
+  // A suspensão e os vínculos não dependem um do outro: buscar juntos economiza uma ida ao banco.
+  // A ordem das verificações abaixo não muda (conta suspensa continua barrada antes de tudo).
+  const readOnlyBranch = !institutionsGloballyEnabled() && !restricted && institutionalReadOnly;
+  const fullBranch = !readOnlyBranch && !restricted && institutionsGloballyEnabled();
+  const [restriction, prefetchedMemberships] = await Promise.all([
+    prisma.accountControl.findUnique({ where: { userId } }),
+    readOnlyBranch
+      ? prisma.institutionalMembership.findMany({
+          where: { ...institutionMemberWhere(userId), role: 'INSTITUTION_ADMIN' },
+          select: { institutionId: true, role: true, institution: { select: { name: true } } },
+          orderBy: { institutionId: 'asc' },
+        })
+      : fullBranch
+        ? prisma.institutionalMembership.findMany({
+            where: institutionMemberWhere(userId),
+            select: { institutionId: true, role: true, institution: { select: { name: true } } },
+            orderBy: { institutionId: "asc" },
+          })
+        : undefined,
+  ]);
   if (restriction?.suspended)
     throw new ApiError(
       403,
       "Conta suspensa. Procure o responsável pela plataforma.",
     );
-  // Global controls must not activate institutional membership requirements.
+  // Controles globais não devem ativar os requisitos de vínculo institucional.
   if (!institutionsGloballyEnabled() && !restricted && institutionalReadOnly) {
-    const memberships = await prisma.institutionalMembership.findMany({
-      where: { ...institutionMemberWhere(userId), role: 'INSTITUTION_ADMIN' },
-      select: { institutionId: true, role: true, institution: { select: { name: true } } },
-      orderBy: { institutionId: 'asc' },
-    });
+    const memberships = prefetchedMemberships!;
     return {
-      // Membership resolution permits identity and authorized read access only;
-      // operational permissions remain disabled until explicit feature activation.
+      // A resolução do vínculo permite apenas identidade e acesso de leitura autorizado;
+      // as permissões operacionais continuam desativadas até a ativação explícita da funcionalidade.
       enabled: false,
       readOnly: true,
       teacherManagementEnabled: institutionalTeacherManagementEnabled(),
@@ -154,11 +168,11 @@ export async function currentAccess(userId: string, originalRole: string, instit
       effectiveRole: originalRole,
     };
   }
-  // Existing global-only flags must not activate membership-dependent auth
-  // checks for unrelated ADMIN, teacher, and student sessions.
+  // As flags existentes apenas globais não devem ativar verificações de autenticação que
+  // dependem de vínculo para sessões não relacionadas de ADMIN, professor e aluno.
   if (!institutionsGloballyEnabled() && !restricted) return undefined;
   if(restricted && !await fixtureProvenance(prisma,restricted)) return {enabled:false,restricted:true,teacherManagementEnabled:false,globalAdmin:originalRole==='ADMIN',needsInstitutionLink:originalRole==='PROFESSOR',memberships:[],effectiveRole:originalRole};
-  const memberships = await prisma.institutionalMembership.findMany({
+  const memberships = prefetchedMemberships ?? await prisma.institutionalMembership.findMany({
     where: {...institutionMemberWhere(userId), ...(restricted ? {institutionId: restricted.institutionId} : {})},
     select: {
       institutionId: true,
@@ -259,7 +273,7 @@ export class InstitutionService {
     });
   }
 
-  /** Offline administrative operation only. No HTTP endpoint or automatic call. */
+  /** Apenas operação administrativa offline. Sem endpoint HTTP nem chamada automática. */
   async provisionHomologationFixture(actor: InstitutionActor, input: unknown, reason: string) {
     requireGlobal(actor);
     const manifest=homologationManifest();
@@ -278,7 +292,7 @@ export class InstitutionService {
 
   private async createRequestInTransaction(tx: Tx, actor: InstitutionActor, data: InstitutionInput, fixture?: {manifest: HomologationManifest; actor: InstitutionActor; reason: string}, newAccount=false) {
 
-      // Serializes duplicate/quota checks across processes without storing PII in locks.
+      // Serializa as verificações de duplicidade/cota entre processos sem armazenar dados pessoais nos locks.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(710912)`;
       if(fixture) {
         const configured=homologationManifest();
@@ -303,7 +317,7 @@ export class InstitutionService {
             Object.entries(data).filter(([key])=>!['noWebsite','description'].includes(key)).every(([key,value])=>((existing as unknown as Record<string,unknown>)[key]??undefined)===(value??undefined))&&
             (!data.noWebsite||(!existing.website&&existing.description.includes(noWebsiteDeclaration)));
           if(!matches||!await fixtureProvenance(tx,fixture.manifest))throw new ApiError(409,'UUID de fixture já utilizado ou dados/proveniência divergentes; não substitua registros existentes.');
-          return existing; // Replay of this exact run: never reset status, audit, intent or memberships.
+          return existing; // Repetição desta mesma execução: nunca redefinir status, auditoria, intenção ou vínculos.
         }
       }
       const duplicate = await tx.institution.findFirst({where: { OR: [
@@ -592,7 +606,7 @@ export class InstitutionService {
         "Não altere suas próprias permissões ou suspensão.",
       );
     return institutionalTransaction(async (tx) => {
-      // Serialize all administrative permission changes, including last-admin checks.
+      // Serializa todas as alterações de permissão administrativa, incluindo as verificações do último admin.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(710911)`;
       const currentAdmin = await tx.user.findFirst({ where: { id: actor.userId, role: 'ADMIN', deletedAt: null, emailVerifiedAt: { not: null }, OR: [{ accountControl: { is: null } }, { accountControl: { is: { suspended: false } } }] }, select: { id: true } });
       if (!currentAdmin) throw new ApiError(403, 'Administração revogada ou indisponível.');
@@ -681,8 +695,9 @@ export class InstitutionService {
     });
   }
 
-  async summary(actor: InstitutionActor) {
+  async summary(actor: InstitutionActor, period?: SummaryPeriod | null) {
     requireGlobal(actor);
+    if (period) return this.periodSummary(period);
     const periodStart = new Date();
     periodStart.setUTCHours(0, 0, 0, 0);
     periodStart.setUTCDate(periodStart.getUTCDate() - 29);
@@ -753,6 +768,68 @@ export class InstitutionService {
       publishedExams, publishedActivities, completedActivities, newUsers,
       registrationsByDay, userDistribution, institutionGrowthByDay, participationByDay,
       activitiesAvailable: activitiesReady,
+      period: null,
+    };
+  }
+
+  /** Resumo filtrado: todos os indicadores contam o que foi criado, publicado ou concluído no período. */
+  private async periodSummary(period: SummaryPeriod) {
+    const range = { gte: period.startUtc, lt: period.endUtcExclusive };
+    const start = period.startUtc, end = period.endUtcExclusive, unit = period.groupBy;
+    const classVisibility = await visibleClasses();
+    const activitiesReady = await classActivitiesReady();
+    const [
+      users, students, institutions, pending, teachers, classes, archivedClasses, errors,
+      publishedExams, publishedActivities, completedActivities,
+      userDistribution, registrationsByDay, institutionGrowthByDay, participationByDay,
+    ] = await Promise.all([
+      prisma.user.count({ where: { deletedAt: null, createdAt: range } }),
+      prisma.user.count({ where: { deletedAt: null, role: 'ALUNO', registrationIntent: null, createdAt: range } }),
+      prisma.institution.count({ where: { createdAt: range } }),
+      prisma.institution.count({ where: { status: "PENDING", createdAt: range } }),
+      prisma.institutionalMembership.count({
+        where: { active: true, role: "TEACHER", institution: { status: "ACTIVE" }, createdAt: range },
+      }),
+      prisma.turma.count({ where: { archivedAt: null, createdAt: range, ...classVisibility } }),
+      prisma.turma.count({ where: { archivedAt: { not: null }, createdAt: range, ...classVisibility } }),
+      prisma.administrativeEvent.count({ where: { severity: "ERROR", occurredAt: range } }),
+      prisma.avaliacao.count({ where: { publishedAt: range, ...(activitiesReady ? { activity: null } : {}) } }),
+      activitiesReady
+        ? prisma.classActivity.count({ where: { cancelledAt: null, avaliacao: { publishedAt: range } } })
+        : Promise.resolve(null),
+      activitiesReady
+        ? prisma.simulado.count({ where: { tipo: 'AVALIACAO', finalizadoEm: range, avaliacao: { activity: { isNot: null } } } })
+        : Promise.resolve(null),
+      prisma.$queryRaw<Array<{ profile: string; count: number }>>`
+        SELECT CASE
+          WHEN "role"::text = 'ALUNO' AND "registrationIntent" = 'INSTITUTION' THEN 'INSTITUTIONAL_OWNER'
+          WHEN "role"::text = 'ALUNO' AND "registrationIntent" = 'TEACHER_INVITATION' THEN 'INVITED_TEACHER'
+          ELSE "role"::text
+        END AS profile, COUNT(*)::int AS count
+        FROM "User" WHERE "deletedAt" IS NULL AND "createdAt" >= ${start} AND "createdAt" < ${end}
+        GROUP BY profile ORDER BY profile`,
+      prisma.$queryRaw<Array<{ bucket: string; count: number }>>`
+        SELECT to_char(date_trunc(${unit}, ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') AS bucket,
+          COUNT(*)::int AS count
+        FROM "User" WHERE "deletedAt" IS NULL AND "createdAt" >= ${start} AND "createdAt" < ${end}
+        GROUP BY 1 ORDER BY 1`,
+      prisma.$queryRaw<Array<{ bucket: string; count: number }>>`
+        SELECT to_char(date_trunc(${unit}, ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') AS bucket,
+          COUNT(*)::int AS count
+        FROM "Institution" WHERE "createdAt" >= ${start} AND "createdAt" < ${end}
+        GROUP BY 1 ORDER BY 1`,
+      prisma.$queryRaw<Array<{ bucket: string; students: number; attempts: number }>>`
+        SELECT to_char(date_trunc(${unit}, ("finalizadoEm" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') AS bucket,
+          COUNT(DISTINCT "alunoId")::int AS students, COUNT(*)::int AS attempts
+        FROM "Simulado" WHERE "tipo" = 'AVALIACAO' AND "finalizadoEm" >= ${start} AND "finalizadoEm" < ${end}
+        GROUP BY 1 ORDER BY 1`,
+    ]);
+    return {
+      users, students, institutions, pending, teachers, classes, archivedClasses, errors,
+      publishedExams, publishedActivities, completedActivities, newUsers: users,
+      registrationsByDay, userDistribution, institutionGrowthByDay, participationByDay,
+      activitiesAvailable: activitiesReady,
+      period: { from: period.from, to: period.to, groupBy: period.groupBy },
     };
   }
 
@@ -910,9 +987,9 @@ export class InstitutionService {
         if (existing.status === 'PENDING' && existing.sentAt === null && existing.expiresAt > new Date())
           throw new ApiError(409, 'O envio anterior ainda não foi confirmado. Verifique a situação com o responsável antes de reenviar.');
       }
-      // Eligibility does not confer authority. In normal mode, an unknown
-      // recipient may complete the existing token-based first-access flow.
-      // In restricted mode, retain the explicit pre-existing-account policy.
+      // Elegibilidade não confere autoridade. No modo normal, um destinatário
+      // desconhecido pode concluir o fluxo existente de primeiro acesso por token.
+      // No modo restrito, mantém a política explícita de conta preexistente.
       const recipients = await tx.user.findMany({
         where: { email: { equals: email, mode: 'insensitive' } }, take: 2,
         select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true },
@@ -1031,7 +1108,7 @@ ${message ? `<div style="margin:22px 0;padding:16px 18px;border-left:3px solid #
     try {
       await prisma.teacherInvitation.update({where:{id:invitation.id},data:{sentAt:new Date()},select:{id:true}});
     } catch {
-      // SMTP acceptance must never be undone by a failed metadata write.
+      // A aceitação pelo SMTP nunca deve ser desfeita por uma falha na gravação de metadados.
       console.warn('email.invitation.metadata_persistence_failed',{invitationId:invitation.id});
       return {message:'O provedor aceitou o envio. Não foi possível atualizar o registro de envio; confira o convite antes de tentar novamente.'};
     }

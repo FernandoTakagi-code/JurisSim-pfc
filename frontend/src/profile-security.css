@@ -1,4 +1,4 @@
-/* One top-aligned frame owns all three panels, independent of their content height. */
+/* Um único frame alinhado ao topo contém os três painéis, independente da altura do conteúdo. */
 html:has(.profile-page) { scrollbar-gutter: stable; }
 .v0-profile-workspace > .v0-header { flex-shrink: 0; }
 .v0-app .v0-profile-workspace .profile-page {

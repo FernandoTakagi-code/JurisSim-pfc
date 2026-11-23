@@ -37,7 +37,7 @@ export class PrismaIndividualExamRepository implements IndividualExamRepository 
     return rows[0] ?? null;
   }
   async available(studentId: string): Promise<ExamCandidate[]> {
-    // One inventory query across all five disciplines; never one query per question.
+    // Uma única consulta de inventário para as cinco disciplinas; nunca uma consulta por questão.
     const rows = await this.db.questao.findMany({ where: { ...individualExamInventoryWhere(), respostas: { none: { simulado: { alunoId: studentId } } } }, select: inventorySelect });
     return rows.flatMap(row => isIndividualExamSelectable(row) ? [{ id: row.id, discipline: row.disciplina }] : []);
   }
@@ -69,7 +69,7 @@ export class PrismaIndividualExamRepository implements IndividualExamRepository 
       if (!locked.length) throw new ApiError(404, 'Aluno não encontrado.');
       const previous = await activeId(tx, studentId);
       if (previous) return previous;
-      // Recheck eligibility and history inside the student-serialized transaction.
+      // Reverifica a elegibilidade e o histórico dentro da transação serializada por aluno.
       const rows = await tx.questao.findMany({ where: { ...individualExamInventoryWhere(), id: { in: candidates.map(q => q.id) }, respostas: { none: { simulado: { alunoId: studentId } } } }, select: inventorySelect });
       const valid = rows.filter(row => isIndividualExamSelectable(row));
       if (valid.length !== 30 || PRACTICE_DISCIPLINES.some(d => valid.filter(q => q.disciplina === d).length !== 6)) throw new ApiError(409, 'O acervo disponível mudou. Consulte a disponibilidade e tente novamente.');

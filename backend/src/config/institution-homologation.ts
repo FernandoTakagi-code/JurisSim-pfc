@@ -15,7 +15,7 @@ type RequestScope = { userId: string; institutionId: string; operational: boolea
 export const institutionRequestScope = new AsyncLocalStorage<RequestScope>();
 const privateManifestFile = path.resolve(__dirname, '../../.local/institution-homologation.json');
 
-/** No client values, public flags, or email addresses resolve this manifest. */
+/** Nenhum valor do cliente, flag pública ou endereço de e-mail resolve este manifesto. */
 export function homologationManifest(environment: NodeJS.ProcessEnv = process.env): HomologationManifest | null {
   if (environment.NODE_ENV === 'production' || environment.INSTITUTION_HOMOLOGATION_ENABLED !== 'true') return null;
   try {
@@ -37,7 +37,7 @@ export function homologationManifest(environment: NodeJS.ProcessEnv = process.en
       if([...url.searchParams.keys()].some(key=>!parameters.includes(key)) || new Set(url.searchParams.keys()).size!==[...url.searchParams.keys()].length) return null;
     }
     return parsed.data;
-  } catch { return null; } // Invalid/missing private configuration grants nothing.
+  } catch { return null; } // Configuração privada inválida/ausente não concede nada.
 }
 export function homologationParticipant(userId: string) {
   const manifest = homologationManifest();
@@ -63,9 +63,9 @@ export function assertRestrictedParticipant(userId: string) {
 export function homologationClassBoundary(): Prisma.TurmaWhereInput | undefined {
   const manifest = homologationManifest();
   if(institutionRequestScope.getStore() && !restrictedInstitutionId()) throw new ApiError(403,'Escopo de homologação revogado.');
-  // A disabled/broken configured runtime must not fall back to legacy access
-  // to previously provisioned fixture classes. Keep the private registry until
-  // the audited test closure has removed its active memberships and classes.
+  // Um runtime configurado que esteja desativado/quebrado não deve recorrer ao acesso legado
+  // às turmas de fixture provisionadas anteriormente. Mantenha o registro privado até que
+  // o encerramento auditado dos testes tenha removido os vínculos ativos e as turmas.
   if(!manifest && process.env.INSTITUTION_HOMOLOGATION_ENABLED!=='true' && !fs.existsSync(privateManifestFile)) return undefined;
   const scoped = restrictedInstitutionId();
   return scoped ? {institutionalClass:{institutionId:scoped,institution:{status:'ACTIVE'}}} : {OR:[{institutionalClass:null},{institutionalClass:{institution:{events:{none:{event:'HOMOLOGATION_FIXTURE_PROVISIONED'}}}}}]};

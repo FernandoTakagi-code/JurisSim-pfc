@@ -1,4 +1,4 @@
-// Internal operator CLI only. Imports never load env or connect.
+// CLI interna apenas para operadores. As importações nunca carregam env nem se conectam.
 const { bootstrapFirstAdmin } = require("./lib/first-admin-bootstrap.cjs");
 async function main() {
   require("dotenv").config({ quiet: true });
@@ -10,7 +10,7 @@ async function main() {
   const { PrismaClient } = require("@prisma/client");
   const prisma = new PrismaClient();
   try {
-    // Migration readiness is independent of INSTITUTIONS_ENABLED.
+    // A prontidão das migrações independe de INSTITUTIONS_ENABLED.
     const result = await bootstrapFirstAdmin(
       prisma,
       process.env.ADMIN_PROVISION_USER_ID,

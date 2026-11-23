@@ -1,6 +1,6 @@
-// The local API listens on IPv4 loopback. Avoid `localhost` here because some
-// Windows resolvers prefer ::1 while the development server is intentionally
-// bound to 127.0.0.1.
+// A API local escuta no loopback IPv4. Evite `localhost` aqui porque alguns
+// resolvedores do Windows preferem ::1, enquanto o servidor de desenvolvimento
+// está ligado propositalmente a 127.0.0.1.
 const api = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3333';
 
 export class ApiError extends Error {

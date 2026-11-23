@@ -9,7 +9,7 @@ import { TeacherDashboard } from './teacher-dashboard';
 import {TeacherActivities} from './teacher-activities';
 import './teacher-dashboard.css';
 
-// Academic navigation must not mount the question module or fetch its catalog.
+// A navegação acadêmica não deve montar o módulo de questões nem buscar seu catálogo.
 export function TeacherWorkspace({ session, onSair }: { session: Session; onSair: () => void }) {
   const requestedPath = usePath();
   const path = teacherCanonicalPath(requestedPath);

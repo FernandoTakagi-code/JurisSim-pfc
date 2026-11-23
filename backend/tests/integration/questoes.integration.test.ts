@@ -31,20 +31,20 @@ async function turmaDoProfessor(token: string) {
 
 describe('POST /questoes (Controller + Service + Repository + BD)', () => {
   it('deveRetornar201EAQuestaoCriadaQuandoProfessorCadastra', async () => {
-    // Arrange
+    // Preparação
     const professor = await criarUsuario('PROFESSOR');
     const turmaId = await turmaDoProfessor(tokenPara(professor));
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token: tokenPara(professor), corpo: questaoValida({ publica: false, turmaId }) });
 
-    // Assert - status e corpo da resposta
+    // Verificação - status e corpo da resposta
     expect(resposta.status).toBe(201);
     expect(resposta.corpo.id).toEqual(expect.any(String));
     expect(resposta.corpo).toMatchObject({ disciplina: 'Direito Civil', assunto: 'Locação', autorId: professor.id });
     expect(resposta.corpo.alternativas).toHaveLength(4);
     expect(resposta.corpo.alternativas.filter((a: { correta: boolean }) => a.correta)).toHaveLength(1);
-    // Assert - persistido de fato no banco
+    // Verificação - persistido de fato no banco
     expect(await prisma.questao.count()).toBe(1);
   });
 
@@ -58,29 +58,29 @@ describe('POST /questoes (Controller + Service + Repository + BD)', () => {
   });
 
   it('deveRetornar403ENaoGravarNadaQuandoAlunoTentaCadastrarQuestao', async () => {
-    // Arrange
+    // Preparação
     const aluno = await criarUsuario('ALUNO');
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', { token: tokenPara(aluno), corpo: questaoValida() });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(403);
     expect(resposta.corpo).toEqual({ message: 'Acesso negado para este papel.' });
     expect(await prisma.questao.count()).toBe(0);
   });
 
   it('deveRetornar400ComODetalheDoErroQuandoEnunciadoECurto', async () => {
-    // Arrange
+    // Preparação
     const professor = await criarUsuario('PROFESSOR');
 
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', {
       token: tokenPara(professor),
       corpo: questaoValida({ enunciado: 'Curto' }),
     });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(400);
     expect(resposta.corpo.erro).toHaveProperty('enunciado');
     expect(JSON.stringify(resposta.corpo.erro.enunciado)).toContain('Enunciado muito curto');
@@ -88,10 +88,10 @@ describe('POST /questoes (Controller + Service + Repository + BD)', () => {
   });
 
   it('deveRetornar401QuandoRequisicaoNaoTemToken', async () => {
-    // Act
+    // Execução
     const resposta = await requisicao(baseUrl, 'POST', '/questoes', { corpo: questaoValida() });
 
-    // Assert
+    // Verificação
     expect(resposta.status).toBe(401);
     expect(resposta.corpo).toEqual({ message: 'Autenticacao obrigatoria.' });
   });
@@ -99,12 +99,12 @@ describe('POST /questoes (Controller + Service + Repository + BD)', () => {
 
 describe('QuestaoRepository (persistência com PostgreSQL de teste)', () => {
   it('deveSalvarQuestaoComAlternativasERegistrarLogDeAuditoriaNaMesmaTransacao', async () => {
-    // Arrange
+    // Preparação
     const professor = await criarUsuario('PROFESSOR');
     const turmaId = await turmaDoProfessor(tokenPara(professor));
     const { alternativas, ...dados } = questaoValida({ publica: false, turmaId });
 
-    // Act
+    // Execução
     const criada = await QuestaoRepository.criar(
       { ...dados, nivel: 'INTERMEDIARIO', autorId: professor.id, alternativas },
       professor.id,
@@ -112,7 +112,7 @@ describe('QuestaoRepository (persistência com PostgreSQL de teste)', () => {
     );
     const recuperada = await QuestaoRepository.buscarPorId(criada.id, professor.id, 'PROFESSOR');
 
-    // Assert
+    // Verificação
     expect(recuperada).not.toBeNull();
     expect(recuperada!.enunciado).toBe(dados.enunciado);
     expect(recuperada!.alternativas).toHaveLength(4);
@@ -134,11 +134,11 @@ describe('QuestaoRepository (persistência com PostgreSQL de teste)', () => {
     await prisma.questao.update({ where: { id: historica.id }, data: { publica: true, turmaId: null } });
     await QuestaoRepository.criar({ ...dados, enunciado: `${dados.enunciado} Versão privada distinta.`, nivel: 'BASICO', publica: false, turmaId: turmaB, autorId: professorB.id, alternativas }, professorB.id, 'PROFESSOR');
 
-    // Act
+    // Execução
     const visaoPublica = await QuestaoRepository.listar({}, aluno.id, 'ALUNO');
     const visaoDoProfessorB = await QuestaoRepository.listar({}, professorB.id, 'PROFESSOR');
 
-    // Assert
+    // Verificação
     expect(visaoPublica).toHaveLength(1);
     expect(visaoPublica[0].autorId).toBe(professorA.id);
     expect(visaoDoProfessorB).toHaveLength(2);
@@ -149,7 +149,7 @@ describe('QuestaoRepository (persistência com PostgreSQL de teste)', () => {
 
 describe('Fluxo completo: login -> cadastro de questão -> consulta (API + Service + BD)', () => {
   it('deveLogarComoProfessorCadastrarQuestaoEOAlunoConsultarSemGabarito', async () => {
-    // Arrange
+    // Preparação
     const professor = await criarUsuario('PROFESSOR', 'senha-do-professor');
     const aluno = await criarUsuario('ALUNO');
 
@@ -157,16 +157,16 @@ describe('Fluxo completo: login -> cadastro de questão -> consulta (API + Servi
     const login = await requisicao(baseUrl, 'POST', '/auth/login', {
       corpo: { email: professor.email, senha: 'senha-do-professor', perfil: 'PROFESSOR' },
     });
-    // Act 2 - cadastro com o token emitido pelo login, dentro de uma turma do professor
+    // Execução 2 - cadastro com o token emitido pelo login, dentro de uma turma do professor
     const turmaId = await turmaDoProfessor(login.corpo.token);
     const criacao = await requisicao(baseUrl, 'POST', '/questoes', { token: login.corpo.token, corpo: questaoValida({ publica: false, turmaId }) });
     // Simula a liberação no banco global, que não é feita pelo CRUD docente.
     await prisma.questao.update({ where: { id: criacao.corpo.id }, data: { publica: true, turmaId: null } });
-    // Act 3 - consultas
+    // Execução 3 - consultas
     const minhas = await requisicao(baseUrl, 'GET', '/questoes?minhas=true', { token: login.corpo.token });
     const visaoAluno = await requisicao(baseUrl, 'GET', '/questoes', { token: tokenPara(aluno) });
 
-    // Assert
+    // Verificação
     expect(login.status).toBe(200);
     expect(login.corpo.usuario).toMatchObject({ id: professor.id, role: 'PROFESSOR' });
     expect(criacao.status).toBe(201);
@@ -180,15 +180,15 @@ describe('Fluxo completo: login -> cadastro de questão -> consulta (API + Servi
   });
 
   it('deveRetornar403QuandoAlunoTentaEntrarPelaOpcaoProfessor', async () => {
-    // Arrange
+    // Preparação
     const aluno = await criarUsuario('ALUNO', 'senha-do-aluno');
 
-    // Act
+    // Execução
     const login = await requisicao(baseUrl, 'POST', '/auth/login', {
       corpo: { email: aluno.email, senha: 'senha-do-aluno', perfil: 'PROFESSOR' },
     });
 
-    // Assert
+    // Verificação
     expect(login.status).toBe(403);
     expect(login.corpo).toEqual({ message: 'Esta conta é de aluno. Selecione "Aluno" para entrar.' });
     expect(await prisma.auditLog.count({ where: { userId: aluno.id, action: 'LOGIN_SUCESSO' } })).toBe(0);
@@ -196,7 +196,7 @@ describe('Fluxo completo: login -> cadastro de questão -> consulta (API + Servi
 });
 
   it('deveAcessarQuestaoPrivadaSomentePelaTentativaAutorizada', async () => {
-    // Arrange
+    // Preparação
     const professor = await criarUsuario('PROFESSOR', 'senha-do-professor');
     const aluno = await criarUsuario('ALUNO');
     const classId=await turmaDoProfessor(tokenPara(professor));
@@ -207,13 +207,13 @@ describe('Fluxo completo: login -> cadastro de questão -> consulta (API + Servi
     const login = await requisicao(baseUrl, 'POST', '/auth/login', {
       corpo: { email: professor.email, senha: 'senha-do-professor', perfil: 'PROFESSOR' },
     });
-    // Act 2 - cadastro com o token emitido pelo login
+    // Execução 2 - cadastro com o token emitido pelo login
     const criacao = await requisicao(baseUrl, 'POST', '/questoes', { token: login.corpo.token, corpo: questaoValida({publica:false,turmaId:turma.id}) });
-    // Act 3 - consultas
+    // Execução 3 - consultas
     const minhas = await requisicao(baseUrl, 'GET', '/questoes?minhas=true', { token: login.corpo.token });
     const visaoAluno = await requisicao(baseUrl, 'GET', `/questoes?turmaId=${turma.id}`, { token: tokenPara(aluno) });
 
-    // Assert
+    // Verificação
     expect(login.status).toBe(200);
     expect(login.corpo.usuario).toMatchObject({ id: professor.id, role: 'PROFESSOR' });
     expect(criacao.status).toBe(201);

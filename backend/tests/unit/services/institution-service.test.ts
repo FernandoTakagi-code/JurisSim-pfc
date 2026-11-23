@@ -630,8 +630,8 @@ describe("class admissions and tenant boundaries", () => {
     ).rejects.toMatchObject({ statusCode: 404 });
     const where=db.turma.findFirst.mock.calls[0][0].where;
     expect(where.id).toBe('other-class');
-    // The retained private registry adds another tenant boundary. Both query
-    // shapes must retain the teacher and assigned-class restrictions.
+    // O registro privado mantido acrescenta mais uma fronteira entre inquilinos. Os dois
+    // formatos de consulta devem manter as restrições de professor e de turma atribuída.
     const clauses=[where,...(where.AND??[])];
     expect(clauses).toContainEqual(expect.objectContaining({professores:{some:{id:'teacher'}}}));
     expect(clauses.flatMap(clause=>clause.AND??[clause])).toContainEqual({id:{in:['class']}});

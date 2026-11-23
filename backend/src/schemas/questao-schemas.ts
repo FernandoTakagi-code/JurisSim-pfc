@@ -6,8 +6,8 @@ export const alternativaSchema = z.object({
   correta: z.boolean(),
 });
 
-// Shared by the regular question CRUD and the CSV preview so the common
-// question shape keeps one source of truth.
+// Compartilhado pelo CRUD comum de questões e pela prévia do CSV, para que o formato
+// comum de questão tenha uma única fonte de verdade.
 export const criarQuestaoSchema = z.object({
   enunciado: z.string().trim().min(10, 'Enunciado muito curto'),
   disciplina: z.string().trim().min(1),

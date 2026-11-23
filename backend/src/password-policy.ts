@@ -1,4 +1,4 @@
-// Pure module shared by the API and browser. Never trim or transform passwords.
+// Módulo puro compartilhado pela API e pelo navegador. Nunca aplicar trim nem transformar senhas.
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_BYTES = 72;
 

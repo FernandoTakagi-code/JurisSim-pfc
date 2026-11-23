@@ -19,11 +19,11 @@ export function preparePilotImport(input: unknown) {
   return { batch, fingerprints, hash };
 }
 
-/** Maintenance-only import; never called by an HTTP route or authenticated student. */
+/** Importação apenas para manutenção; nunca chamada por rota HTTP nem por aluno autenticado. */
 export async function importAuthorialPilot(db: PrismaClient, input: unknown, operatorId: string) {
   const { batch, fingerprints, hash } = preparePilotImport(input);
   return db.$transaction(async tx => {
-    // Serializes retries for the same draft set without overwriting existing items.
+    // Serializa novas tentativas do mesmo conjunto de rascunhos sem sobrescrever itens existentes.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${hash}))`;
     const operator = await tx.user.findFirst({ where: { id:operatorId, deletedAt:null }, select:{ id:true,role:true } });
     if (operator?.role !== 'ADMIN') throw new Error('Responsável pela manutenção não autorizado.');

@@ -23,7 +23,7 @@ const service = new AccountDeletionService();
 let server: Server, base: string, admin: Awaited<ReturnType<typeof fixture>>;
 const ids: string[] = [];
 async function fixture(role: 'ALUNO' | 'PROFESSOR' | 'ADMIN' = 'ALUNO', google = false) {
-  const user = await prisma.user.create({ data: { nome: 'H424 disposable fixture', email: `${prefix}-${randomUUID()}@example.invalid`, role, senhaHash: google ? '!GOOGLE_OAUTH_ACCOUNT!' : await bcrypt.hash(password, 4), emailVerifiedAt: new Date() } });
+  const user = await prisma.user.create({ data: {termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', legalAcceptedAt: new Date(),  nome: 'H424 disposable fixture', email: `${prefix}-${randomUUID()}@example.invalid`, role, senhaHash: google ? '!GOOGLE_OAUTH_ACCOUNT!' : await bcrypt.hash(password, 4), emailVerifiedAt: new Date() } });
   ids.push(user.id);
   return user;
 }
@@ -41,9 +41,9 @@ beforeAll(async () => {
 });
 afterAll(async () => { if (server) await new Promise<void>(resolve => server.close(() => resolve())); await prisma.$disconnect(); });
 
-// Preserved legacy positive scenarios. Unavailable while production deletion is
-// deliberately blocked; no environment flag can enable this suite or feature.
-// Current real-database refusal coverage lives in h424-disabled.integration.test.ts.
+// Cenários positivos legados preservados. Indisponíveis enquanto a exclusão em produção
+// estiver bloqueada de propósito; nenhuma flag de ambiente pode habilitar esta suíte ou funcionalidade.
+// A cobertura atual de recusa com banco real fica em h424-disabled.integration.test.ts.
 describe.skipIf(!accountDeletionEnabled())('H4.24 positive PostgreSQL scenarios — pending explicit activation review', () => {
   it('requires authentication, strict confirmation, and current password', async () => {
     const user = await fixture();

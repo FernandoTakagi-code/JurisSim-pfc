@@ -86,8 +86,8 @@ async function setupServer() {
   app.use('/institutions',createInstitutionRoutes());
   app.use('/question-review',createQuestionReviewRoutes());
   app.use('/goals',goalRoutes);
-  // Enable only within this isolated integration server. This does not alter
-  // the real process environment or the production feature flags.
+  // Habilita apenas dentro deste servidor de integração isolado. Isto não altera
+  // o ambiente real do processo nem as flags de produção.
   app.use('/question-practice', createQuestionPracticeRoutes({ isEnabled: () => true }));
   app.use('/students/me', studentHistoryRoutes);
   app.use(errorHandler);
@@ -223,7 +223,7 @@ describe('question practice with disposable PostgreSQL', () => {
     expect(started.status, JSON.stringify(started.body)).toBe(201);
     expect(started.body.attempt.questions.map((q: { id: string }) => q.id).sort()).toEqual([...ids].sort());
 
-    // Answers from any other activity still count as already seen.
+    // Respostas de qualquer outra atividade continuam contando como já vistas.
     const other = await prisma.simulado.create({ data: { tipo: 'PERSONALIZADO', alunoId: student.id, finalizadoEm: new Date() } });
     await answer(other.id, ids[0], 1);
     expect([...await repository.listAnsweredQuestionIds(student.id, 'Direito do Trabalho')]).toEqual([ids[0]]);
@@ -418,11 +418,11 @@ it.each([5,10,20])('owner authorization supports %i-question training without fa
 it('owner release rejects private, changed, duplicate and published-exam content atomically and excludes it after subsequent changes',async()=>{
   const f=await ownerFixture(5);
   await expect(publishOwnerPractice(prisma,f.manifest,f.student.email,'Unauthorized student test')).rejects.toThrow('ADMIN');
-  for(const data of [{publica:false},{fundamentacaoJuridica:'Changed explanation'}]){
+  for(const data of [{origem:'PROFESSOR' as const},{fundamentacaoJuridica:'Changed explanation'}]){
     const prior=await prisma.questao.findUniqueOrThrow({where:{id:f.ids[0]}});
     await prisma.questao.update({where:{id:f.ids[0]},data});
     await expect(publishOwnerPractice(prisma,f.manifest,f.owner.email,'Owner isolated authorization')).rejects.toThrow('impedimentos');
-    await prisma.questao.update({where:{id:f.ids[0]},data:{publica:prior.publica,fundamentacaoJuridica:prior.fundamentacaoJuridica}});
+    await prisma.questao.update({where:{id:f.ids[0]},data:{origem:prior.origem,fundamentacaoJuridica:prior.fundamentacaoJuridica}});
   }
   const original=await prisma.questao.findUniqueOrThrow({where:{id:f.ids[1]}});
   const first=await prisma.questao.findUniqueOrThrow({where:{id:f.ids[0]}});
@@ -433,7 +433,7 @@ it('owner release rejects private, changed, duplicate and published-exam content
   const exam=await prisma.avaliacao.create({data:{titulo:'Published isolated exam',autorId:f.owner.id,publishedAt:new Date(),questoes:{create:{questaoId:f.ids[0],posicao:1}}}});
   await expect(publishOwnerPractice(prisma,f.manifest,f.owner.email,'Owner isolated authorization')).rejects.toThrow('impedimentos');
   expect(await prisma.administrativeEvent.count()).toBe(0);
-  // Only isolated fixtures are updated; no existing exam is touched.
+  // Apenas as fixtures isoladas são atualizadas; nenhum simulado existente é alterado.
   await prisma.avaliacao.update({where:{id:exam.id},data:{publishedAt:null}});
   const published=await publishOwnerPractice(prisma,f.manifest,f.owner.email,'Owner isolated authorization');
   expect(published.published).toBe(5);
@@ -477,3 +477,23 @@ it('completes five-question practice in all five disciplines and a separate Civi
   expect(await prisma.resposta.count({where:{simulado:{alunoId:f.student.id}}})).toBe(25);
   expect(await prisma.sessaoRevisaoQuestao.count({where:{alunoId:f.student.id,disciplina:'Direito Civil',finalizadaEm:{not:null}}})).toBe(1);
 },120000);
+
+it('planOwnerPracticeBatch monta lote novo só com questões ainda não liberadas e o lote publica no treino', async () => {
+  const { planOwnerPracticeBatch } = await import('../../src/services/questions/owner-practice-batch');
+  const f = await ownerFixture(5);
+  await publishOwnerPractice(prisma, f.manifest, f.owner.email, 'Primeiro lote no teste isolado');
+  const author = await criarUsuario('PROFESSOR');
+  const extra = await createQuestionSet(author.id, 'Direito Penal', 6);
+  for (const [i, id] of extra.entries()) await prisma.questao.update({ where: { id }, data: { enunciado: `Enunciado penal exclusivo do segundo lote número ${i + 1}.` } });
+  const plan = await planOwnerPracticeBatch(prisma);
+  const ids = plan.manifest.questions.map(q => q.id);
+  expect(ids.some(id => f.ids.includes(id))).toBe(false);
+  expect(extra.every(id => ids.includes(id))).toBe(true);
+  expect(plan.manifest.selectionSha256).toBe(ownerManifestSelectionDigest(plan.manifest.questions));
+  const limited = await planOwnerPracticeBatch(prisma, { perDiscipline: 2 });
+  expect(Math.max(...Object.values(limited.manifest.discipline))).toBeLessThanOrEqual(2);
+  const result = await publishOwnerPractice(prisma, plan.manifest, f.owner.email, 'Segundo lote no teste isolado');
+  expect(result.published).toBe(plan.manifest.candidateCount);
+  expect((await planOwnerPracticeBatch(prisma)).manifest.candidateCount).toBe(0);
+  expect(await new PrismaQuestionPracticeRepository(prisma).listEligibleQuestions('Direito Penal')).toHaveLength(6);
+});

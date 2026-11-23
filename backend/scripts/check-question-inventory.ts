@@ -16,7 +16,7 @@ async function main() {
  } else {
   const db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   try {
-    // PostgreSQL enforces read-only behavior for every statement in this transaction.
+    // O PostgreSQL impõe somente leitura a todas as instruções desta transação.
     await db.$transaction(async transaction => {
       await transaction.$executeRawUnsafe('SET TRANSACTION READ ONLY');
       const repository = new PrismaInitialDiagnosticRepository(transaction as unknown as PrismaClient);
@@ -54,12 +54,12 @@ async function main() {
       if (shortages.length || !allDisciplinesReady) process.exitCode = 1;
     }, { timeout: 120_000 });
   } catch (error) {
-    // The classifier returns only a fixed category and message, never driver text.
+    // O classificador retorna apenas uma categoria e mensagem fixas, nunca o texto do driver.
     const diagnostic = diagnoseInventoryCheckError(error);
     console.error(`Falha na validação somente de leitura [${diagnostic.category}]: ${diagnostic.message}`);
     process.exitCode = 2;
   } finally {
-    try { await db.$disconnect(); } catch { /* Never expose driver or connection details during cleanup. */ }
+    try { await db.$disconnect(); } catch { /* Nunca expor detalhes do driver ou da conexão durante a limpeza. */ }
   }
  }
 }

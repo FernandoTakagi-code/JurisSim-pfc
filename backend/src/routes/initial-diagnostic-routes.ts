@@ -29,12 +29,12 @@ export function createInitialDiagnosticRoutes(options: InitialDiagnosticRoutesOp
   const controller = new InitialDiagnosticController(service, resolutionService);
   const enabled = options.isEnabled ?? isInitialDiagnosticApiEnabled;
 
-  // Historical results remain readable when creation/resolution is suspended.
-  // Ownership and completion are still checked by the resolution service.
+  // Os resultados históricos continuam legíveis quando a criação/resolução está suspensa.
+  // A posse e a conclusão ainda são verificadas pelo serviço de resolução.
   router.get('/:attemptId/result', requireAuth, requireRoles('ALUNO'), controller.getResult);
 
-  // Gate before auth: the existing auth middleware reads the user from the
-  // database. While disabled this endpoint must not perform any DB access.
+  // Bloqueio antes da autenticação: o middleware de autenticação existente lê o usuário
+  // do banco. Enquanto desativado, este endpoint não deve fazer nenhum acesso ao banco.
   router.use((_request, response, next) => {
     if (!enabled()) {
       response.setHeader('Cache-Control', 'no-store');

@@ -2,7 +2,9 @@ import {useRef,useState,type FormEvent} from 'react';
 import {apiRequest} from './api';
 import {establishSession,refreshSession} from './auth-session';
 import {navigate} from './navigation';
-import {legalAcceptance,LegalLinks} from './legal';
+import {LegalLinks} from './legal';
+import {currentLegalAcceptance} from './terms-of-use';
+import {cepDigits,formatCep,isCompleteCep,lookupCep} from './postal-code';
 import {institutionStates,noWebsiteDeclaration} from '../../backend/src/institution-registration';
 import {institutionRequestSchema} from '../../backend/src/services/institutions/institution-registration-validation';
 import {passwordError,passwordRequirements} from '../../backend/src/password-policy';
@@ -26,7 +28,27 @@ export function InstitutionRegistrationWizard({account,onCreated,initial,onCance
   });
   const pending=useRef(false), heading=useRef<HTMLHeadingElement>(null);
   const set=(key:string,value:string|boolean)=>setValues(old=>({...old,[key]:value}));
-  const fields=(items:Field[])=>items.map(([name,label,type,max,required])=><label key={name}>{label}{!required&&' (opcional)'}<input name={name} type={type} required={required && !(name==='website'&&values.noWebsite)} disabled={name==='website'&&values.noWebsite===true} maxLength={max} value={String(values[name]??'')} onChange={e=>set(name,e.target.value)} autoComplete={name==='responsibleName'?'name':undefined}/></label>);
+  // CEP: com os 8 dígitos, busca o endereço na ViaCEP; os campos continuam editáveis e qualquer falha mantém o preenchimento manual.
+  const [cepMessage,setCepMessage]=useState('');
+  const latestCep=useRef('');
+  async function changePostalCode(value:string){
+    const formatted=formatCep(value);
+    set('postalCode',formatted);
+    setCepMessage('');
+    if(!isCompleteCep(formatted)){latestCep.current='';return;}
+    const digits=cepDigits(formatted);
+    if(latestCep.current===digits)return;
+    latestCep.current=digits;
+    setCepMessage('Buscando endereço…');
+    const result=await lookupCep(formatted);
+    if(latestCep.current!==digits)return; // Uma digitação mais nova substituiu esta consulta.
+    if(result.status==='found'){
+      setValues(old=>({...old,street:result.address.street||old.street,district:result.address.district||old.district,city:result.address.city,state:result.address.state}));
+      setCepMessage(result.address.street?'Endereço preenchido pelo CEP. Confira e informe o número.':'Cidade e UF preenchidas pelo CEP. Informe logradouro, bairro e número.');
+      window.setTimeout(()=>document.querySelector<HTMLInputElement>(result.address.street?'input[name="number"]':'input[name="street"]')?.focus(),0);
+    }else setCepMessage(result.status==='not_found'?'CEP não encontrado. Preencha o endereço manualmente.':'Não foi possível buscar o CEP agora. Preencha o endereço manualmente.');
+  }
+  const fields=(items:Field[])=>items.map(([name,label,type,max,required])=><label key={name}>{label}{!required&&' (opcional)'}<input name={name} type={type} inputMode={name==='postalCode'?'numeric':undefined} required={required && !(name==='website'&&values.noWebsite)} disabled={name==='website'&&values.noWebsite===true} maxLength={max} value={String(values[name]??'')} onChange={e=>name==='postalCode'?void changePostalCode(e.target.value):set(name,e.target.value)} autoComplete={name==='responsibleName'?'name':name==='postalCode'?'postal-code':undefined}/>{name==='postalCode'&&cepMessage&&<small className="cep-status" role="status" aria-live="polite">{cepMessage}</small>}</label>);
   function institutionPayload(){
     const keys=[...institutionFields.map(([key])=>key),...responsibleKeys,'institutionType','state','noWebsite'];
     return Object.fromEntries(keys.map(key=>[key,values[key]??(['noWebsite','representationDeclaration'].includes(key)?false:'')]).filter(([key,value])=>value!==''||!['addressComplement','website'].includes(String(key))));
@@ -51,7 +73,7 @@ export function InstitutionRegistrationWizard({account,onCreated,initial,onCance
         await apiRequest(initial?.id?`/institutions/requests/${initial.id}`:'/institutions/requests',{method:initial?.id?'PUT':'POST',body:JSON.stringify(parsed.data)});
         await refreshSession(true);onCreated?.();
       }else{
-        const result=await apiRequest<{token:string;emailVerification?:{message:string}}>('/auth/institution-register',{method:'POST',body:JSON.stringify({institution:parsed.data,email:values.email,emailConfirmation:values.emailConfirmation,senha:values.senha,confirmacaoSenha:values.confirmacaoSenha,acceptance:legalAcceptance})},{authenticated:false});
+        const result=await apiRequest<{token:string;emailVerification?:{message:string}}>('/auth/institution-register',{method:'POST',body:JSON.stringify({institution:parsed.data,email:values.email,emailConfirmation:values.emailConfirmation,senha:values.senha,confirmacaoSenha:values.confirmacaoSenha,acceptance:await currentLegalAcceptance()})},{authenticated:false});
         setValues(old=>({...old,senha:'',confirmacaoSenha:''}));
         if(result.emailVerification?.message)sessionStorage.setItem('jurissim_institution_notice',result.emailVerification.message);
         await establishSession(result.token);navigate('/instituicoes',true);

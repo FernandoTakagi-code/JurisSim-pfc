@@ -1,4 +1,4 @@
-// Route metadata only. Authorization always uses the validated server session.
+// Apenas metadados de rota. A autorização sempre usa a sessão validada pelo servidor.
 export const adminSections = [
   {
     id: "overview",
@@ -29,6 +29,12 @@ export const adminSections = [
     path: "/administracao/auditoria",
     label: "Logs e auditoria",
     icon: "chart",
+  },
+  {
+    id: "terms",
+    path: "/administracao/termos",
+    label: "Termos de uso",
+    icon: "file",
   },
 ] as const;
 export type AdminSectionId = (typeof adminSections)[number]["id"] | 'classes' | 'teachers' | 'security' | 'settings' | 'notifications' | 'editorial';

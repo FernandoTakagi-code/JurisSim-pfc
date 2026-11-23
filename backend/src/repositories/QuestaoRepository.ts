@@ -153,7 +153,7 @@ export class QuestaoRepository {
   private static async visibilidade(actorId: string, actorRole: string,institutionId?:string): Promise<Prisma.QuestaoWhereInput> {
     if (actorRole === 'ADMIN') throw new ApiError(403,'Administração global não possui acesso pedagógico.');
     if(institutionId)return {OR:[{publica:true},{turma:{...await visibleClasses(),institutionalClass:{institutionId,institution:{status:'ACTIVE'}}}}]};
-    // Students receive private class content only through authorized exam attempts.
+    // Alunos recebem conteúdo privado da turma somente por meio de tentativas de simulado autorizadas.
     if (actorRole === 'ALUNO') return { publica: true, turmaId: null };
     return { OR: [
       { publica: true },

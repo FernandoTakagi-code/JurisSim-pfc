@@ -4,7 +4,7 @@ import { classifyEmailDeliveryFailure, EmailDeliveryFailure } from './email-deli
 export const OFFICIAL_EMAIL = 'jurissimplataforma@gmail.com';
 export const SMTP_SEND_DEADLINE_MS = 15_000;
 
-// SMTP authentication is separate from the fixed, official message sender.
+// A autenticação SMTP é separada do remetente oficial fixo das mensagens.
 export class BrevoSmtpClient {
   readonly isConfigured: boolean;
   readonly from: { name: string; address: string };
@@ -17,7 +17,7 @@ export class BrevoSmtpClient {
   constructor(user = process.env.BREVO_SMTP_USER, smtpKey = process.env.BREVO_SMTP_KEY, sendDeadlineMs = SMTP_SEND_DEADLINE_MS) {
     this.from = { name: 'JurisSim', address: OFFICIAL_EMAIL };
     this.user = user?.trim() ?? '';
-    // SMTP keys are opaque: never apply Gmail app-password whitespace removal.
+    // Chaves SMTP são opacas: nunca aplicar a remoção de espaços das senhas de app do Gmail.
     this.password = smtpKey ?? '';
     this.isConfigured = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.user) && Boolean(this.password.trim());
     this.sendDeadlineMs = sendDeadlineMs;
@@ -33,8 +33,8 @@ export class BrevoSmtpClient {
       requireTLS: true,
       tls: { minVersion: 'TLSv1.2' },
       auth: { user: this.user, pass: this.password },
-      // Keep one process-wide pool so transactional messages reuse STARTTLS
-      // connections. A single connection is conservative for SMTP relay limits.
+      // Mantém um único pool por processo para que as mensagens transacionais reutilizem
+      // conexões STARTTLS. Uma única conexão é conservadora quanto aos limites do relay SMTP.
       pool: true,
       maxConnections: 1,
       maxMessages: 100,
@@ -106,5 +106,5 @@ export class BrevoSmtpClient {
   }
 }
 
-// Both auth flows share the same connection pool in the API process.
+// Os dois fluxos de autenticação compartilham o mesmo pool de conexões no processo da API.
 export const sharedBrevoSmtpClient = new BrevoSmtpClient();

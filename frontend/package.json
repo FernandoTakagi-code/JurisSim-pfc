@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test:legal": "node tests/test-legal.mjs",
-    "test:delivery-static": "node tests/test-admin-routing.cjs && node tests/test-teacher-access.cjs && node tests/test-account-deletion.cjs && node tests/test-institution-navigation.cjs && node tests/test-institution-visual.cjs && node tests/test-administration.cjs && node tests/test-institution-exam-access.cjs && node tests/test-trail-launch.cjs && node tests/test-exam-actions.cjs && node tests/test-question-editorial.cjs && node tests/test-teacher-workspace.cjs && node tests/test-activity-editor.cjs",
+    "test:delivery-static": "node tests/test-diagnostic-size.cjs && node tests/test-postal-code.cjs && node tests/test-registration-pending.cjs && node tests/test-terms-admin.cjs && node tests/test-legal-update.cjs && node tests/test-admin-summary-filter.cjs && node tests/test-admin-routing.cjs && node tests/test-teacher-access.cjs && node tests/test-account-deletion.cjs && node tests/test-institution-navigation.cjs && node tests/test-institution-visual.cjs && node tests/test-administration.cjs && node tests/test-institution-exam-access.cjs && node tests/test-trail-launch.cjs && node tests/test-exam-actions.cjs && node tests/test-question-editorial.cjs && node tests/test-teacher-workspace.cjs && node tests/test-activity-editor.cjs",
     "test:questions": "node tests/test-question-form.mjs",
     "test:pilot": "node tests/test-authorial-pilot.mjs",
     "test:privacy": "node tests/test-privacy.mjs"

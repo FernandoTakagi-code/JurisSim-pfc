@@ -101,7 +101,7 @@ it("creates a draft, lists authorized questions, publishes and records real stud
       )
     ).corpo.items[0],
   ).toMatchObject({ id, status: "PUBLISHED", canStart: true });
-  // Activity publication does not place it into the independent simulated-exam lists.
+  // Publicar a atividade não a coloca nas listas independentes de simulados.
   expect((await f.request("GET", "/avaliacoes")).corpo.items).toEqual([]);
   const attempt = await f.request(
     "POST",

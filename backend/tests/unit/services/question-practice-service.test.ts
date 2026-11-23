@@ -179,6 +179,6 @@ describe('QuestionPracticeService', () => {
     expect(result).toMatchObject({ total: 1, correct: 1, percentage: 100 });
     expect(result.answers[0].explanation).toBe('Fundamentação revisada.');
     expect(result.answers[0].correctOptionId).toBe('q1-a');
-    expect(repo.updateLevel).not.toHaveBeenCalled(); // atomic repository boundary
+    expect(repo.updateLevel).not.toHaveBeenCalled(); // fronteira atômica do repositório
   });
 });

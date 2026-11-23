@@ -214,7 +214,7 @@
 .session-validation-mark{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#d6ad52;color:#102957;font-size:22px;font-weight:900}
 .session-validation-spinner{position:absolute;top:23px;right:24px;width:15px;height:15px;border:2px solid #e7edf4;border-top-color:#d6ad52;border-radius:50%;animation:session-spin .8s linear infinite}
 @keyframes session-spin{to{transform:rotate(360deg)}}
-/* Individual question practice */
+/* Prática individual de questões */
 .practice-page { max-width: 980px; margin-inline: auto; }
 .practice-picker { display: grid; gap: 1rem; max-width: 680px; padding: 1.5rem; }
 .practice-picker select { width: 100%; min-height: 46px; border: 1px solid #d7deea; border-radius: 10px; padding: .65rem .8rem; color: #10264a; background: white; }
@@ -238,7 +238,7 @@
 .jurissim-demo-global-banner { position:sticky; top:0; z-index:2000; padding:10px 16px; color:#fff; background:#7a2500; border-bottom:2px solid #f0bf54; font-size:13px; font-weight:800; line-height:1.4; text-align:center; }
 @media (max-width: 600px) { .practice-picker { padding: 1rem; } .practice-question footer > button { flex: 1 1 100%; } }
 
-/* Local demonstration is server-authorized and remains visibly pending. */
+/* A demonstração local é autorizada pelo servidor e continua visivelmente pendente. */
 .v0-demo-banner { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px clamp(16px,3vw,30px); color:#f8edcf; background:#102957; border-bottom:1px solid #d9b56d66; font-size:12px; }
 .v0-header-mark { display:inline-block; width:27px; height:27px; overflow:hidden; flex:none; border-radius:7px; background:#101d35; }
 .v0-header-mark img { width:100%; height:100%; object-fit:cover; object-position:center top; transform:scale(1.65); transform-origin:center top; }
@@ -272,3 +272,13 @@
   .mandatory-diagnostic-content { padding-top:20px; padding-bottom:20px; }
 }
 @media(max-width:760px) { .auth-brand-logo { top:18px; left:24px; width:88px; height:88px; } .auth-pitch { min-height:430px; padding-top:112px; } .auth-pitch-copy { margin-top:4px; } }
+/* Tela de novo aceite dos Termos de Uso */
+.legal-update-card { max-width: 46rem; }
+.legal-update-text { max-height: 45vh; overflow-y: auto; padding: 1rem 1.25rem; margin: .75rem 0 1rem; border: 1px solid var(--border, #cbd5e1); border-radius: .75rem; text-align: left; line-height: 1.6; }
+.legal-update-text h2 { font-size: 1rem; margin: 1rem 0 .35rem; }
+.legal-update-card .legal-consent { display: flex; gap: .6rem; align-items: flex-start; text-align: left; margin: .5rem 0 1rem; }
+/* Quebras de linha simples dentro de um parágrafo dos Termos */
+.legal-document section p, .legal-update-text p { white-space: pre-line; }
+/* Cadastro repetido de conta que aguarda confirmação */
+.pending-confirmation-notice { margin: .75rem 0; padding: .9rem 1rem; border-left: 3px solid #c69b48; border-radius: .5rem; background: rgba(198,155,72,.08); }
+.pending-confirmation-notice p { margin: 0 0 .5rem; }

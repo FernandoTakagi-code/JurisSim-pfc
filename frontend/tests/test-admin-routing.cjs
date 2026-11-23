@@ -39,7 +39,8 @@ for (const path of [
 ]) {
   assert.equal(sessionRedirectTarget(session("ADMIN"), path), "/administracao");
 }
-assert.equal(new Set(adminSections.map((section) => section.path)).size, 5);
+assert.equal(new Set(adminSections.map((section) => section.path)).size, 6);
+assert.equal(adminSection('/administracao/termos').id,'terms');
 assert.ok(!adminSections.some(section=>section.id==='notifications'));
 assert.equal(adminSection('/administracao/notificacoes').id,'audit');
 assert.ok(!adminSections.some(section=>section.id==='settings'));

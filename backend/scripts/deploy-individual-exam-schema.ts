@@ -35,8 +35,8 @@ async function main() {
     const applied = await db.$queryRaw<{ migration_name: string; checksum: string; finished_at: Date | null; rolled_back_at: Date | null }[]>`SELECT migration_name, checksum, finished_at, rolled_back_at FROM "_prisma_migrations" ORDER BY migration_name`;
     if (applied.some(row => !row.finished_at && !row.rolled_back_at)) throw new Error('Há migration incompleta no destino.');
     const completed = applied.filter(row => row.finished_at && !row.rolled_back_at);
-    // Other branches can have completed additive migrations in the shared bank.
-    // Preserve those records; only the new local migration may be pending here.
+    // Outras branches podem ter concluído migrações aditivas no banco compartilhado.
+    // Preserve esses registros; apenas a nova migração local pode estar pendente aqui.
     const externalMigrations: { name: string; checksum: string }[] = [];
     for (const row of completed) {
       const file = path.join('prisma/migrations', row.migration_name, 'migration.sql');
@@ -56,7 +56,7 @@ async function main() {
       const result = spawnSync(process.execPath, [path.resolve('node_modules/prisma/build/index.js'), 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'], {
         cwd: process.cwd(), env: { ...process.env, DATABASE_URL: url, DIRECT_URL: direct, PRISMA_HIDE_UPDATE_MESSAGE: 'true' }, encoding: 'utf8', windowsHide: true, timeout: 120_000,
       });
-      // Prisma output may contain private connection identity. Never forward it.
+      // A saída do Prisma pode conter a identidade privada da conexão. Nunca a repasse.
       if (result.error || result.status !== 0) throw new Error('Prisma recusou a aplicação; saída de conexão omitida. Verifique o histórico antes de repetir.');
     }
     const [security] = await db.$queryRaw<{ rls: boolean; ownerForeignKey: boolean }[]>`SELECT c.relrowsecurity AS rls,

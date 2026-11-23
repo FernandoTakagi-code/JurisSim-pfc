@@ -51,7 +51,7 @@ beforeEach(()=>{
   db.accountControl.findUnique.mockResolvedValue(null);db.accountControl.findMany.mockResolvedValue([]);
   db.institutionalMembership.findMany.mockResolvedValue([{institutionId:institution,role:'INSTITUTION_ADMIN',institution:{name:'Fixture'}}]);
   db.institutionalMembership.findFirst.mockResolvedValue({id:uid(8)});
-  db.user.findUnique.mockResolvedValue({id:owner,role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(),deletedAt:null,sessionVersion:0});
+  db.user.findUnique.mockResolvedValue({id:owner,role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null,sessionVersion:0});
   db.institution.findUnique.mockResolvedValue({...institutionApplication,id:institution,ownerId:owner,registrationNumber:null,status:'PENDING',description:'Declaração: instituição sem site oficial.'});
   db.institutionalClass.findMany.mockResolvedValue([]);db.institution.findFirst.mockResolvedValue(null);
   db.administrativeEvent.findFirst.mockResolvedValue({result:JSON.stringify({runId})});
@@ -158,11 +158,11 @@ it('a proven pending fixture can be approved without a CNPJ, with audit and norm
 });
 it('fixture provisioning cannot be called by an ordinary user and cannot replace an existing UUID',async()=>{
   await expect(service.provisionHomologationFixture(actor,{},'Testing')).rejects.toMatchObject({statusCode:403});expect(db.institution.create).not.toHaveBeenCalled();
-  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{role:'ADMIN',emailVerifiedAt:new Date(),deletedAt:null}:{role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(),deletedAt:null});
+  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null}:{role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null});
   await expect(service.provisionHomologationFixture(global,fixtureInput,'Testing')).rejects.toMatchObject({statusCode:409});expect(db.institution.create).not.toHaveBeenCalled();
 });
 it('fixture provisioning reserves the configured UUID, creates PENDING and audits without activating memberships',async()=>{
-  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{id:admin,role:'ADMIN',emailVerifiedAt:new Date(),deletedAt:null}:{id:owner,role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(),deletedAt:null});
+  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{id:admin,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null}:{id:owner,role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null});
   db.institution.findUnique.mockResolvedValue(null);db.institution.create.mockImplementation(({data})=>data);
   const result=await service.provisionHomologationFixture(global,fixtureInput,'Authorized fixture preparation');
   expect(result).toMatchObject({id:institution,ownerId:owner,registrationNumber:null,status:'PENDING',name:'JurisSim Academy — HOMOLOGAÇÃO'});
@@ -175,7 +175,7 @@ it.each(['','  ','ab'])('provisioning/approval requires a meaningful reason: %s'
   expect(db.institution.create).not.toHaveBeenCalled();expect(db.institution.update).not.toHaveBeenCalled();
 });
 it('H4.3 exact replay is idempotent and never resets a reviewed fixture or duplicates its audit',async()=>{
-  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{id:admin,role:'ADMIN',emailVerifiedAt:new Date(),deletedAt:null}:{id:owner,role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(),deletedAt:null});
+  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{id:admin,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null}:{id:owner,role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null});
   let stored:Record<string,unknown>|null=null;
   db.institution.findUnique.mockImplementation(async()=>stored);
   db.institution.create.mockImplementation(async({data})=>{stored={...data};return stored;});
@@ -192,7 +192,7 @@ it('H4.3 exact replay is idempotent and never resets a reviewed fixture or dupli
   await expect(service.provisionHomologationFixture(global,fixtureInput,'Authorized fixture preparation')).rejects.toMatchObject({statusCode:409});
 });
 it('H4.3 refuses replay without the exact audit run and propagates audit failure inside the transaction',async()=>{
-  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{id:admin,role:'ADMIN',emailVerifiedAt:new Date(),deletedAt:null}:{id:owner,role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(),deletedAt:null});
+  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{id:admin,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null}:{id:owner,role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null});
   db.institution.findUnique.mockResolvedValue(null);
   db.administrativeEvent.create.mockRejectedValue(new Error('isolated audit failure'));
   db.institution.create.mockImplementation(async({data})=>data);
@@ -218,7 +218,7 @@ it('an audit from a different run cannot authorize the CNPJ waiver',async()=>{
 it('an authorized participant cannot invite an unlisted recipient or assign an unlisted teacher',async()=>{
   vi.stubEnv('APP_PUBLIC_URL','http://127.0.0.1:5180');
   db.institution.findUnique.mockResolvedValue({status:'ACTIVE',name:'Fixture'});db.user.findFirst.mockResolvedValue({id:foreign});
-  db.user.findMany.mockResolvedValue([{id:foreign,role:'ALUNO',deletedAt:null,emailVerifiedAt:new Date()}]);
+  db.user.findMany.mockResolvedValue([{id:foreign,role:'ALUNO',deletedAt:null,emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1'}]);
   await expect(scoped(()=>service.invite(actor,institution,'outsider@example.invalid'))).rejects.toMatchObject({statusCode:403});
   await expect(scoped(()=>new ClassExamService().assignTeacher(actor,uid(10),foreign,true))).rejects.toMatchObject({statusCode:403});
   expect(mail.send).not.toHaveBeenCalled();expect(db.teacherInvitation.create).not.toHaveBeenCalled();
@@ -298,7 +298,7 @@ it('HTTP availability reflects the authenticated scope and gates invitations con
     db.institutionalMembership.findMany.mockResolvedValue([]);db.user.findFirst.mockResolvedValue(null);
     db.teacherInvitation.findUnique.mockResolvedValue({id:uid(9),institutionId:foreign,email:'owner@example.invalid'});
     expect((await fetch(base+'/invitations/inspect',{method:'POST',headers,body:JSON.stringify({token:'a'.repeat(64)})})).status).toBe(403);
-    db.user.findUnique.mockResolvedValue({id:foreign,role:'ALUNO',emailVerifiedAt:new Date(),sessionVersion:0});
+    db.user.findUnique.mockResolvedValue({id:foreign,role:'ALUNO',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
     db.institutionalMembership.findFirst.mockResolvedValue(null);
     expect((await (await fetch(base+'/availability',{headers})).json()).enabled).toBe(false);
     expect((await fetch(base+`/${institution}/summary`,{headers})).status).toBe(403);
@@ -314,7 +314,7 @@ it('restricted recipient without a teaching link can inspect only after authenti
   try{
     expect((await fetch(base+'/invitations/inspect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:invitationToken})})).status).toBe(503);
     expect(db.teacherInvitation.findUnique).not.toHaveBeenCalled();
-    db.user.findUnique.mockResolvedValue({id:teacher,role:'ALUNO',email:'invited@example.invalid',emailVerifiedAt:new Date(),deletedAt:null,sessionVersion:0});
+    db.user.findUnique.mockResolvedValue({id:teacher,role:'ALUNO',email:'invited@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null,sessionVersion:0});
     db.user.findFirst.mockResolvedValue(null);db.user.findMany.mockResolvedValue([]);
     db.institutionalMembership.findMany.mockResolvedValue([]);
     db.teacherInvitation.findUnique.mockResolvedValue({id:uid(9),institutionId:institution,email:'invited@example.invalid',status:'PENDING',expiresAt:new Date(Date.now()+3600000)});
@@ -330,7 +330,7 @@ it('restricted recipient without a teaching link can inspect only after authenti
 });
 it('restricted teacher reads exam-eligible metadata while question management remains forbidden',async()=>{
   const classId=uid(80);
-  db.user.findUnique.mockResolvedValue({id:teacher,role:'PROFESSOR',email:'teacher@example.invalid',emailVerifiedAt:new Date(),deletedAt:null,sessionVersion:0});
+  db.user.findUnique.mockResolvedValue({id:teacher,role:'PROFESSOR',email:'teacher@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null,sessionVersion:0});
   db.institutionalMembership.findMany.mockResolvedValue([{institutionId:institution,role:'TEACHER',institution:{name:'Fixture'}}]);
   db.institutionalClass.findMany.mockResolvedValue([{classId}]);
   db.turma.count.mockImplementation(({where})=>where.id.in.every((id:string)=>id===classId)?1:0);
@@ -350,7 +350,7 @@ it('restricted teacher reads exam-eligible metadata while question management re
 });
 it('a repeated provision cannot overwrite the pending fixture or create a duplicate',async()=>{
   let created: Record<string,unknown>|null=null;
-  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{role:'ADMIN',emailVerifiedAt:new Date()}:{role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date()});
+  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1'}:{role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1'});
   db.institution.findUnique.mockImplementation(async()=>created);
   db.institution.create.mockImplementation(async({data})=>{created=data;return data;});
   await service.provisionHomologationFixture(global,fixtureInput,'Reviewed operation');
@@ -358,7 +358,7 @@ it('a repeated provision cannot overwrite the pending fixture or create a duplic
   expect(db.institution.create).toHaveBeenCalledTimes(1);expect(db.institution.update).not.toHaveBeenCalled();expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();
 });
 it('a provisioning audit failure propagates to the serializable transaction; no permission is created',async()=>{
-  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{role:'ADMIN',emailVerifiedAt:new Date()}:{role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date()});
+  db.user.findUnique.mockImplementation(({where})=>where.id===admin?{role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1'}:{role:'ALUNO',email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1'});
   db.institution.findUnique.mockResolvedValue(null);db.institution.create.mockResolvedValue({id:institution});
   db.administrativeEvent.create.mockRejectedValue(new Error('Simulated audit failure'));
   await expect(service.provisionHomologationFixture(global,fixtureInput,'Reviewed operation')).rejects.toThrow('Simulated audit failure');
@@ -373,13 +373,13 @@ it('institutional dashboard returns the authorized fixture and real empty indica
 });
 it('H4.4 ADMIN read model exempts only the proven null CNPJ and grants no permission before approval',async()=>{
   const row=await db.institution.findUnique();
-  db.institution.findMany.mockResolvedValue([{...row,owner:{emailVerifiedAt:new Date(),deletedAt:null,accountControl:null}}]);
+  db.institution.findMany.mockResolvedValue([{...row,owner:{emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null,accountControl:null}}]);
   const result=await service.institutions(global,1,'PENDING');
   expect(result.items[0]).toMatchObject({registrationNumber:null,status:'PENDING',homologationApproval:true,approvalReview:{pendingFields:[],canApprove:true}});
   expect(db.institution.update).not.toHaveBeenCalled();expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();expect(db.user.update).not.toHaveBeenCalled();expect(db.administrativeEvent.create).not.toHaveBeenCalled();expect(mail.send).not.toHaveBeenCalled();
 });
 it.each(['mode off','manifest missing','manifest invalid','unlisted admin','similar UUID and same name','wrong owner','audit missing','wrong run','wrong project'])('H4.4 read model keeps CNPJ blocking when %s',async condition=>{
-  let row={...await db.institution.findUnique(),name:'JurisSim Academy — HOMOLOGAÇÃO',owner:{emailVerifiedAt:new Date(),deletedAt:null,accountControl:null}};
+  let row={...await db.institution.findUnique(),name:'JurisSim Academy — HOMOLOGAÇÃO',owner:{emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null,accountControl:null}};
   let adminActor=global;
   if(condition==='mode off')vi.stubEnv('INSTITUTION_HOMOLOGATION_ENABLED','false');
   if(condition==='manifest missing')state.manifest='';
@@ -397,7 +397,7 @@ it.each(['mode off','manifest missing','manifest invalid','unlisted admin','simi
 });
 it.each(['other missing field','invalid field','unconfirmed owner','deleted owner','suspended owner'])('H4.4 fixture waiver cannot bypass %s',async condition=>{
   const row=await db.institution.findUnique();
-  const ownerState={emailVerifiedAt:new Date() as Date|null,deletedAt:null as Date|null,accountControl:null as {suspended:boolean}|null};
+  const ownerState={emailVerifiedAt:new Date() as Date|null, termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null as Date|null,accountControl:null as {suspended:boolean}|null};
   const change:Record<string,unknown>={};
   if(condition==='other missing field')change.street=null;
   if(condition==='invalid field')change.postalCode='invalid';
@@ -412,7 +412,7 @@ it.each(['other missing field','invalid field','unconfirmed owner','deleted owne
   expect(db.institutionalMembership.upsert).not.toHaveBeenCalled();expect(db.institution.update).not.toHaveBeenCalled();
 });
 it('an authenticated teacher accesses assigned classes but neither institutional administration nor global ADMIN endpoints',async()=>{
-  db.user.findUnique.mockResolvedValue({id:teacher,role:'PROFESSOR',email:'teacher@example.invalid',emailVerifiedAt:new Date(),sessionVersion:0});
+  db.user.findUnique.mockResolvedValue({id:teacher,role:'PROFESSOR',email:'teacher@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   db.institutionalMembership.findMany.mockResolvedValue([{institutionId:institution,role:'TEACHER',institution:{name:'Fixture'}}]);
   db.institutionalMembership.findFirst.mockImplementation(({where})=>where.role==='INSTITUTION_ADMIN'?null:{id:uid(8)});
   db.institutionalClass.findMany.mockResolvedValue([{classId:uid(10)}]);db.turma.findMany.mockResolvedValue([{id:uid(10),nome:'Assigned class'}]);

@@ -44,7 +44,7 @@ export function classifyEmailDeliveryFailure(error: unknown): EmailDeliveryFailu
   if (['ECONNECTION', 'ECONNREFUSED', 'ECONNRESET', 'ESOCKET', 'ETLS'].includes(code)) {
     return new EmailDeliveryFailure('not_accepted', 'connect');
   }
-  // Once sendMail has been called, unknown failures cannot prove that the relay
-  // did not accept the DATA command. Avoid retrying or invalidating its link.
+  // Depois que o sendMail foi chamado, falhas desconhecidas não provam que o relay
+  // não aceitou o comando DATA. Evita repetir o envio ou invalidar o link.
   return new EmailDeliveryFailure('indeterminate', 'unknown');
 }

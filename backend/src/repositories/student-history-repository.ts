@@ -17,8 +17,8 @@ export type StudyTotals = {
   incorrectAnswers: number; unansweredQuestions: number;
 };
 
-// Count only the answer belonging to each assigned question, matching the
-// existing diagnostic/trail engine. No answer keys or other student's IDs leave this repository.
+// Conta apenas a resposta de cada questão atribuída, igual ao mecanismo
+// existente de diagnóstico/trilha. Nenhum gabarito ou ID de outro aluno sai deste repositório.
 const counts = Prisma.sql`LEFT JOIN LATERAL (
   SELECT count(*)::int AS total, count(r.id)::int AS answered,
     count(*) FILTER (WHERE r.correta = true)::int AS correct,
@@ -70,7 +70,7 @@ export class StudentHistoryRepository {
         completed: Boolean(trail.simuladoGerado?.finalizadoEm) })) };
   }
   async overview(studentId: string) {
-    // A consistent snapshot of totals and bounded evolution, with no N+1 reads.
+    // Um snapshot consistente dos totais e da evolução limitada, sem leituras N+1.
     const [totals, evolution, recent] = await prisma.$transaction([
       prisma.$queryRaw<StudyTotals[]>(Prisma.sql`
         SELECT count(*)::int AS "completedActivities",

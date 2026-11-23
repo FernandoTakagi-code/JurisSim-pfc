@@ -62,8 +62,8 @@ export class QuestionReviewService {
     filter: ReviewFilter,
   ): Promise<Item[]> {
     if (discipline) checkDiscipline(discipline);
-    // Completed originals only: never disclose keys from an unfinished mixed exam.
-    // Reviews live in a different table and cannot redefine this original history.
+    // Apenas originais concluídos: nunca revelar gabaritos de um simulado misto não finalizado.
+    // As revisões ficam em outra tabela e não podem redefinir este histórico original.
     const rows = await this.db.resposta.findMany({
       where: { simulado: { alunoId: studentId, finalizadoEm: { not: null } } },
       orderBy: [{ respondidoEm: "desc" }, { id: "desc" }],

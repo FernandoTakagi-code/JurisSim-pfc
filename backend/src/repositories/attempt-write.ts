@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { ApiError } from '../errors/api-error';
 
-// Answer and completion writers take the same row lock. READ COMMITTED lets a
-// waiter observe the winner after the lock is acquired, including safe retries.
+// Os gravadores de resposta e de conclusão usam o mesmo lock de linha. O READ COMMITTED permite
+// que quem está esperando veja o vencedor depois de obter o lock, inclusive em novas tentativas seguras.
 export async function lockAttempt(tx: Prisma.TransactionClient, id: string, studentId: string) {
   const rows = await tx.$queryRaw<{ id: string }[]>`
     SELECT id FROM "Simulado" WHERE id = ${id} AND "alunoId" = ${studentId} FOR UPDATE`;

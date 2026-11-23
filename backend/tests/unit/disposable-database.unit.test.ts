@@ -4,14 +4,14 @@ import os from 'node:os';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDisposableDatabase, disposableDatabaseConfig } from '../integration/disposable-database';
 
-// Filesystem fixture only: no PostgreSQL process, network or connection.
+// Apenas fixture no sistema de arquivos: sem processo PostgreSQL, rede ou conexão.
 const cluster = fs.mkdtempSync(path.join(os.tmpdir(), 'jurissim-migrations-'));
 const data = path.join(cluster, 'data'); fs.mkdirSync(data);
 const emptyPasswordFile = path.join(cluster, 'empty-pgpass'); fs.writeFileSync(emptyPasswordFile, '');
 const password = 'c'.repeat(64);
 const database = `js_int_${'d'.repeat(32)}`;
 const url = `postgresql://jurissim_migration_test:${password}@127.0.0.1:55481/${database}?schema=public`;
-const capability = 'a'.repeat(64); // Fixture, never a production secret.
+const capability = 'a'.repeat(64); // Fixture, nunca um segredo de produção.
 fs.writeFileSync(path.join(cluster, 'integration-test-owner.json'), JSON.stringify({
   capability, host: '127.0.0.1', port: 55481, database,
   username: 'jurissim_migration_test', dataDirectory: data, emptyPasswordFile,
@@ -69,7 +69,7 @@ describe('Guarda dos testes de banco descartável', () => {
   ])('recusa conexão efetiva diferente do alvo comprovado: %j', async mismatch => {
     const query = vi.fn().mockResolvedValue([{ directory: data, database, owner: 'jurissim_migration_test', port: 55481, address: '127.0.0.1', ...mismatch }]);
     await expect(assertDisposableDatabase({ $queryRaw: query }, environment())).rejects.toThrow('cluster descartável');
-    expect(query).toHaveBeenCalledOnce(); // Only the read-only identity query.
+    expect(query).toHaveBeenCalledOnce(); // Apenas a consulta de identidade somente leitura.
   });
   it('valida a identidade da conexão antes de liberar limpeza de fixtures', async () => {
     const query = vi.fn().mockResolvedValue([{ directory: data, database, owner: 'jurissim_migration_test', port: 55481, address: '127.0.0.1' }]);

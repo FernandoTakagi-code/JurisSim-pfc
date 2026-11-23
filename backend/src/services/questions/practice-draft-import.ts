@@ -25,7 +25,7 @@ const normalized = (value: string) => value.normalize('NFKC').replace(/\s+/gu, '
 export function preparePracticeDraftImport(input: unknown) {
   const batch = batchSchema.parse(input);
   for (const q of batch.questions) {
-    // Keep the shared CRUD's alternative validation, including normalized duplicates.
+    // Mantém a validação de alternativas do CRUD compartilhado, incluindo duplicatas normalizadas.
     criarQuestaoSchema.parse({ ...q, turmaId: undefined });
     if (q.alternativas.map(a => a.letra).join('') !== 'ABCD' || q.alternativas.find(a => a.correta)?.letra !== q.gabarito) throw new Error('Gabarito ou letras inconsistentes.');
   }
@@ -35,7 +35,7 @@ export function preparePracticeDraftImport(input: unknown) {
   return { batch, fingerprints, hash };
 }
 
-/** Maintenance import only. Private storage is intentionally separate from release. */
+/** Importação apenas para manutenção. O armazenamento privado é propositalmente separado da liberação. */
 export async function importPracticeDrafts(db: PrismaClient, input: unknown, operatorId: string) {
   const { batch, fingerprints, hash } = preparePracticeDraftImport(input);
   return db.$transaction(async tx => {
@@ -53,17 +53,25 @@ export async function importPracticeDrafts(db: PrismaClient, input: unknown, ope
     const record = await tx.loteImportacao.create({ data: { administradorId: operator.id, arquivoHash: hash, totalQuestoes: 60 }, select: { id: true } });
     const questionIds: string[] = [];
     for (const [index, q] of batch.questions.entries()) {
-      const item = await tx.questao.create({ data: {
-        enunciado: q.enunciado, disciplina: q.disciplina, assunto: q.assunto, nivel: q.nivel,
-        fundamentacaoJuridica: q.fundamentacaoJuridica, origem: 'IA', publica: false, turmaId: null, autorId: operator.id,
-        fingerprint: fingerprints[index], loteImportacaoId: record.id, fonteNome: q.source.name,
-        fonteReferencia: `RASCUNHO_PRATICA_EM_REVISAO\n${JSON.stringify({ draftId: q._draftSlot, reference: q.source.reference, habilidade: q.habilidade, justificativaNivel: q.justificativaNivel, comentarios: q.alternativas.map(a => ({ letra: a.letra, comentario: a.comentario })), preliminaryReview: q.preliminaryReview })}`,
-        licencaOuAutorizacao: q.source.licenseOrAuthorization,
-        alternativas: { create: q.alternativas.map(({ letra, texto, correta }) => ({ letra, texto, correta })) },
-      }, select: { id: true } });
+      const item = await tx.questao.create({ data: practiceDraftQuestionData(q, fingerprints[index], record.id, operator.id), select: { id: true } });
       questionIds.push(item.id);
       await tx.auditLog.create({ data: { userId: operator.id, action: 'QUESTAO_CRIADA', resourceId: item.id } });
     }
     return { batchId: record.id, imported: 60, recovered: false, questionIds };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 120_000 });
+}
+
+export type PracticeDraftQuestion = ReturnType<typeof preparePracticeDraftImport>['batch']['questions'][number];
+export const normalizedStatement = normalized;
+
+/** Dados de uma questão de rascunho de treino, idênticos para o importador e para o complemento de lote. */
+export function practiceDraftQuestionData(q: PracticeDraftQuestion, fingerprint: string, batchId: string, operatorId: string) {
+  return {
+        enunciado: q.enunciado, disciplina: q.disciplina, assunto: q.assunto, nivel: q.nivel,
+        fundamentacaoJuridica: q.fundamentacaoJuridica, origem: 'IA' as const, publica: false, turmaId: null, autorId: operatorId,
+        fingerprint, loteImportacaoId: batchId, fonteNome: q.source.name,
+        fonteReferencia: `RASCUNHO_PRATICA_EM_REVISAO\n${JSON.stringify({ draftId: q._draftSlot, reference: q.source.reference, habilidade: q.habilidade, justificativaNivel: q.justificativaNivel, comentarios: q.alternativas.map(a => ({ letra: a.letra, comentario: a.comentario })), preliminaryReview: q.preliminaryReview })}`,
+        licencaOuAutorizacao: q.source.licenseOrAuthorization,
+        alternativas: { create: q.alternativas.map(({ letra, texto, correta }) => ({ letra, texto, correta })) },
+  };
 }

@@ -58,7 +58,7 @@ describe('cadastro HTTP no roteador oficial', () => {
   let server: Server;
   let base: string;
   beforeAll(async () => {
-    // Never deliver real messages from an automated registration test.
+    // Nunca enviar mensagens reais a partir de um teste automatizado de cadastro.
     vi.stubEnv('BREVO_SMTP_USER', '');
     vi.stubEnv('BREVO_SMTP_KEY', '');
     process.env.DATABASE_URL ||= 'postgresql://test:test@localhost:5432/test';
@@ -81,7 +81,7 @@ describe('cadastro HTTP no roteador oficial', () => {
     db.findMany.mockResolvedValue([]);
     db.findUnique.mockReset().mockResolvedValue(null);
     db.create.mockReset().mockImplementation(async ({ data }) => ({ ...data, id: 'user-http', sessionVersion: 0 }));
-    // The active API normalizes registration e-mail addresses.
+    // A API ativa normaliza os endereços de e-mail do cadastro.
     const body = { nome: 'Ana', email: 'Ana@example.com', senha: 'Fixture-password1!', confirmacaoSenha: 'Fixture-password1!' };
     for (const input of [undefined, { ...acceptance, accepted: false }, { ...acceptance, privacyVersion: 'antiga' }]) {
       const response = await fetch(`${base}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, acceptance: input }) });
@@ -112,7 +112,7 @@ describe('cadastro HTTP no roteador oficial', () => {
     expect(login.status).toBe(200);
     const session = await fetch(`${base}/auth/session`, { headers: { Authorization: `Bearer ${(await login.json()).token}` } });
     expect(session.status).toBe(200);
-    expect(await session.json()).toEqual({ user: { id: 'user-http', nome: body.nome, email: body.email.toLowerCase(), role: 'ALUNO', emailVerificado: false }, nextStep: 'DIAGNOSTIC' });
+    expect(await session.json()).toEqual({ user: { id: 'user-http', nome: body.nome, email: body.email.toLowerCase(), role: 'ALUNO', emailVerificado: false }, nextStep: 'DIAGNOSTIC', legalUpdateRequired: false, legalVersions: { termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion } });
   });
 
   it.each(['PROFESSOR', 'ADMIN'])('rejeita role %s enviada diretamente no cadastro público', async role => {

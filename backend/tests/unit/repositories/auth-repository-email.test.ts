@@ -36,7 +36,7 @@ it('loads persisted institutional intent even while institutional operations are
     where: { id: 'regular-session' },
     select: {
       id: true, nome: true, email: true, role: true,
-      emailVerifiedAt: true, deletedAt: true, registrationIntent: true,
+      emailVerifiedAt: true, deletedAt: true, termsVersion: true, privacyVersion: true, registrationIntent: true,
     },
   });
 });

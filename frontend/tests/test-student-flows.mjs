@@ -1,4 +1,4 @@
-﻿// Real diagnostic UI with isolated responses; never uses the shared API or real accounts.
+﻿// Interface real do diagnóstico com respostas isoladas; nunca usa a API compartilhada nem contas reais.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -132,10 +132,10 @@ try {
   await open('/simulados');await until('document.body.textContent.includes("Continuar simulado")');
   assert.equal(await evaluate('document.body.textContent.includes("Piloto provisório · revisão humana pendente")'),false);
   await click('Continuar simulado');await until('!!document.querySelector("input[name=exam-answer]")');
-  // Finish the remaining persisted fixture answers, then exercise the real UI submission.
+  // Conclui as respostas restantes persistidas na fixture e depois exercita o envio real pela interface.
   await evaluate('(()=>{const s=JSON.parse(sessionStorage.getItem("flow-state"));for(let i=0;i<30;i++)s.answers["q"+i]="q"+i+"A";sessionStorage.setItem("flow-state",JSON.stringify(s));})()');
   await cdp('Page.reload');await until('!!document.querySelector("input[name=exam-answer]")');
-  // After the reload the answer input can render before the submit buttons; wait for them.
+  // Após o recarregamento, o campo de resposta pode renderizar antes dos botões de envio; espera por eles.
   await until('[...document.querySelectorAll("button")].some(b=>b.textContent.includes("Revisar e entregar"))');
   await click('Revisar e entregar');await until('!!document.querySelector("dialog[open]")');
   await evaluate('document.querySelector("dialog[open] .individual-primary").click()');

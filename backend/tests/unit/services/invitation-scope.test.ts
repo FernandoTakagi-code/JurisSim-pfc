@@ -22,7 +22,7 @@ const mail = { isConfigured: true, send: vi.fn() };
 beforeEach(() => {
   vi.resetAllMocks(); fixture.restricted = false; fixture.authorized = true;
   vi.stubEnv('APP_PUBLIC_URL', 'https://jurissim.example'); vi.stubEnv('INSTITUTIONS_ENABLED', 'true');
-  // These fixtures own their deployment mode; never inherit a private overlay.
+  // Estas fixtures definem o próprio modo de implantação; nunca herdam uma sobreposição privada.
   vi.stubEnv('INSTITUTION_HOMOLOGATION_ENABLED', 'false');
   vi.stubEnv('TEACHER_INVITATIONS_MODE', '');
   vi.stubEnv('JURISSIM_RUNTIME_DATA_SOURCE', '');

@@ -8,7 +8,7 @@ export class PasswordRecoveryRepository {
       where: { email: {equals:email.trim().toLowerCase(),mode:'insensitive'} },
       select: { id: true, email:true, senhaHash: true, deletedAt: true }, take:2,
     });
-    // Preserve neutral recovery feedback for ambiguous legacy case variants.
+    // Preserva a resposta neutra da recuperação para variantes legadas ambíguas de maiúsculas/minúsculas.
     return accounts.length===1?accounts[0]!:null;
   }
 
@@ -85,8 +85,8 @@ export class PasswordRecoveryRepository {
 
       const updated = await tx.user.updateMany({
         where: { id: account.id, senhaHash: account.senhaHash, deletedAt: null },
-        // One transaction commits password, session revocation, token consumption
-        // and audit together. Concurrent password changes retain the hash guard.
+        // Uma única transação faz o commit de senha, revogação de sessões, consumo do token
+        // e auditoria juntos. Trocas de senha concorrentes mantêm a proteção do hash.
         data: { senhaHash, sessionVersion: { increment: 1 } },
       });
       if (updated.count !== 1) throw new Error('Password recovery account changed during reset.');

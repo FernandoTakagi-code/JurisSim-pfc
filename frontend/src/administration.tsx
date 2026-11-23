@@ -18,6 +18,9 @@ import {
   type AdministrativeCapability,
 } from "./administration-availability";
 import { institutionNavigate, canViewInstitution } from "./institution-navigation";
+import { TermsAdministration } from "./terms-admin";
+import { AdminSummaryView, SummaryFilterBar, type AdminSummary, type PeriodDraft } from "./admin-summary-view";
+import { dayDisabled, periodSearch, readPeriodFromUrl, suggestGroupBy, summaryPath, type SummaryPeriod } from "./admin-summary-period";
 
 type Page<T> = { items: T[]; page: number; hasMore: boolean };
 type Institution = {
@@ -109,6 +112,7 @@ const platformAuditActions = [
 const QuestionEditorialPage = lazy(() => import('./question-editorial').then(module => ({ default: module.QuestionEditorialPage })));
 const sectionDescriptions: Record<AdminSectionId, string> = {
   editorial: 'Consulte o conteúdo e o histórico editorial das questões.',
+  terms: 'Edite o texto dos Termos de Uso e publique uma nova versão. As demais contas precisarão aceitá-la no próximo acesso.',
   overview:
     "Consulte os eventos reais da plataforma e os indicadores disponíveis para sua conta administrativa.",
   institutions:
@@ -188,7 +192,7 @@ const auditResult = (value: string) => {
   try {
     const parsed: unknown = JSON.parse(value);
     if (parsed && typeof parsed === 'object' && 'reason' in parsed && typeof parsed.reason === 'string') return parsed.reason;
-  } catch { /* Older events contain only a result label. */ }
+  } catch { /* Eventos mais antigos contêm apenas um rótulo de resultado. */ }
   return value;
 };
 const json = (method: string, body?: unknown) => ({
@@ -824,6 +828,8 @@ export function GeneralAdministration() {
             <><AdministrationSecurity />{can('users')&&<UserAdministration permissionsOnly/>}</>
           ) : tab === "audit" ? (
             <AdministrationAudit available={can("audit")} />
+          ) : tab === "terms" ? (
+            <TermsAdministration />
           ) : tab && can(tab as AdministrativeCapability) ? (
             <div className="admin-section-content" key={tab}>
               {tab === "institutions" ? (
@@ -856,105 +862,41 @@ function AdministrationSettings({ availability, refreshAvailability }: { availab
     <section className="panel"><h2>Acesso aos painéis</h2><dl className="admin-availability-list"><div><dt>Administração geral</dt><dd>{availability===undefined?'Aguardando consulta':(availability.administrationEnabled??availability.enabled)?'Disponível':'Indisponível'}</dd></div><div><dt>Área das instituições</dt><dd>{availability===undefined?'Aguardando consulta':availability.enabled?'Disponível':'Aguardando ativação'}</dd></div></dl><p className="muted">A área institucional permite aos responsáveis gerenciar professores, convites e turmas. Liberar o ADMIN não ativa essa área automaticamente.</p></section>
   </div>;
 }
-type AdminSummary = {
-  users: number; students: number; institutions: number; pending: number; teachers: number;
-  classes: number; archivedClasses: number; errors: number; publishedExams: number;
-  publishedActivities: number | null; completedActivities: number | null; newUsers: number;
-  activitiesAvailable: boolean;
-  registrationsByDay: {day:string;count:number}[];
-  institutionGrowthByDay: {day:string;count:number}[];
-  participationByDay: {day:string;students:number;attempts:number}[];
-  userDistribution: {profile:string;count:number}[];
-};
-function SummaryBars({
-  title,
-  items,
-  valueKey = "count",
-}: {
-  title: string;
-  items: { day: string; count?: number; students?: number; attempts?: number }[];
-  valueKey?: "count" | "students" | "attempts";
-}) {
-  const max = Math.max(1, ...items.map((item) => item[valueKey] ?? 0));
-  return (
-    <section className="panel dashboard-panel">
-      <h2>{title}</h2>
-      {items.length ? (
-        <div className="summary-bars" role="img" aria-label={`${title}, dados dos últimos 30 dias`}>
-          {items.map((item) => (
-            <div className="summary-bar-column" key={item.day} title={`${item.day}: ${item[valueKey] ?? 0}`}>
-              <span style={{ height: `${Math.max(3, ((item[valueKey] ?? 0) / max) * 100)}%` }} />
-              <small>{item.day.slice(8)}</small>
-            </div>
-          ))}
-        </div>
-      ) : <p className="empty-dashboard">Sem registros no período consultado.</p>}
-    </section>
-  );
-}
 function GlobalIndicators({ enabled }: { enabled: boolean }) {
-  const resource = useResource<AdminSummary>(enabled ? "/institutions/admin/summary" : null);
-  const data = resource.data;
-  const titles: [keyof AdminSummary, string, string][] = [
-    ["users", "Contas cadastradas", "Contas não excluídas"],
-    ["students", "Alunos cadastrados", "Contas com perfil de aluno"],
-    ["teachers", "Professores vinculados", "Vínculos ativos em instituições ativas"],
-    ["institutions", "Instituições", "Cadastros institucionais"],
-    ["classes", "Turmas ativas", "Turmas operacionais visíveis"],
-    ["pending", "Solicitações pendentes", "Aguardando análise"],
-    ["publishedExams", "Simulados publicados", "Avaliações disponíveis"],
-    ["publishedActivities", "Atividades publicadas", "Atividades disponíveis para os alunos"],
-    ["completedActivities", "Atividades concluídas", "Entregas finalizadas"],
-    ["newUsers", "Novos cadastros", "Últimos 30 dias"],
-  ];
+  const [applied, setApplied] = useState<SummaryPeriod | null>(() => readPeriodFromUrl(typeof window === "undefined" ? "" : window.location.search));
+  const [draft, setDraft] = useState<PeriodDraft>(() => applied ?? { from: "", to: "", groupBy: "day" });
+  const [validation, setValidation] = useState("");
+  const resource = useResource<AdminSummary>(enabled ? summaryPath(applied) : null);
+  const updateUrl = (period: SummaryPeriod | null) => {
+    if (typeof window !== "undefined") window.history.replaceState(window.history.state, "", window.location.pathname + (period ? periodSearch(period) : ""));
+  };
+  const changeDraft = (next: PeriodDraft) => {
+    const datesChanged = next.from !== draft.from || next.to !== draft.to;
+    // Ao trocar as datas, o agrupamento volta a ser o sugerido; o admin pode mudar depois.
+    setDraft(datesChanged && next.from && next.to && next.from <= next.to ? { ...next, groupBy: suggestGroupBy(next.from, next.to) } : next);
+    setValidation("");
+  };
+  const apply = () => {
+    if (!draft.from || !draft.to) return setValidation("Informe as datas inicial e final.");
+    if (draft.from > draft.to) return setValidation("A data inicial deve ser anterior ou igual à data final.");
+    if (draft.groupBy === "day" && dayDisabled(draft.from, draft.to)) return setValidation("Para períodos acima de 1 ano, agrupe por semana ou mês.");
+    const period = { ...draft };
+    setValidation("");
+    setApplied(period);
+    updateUrl(period);
+    if (summaryPath(period) === summaryPath(applied)) resource.reload();
+  };
+  const clear = () => {
+    setApplied(null);
+    setDraft({ from: "", to: "", groupBy: "day" });
+    setValidation("");
+    updateUrl(null);
+  };
   return (
     <>
+      {enabled && <SummaryFilterBar draft={draft} applied={applied} error={validation} onChange={changeDraft} onApply={apply} onClear={clear} />}
       <ResourceState resource={resource} />
-      <div className="dashboard-stats">
-        {titles.filter(([key]) =>
-          (key !== "publishedActivities" && key !== "completedActivities") ||
-          typeof data?.[key] === "number"
-        ).map(([key, title, description]) => (
-          <article key={key}>
-            <span>{title}</span>
-            <strong>{typeof data?.[key] === "number" ? (data[key] as number).toLocaleString("pt-BR") : data?.[key] === null ? "Indisponível" : "—"}</strong>
-            <small>{!enabled ? "Módulo desativado" : resource.loading ? "Carregando…" : resource.error ? "Falha ao consultar" : description}</small>
-          </article>
-        ))}
-      </div>
-      {data && (
-        <>
-          <div className="dashboard-grid admin-charts">
-            <SummaryBars title="Evolução de cadastros" items={data.registrationsByDay ?? []} />
-            <section className="panel dashboard-panel">
-              <h2>Distribuição de usuários por perfil</h2>
-              {(data.userDistribution ?? []).length ? (
-                <div className="profile-distribution">
-                  {(data.userDistribution ?? []).map((item) => (
-                    <div key={item.profile}>
-                      <span>{({ALUNO:"Aluno",PROFESSOR:"Professor",ADMIN:"Administrador",INSTITUTIONAL_OWNER:"Responsável institucional",INVITED_TEACHER:"Professor convidado"} as Record<string,string>)[item.profile] ?? "Outro perfil"}</span><strong>{item.count.toLocaleString("pt-BR")}</strong>
-                      <i><b style={{ width: `${data.users ? Math.max(1, (item.count / data.users) * 100) : 0}%` }} /></i>
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="empty-dashboard">Sem usuários para apresentar.</p>}
-            </section>
-            <SummaryBars title="Crescimento de instituições" items={data.institutionGrowthByDay ?? []} />
-            <SummaryBars title="Alunos participantes por dia" items={data.participationByDay ?? []} valueKey="students" />
-          </div>
-          <div className="admin-quick-actions panel">
-            <h2>Ações administrativas</h2>
-            <div className="admin-actions">
-              <button onClick={() => navigate("/administracao/instituicoes")}>Gerenciar instituições</button>
-              <button onClick={() => navigate("/administracao/solicitacoes")}>Analisar solicitações</button>
-              <button onClick={() => navigate("/administracao/usuarios")}>Consultar usuários</button>
-              <button onClick={() => navigate("/administracao/auditoria")}>Logs e auditoria</button>
-              <button onClick={() => navigate("/administracao/acervo")}>Revisão editorial do acervo</button>
-            </div>
-            <p>O gerenciamento pedagógico de turmas continua restrito à instituição e aos professores autorizados.</p>
-          </div>
-        </>
-      )}
+      <AdminSummaryView data={resource.data} enabled={enabled} loading={resource.loading} error={!!resource.error} onNavigate={navigate} />
     </>
   );
 }

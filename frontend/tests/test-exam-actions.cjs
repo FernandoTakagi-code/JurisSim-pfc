@@ -1,4 +1,4 @@
-// Render the existing component without effects/network to validate capabilities.
+// Renderiza o componente existente sem efeitos/rede para validar as capacidades.
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const ts = require('typescript'), React = require('react');

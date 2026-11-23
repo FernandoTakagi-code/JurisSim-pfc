@@ -34,7 +34,7 @@ async function main() {
   });
   const csv = `integration fixture ${suffix}`;
 
-  // Two NULL fingerprints are allowed while the historical duplicate-aware backfill is pending.
+  // Duas impressões digitais NULL são permitidas enquanto o backfill histórico que trata duplicidades estiver pendente.
   const legacyA = await client.questao.create({ data: {
     enunciado: `Questão legada ${suffix}`, disciplina: 'Civil', assunto: 'Fixture', nivel: 'BASICO',
     fundamentacaoJuridica: 'Fixture', autorId: admin.id,
@@ -53,7 +53,7 @@ async function main() {
   assert.equal(await client.alternativa.count({ where: { questaoId: imported.questions[0].id } }), 2);
   await assert.rejects(repository.persistAtomically(admin.id, `${csv} duplicate`, [record(fingerprint)]), { statusCode: 409 });
 
-  // Fail the nested alternative insert at PostgreSQL level and ensure all earlier writes roll back.
+  // Faz a inserção aninhada da alternativa falhar no nível do PostgreSQL e garante que todas as gravações anteriores sejam revertidas.
   const triggerName = `import_alt_fail_${suffix.replaceAll('-', '')}`;
   const functionName = `${triggerName}_fn`;
   const rollbackFingerprint = `rollback-${suffix}`;
@@ -69,7 +69,7 @@ async function main() {
     await client.$executeRawUnsafe(`DROP FUNCTION IF EXISTS public.${q(functionName)}()`);
   }
 
-  // Both writers race on the same deterministic fingerprint; one may commit only once.
+  // Os dois gravadores disputam a mesma impressão digital determinística; só um pode fazer commit, uma única vez.
   const concurrentFingerprint = `concurrent-${suffix}`;
   const outcomes = await Promise.allSettled([
     repository.persistAtomically(admin.id, `${csv} concurrent 1`, [record(concurrentFingerprint)]),

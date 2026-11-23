@@ -5,8 +5,8 @@ import { ApiError } from '../../errors/api-error';
 import { isValidAppUrl } from './app-url';
 
 const emailOrigin = new AsyncLocalStorage<string>();
-// Only exact server-configured CORS origins may select an email frontend.
-// Host, Referer, X-Forwarded-* and values in the request body are never used.
+// Somente as origens CORS exatas configuradas no servidor podem selecionar um frontend de e-mail.
+// Host, Referer, X-Forwarded-* e valores do body da requisição nunca são usados.
 export const emailFrontendContext: RequestHandler = (req, _res, next) => {
   const origin = req.get('origin');
   if (!origin) return next();
@@ -20,6 +20,6 @@ export function emailFrontendUrl(configured = process.env.APP_PUBLIC_URL): strin
   if (!isValidAppUrl(configured)) return undefined;
   const fallback = new URL(configured);
   const origin = emailOrigin.getStore();
-  // Preserve an explicitly configured base path on the same origin.
+  // Preserva um caminho base configurado explicitamente na mesma origem.
   return (origin && origin !== fallback.origin ? origin : fallback.href).replace(/\/$/, '');
 }

@@ -9,6 +9,8 @@ export type Session = {
   nextStep: 'PROFESSOR' | 'DASHBOARD' | 'DIAGNOSTIC' | 'INITIAL_DIAGNOSTIC' | 'INVITATION';
   localDiagnosticDemoAvailable?: boolean;
   localDiagnosticDemoActive?: boolean;
+  legalUpdateRequired?: boolean;
+  legalVersions?: { termsVersion: string; privacyVersion: string };
   administration?: { restricted?:boolean; needsInstitutionLink?:boolean; enabled: boolean; globalAdmin: boolean; effectiveRole: string; memberships: { institutionId: string; role: string; institution: { name: string } }[] };
 };
 type State = { status: 'anonymous' | 'loading' | 'ready' | 'error'; session: Session | null; message?: string };
@@ -31,10 +33,10 @@ export async function logoutSession() {
   catch (error) {
     if (currentToken() === token && !(error instanceof ApiError && error.status === 401)) sessionStorage.setItem('jurissim_logout_notice', 'Você saiu deste navegador. Não foi possível confirmar o encerramento das sessões no servidor.');
   } finally { if (currentToken() === token) endSession(); }
-  return !currentToken(); // A delayed logout must not replace a newer login.
+  return !currentToken(); // Um logout atrasado não deve substituir um login mais recente.
 }
-// Explicit global action: unlike ordinary local sign-out, failure must not be
-// presented as server revocation or silently discard the current session.
+// Ação global explícita: diferente da saída local comum, uma falha não deve ser
+// apresentada como revogação no servidor nem descartar silenciosamente a sessão atual.
 export async function signOutAllDevices() {
   const token = currentToken();
   if (!token) throw new Error('Entre na sua conta antes de encerrar as sessões.');
@@ -65,7 +67,7 @@ export function refreshSession(force = false): Promise<Session> {
     if (!validSession(session)) throw new Error('Não foi possível validar a sessão recebida.');
     if (!session.administration?.memberships.some(m => m.role === 'TEACHER' && m.institutionId === sessionStorage.getItem('jurissim_institution'))) sessionStorage.removeItem('jurissim_institution');
     if(!session.administration?.memberships.some(m=>m.role==='INSTITUTION_ADMIN'&&m.institutionId===sessionStorage.getItem('jurissim_administration_institution')))sessionStorage.removeItem('jurissim_administration_institution');
-    // Compatibility cache only: authorization and rendering use the server response.
+    // Apenas cache de compatibilidade: a autorização e a renderização usam a resposta do servidor.
     sessionStorage.setItem('jurissim_next_step', session.nextStep);
     sessionStorage.setItem('jurissim_personal_role',session.user.role);
     sessionStorage.setItem('jurissim_user_name', session.user.nome);
@@ -92,7 +94,7 @@ export function setLocalDiagnosticDemoMode(enabled: boolean) {
   else sessionStorage.removeItem('jurissim_local_diagnostic_demo');
 }
 onAuthorizationFailure((status, token, path) => {
-  if (token !== currentToken()) return; // Ignore delayed responses from a previous login.
+  if (token !== currentToken()) return; // Ignora respostas atrasadas de um login anterior.
   if (status === 401) endSession();
   else if (path !== '/auth/session') void refreshSession().catch(() => {});
 });

@@ -11,8 +11,8 @@ export function AdaptiveTrail({ progress }: { progress: ReturnType<typeof useStu
   const trail = result?.trail;
   const data = available ? progress.data : undefined;
   const attempts = data?.learning?.trailProgress ?? [];
-  // With every diagnostic subject at 100% there is no weak area to prioritise;
-  // point to the focus from completed activities, as the dashboard does.
+  // Com todos os assuntos do diagnóstico em 100% não há área fraca a priorizar;
+  // aponta para o foco das atividades concluídas, como faz o painel.
   const diagnosticMetrics = result?.performances?.filter(metric => metric.tipo === "DISCIPLINA") ?? [];
   const perfectDiagnostic = diagnosticMetrics.length > 0 && diagnosticMetrics.every(metric => metric.percentual >= 100);
   const practiceFocus = data?.learning?.priorityTopic;

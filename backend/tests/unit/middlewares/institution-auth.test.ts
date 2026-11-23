@@ -28,7 +28,7 @@ beforeEach(() => {
   mocks.user.mockResolvedValue({
     id: userId,
     role: "PROFESSOR",
-    emailVerifiedAt: new Date(),
+    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',
     sessionVersion: 0,
   });
   mocks.control.mockResolvedValue(null);
@@ -48,7 +48,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 it('does not elevate a personal ALUNO merely because an administrative membership exists',async()=>{
-  mocks.user.mockResolvedValue({id:userId,role:'ALUNO',emailVerifiedAt:new Date(),sessionVersion:0});
+  mocks.user.mockResolvedValue({id:userId,role:'ALUNO',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   mocks.memberships.mockResolvedValue([{institutionId:'first',role:'INSTITUTION_ADMIN',institution:{name:'Primeira'}}]);
   const {req,next}=await authenticate('first');expect(next).toHaveBeenCalledWith();expect(req.auth).toEqual({userId,role:'ALUNO'});expect(mocks.classes).not.toHaveBeenCalled();
 });
@@ -60,14 +60,14 @@ it('rejects a forged administrative context without the required membership',asy
   const {next}=await authenticate('first','/turmas',true);expect(next).toHaveBeenCalledWith(expect.objectContaining({statusCode:403}));expect(mocks.classes).not.toHaveBeenCalled();
 });
 it('derives institutional administration from the active backend membership, without changing the individual role',async()=>{
-  mocks.user.mockResolvedValue({id:userId,role:'ALUNO',emailVerifiedAt:new Date(),sessionVersion:0});
+  mocks.user.mockResolvedValue({id:userId,role:'ALUNO',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   mocks.memberships.mockResolvedValue([{institutionId:'first',role:'INSTITUTION_ADMIN',institution:{name:'Primeira'}}]);
   const {req,next}=await authenticate('first','/turmas',true);
   expect(next).toHaveBeenCalledWith();expect(req.auth).toMatchObject({role:'ALUNO',institutionId:'first',institutionAdmin:true});
 });
 it('allows only invitations and teacher-class assignment through the narrow read-only capability',async()=>{
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('ADMINISTRATION_ENABLED','false');vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','false');vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','true');
-  mocks.user.mockResolvedValue({id:userId,role:'ALUNO',registrationIntent:'INSTITUTION',emailVerifiedAt:new Date(),sessionVersion:0});
+  mocks.user.mockResolvedValue({id:userId,role:'ALUNO',registrationIntent:'INSTITUTION',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   mocks.memberships.mockResolvedValue([{institutionId:'first',role:'INSTITUTION_ADMIN',institution:{name:'Primeira'}}]);
   const invitation=await authenticate('first',`/institutions/${userId}/invitations`,true,'POST');
   expect(invitation.next).toHaveBeenCalledWith();expect(invitation.req.auth).toMatchObject({role:'ALUNO',institutionId:'first',institutionAdmin:true});
@@ -77,7 +77,7 @@ it('allows only invitations and teacher-class assignment through the narrow read
   expect(unrelated.next).toHaveBeenCalledWith(expect.objectContaining({statusCode:503}));
 });
 it('does not infer academic delegation from ADMIN or a requested institution header',async()=>{
-  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(),sessionVersion:0});
+  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   const {req}=await authenticate('first');expect(req.auth?.institutionAdmin).toBeUndefined();expect(req.auth?.allowedClassIds).toBeUndefined();
 });
 async function authenticate(institution?: string, originalUrl = "/turmas", administrative=false, method='GET') {
@@ -155,7 +155,7 @@ it('keeps email confirmation mandatory but permits the limited existing confirma
 });
 it('denies a previously issued token after session revocation even while institutions are disabled', async () => {
   vi.stubEnv('INSTITUTIONS_ENABLED', 'false');
-  mocks.user.mockResolvedValue({ id: userId, role: 'ADMIN', emailVerifiedAt: new Date(), sessionVersion: 1 });
+  mocks.user.mockResolvedValue({ id: userId, role: 'ADMIN', emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', sessionVersion: 1 });
   const { next } = await authenticate();
   expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
 });
@@ -164,12 +164,12 @@ it.each([
  ['POST','/avaliacoes'],['PUT',`/avaliacoes/${userId}`],['POST',`/avaliacoes/${userId}/publish`],['POST',`/avaliacoes/${userId}/close`],['POST',`/avaliacoes/${userId}/archive`],['DELETE',`/avaliacoes/${userId}`],
 ])('permite escrita de simulados com capacidade específica: %s %s',async(method,path)=>{
  vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_EXAM_MANAGEMENT_ENABLED','true');vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','false');
- mocks.user.mockResolvedValue({id:userId,role:'ALUNO',registrationIntent:'INSTITUTION',emailVerifiedAt:new Date(),sessionVersion:0});mocks.memberships.mockResolvedValue([{institutionId:'first',role:'INSTITUTION_ADMIN',institution:{name:'Primeira'}}]);
+ mocks.user.mockResolvedValue({id:userId,role:'ALUNO',registrationIntent:'INSTITUTION',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});mocks.memberships.mockResolvedValue([{institutionId:'first',role:'INSTITUTION_ADMIN',institution:{name:'Primeira'}}]);
  const result=await authenticate('first',path,true,method);expect(result.next).toHaveBeenCalledWith();expect(result.req.auth).toMatchObject({institutionId:'first',institutionAdmin:true});
 });
 it('a capacidade de simulados não libera outras operações nem ignora revogação',async()=>{
  vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_EXAM_MANAGEMENT_ENABLED','true');vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','false');
- mocks.user.mockResolvedValue({id:userId,role:'ALUNO',registrationIntent:'INSTITUTION',emailVerifiedAt:new Date(),sessionVersion:0});mocks.memberships.mockResolvedValue([{institutionId:'first',role:'INSTITUTION_ADMIN',institution:{name:'Primeira'}}]);
+ mocks.user.mockResolvedValue({id:userId,role:'ALUNO',registrationIntent:'INSTITUTION',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});mocks.memberships.mockResolvedValue([{institutionId:'first',role:'INSTITUTION_ADMIN',institution:{name:'Primeira'}}]);
  for(const path of ['/turmas','/atividades',`/avaliacoes/${userId}/attempts`])expect((await authenticate('first',path,true,'POST')).next).toHaveBeenCalledWith(expect.objectContaining({statusCode:503}));
  vi.stubEnv('INSTITUTION_EXAM_MANAGEMENT_ENABLED','false');expect((await authenticate('first','/avaliacoes',true,'POST')).next).toHaveBeenCalledWith(expect.objectContaining({statusCode:503}));
  vi.stubEnv('INSTITUTION_EXAM_MANAGEMENT_ENABLED','true');mocks.memberships.mockResolvedValue([]);expect((await authenticate('first','/avaliacoes',true,'POST')).next).toHaveBeenCalledWith(expect.objectContaining({statusCode:403}));

@@ -48,7 +48,7 @@ const kindSql =
 export class StudentPerformanceRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
   async summary(studentId: string, kind?: PerformanceKind) {
-    // Only finished originals. No answer keys and no unfinished-exam feedback.
+    // Apenas originais finalizados. Sem gabaritos e sem feedback de simulados não finalizados.
     const [rows, modalities] = await this.db.$transaction(
       [
         this.db.$queryRaw<TopicRow[]>(Prisma.sql`

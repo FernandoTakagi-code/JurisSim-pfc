@@ -1,7 +1,7 @@
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MIGRATION = "20261104000100_institutions_administration";
 
-// No env loading, clients, HTTP endpoint or secrets at import time.
+// Sem carregar env, clientes, endpoint HTTP ou segredos no momento da importação.
 async function bootstrapFirstAdmin(prisma, userId) {
   if (typeof userId !== "string" || !UUID.test(userId))
     throw new Error("BOOTSTRAP_INVALID_ACCOUNT");
@@ -39,7 +39,7 @@ async function bootstrapFirstAdmin(prisma, userId) {
       ) {
         throw new Error("BOOTSTRAP_CONFIRMED_ACTIVE_ACCOUNT_REQUIRED");
       }
-      // Deleted administrators must not reopen the bootstrap procedure.
+      // Administradores excluídos não devem reabrir o procedimento de bootstrap.
       const admins = await tx.user.findMany({
         where: { role: "ADMIN" },
         select: { id: true },
@@ -81,8 +81,8 @@ async function bootstrapFirstAdmin(prisma, userId) {
       return { status: "PROVISIONED" };
     },
     {
-      // Each statement after the lock sees the preceding execution's commit.
-      // Serializable can instead retain a snapshot taken before the lock wait.
+      // Cada instrução após o lock enxerga o commit da execução anterior.
+      // O nível Serializable poderia manter um snapshot tirado antes da espera pelo lock.
       isolationLevel: "ReadCommitted",
       maxWait: 10000,
       timeout: 15000,

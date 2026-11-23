@@ -10,8 +10,8 @@ const subscribeLocation = (listener: () => void) => {
   return () => window.removeEventListener('popstate', listener);
 };
 
-// Only an opaque ID is put in the URL. Answers and keys always come from the
-// authenticated API; no answer cache is persisted in browser storage.
+// Apenas um ID opaco vai na URL. Respostas e gabaritos sempre vêm da API
+// autenticada; nenhum cache de respostas é persistido no armazenamento do navegador.
 export function useAttemptResume(route: string) {
   const search = useSyncExternalStore(subscribeLocation, () => window.location.search);
   const params = new URLSearchParams(search);
@@ -42,7 +42,7 @@ export function useAttemptResume(route: string) {
       finally { if (active) setLoading(false); }
     })();
     return () => { active = false; };
-    // Parameters are derived from the location, never from cached answers.
+    // Os parâmetros vêm da localização, nunca de respostas em cache.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route, search, revision]);
   return { requested, restored, loading, error, retry: () => setRevision(value => value + 1) };

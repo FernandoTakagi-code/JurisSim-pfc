@@ -4,7 +4,7 @@ const db = vi.hoisted(() => {
   const model = () => Object.fromEntries(['findUnique', 'findFirst', 'count', 'upsert', 'updateMany', 'update', 'create'].map(method => [method, vi.fn()]));
   return { user: model(), accountControl: model(), institution: model(), institutionalMembership: model(), emailReuseBlock: model(), authToken: model(), passwordRecoveryToken: model(), administrativeEvent: model(), $queryRaw: vi.fn(), $executeRaw: vi.fn() };
 });
-// Test-only module double. Production availability remains hard-disabled.
+// Dublê de módulo apenas para teste. A disponibilidade em produção continua desativada de forma fixa.
 vi.mock("../../../src/account-deletion-availability", () => ({ accountDeletionEnabled: () => true, studentSelfDeletionEnabled: () => true, accountDeletionUnavailableMessage: 'fixture only' }));
 vi.mock("../../../src/lib/prisma", () => ({ prisma: db }));
 vi.mock("../../../src/services/institutions/institution-service", async original => ({ ...await original<typeof import("../../../src/services/institutions/institution-service")>(), institutionalTransaction: async (work: (tx: any) => unknown) => work(db) }));

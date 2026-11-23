@@ -13,8 +13,8 @@ import { InitialDiagnosticService } from '../src/services/diagnostics/initial-di
 import { InitialDiagnosticResolutionService } from '../src/services/diagnostics/initial-diagnostic-resolution-service';
 import { importAuthorialPilot } from '../src/services/questions/authorial-pilot-import';
 
-// Synthetic content only. No dotenv or arbitrary target. Identity is checked
-// before the first write; only the disposable harness can run this scenario.
+// Apenas conteúdo sintético. Sem dotenv nem alvo arbitrário. A identidade é verificada
+// antes da primeira gravação; só o harness descartável pode executar este cenário.
 const prisma = new PrismaClient();
 async function main() {
   const target = await assertDisposableDatabase(prisma);

@@ -8,8 +8,8 @@ import { INITIAL_DIAGNOSTIC_COMPOSITION } from '../src/services/diagnostics/init
 import { InitialDiagnosticService } from '../src/services/diagnostics/initial-diagnostic-service';
 import { InitialDiagnosticResolutionService } from '../src/services/diagnostics/initial-diagnostic-resolution-service';
 
-// This script is intentionally reachable only through the disposable-database
-// harness. It never loads dotenv or accepts an arbitrary database URL.
+// Este script propositalmente só pode ser acionado pelo harness de banco descartável.
+// Ele nunca carrega dotenv nem aceita uma URL de banco arbitrária.
 const prisma = new PrismaClient();
 const db = prisma as any;
 const runId = randomUUID();

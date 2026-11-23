@@ -77,13 +77,13 @@ describe('envio e reenvio de confirmação', () => {
     expect(log).toHaveBeenCalledExactlyOnceWith('Falha no envio do e-mail de confirmação.');
   });
 
-  it.each(['classified','unclassified'])('preserva token e orienta conferência da caixa quando a aceitação SMTP é indeterminada: %s', async kind => {
+  it.each(['classified','unclassified'])('envio demorado não vira erro: preserva o token e avisa que o e-mail pode demorar: %s', async kind => {
     const { service, repository, sender } = dependencies();
     sender.sendEmailVerification.mockRejectedValue(kind==='classified'?new EmailDeliveryFailure('indeterminate', 'request_deadline'):new Error('private unclassified failure'));
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-    await expect(service.requestVerification('user-1')).rejects.toMatchObject({
-      statusCode: 503,
-      message: expect.stringContaining('Confira a caixa e o spam'),
+    await expect(service.requestVerification('user-1')).resolves.toEqual({
+      delivery: 'pending',
+      message: 'O envio está demorando para ser confirmado. O e-mail pode levar alguns minutos para chegar; confira a caixa de entrada e o spam antes de pedir outro link.',
     });
     expect(repository.markTokenUsed).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledOnce();

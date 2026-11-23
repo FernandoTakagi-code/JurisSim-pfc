@@ -1,8 +1,8 @@
 import type { RequestHandler } from 'express';
 import { createHash } from 'node:crypto';
 
-// Bounded per-process IP protection. No forwarded header is trusted here.
-// Cross-instance account quotas are enforced separately in PostgreSQL.
+// Proteção por IP limitada ao processo. Nenhum cabeçalho encaminhado é confiável aqui.
+// As cotas por conta entre instâncias são aplicadas separadamente no PostgreSQL.
 export function authRateLimit(limit: number, windowMs: number, clock = Date.now, options: { account?: boolean; failuresOnly?: boolean } = {}): RequestHandler {
   const buckets = new Map<string, { count: number; until: number }>();
   return (req, res, next) => {

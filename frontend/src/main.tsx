@@ -8,6 +8,7 @@ import {InstitutionArea} from './institution-area';
 import { apiRequest } from './api';
 import { useSession, refreshSession, endSession, logoutSession, sessionDestination, setLocalDiagnosticDemoMode } from './auth-session';
 import { EmailConfirmationGate } from './email-confirmation-gate';
+import { LegalUpdateGate } from './legal-update-gate';
 import { QuestionPracticePage } from './question-practice';
 import { IndividualExamPage } from './individual-exam';
 import { StudentPerformancePage } from './student-performance';
@@ -31,6 +32,9 @@ import { TrailLaunchButton } from "./trail-launch";
 const StudyTrail = lazy(() => import('./study-trail').then(module => ({ default: module.StudyTrail })));
 import { useAttemptResume } from './attempt-resume';
 import { ConfirmAccountEmailChange } from './account-security';
+
+// Diagnóstico do início dos estudos: curto, para o aluno começar logo; a API usa o acervo público disponível.
+const LEGACY_DIAGNOSTIC_QUESTION_COUNT = 5;
 
 
 type Alternative = { id: string; text: string };
@@ -106,6 +110,8 @@ function App() {
   const { user } = auth.session;
   const sair = async () => { if (!await logoutSession()) return; window.location.assign('/'); };
   if(auth.session.administration?.needsInstitutionLink && !user.emailVerificado) return <EmailConfirmationGate email={user.email} onSair={sair}/>;
+  // Nova versão dos Termos publicada pelo ADMIN: nada além desta tela até o novo aceite.
+  if (user.emailVerificado && auth.session.legalUpdateRequired && auth.session.legalVersions) return <LegalBoundary><LegalUpdateGate versions={auth.session.legalVersions} onSair={sair} onAccepted={async () => { await refreshSession(true); }} /></LegalBoundary>;
   const teacherHome = user.role === 'PROFESSOR' && (path === '/professor' || path === '/professor/');
   const teacherProfile = path === '/professor/perfil' || path === '/professor/configuracoes';
   if (path === '/instituicoes') return <InstitutionArea session={auth.session} onSair={sair}/>;
@@ -222,7 +228,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     const totalAnswered = academic?.totals.answeredQuestions ?? 0;
     const totalCorrect = academic?.totals.correctAnswers ?? 0;
     const trail = dashboardResult?.trail;
-    // While the first load is in flight, empty states ("nenhum diagnóstico") would be false.
+    // Enquanto o primeiro carregamento está em andamento, os estados vazios ("nenhum diagnóstico") seriam falsos.
     const loadingAcademic = progress.loading && !academic;
     const priorityTopic = academic?.learning?.priorityTopic;
     const loadingPanel = <p className="empty-dashboard" role="status">Carregando...</p>;
@@ -236,9 +242,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
               <div><p className="gold">JURISSIM · OAB</p><h1>Seu espaço de estudos</h1><p className="muted">Acompanhe seu preparo e continue de onde parou.</p></div>
               <div className="dashboard-heading-actions">
                 <button className="primary" onClick={() => navigate("/estudar")}>Estudar agora <b>→</b></button>
-                <button className="text-button" onClick={() => navigate("/trilha")}>Minha Trilha Adaptativa</button>
-                <button className="text-button" onClick={() => navigate("/diagnostico-inicial")}>Conhecer o novo diagnóstico</button>
-              </div>
+                <button className="text-button" onClick={() => navigate("/trilha")}>Minha Trilha Adaptativa</button>              </div>
             </div>
             <article className="dashboard-recommendation">
               <div className="recommendation-icon">✦</div>
@@ -310,7 +314,7 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
     try {
       const attempt = await call<{ id: string }>("/diagnostics", {
         method: "POST",
-        body: JSON.stringify({ questionCount: 30 }),
+        body: JSON.stringify({ questionCount: LEGACY_DIAGNOSTIC_QUESTION_COUNT }),
       });
       navigate(`/diagnostico?tentativa=${encodeURIComponent(attempt.id)}`);
       recovery.retry();
@@ -343,8 +347,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
       void progress.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
-      // A lost response does not prove that the write failed. Re-read the owned
-      // attempt before allowing another answer or completion request.
+      // Uma resposta perdida não prova que a gravação falhou. Relê a tentativa do
+      // próprio aluno antes de permitir outra resposta ou solicitação de conclusão.
       recovery.retry();
     } finally {
       attemptMutationPending.current = false;
@@ -379,8 +383,8 @@ function StudentApp({ userId, role, nome, email, initialDestination }: { userId:
       void progress.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Erro inesperado.");
-      // A lost response does not prove that the write failed. Re-read the owned
-      // attempt before allowing another answer or completion request.
+      // Uma resposta perdida não prova que a gravação falhou. Relê a tentativa do
+      // próprio aluno antes de permitir outra resposta ou solicitação de conclusão.
       recovery.retry();
     } finally {
       attemptMutationPending.current = false;

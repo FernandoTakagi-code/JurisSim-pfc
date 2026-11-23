@@ -1,4 +1,4 @@
-// Disposable loopback PostgreSQL only. Never loads .env or accepts a connection.
+// Apenas PostgreSQL descartável em loopback. Nunca carrega .env nem aceita uma conexão.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),net=require('node:net');
 const {spawnSync}=require('node:child_process'),{randomBytes}=require('node:crypto'),assert=require('node:assert/strict');
 const bin='C:/Program Files/PostgreSQL/17/bin';

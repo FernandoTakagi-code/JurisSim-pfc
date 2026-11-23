@@ -29,8 +29,8 @@ const registerSchema = z.object({
   email: emailSchema,
   senha: passwordSchema,
   confirmacaoSenha: z.string().optional(),
-  // The public registration endpoint may only request a student account.
-  // The repository assigns ALUNO itself and does not trust this field.
+  // O endpoint público de cadastro só pode solicitar uma conta de aluno.
+  // O próprio repositório atribui ALUNO e não confia neste campo.
   role: z.literal('ALUNO').optional(),
   registrationIntent: z.literal('INSTITUTION').optional(),
   acceptance: acceptanceSchema,
@@ -112,14 +112,11 @@ export class AuthController {
       emailVerification = isLocalEmailCaptureRequested()
         ? { status: 'captured', message: 'Conta criada. Entre e use “Reenviar e-mail de confirmação” para obter o link local.' }
         : { status: 'accepted', message: verification.message };
-    } catch (error) {
+    } catch (_error) {
       console.error('Não foi possível enviar a confirmação de e-mail após o cadastro.');
-      const deliveryUnknown = error instanceof ApiError && error.message.includes('O provedor não confirmou');
       emailVerification = {
         status: 'unavailable',
-        message: deliveryUnknown
-          ? 'Conta criada. O recebimento do e-mail não foi confirmado; confira a caixa de entrada e o spam antes de pedir outro link.'
-          : 'Conta criada, mas não foi possível enviar a confirmação de e-mail. Entre e solicite o reenvio.',
+        message: 'Conta criada, mas não foi possível enviar a confirmação de e-mail. Entre e solicite o reenvio.',
       };
     }
     response.status(201).json({ ...resultado, emailVerification });
@@ -170,6 +167,11 @@ export class AuthController {
 
   logout = async (request: AuthenticatedRequest, response: Response) => {
     response.json(await this.service.logout(request.auth!.userId));
+  };
+
+  aceitarTermos = async (request: AuthenticatedRequest, response: Response) => {
+    await this.service.acceptLegalTerms(request.auth!.userId, request.body);
+    response.status(204).end();
   };
 
   session = async (request: AuthenticatedRequest, response: Response) => {

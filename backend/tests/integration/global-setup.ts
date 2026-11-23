@@ -3,8 +3,8 @@ import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { assertDisposableDatabase, disposableDatabaseConfig } from './disposable-database';
 
-// Verify the cluster already created/migrated by the local harness.
-// No reset, migration command, dotenv, or destructive SQL here.
+// Verifica o cluster já criado/migrado pelo harness local.
+// Sem reset, comando de migração, dotenv ou SQL destrutivo aqui.
 export default async function setup() {
   const config = disposableDatabaseConfig();
   const client = new PrismaClient({ datasourceUrl: config.url });
@@ -32,6 +32,7 @@ export default async function setup() {
     '20261113220000_teacher_questions_in_exams',
     '20261115193000_class_lifecycle',
   '20261115203000_class_activities',
+      '20261121120000_terms_of_use_versions',
     ];
     const applied = await client.$queryRaw<{ migration_name: string }[]>`
       SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`;

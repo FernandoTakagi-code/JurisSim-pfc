@@ -113,7 +113,7 @@ async function main() {
     await apply(manifest, result.valid, bytes!);
     console.log(`Importação atômica concluída: ${result.valid.length} questões novas.`);
   } catch (error) {
-    // Prisma/driver error messages may include connection details; never print them.
+    // Mensagens de erro do Prisma/driver podem incluir detalhes da conexão; nunca as imprima.
     console.error('Importação recusada; detalhes técnicos foram omitidos para proteger dados de conexão.');
     process.exitCode = 2;
   }

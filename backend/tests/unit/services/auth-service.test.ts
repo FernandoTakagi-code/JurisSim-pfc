@@ -3,7 +3,7 @@ import versions from "../../../src/legal-versions.json";
 import { describe, expect, it, vi } from 'vitest';
 import { AuthService } from "../../../src/services/accounts/auth-service";
 
-// Login unit tests use repository doubles and must never consult the shared database.
+// Os testes unitários de login usam dublês de repositório e nunca devem consultar o banco compartilhado.
 vi.mock("../../../src/services/institutions/institution-service", async importOriginal => ({
   ...await importOriginal<typeof import("../../../src/services/institutions/institution-service")>(),
   currentAccess: vi.fn().mockResolvedValue(undefined),

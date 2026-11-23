@@ -13,7 +13,7 @@ function inventory(extra = 0): InitialDiagnosticCandidate[] {
     })));
 }
 
-// Synthetic identities/evidence belong only to test fixtures, never real drafts.
+// Identidades/evidências sintéticas pertencem apenas às fixtures de teste, nunca a rascunhos reais.
 function approvedFixture() {
   return { practiceTopics: [], questions: inventory().map(q => ({
     enunciado: `Fixture sintética sem conteúdo jurídico real ${q.id}.`, disciplina: q.discipline,

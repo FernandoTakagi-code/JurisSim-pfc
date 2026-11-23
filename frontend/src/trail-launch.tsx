@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "./api";
 import { navigate } from "./navigation";
 
-/** The existing endpoint returns the linked attempt when it was already generated. */
+/** O endpoint existente retorna a tentativa vinculada quando ela já foi gerada. */
 export function TrailLaunchButton({ trail, completed = false, generated = false }: {
   trail: { id: string; simuladoGeradoId?: string | null };
   completed?: boolean;
@@ -19,8 +19,8 @@ export function TrailLaunchButton({ trail, completed = false, generated = false 
     setBusy(true);
     setError("");
     try {
-      // Recommendation IDs and attempt IDs are distinct. Use only the explicit
-      // persisted link to open an existing attempt/result without generation.
+      // IDs de recomendação e IDs de tentativa são distintos. Usa apenas o vínculo
+      // explícito persistido para abrir uma tentativa/resultado existente sem gerar outra.
       const existingAttemptId = trail.simuladoGeradoId;
       const attempt = existingAttemptId ? { id: existingAttemptId }
         : await apiRequest<{ id: string }>(`/trilhas/${encodeURIComponent(trail.id)}/gerar`, { method: "POST" });

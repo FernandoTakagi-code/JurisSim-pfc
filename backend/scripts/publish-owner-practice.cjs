@@ -1,5 +1,5 @@
-// Explicit, manifest-pinned operator tool. No HTTP endpoint or public UI.
-// Default is a dry run; --apply is required for the user-authorized publication.
+// Ferramenta explícita para operadores, fixada por manifesto. Sem endpoint HTTP ou interface pública.
+// O padrão é uma simulação (dry run); --apply é obrigatório para a publicação autorizada pelo usuário.
 const fs=require('node:fs'),path=require('node:path');
 const {PrismaClient}=require('@prisma/client');
 const dotenv=require('dotenv');

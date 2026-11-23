@@ -1,5 +1,5 @@
-// Called by test-migrations-local.cjs with its own newly created cluster.
-// No dotenv loading, SMTP calls, deletes, or external connection parameters.
+// Chamado por test-migrations-local.cjs com o próprio cluster recém-criado.
+// Sem carregar dotenv, chamadas SMTP, exclusões ou parâmetros de conexão externos.
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -41,7 +41,7 @@ async function recovery(userId: string, suffix: string, expired = false) {
 }
 
 async function main() {
-  // Validate the explicit local URL before the first database operation.
+  // Valida a URL local explícita antes da primeira operação no banco.
   const url = new URL(process.env.DATABASE_URL ?? '');
   assert.equal(url.protocol, 'postgresql:');
   assert.equal(url.hostname, '127.0.0.1');
@@ -145,7 +145,7 @@ async function main() {
   assert.equal((await request('GET', '/protected', pendingOld)).status, 401);
   pass('password reset preserves mandatory email confirmation; confirmation does not restore revoked JWTs');
 
-  // Intentionally reject only this fixture's reset audit to prove rollback in PostgreSQL.
+  // Rejeita de propósito apenas a auditoria de redefinição desta fixture, para comprovar o rollback no PostgreSQL.
   await prisma.$executeRawUnsafe(`CREATE FUNCTION stage3_reject_audit() RETURNS trigger LANGUAGE plpgsql AS $$
     BEGIN RAISE EXCEPTION 'fixture audit rejection'; END; $$`);
   await prisma.$executeRawUnsafe(`CREATE TRIGGER stage3_reject_audit BEFORE INSERT ON "AuditLog"

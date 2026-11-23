@@ -14,7 +14,7 @@ export interface TransactionalEmailTransport {
   send(email: TransactionalEmail): Promise<void>;
 }
 
-export const BREVO_API_SEND_DEADLINE_MS = 8_000;
+export const BREVO_API_SEND_DEADLINE_MS = 20_000;
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
 export class BrevoApiTransport implements TransactionalEmailTransport {
@@ -62,7 +62,7 @@ export class BrevoApiTransport implements TransactionalEmailTransport {
         throw new EmailDeliveryFailure('not_accepted', 'provider');
       }
       if (!response.ok) {
-        // A server error or request timeout may happen after Brevo accepted it.
+        // Um erro do servidor ou timeout da requisição pode ocorrer depois que o Brevo já aceitou o envio.
         throw new EmailDeliveryFailure('indeterminate', 'provider');
       }
 
@@ -71,8 +71,8 @@ export class BrevoApiTransport implements TransactionalEmailTransport {
         const body = await response.json() as { messageId?: unknown };
         if (typeof body.messageId === 'string') messageId = body.messageId;
       } catch {
-        // A successful status without a readable message id is not enough to
-        // tell the caller the delivery was accepted with certainty.
+        // Um status de sucesso sem um message id legível não basta para
+        // informar a quem chamou que o envio foi aceito com certeza.
       }
       if (!messageId) throw new EmailDeliveryFailure('indeterminate', 'provider');
 
@@ -140,7 +140,7 @@ export function createBrevoEmailTransport(): TransactionalEmailTransport {
   return { isConfigured: false, async send() { throw new Error('Unsupported Brevo transport.'); } };
 }
 
-// Set only by the guarded local launcher before importing the API. Never a route.
+// Definido apenas pelo inicializador local protegido antes de importar a API. Nunca é uma rota.
 let runtimeTransport: TransactionalEmailTransport | undefined;
 export function configureLocalRuntimeEmailTransport(transport: TransactionalEmailTransport) {
   if (runtimeTransport || process.env.NODE_ENV !== 'development' || process.env.HOST !== '127.0.0.1' || process.env.PORT !== '3333' || process.env.APP_PUBLIC_URL !== 'http://localhost:5173' || !transport.isConfigured)

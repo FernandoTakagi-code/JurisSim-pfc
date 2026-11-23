@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../errors/api-error';
 import { assertTeacherInvitationsAvailable } from '../../config/teacher-invitations';
 import { administrativeEvent, hashInvitation, institutionalTransaction, InstitutionService, fixtureProvenance, type Tx } from './institution-service';
-import { acceptanceData, acceptanceSchema } from '../accounts/legal-acceptance';
+import { acceptanceData, acceptanceSchema, assertCurrentAcceptance } from '../accounts/legal-acceptance';
 import { assertValidPassword } from '../accounts/password-policy';
 import { createBrevoEmailTransport, type TransactionalEmailTransport } from '../email/brevo-email-transport';
 import { isValidAppUrl } from '../email/app-url';
@@ -62,7 +62,7 @@ export class InvitationOnboardingService {
   async register(token:string,nome:string,password:string,confirmation:string,acceptance:unknown) {
     nome=nome.trim();
     if(nome.length<2||nome.length>120)throw new ApiError(422,'Informe seu nome completo.');
-    acceptanceSchema.parse(acceptance);assertValidPassword(password);
+    acceptanceSchema.parse(acceptance);await assertCurrentAcceptance(acceptance);assertValidPassword(password);
     if(password!==confirmation)throw new ApiError(422,'As senhas não coincidem.');
     const senhaHash=await bcrypt.hash(password,10);
     return institutionalTransaction(async tx=>{
@@ -85,9 +85,9 @@ export class InvitationOnboardingService {
       return {message:'Conta criada e convite aceito. Entre com sua nova senha para acessar o painel do professor.',nextStep:'LOGIN',invitationAccepted:true};
     });
   }
-  /** Legacy compatibility for isolated regression fixtures. No public route calls this method. */
+  /** Compatibilidade legada para fixtures de regressão isoladas. Nenhuma rota pública chama este método. */
   async start(token:string,nome:string,acceptance:unknown) {
-    acceptanceSchema.parse(acceptance);
+    acceptanceSchema.parse(acceptance);await assertCurrentAcceptance(acceptance);
     const publicAppUrl=emailFrontendUrl();
     if(!this.mail.isConfigured || !isValidAppUrl(publicAppUrl)) throw new ApiError(503,'Primeiro acesso indisponível. Procure o responsável institucional.');
     const proof=randomBytes(32).toString('hex'), initialPasswordHash=await bcrypt.hash(randomBytes(32).toString('hex'),10);
@@ -122,7 +122,7 @@ export class InvitationOnboardingService {
         const failure=classifyEmailDeliveryFailure(error);
         emailFailed('teacher_onboarding',delivery.id,error);
         if(failure.outcome==='not_accepted')await prisma.invitationOnboarding.updateMany({where:{id:delivery.id,completedAt:null,proofHash:hashProof(proof)},data:{expiresAt:new Date(0)}});
-        // Generic response deliberately does not reveal whether an account existed.
+        // A resposta genérica propositalmente não revela se a conta existia.
         console.error('Falha no envio de confirmação de convite; dados e credenciais omitidos.');
       }
     }

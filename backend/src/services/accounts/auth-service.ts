@@ -1,10 +1,10 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { acceptanceSchema, acceptanceData } from './legal-acceptance';
+import { acceptanceSchema, acceptanceData, assertCurrentAcceptance, isCurrentAcceptance } from './legal-acceptance';
+import { currentLegalVersions } from './terms-of-use';
 import { ApiError } from '../../errors/api-error';
 import { AuthRepository, GOOGLE_PASSWORD_SENTINEL } from '../../repositories/auth-repository';
-import versions from '../../legal-versions.json';
 import { assertValidPassword } from './password-policy';
 import { isInitialDiagnosticRequired } from '../../config/initial-diagnostic-feature';
 import { localEmailVerificationCapture } from '../email/local-email-capture';
@@ -23,6 +23,8 @@ export type AuthSessionResult = {
   administration?:Awaited<ReturnType<typeof currentAccess>>;
   localDiagnosticDemoAvailable?:boolean;
   localDiagnosticDemoActive?:boolean;
+  legalUpdateRequired:boolean;
+  legalVersions:{termsVersion:string;privacyVersion:string};
 };
 
 // Garante que o usuário entrou pela opção correta da tela de login.
@@ -42,7 +44,7 @@ const jwtPayloadSchema = z.object({
   id: z.string().trim().min(1),
   role: z.enum(['ALUNO', 'PROFESSOR', 'ADMIN']),
   exp: z.number().int().positive(),
-  // Legacy JWTs remain valid only while the account is still at version zero.
+  // JWTs legados continuam válidos apenas enquanto a conta ainda estiver na versão zero.
   sessionVersion: sessionVersionSchema.default(0),
 });
 
@@ -52,6 +54,7 @@ export class AuthService {
   async registerInstitutionalApplication(input: unknown) {
     if(!institutionRegistrationEnabled()) throw new ApiError(503,'Cadastro institucional indisponível.');
     const data=institutionAccountRegistrationSchema.parse(input);
+    await assertCurrentAcceptance(data.acceptance);
     await assertEmailReusable(data.email);
     this.jwtSecret();
     const senhaHash=await bcrypt.hash(data.senha,10);
@@ -68,8 +71,14 @@ export class AuthService {
   async register(nome: string, email: string, senha: string, acceptance?: unknown, registrationIntent?: 'INSTITUTION') {
     await assertEmailReusable(email);
     assertValidPassword(senha);
-    acceptanceSchema.parse(acceptance);
-    if (await this.repository.findByEmail(email)) throw new ApiError(409, 'E-mail já cadastrado.');
+    await assertCurrentAcceptance(acceptance);
+    const existing = await this.repository.findByEmail(email);
+    if (existing && !existing.emailVerifiedAt) {
+      // O link de confirmação vale 30 minutos; quem tenta se cadastrar de novo depois disso precisa de outro caminho.
+      // Por segurança o reenvio exige a senha: a pessoa entra e usa "Reenviar e-mail de confirmação".
+      throw new ApiError(409, 'Esta conta já existe e aguarda a confirmação do e-mail. Entre com sua senha para receber um novo link de confirmação.', undefined, 'EMAIL_PENDING_CONFIRMATION');
+    }
+    if (existing) throw new ApiError(409, 'E-mail já cadastrado.');
     const senhaHash = await bcrypt.hash(senha, 10);
     try {
       const user = await this.repository.createUser(nome, email, senhaHash, acceptance, registrationIntent);
@@ -118,14 +127,11 @@ export class AuthService {
       throw new ApiError(409, 'Confirme o e-mail da conta pelo fluxo tradicional antes de entrar com o Google.');
     }
     const parsedAcceptance = acceptance === undefined ? undefined : acceptanceSchema.safeParse(acceptance);
-    if (parsedAcceptance && !parsedAcceptance.success) {
+    const current = await currentLegalVersions();
+    if (parsedAcceptance && (!parsedAcceptance.success || !isCurrentAcceptance(parsedAcceptance.data, current))) {
       throw new ApiError(400, 'Aceite os Termos de Uso e o Aviso de Privacidade nas versões atuais.');
     }
-    const hasCurrentAcceptance = Boolean(
-      existing?.legalAcceptedAt &&
-      existing.termsVersion === versions.termsVersion &&
-      existing.privacyVersion === versions.privacyVersion,
-    );
+    const hasCurrentAcceptance = Boolean(existing?.legalAcceptedAt && isCurrentAcceptance(existing, current));
     if (!hasCurrentAcceptance && !parsedAcceptance?.success) return { requiresAcceptance: true as const };
 
     let user: { id: string; nome: string; email: string; role: string; sessionVersion: number };
@@ -135,9 +141,9 @@ export class AuthService {
         ? await this.repository.createGoogleUser(nomeSugerido, email, parsedAcceptance!.data, registrationIntent)
         : await this.repository.createGoogleUser(nomeSugerido, email, parsedAcceptance!.data);
     } else {
-      // A signed Google ID token with email_verified=true was validated by the
-      // controller. Match that verified address to one existing account without
-      // changing its password hash or role; ambiguous case variants fail closed.
+      // Um ID token do Google assinado com email_verified=true foi validado pelo
+      // controller. Associa esse endereço verificado a uma única conta existente sem
+      // alterar o hash da senha nem o papel; variantes ambíguas de maiúsculas/minúsculas falham de forma segura.
       user = existing;
       if (!hasCurrentAcceptance) await this.repository.recordGoogleAcceptance(user.id,parsedAcceptance!.data);
     }
@@ -172,16 +178,25 @@ export class AuthService {
     return this.repository.exportData(userId, page);
   }
 
+  /** Novo aceite de quem já tem conta. Versões desatualizadas respondem 409 para a tela recarregar o texto. */
+  async acceptLegalTerms(userId: string, input: unknown) {
+    const acceptance = await assertCurrentAcceptance(input, 409);
+    await this.repository.recordLegalAcceptance(userId, { accepted: true, ...acceptance });
+  }
+
   async session(userId: string, localDemoRequested = false, institutionalReadOnly = false):Promise<AuthSessionResult> {
     const user = await this.repository.findById(userId);
     if (!user || user.deletedAt) throw new ApiError(401, 'Sessão inválida.');
     const administration = await currentAccess(userId, user.role, user.registrationIntent === 'INSTITUTION' || institutionalReadOnly);
     if (administration) user.role = administration.effectiveRole as typeof user.role;
     const emailVerificado = Boolean(user.emailVerifiedAt);
+    const legalVersions = await currentLegalVersions();
+    const legal = { legalUpdateRequired: !isCurrentAcceptance(user, legalVersions), legalVersions };
     if (user.role === 'ALUNO' && user.registrationIntent === 'TEACHER_INVITATION') return {
       user: {id:user.id,nome:user.nome,email:user.email,role:user.role,emailVerificado},
       registrationIntent:'TEACHER_INVITATION' as const,nextStep:'INVITATION' as const,
       ...(administration?{administration}:{}),
+      ...legal,
     };
     if (user.role === 'ALUNO' && user.registrationIntent === 'INSTITUTION') {
       const institutionalStatus = await this.repository.ownInstitutionStatus(userId);
@@ -190,6 +205,7 @@ export class AuthService {
         registrationIntent:'INSTITUTION' as const,nextStep:'DASHBOARD' as const,
         ...(institutionalStatus ? { institutionalStatus } : {}),
         ...(administration?{administration}:{}),
+        ...legal,
       };
     }
     const diagnosticRequired = isInitialDiagnosticRequired() && user.registrationIntent!=='INSTITUTION';
@@ -214,6 +230,7 @@ export class AuthService {
         localDiagnosticDemoAvailable: Boolean(demoAvailable),
         localDiagnosticDemoActive: demoActive,
       } : {}),
+      ...legal,
     };
   }
 

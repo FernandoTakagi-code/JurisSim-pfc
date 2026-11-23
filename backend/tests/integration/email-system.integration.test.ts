@@ -42,7 +42,7 @@ afterEach(async()=>{server.closeAllConnections();await new Promise<void>(resolve
 afterAll(async()=>{vi.unstubAllEnvs();await prisma.$disconnect();});
 const rawToken=(message:Message,key='token')=>{const url=new URL(message.text.match(/https?:\/\/\S+/)![0]);return new URLSearchParams(url.hash.split('?')[1]).get(key)!;};
 const post=async(path:string,body:unknown,token?:string,origin?:string)=>{const response=await fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{}) ,...(origin?{Origin:origin}:{})},body:JSON.stringify(body)});return {status:response.status,body:await response.json()};};
-async function account(confirmed=true){return prisma.user.create({data:{nome:'Pessoa fictícia',email:`person-${randomUUID()}@example.invalid`,role:'ALUNO',senhaHash:await bcrypt.hash(password,4),emailVerifiedAt:confirmed?new Date():null}});}
+async function account(confirmed=true){return prisma.user.create({data:{termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', legalAcceptedAt: new Date(), nome:'Pessoa fictícia',email:`person-${randomUUID()}@example.invalid`,role:'ALUNO',senhaHash:await bcrypt.hash(password,4),emailVerifiedAt:confirmed?new Date():null}});}
 it.each(['http://localhost:5173','http://127.0.0.1:5180','https://app.example.invalid'])('registration automatically sends the confirmation for authorized frontend %s, with one-time token',async origin=>{
   const email=`register-${randomUUID()}@example.invalid`;
   const result=await post('/auth/register',{nome:'Pessoa fictícia',email,senha:password,confirmacaoSenha:password,acceptance},undefined,origin);
@@ -57,7 +57,8 @@ it.each(['http://localhost:5173','http://127.0.0.1:5180','https://app.example.in
 it.each(['not_accepted','indeterminate'])('SMTP %s does not undo registration and invalidates only an unaccepted proof',async outcome=>{
   smtp.sendMail.mockRejectedValue(Object.assign(new Error('private SMTP failure'),outcome==='not_accepted'?{code:'ECONNREFUSED'}:{command:'DATA'}));
   const email=`failed-${randomUUID()}@example.invalid`;const result=await post('/auth/register',{nome:'Pessoa fictícia',email,senha:password,acceptance});
-  expect(result.status).toBe(201);expect(result.body.emailVerification.status).toBe('unavailable');
+  // Envio indeterminado não é mais erro: o link segue válido e a pessoa é avisada de que o e-mail pode demorar.
+  expect(result.status).toBe(201);expect(result.body.emailVerification.status).toBe(outcome==='not_accepted'?'unavailable':'accepted');
   const user=await prisma.user.findUniqueOrThrow({where:{email}});expect(user.emailVerifiedAt).toBeNull();
   const token=await prisma.authToken.findFirstOrThrow({where:{userId:user.id}});
   if(outcome==='not_accepted')expect(token.usedAt).not.toBeNull();else expect(token.usedAt).toBeNull();
@@ -94,7 +95,7 @@ it.each(['not_accepted','indeterminate'])('password recovery SMTP %s preserves n
 });
 let serial=0;
 async function institution(){
-  const owner=await account();const admin=await prisma.user.create({data:{nome:'ADMIN fictício',email:`admin-${randomUUID()}@example.invalid`,role:'ADMIN',emailVerifiedAt:new Date()}});
+  const owner=await account();const admin=await prisma.user.create({data:{termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', legalAcceptedAt: new Date(), nome:'ADMIN fictício',email:`admin-${randomUUID()}@example.invalid`,role:'ADMIN',emailVerifiedAt:new Date()}});
   const cnpjBase='140000000'+String(++serial).padStart(3,'0');const cnpj=Array.from({length:100},(_,n)=>cnpjBase+String(n).padStart(2,'0')).find(validRegistrationNumber)!;
   const service=new InstitutionService(mail());const created=await service.request({userId:owner.id,role:'ALUNO'},institutionRequestSchema.parse({...institutionApplication,name:`Instituição fictícia ${randomUUID()}`,registrationNumber:cnpj}));
   await service.decide({userId:admin.id,role:'ADMIN'},created.id,'ACTIVE','Aprovação fictícia para teste isolado.');messages.length=0;
@@ -161,8 +162,8 @@ it('H4.32 inspection is read-only; first access creates a professor and accepts 
   const item=await directInvite();const before=await prisma.user.count();
   for(let n=0;n<2;n++){const inspected=await post('/institutions/invitations/inspect',{token:item.token});expect(inspected.status).toBe(200);expect(inspected.body).toMatchObject({email:item.email,accountExists:false});}
   expect(await prisma.user.count()).toBe(before);
-  // Teacher invitations are an independent capability; the full institutions
-  // switch remains off while the invite itself authorizes this first access.
+  // Os convites de professores são uma capacidade independente; a chave completa de
+  // instituições continua desligada enquanto o próprio convite autoriza este primeiro acesso.
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_TEACHER_MANAGEMENT_ENABLED','true');vi.stubEnv('TEACHER_INVITATIONS_MODE','institutional');
   expect((await post('/institutions/invitations/register',registration(item.token))).status).toBe(201);
   const user=await prisma.user.findUniqueOrThrow({where:{email:item.email}});

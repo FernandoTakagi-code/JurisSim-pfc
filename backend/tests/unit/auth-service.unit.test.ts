@@ -34,14 +34,14 @@ beforeEach(() => {
 
 describe('AuthService.login() - perfil escolhido na tela de login', () => {
   it('deveAutenticarProfessorPelaOpcaoProfessorERegistrarLoginSucesso', async () => {
-    // Arrange
+    // Preparação
     const repositorio = criarRepositorioFalso(usuario('PROFESSOR'));
     const service = new AuthService(repositorio as never);
 
-    // Act
+    // Execução
     const resultado = await service.login('teste@jurissim.local', SENHA, 'PROFESSOR');
 
-    // Assert
+    // Verificação
     const payload = jwt.verify(resultado.token, JWT_SECRET) as jwt.JwtPayload;
     expect(payload.role).toBe('PROFESSOR');
     expect(payload.sessionVersion).toBe(0);
@@ -50,14 +50,14 @@ describe('AuthService.login() - perfil escolhido na tela de login', () => {
   });
 
   it('deveLancarApiError403QuandoAlunoTentaEntrarPelaOpcaoProfessor', async () => {
-    // Arrange
+    // Preparação
     const repositorio = criarRepositorioFalso(usuario('ALUNO'));
     const service = new AuthService(repositorio as never);
 
-    // Act
+    // Execução
     const tentativa = service.login('teste@jurissim.local', SENHA, 'PROFESSOR');
 
-    // Assert
+    // Verificação
     await expect(tentativa).rejects.toBeInstanceOf(ApiError);
     await expect(tentativa).rejects.toMatchObject({
       statusCode: 403,
@@ -67,14 +67,14 @@ describe('AuthService.login() - perfil escolhido na tela de login', () => {
   });
 
   it('deveRegistrarLoginFalhaENaoEmitirTokenQuandoSenhaEstaIncorreta', async () => {
-    // Arrange
+    // Preparação
     const repositorio = criarRepositorioFalso(usuario('ALUNO'));
     const service = new AuthService(repositorio as never);
 
-    // Act
+    // Execução
     const tentativa = service.login('teste@jurissim.local', 'senha-errada', 'ALUNO');
 
-    // Assert
+    // Verificação
     await expect(tentativa).rejects.toMatchObject({ statusCode: 401, message: 'E-mail ou senha inválidos.' });
     expect(repositorio.recordLogin).toHaveBeenCalledTimes(1);
     expect(repositorio.recordLogin).toHaveBeenCalledWith('LOGIN_FALHA', 'user-aluno');
@@ -85,10 +85,10 @@ describe('AuthService.login() - perfil escolhido na tela de login', () => {
     const repositorio = criarRepositorioFalso(usuario('ADMIN'));
     const service = new AuthService(repositorio as never);
 
-    // Act
+    // Execução
     const resultado = await service.login('teste@jurissim.local', SENHA, 'PROFESSOR');
 
-    // Assert
+    // Verificação
     expect(resultado.usuario.role).toBe('ADMIN');
     expect(repositorio.recordLogin).toHaveBeenCalledWith('LOGIN_SUCESSO', 'user-admin');
   });
@@ -98,10 +98,10 @@ describe('AuthService.login() - perfil escolhido na tela de login', () => {
     const repositorio = criarRepositorioFalso(usuario('ALUNO', GOOGLE_PASSWORD_SENTINEL));
     const service = new AuthService(repositorio as never);
 
-    // Act
+    // Execução
     const tentativa = service.login('teste@jurissim.local', GOOGLE_PASSWORD_SENTINEL, 'ALUNO');
 
-    // Assert
+    // Verificação
     await expect(tentativa).rejects.toMatchObject({
       statusCode: 401,
       message: 'Esta conta usa login do Google. Entre com o Google.',
@@ -112,16 +112,34 @@ describe('AuthService.login() - perfil escolhido na tela de login', () => {
 
 describe('AuthService.register()', () => {
   it('deveLancarApiError409ENaoCriarUsuarioQuandoEmailJaEstaCadastrado', async () => {
-    // Arrange
-    const repositorio = criarRepositorioFalso(usuario('ALUNO'));
+    // Preparação
+    const repositorio = criarRepositorioFalso({ ...usuario('ALUNO'), emailVerifiedAt: new Date() } as ReturnType<typeof usuario>);
     const service = new AuthService(repositorio as never);
     const aceite = { accepted: true, termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion };
 
-    // Act
+    // Execução
     const tentativa = service.register('Ana', 'teste@jurissim.local', 'Senha-segura1!', aceite);
 
-    // Assert
+    // Verificação
     await expect(tentativa).rejects.toMatchObject({ statusCode: 409, message: 'E-mail já cadastrado.' });
+    expect(repositorio.createUser).not.toHaveBeenCalled();
+  });
+
+  it('orienta a entrar e pedir novo link quando a conta existe mas o e-mail não foi confirmado', async () => {
+    // Preparação
+    const repositorio = criarRepositorioFalso({ ...usuario('ALUNO'), emailVerifiedAt: null } as ReturnType<typeof usuario>);
+    const service = new AuthService(repositorio as never);
+    const aceite = { accepted: true, termsVersion: versions.termsVersion, privacyVersion: versions.privacyVersion };
+
+    // Execução
+    const tentativa = service.register('Ana', 'teste@jurissim.local', 'Senha-segura1!', aceite);
+
+    // Verificação
+    await expect(tentativa).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'EMAIL_PENDING_CONFIRMATION',
+      message: 'Esta conta já existe e aguarda a confirmação do e-mail. Entre com sua senha para receber um novo link de confirmação.',
+    });
     expect(repositorio.createUser).not.toHaveBeenCalled();
   });
 });

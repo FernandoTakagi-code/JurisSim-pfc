@@ -30,8 +30,8 @@
   margin: 0;
 }
 .study-priority-button svg { width: 18px; height: 18px; flex-shrink: 0; }
-/* Keep the existing .primary navy on both actions; the global sidebar
-   `aside button:hover` rule must not recolor the recommendation action. */
+/* Mantém o azul-marinho .primary existente nas duas ações; a regra global da barra lateral
+   `aside button:hover` não deve recolorir a ação de recomendação. */
 .study-trail-page :is(.study-continue, .study-priority-card) .primary:hover:not(:disabled) { background: #102957; }
 .study-trail-page .study-module-area { scroll-margin-top: 96px; }
 @media (max-width: 680px) {

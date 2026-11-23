@@ -1,7 +1,7 @@
 import { criarQuestaoSchema } from '../../schemas/questao-schemas';
 import { getInitialDiagnosticComposition } from '../diagnostics/initial-diagnostic-composition';
 
-/** Projects editorial drafts to the import format without granting approvals. */
+/** Converte rascunhos editoriais para o formato de importação sem conceder aprovações. */
 export function prepareAuthorialDraftBatch(input: unknown) {
   const document = input as { questions?: unknown[] } | null;
   if (!document || !Array.isArray(document.questions) || document.questions.length !== 30) {
@@ -36,7 +36,7 @@ export function prepareAuthorialDraftBatch(input: unknown) {
       _draftSlot: draft._draftSlot, ...content, origem: 'IA' as const,
       alternativas: alternatives.map(a => ({ ...a, texto: a.texto.trim() })),
       source: { name: draft.source.name, reference: references.join('\n'), licenseOrAuthorization: draft.source.licenseOrAuthorization },
-      // Keep null identities/dates and pending statuses; never synthesize reviewers.
+      // Mantém identidades/datas nulas e status pendentes; nunca inventa revisores.
       legalReview: structuredClone(draft.legalReview ?? null),
       pedagogicalReview: structuredClone(draft.pedagogicalReview ?? null),
       release: structuredClone(draft.release ?? null),

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { errorHandler } from "../../../src/middlewares/error-handler";
 import { ApiError } from "../../../src/errors/api-error";
 
-// Fixtures only. No client, database, SMTP transport or HTTP server is started.
+// Apenas fixtures. Nenhum cliente, banco, transporte SMTP ou servidor HTTP é iniciado.
 const privateFixture = 'private-fixture-never-log';
 const localRequest = () => ({
   method: 'POST', path: '/auth/password-reset',

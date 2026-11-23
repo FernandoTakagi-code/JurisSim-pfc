@@ -1,6 +1,6 @@
--- Prepared only; run AFTER authorized DDL, through the backend database role.
--- Catalogs and privilege functions only: never reads application records.
--- Can also run inside the creation transaction BEFORE COMMIT (no boundary here).
+-- Apenas preparado; execute DEPOIS do DDL autorizado, pelo papel de banco do backend.
+-- Apenas catálogos e funções de privilégio: nunca lê registros da aplicação.
+-- Também pode rodar dentro da transação de criação ANTES DO COMMIT (sem limite aqui).
 DO $verify$
 DECLARE
   table_name text;

@@ -1,5 +1,5 @@
-// Run existing integration tests against a NEW loopback cluster restored from a
-// custom-format backup. No .env, remote URLs, migrations or existing DB accepted.
+// Executa os testes de integração existentes contra um NOVO cluster em loopback restaurado de um
+// backup em formato custom. Não aceita .env, URLs remotas, migrações nem banco existente.
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');

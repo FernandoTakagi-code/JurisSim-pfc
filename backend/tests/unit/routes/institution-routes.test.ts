@@ -97,7 +97,7 @@ beforeEach(() => {
   mocks.user.mockResolvedValue({
     id: userId,
     role: "ALUNO",
-    emailVerifiedAt: new Date(),
+    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',
     sessionVersion: 0,
   });
   mocks.db.accountControl.findUnique.mockResolvedValue(null);
@@ -140,8 +140,8 @@ it("exposes only scoped professor management when its independent capability is 
   vi.stubEnv("INSTITUTION_TEACHER_MANAGEMENT_ENABLED", "true");
   const availability = await (await request("/availability", "GET", undefined, false)).json();
   expect(availability).toMatchObject({ enabled: false, capabilities: { teacherManagement: true, teacherInvitations: true, classAssignment: true, examManagement: false, institutionalOperations: false } });
-  // The independent capability clears the feature gate, but authentication is
-  // still required before a service can inspect the active membership.
+  // A capacidade independente passa pelo bloqueio da funcionalidade, mas a autenticação
+  // ainda é exigida antes que um serviço possa inspecionar o vínculo ativo.
   expect((await request(`/${institutionId}/invitations`, "POST", { email: "new@example.com" }, false)).status).toBe(401);
 });
 it("reports invitation sending unavailable when the server invitation mode is missing", async () => {
@@ -177,7 +177,7 @@ it("allows the current global administrator to query persistent audit events", a
   mocks.user.mockResolvedValue({
     id: userId,
     role: "ADMIN",
-    emailVerifiedAt: new Date(),
+    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',
     sessionVersion: 0,
   });
   const response = await request("/admin/logs?page=2&severity=ERROR");
@@ -220,7 +220,7 @@ it.each([
   mocks.user.mockResolvedValue({
     id: userId,
     role: "ADMIN",
-    emailVerifiedAt: new Date(),
+    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',
     sessionVersion: 0,
   });
   expect((await request("/admin/logs" + query)).status).toBe(422);
@@ -248,7 +248,7 @@ it("requires verified email before an institutional request", async () => {
     emailVerifiedAt: null,
     sessionVersion: 0,
   });
-  // Invalid request proves limited-auth reached validation, not a verified-only guard.
+  // A requisição inválida prova que a autenticação limitada chegou à validação, e não a uma proteção só para verificados.
   expect((await request("/requests", "POST", {})).status).toBe(403);
   expect((await request("/admin/summary")).status).toBe(403);
 });
@@ -259,7 +259,7 @@ it("blocks suspended and session-revoked accounts", async () => {
   mocks.user.mockResolvedValue({
     id: userId,
     role: "ADMIN",
-    emailVerifiedAt: new Date(),
+    emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',
     sessionVersion: 1,
   });
   expect((await request("/admin/summary")).status).toBe(401);
@@ -274,7 +274,7 @@ it.each(['registrationNumber','institutionType','postalCode','street','number','
 });
 it('receives a first request with no prior membership and with valid CNPJ while full operations are off',async()=>{
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','true');
-  mocks.db.user.findUnique.mockResolvedValue({email:'owner@example.invalid',emailVerifiedAt:new Date(),deletedAt:null});
+  mocks.db.user.findUnique.mockResolvedValue({email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null});
   mocks.db.institution.create.mockResolvedValue({id:institutionId,status:'PENDING'});
   expect((await request('/requests','POST',registration)).status).toBe(201);
   expect(mocks.db.institution.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({ownerId:userId,status:'PENDING',email:'owner@example.invalid',description:expect.stringContaining('Curso preparatório')})}));
@@ -283,15 +283,36 @@ it('receives a first request with no prior membership and with valid CNPJ while 
   expect([403,503]).toContain((await request('/invitations/accept','POST',{token:'a'.repeat(64)})).status);
 });
 it('rejects duplicate applications before creating memberships or another institution',async()=>{
-  mocks.db.user.findUnique.mockResolvedValue({email:'owner@example.invalid',emailVerifiedAt:new Date()});
+  mocks.db.user.findUnique.mockResolvedValue({email:'owner@example.invalid',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1'});
   mocks.db.institution.findFirst.mockResolvedValue({id:institutionId});
   expect((await request('/requests','POST',registration)).status).toBe(409);
   expect(mocks.db.institution.create).not.toHaveBeenCalled();
   expect(mocks.db.institutionalMembership.upsert).not.toHaveBeenCalled();
 });
+it.each([
+  '?from=2026-11-21&to=2026-11-01',
+  '?from=2026-11-01',
+  '?from=2026-13-40&to=2026-11-21',
+  '?from=2021-11-12&to=2026-11-21&groupBy=day',
+])('recusa período inválido no resumo administrativo %s', async (query) => {
+  vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('ADMINISTRATION_ENABLED','true');
+  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
+  const response = await request('/admin/summary' + query);
+  expect(response.status).toBe(400);
+  expect(mocks.db.user.count).not.toHaveBeenCalled();
+});
+it('repassa o período válido ao resumo administrativo', async () => {
+  vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('ADMINISTRATION_ENABLED','true');
+  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
+  for (const model of [mocks.db.user, mocks.db.institution, mocks.db.institutionalMembership, mocks.db.turma, mocks.db.administrativeEvent, mocks.db.avaliacao, mocks.db.classActivity, mocks.db.simulado]) model.count.mockResolvedValue(0);
+  mocks.db.$queryRaw.mockResolvedValue([]);
+  const response = await request('/admin/summary?from=2026-11-01&to=2026-11-10&groupBy=week');
+  expect(response.status).toBe(200);
+  expect((await response.json()).period).toEqual({ from: '2026-11-01', to: '2026-11-10', groupBy: 'week' });
+});
 it('permits global read/control scopes without activating institutional teacher requirements',async()=>{
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('ADMINISTRATION_ENABLED','true');
-  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(),sessionVersion:0});
+  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   mocks.db.user.count.mockResolvedValue(9);mocks.db.institution.count.mockResolvedValue(0);mocks.db.institutionalMembership.count.mockResolvedValue(0);mocks.db.turma.count.mockResolvedValue(0);mocks.db.administrativeEvent.count.mockResolvedValue(0);
   expect((await request('/admin/summary')).status).toBe(200);
   expect((await request(`/admin/classes/${institutionId}`,'PATCH',{institutionId})).status).toBe(403);
@@ -309,9 +330,9 @@ it.each([{...registration,institutionType:'ADMIN'},{...registration,registration
 });
 it.each(['ACTIVE','REJECTED'] as const)('allows ADMIN decision %s with only registration enabled, without global promotion',async status=>{
   vi.stubEnv('INSTITUTIONS_ENABLED','false');vi.stubEnv('INSTITUTION_REGISTRATION_ENABLED','true');
-  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(),sessionVersion:0});
+  mocks.user.mockResolvedValue({id:userId,role:'ADMIN',emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',sessionVersion:0});
   mocks.db.institution.findUnique.mockResolvedValue({...institutionApplication, registrationNumber:'12ABC34501DE35',description:'Declara\u00e7\u00e3o: institui\u00e7\u00e3o sem site oficial.',id:institutionId,ownerId:userId,status:'PENDING'});
-  mocks.db.user.findUnique.mockResolvedValue({emailVerifiedAt:new Date(),deletedAt:null});
+  mocks.db.user.findUnique.mockResolvedValue({emailVerifiedAt:new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1',deletedAt:null});
   mocks.db.institution.update.mockResolvedValue({id:institutionId,status});
   expect((await request(`/admin/institutions/${institutionId}`,'PATCH',{status,reason:'Documentação conferida'})).status).toBe(200);
   expect(mocks.db.user.update).not.toHaveBeenCalled();

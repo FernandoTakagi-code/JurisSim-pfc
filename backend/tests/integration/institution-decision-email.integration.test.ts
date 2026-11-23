@@ -1,5 +1,5 @@
-// Runs only inside the harness-owned disposable PostgreSQL cluster.
-// Never loads .env and never creates a real SMTP connection.
+// Roda apenas dentro do cluster PostgreSQL descartável do harness.
+// Nunca carrega .env e nunca cria uma conexão SMTP real.
 import { beforeAll, beforeEach, afterAll, it, expect, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 const smtp = vi.hoisted(() => ({ createTransport: vi.fn(), sendMail: vi.fn() }));
@@ -24,8 +24,8 @@ beforeEach(async () => {
   smtp.sendMail.mockReset(); smtp.createTransport.mockReset();
   smtp.createTransport.mockReturnValue({ sendMail: smtp.sendMail });
   email = `owner-${randomUUID()}@example.invalid`;
-  const owner = await prisma.user.create({ data: { nome: 'Responsável fictício', email, role: 'ALUNO', emailVerifiedAt: new Date(), registrationIntent: 'INSTITUTION' } }); ownerId = owner.id;
-  const admin = await prisma.user.create({ data: { nome: 'ADMIN fictício', email: `admin-${randomUUID()}@example.invalid`, role: 'ADMIN', emailVerifiedAt: new Date() } }); adminId = admin.id;
+  const owner = await prisma.user.create({ data: {termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', legalAcceptedAt: new Date(),  nome: 'Responsável fictício', email, role: 'ALUNO', emailVerifiedAt: new Date(), registrationIntent: 'INSTITUTION' } }); ownerId = owner.id;
+  const admin = await prisma.user.create({ data: {termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', legalAcceptedAt: new Date(),  nome: 'ADMIN fictício', email: `admin-${randomUUID()}@example.invalid`, role: 'ADMIN', emailVerifiedAt: new Date() } }); adminId = admin.id;
   const base = '120000000' + String(++serial).padStart(3, '0');
   const cnpj = Array.from({ length: 100 }, (_, n) => base + String(n).padStart(2, '0')).find(validRegistrationNumber)!;
   const { noWebsite: _website, ...fields } = institutionRequestSchema.parse({ ...institutionApplication, name: `Instituição fictícia de e-mail ${randomUUID()}`, registrationNumber: cnpj });

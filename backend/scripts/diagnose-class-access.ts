@@ -1,5 +1,5 @@
-// Read-only verification of the named real class. No authentication tokens are
-// fabricated and no membership, attempt, answer or production row is changed.
+// Verificação somente leitura da turma real indicada. Nenhum token de autenticação é
+// fabricado e nenhum vínculo, tentativa, resposta ou registro de produção é alterado.
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../src/lib/prisma';

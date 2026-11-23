@@ -1,4 +1,4 @@
-// Read-only inspection: never changes the flag or approves a transition.
+// Inspeção somente leitura: nunca altera a flag nem aprova uma transição.
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { inspectInstitutionActivation } from "../src/services/institutions/institution-activation";

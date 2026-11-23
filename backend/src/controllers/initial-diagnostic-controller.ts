@@ -24,8 +24,8 @@ export class InitialDiagnosticController {
     response.setHeader('Cache-Control', 'no-store');
 
     try {
-      // The student identity comes only from the authenticated session. Body,
-      // query string and path values are deliberately ignored.
+      // A identidade do aluno vem somente da sessão autenticada. Valores do body,
+      // da query string e do path são ignorados de propósito.
       const result = await this.service.getOrCreate(request.auth!.userId);
 
       if (result.status === 'INSUFFICIENT') {
@@ -53,7 +53,7 @@ export class InitialDiagnosticController {
         return;
       }
 
-      // Do not leak Prisma errors, candidate content or internal diagnostics.
+      // Não vazar erros do Prisma, conteúdo de candidatos nem diagnósticos internos.
       response.status(500).json({ code: 'INITIAL_DIAGNOSTIC_FAILED' });
     }
   };

@@ -1,5 +1,5 @@
 import { institutionApplication } from '../fixtures/institution-request';
-// Real PostgreSQL + real Express/services. Only external delivery is captured.
+// PostgreSQL real + Express/serviços reais. Apenas a entrega externa é capturada.
 import {
   afterAll,
   beforeAll,
@@ -87,6 +87,7 @@ async function account(role: "ALUNO" | "PROFESSOR" | "ADMIN" = "ALUNO") {
   const user = await prisma.user.create({
     data: {
       nome: "Isolated integration fixture",
+      termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', legalAcceptedAt: new Date(),
       email: randomUUID() + "@example.invalid",
       role,
       senhaHash: await bcrypt.hash(password, 4),
@@ -211,7 +212,7 @@ beforeAll(async () => {
   base = "http://127.0.0.1:" + (server.address() as { port: number }).port;
 });
 beforeEach(async () => {
-  resetAuthRoutes(); // Each test owns a fresh rate-limit window; production limits remain intact.
+  resetAuthRoutes(); // Cada teste tem uma janela de limite de requisições nova; os limites de produção continuam intactos.
   resetInstitutionRoutes();
   vi.stubEnv("INSTITUTIONS_ENABLED", "true");
   vi.stubEnv("INSTITUTION_TEACHER_MANAGEMENT_ENABLED", "false");

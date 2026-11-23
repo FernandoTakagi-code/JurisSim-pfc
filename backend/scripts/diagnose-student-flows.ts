@@ -1,4 +1,4 @@
-// Read-only diagnostics: never starts attempts or changes editorial records.
+// Diagnóstico somente leitura: nunca inicia tentativas nem altera registros editoriais.
 import 'dotenv/config';
 import { performance } from 'node:perf_hooks';
 import { prisma } from '../src/lib/prisma';

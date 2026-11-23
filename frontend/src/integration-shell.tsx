@@ -20,8 +20,8 @@ import {accountIdentity,profilePath as canonicalProfilePath,profileRoute,profile
 const subscribeProfile=(listener:()=>void)=>{window.addEventListener('popstate',listener);return()=>window.removeEventListener('popstate',listener);};
 const useProfileLocation=()=>useSyncExternalStore(subscribeProfile,()=>window.location.pathname+window.location.search);
 
-// Adapted from NavItem, UserProfileDropdown and ProfileSettings in the aluno
-// v0 export. Routing, account data and mutations belong to the existing app.
+// Adaptado de NavItem, UserProfileDropdown e ProfileSettings da exportação v0
+// do aluno. Roteamento, dados da conta e mutações pertencem ao app existente.
 type User = Session["user"];
 type Theme = "light" | "dark" | "system";
 type Item = { path: string; label: string; icon: string };
@@ -63,7 +63,7 @@ function writePreference(key: string, value: string) {
   try {
     localStorage.setItem(key, value);
   } catch {
-    /* Preferences are optional. */
+    /* As preferências são opcionais. */
   }
 }
 

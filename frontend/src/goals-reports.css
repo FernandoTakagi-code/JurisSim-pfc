@@ -107,8 +107,8 @@
   font-size: 25px;
   font-weight: 800;
 }
-/* Textual values ("Sem oportunidades", "Sem resultado") must wrap between
-   words, never inside one; the page-level overflow-wrap would split them. */
+/* Valores textuais ("Sem oportunidades", "Sem resultado") devem quebrar entre
+   palavras, nunca dentro de uma; o overflow-wrap da página os dividiria. */
 .report-metrics dd.report-metric-text {
   font-size: 17px;
   line-height: 1.3;

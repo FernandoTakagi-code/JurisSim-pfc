@@ -6,7 +6,7 @@ import { PasswordRecoveryService } from "../../../src/services/accounts/password
 import { PasswordRecoveryRepository } from "../../../src/repositories/password-recovery-repository";
 import { errorHandler } from "../../../src/middlewares/error-handler";
 
-// All database methods are doubles. No PrismaClient, SMTP or HTTP server starts.
+// Todos os métodos de banco são dublês. Nenhum PrismaClient, SMTP ou servidor HTTP é iniciado.
 const db = vi.hoisted(() => ({
   lookup: vi.fn(), transaction: vi.fn(), token: vi.fn(), lock: vi.fn(),
   account: vi.fn(), claim: vi.fn(), update: vi.fn(), audit: vi.fn(),
@@ -154,7 +154,7 @@ describe('isolated reset failures through the service and repository', () => {
     expect(db.update).toHaveBeenCalledWith(expect.objectContaining({
       data: { senhaHash: 'fixture-hash', sessionVersion: { increment: 1 } },
     }));
-    // These doubles prove rejection propagation, not PostgreSQL rollback/locking.
+    // Estes dublês comprovam a propagação da rejeição, não o rollback/lock do PostgreSQL.
   });
 
   it('runs the installed native bcrypt implementation with synthetic input only', async () => {

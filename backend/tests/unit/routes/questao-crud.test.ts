@@ -16,8 +16,8 @@ const db = vi.hoisted(() => ({
 vi.mock("../../../src/config/prisma", () => ({ prisma: db }));
 vi.mock("../../../src/lib/prisma", () => ({ prisma: db }));
 
-// Exercise actual routes, controllers, services and repository without a database.
-// The persistence double enforces the relevant FK and transactional behavior.
+// Exercita as rotas, controllers, serviços e repositório reais sem banco de dados.
+// O dublê de persistência aplica as FKs relevantes e o comportamento transacional.
 type Question = Record<string, any> & { id: string; alternativas: any[]; _count: { respostas: number; diagnosticos: number } };
 let records: Map<string, Question>;
 let classes: Map<string, { id: string; alunos: { id: string }[]; professores: { id: string }[] }>;
@@ -43,7 +43,7 @@ const clone = <T,>(value: T): T => structuredClone(value);
 const prismaError = (code: string) => new Prisma.PrismaClientKnownRequestError('Erro simulado', { code, clientVersion: '6.19.3' });
 const alternatives = (values: any[], questaoId: string) => values.map(value => ({ ...value, id: `alt-${++sequence}`, questaoId }));
 const publicRecord = (q: Question) => { const { _count, ...data } = clone(q); return data; };
-// Evaluate Prisma's boolean and relation filters against independent fixture data.
+// Avalia os filtros booleanos e de relação do Prisma contra dados de fixture independentes.
 function matches(row: any, where: Record<string, any>): boolean {
   return Object.entries(where).every(([key, value]) => {
     if (value === undefined) return true;
@@ -83,7 +83,7 @@ beforeEach(() => {
   db.user.findUnique.mockImplementation(async ({ where }) => {
     const key = Object.keys(accountIds).find(key => accountIds[key] === where.id);
     const role = key ? accountRoles[key] : undefined;
-    return role ? { id: where.id, role, deletedAt: null, emailVerifiedAt: new Date(), sessionVersion: 0 } : null;
+    return role ? { id: where.id, role, deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1', sessionVersion: 0 } : null;
   });
   db.questao.create.mockImplementation(async ({ data }) => {
     const id = `question-${++sequence}`;
@@ -299,7 +299,7 @@ describe('CRUD completo de questões por HTTP', () => {
   });
 
   it.each([[], [{ texto: 'A', correta: true }], [{ texto: 'A', correta: false }, { texto: 'B', correta: false }], [{ texto: 'A', correta: true }, { texto: 'B', correta: true }]])('criação valida quantidade e gabarito: %j', async (...values) => {
-    // it.each spreads array rows; collect the alternatives back into one array.
+    // O it.each espalha as linhas do array; junta as alternativas de volta em um único array.
     expect((await call('POST', '', { ...body, alternativas: values })).status).toBe(400);
     expect(records.size).toBe(0);
   });
@@ -389,7 +389,7 @@ describe('autoria, privacidade e isolamento entre turmas', () => {
     const response = await call('POST', '', { ...body, turmaId: role === 'OUTRO_PROFESSOR' ? 'turma-b' : 'turma-a', ...overrides, publica: false }, role);
     expect(response.status).toBe(201);
     const created = await response.json();
-    // Existing public records are fixtures, never newly published by professors.
+    // Os registros públicos existentes são fixtures, nunca publicados agora por professores.
     if (overrides.publica === true) { records.get(created.id)!.publica = true; return publicRecord(records.get(created.id)!); }
     return created;
   }

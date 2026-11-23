@@ -1,5 +1,5 @@
-// Read-only preparation. Does not publish, set review fields or connect to a
-// database other than the existing configured PostgreSQL URL.
+// Preparação somente leitura. Não publica, não preenche campos de revisão e não se conecta
+// a nenhum banco além da URL do PostgreSQL já configurada.
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -53,7 +53,7 @@ async function main() {
           released: Boolean(q.liberadaAcervoEm && q.liberadaAcervoPorId),
           pendingLicense: /pendente/i.test(q.licencaOuAutorizacao || ''),
           sourcePresent: Boolean(q.fonteNome?.trim() && q.fonteReferencia?.trim()),
-          // A structural audit is not a legal opinion or proof of copyright.
+          // Uma auditoria estrutural não é parecer jurídico nem prova de direito autoral.
           contentDigest: hash({ enunciado: q.enunciado, disciplina: q.disciplina, assunto: q.assunto,
             nivel: q.nivel, explicacao: q.fundamentacaoJuridica, origem: q.origem,
             alternativas: q.alternativas.map(a => ({ id:a.id, letra:a.letra, texto:a.texto, correta:a.correta })),

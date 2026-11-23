@@ -1,4 +1,4 @@
-// Run after build and migration. The test transaction is always rolled back.
+// Execute após o build e a migração. A transação de teste é sempre revertida.
 require('dotenv').config({ quiet: true });
 const { PrismaClient } = require('@prisma/client');
 const { randomUUID } = require('node:crypto');

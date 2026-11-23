@@ -5,7 +5,7 @@ let cached: { ready: boolean; until: number } | undefined;
 let pending: Promise<boolean> | undefined;
 export async function classLifecycleReady(): Promise<boolean> {
   if (cached && cached.until > Date.now()) return cached.ready;
-  // Some existing unit doubles implement only the persistence calls under test.
+  // Alguns dublês de teste unitário existentes implementam apenas as chamadas de persistência testadas.
   if (typeof prisma.$queryRaw !== "function") return false;
   if (!pending)
     pending = Promise.resolve(

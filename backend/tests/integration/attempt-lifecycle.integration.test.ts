@@ -10,8 +10,8 @@ import { analyzeDiagnostic } from "../../src/services/diagnostics/adaptive-engin
 import { StudentHistoryRepository } from "../../src/repositories/student-history-repository";
 import { criarUsuario, limparBanco, prisma, encerrar } from './helpers';
 
-// The integration config and limparBanco both validate the harness-owned local
-// database before fixtures are written. No dotenv, external URLs or providers.
+// A configuração de integração e o limparBanco validam o banco local do harness
+// antes de gravar as fixtures. Sem dotenv, URLs externas ou provedores.
 beforeEach(limparBanco);
 afterAll(() => encerrar());
 
@@ -22,7 +22,7 @@ async function fixture(eligible = false) {
   for (let i = 0; i < 7; i++) questions.push(await prisma.questao.create({ data: {
     enunciado: `Questão isolada de regressão ${i}`, disciplina: 'Direito Civil', assunto: 'Contratos',
     nivel: 'BASICO', publica: true, fundamentacaoJuridica: 'Fixture técnica, não é acervo.', autorId: author.id,
-    // Synthetic approvals exist only in the disposable database, never in the real inventory.
+    // Aprovações sintéticas existem apenas no banco descartável, nunca no inventário real.
     ...(eligible ? { origem: 'IA', revisaoJuridicaEm: new Date(), revisorJuridicoId: author.id,
       revisaoPedagogicaEm: new Date(), revisorPedagogicoId: author.id,
       liberadaAcervoEm: new Date(), liberadaAcervoPorId: author.id } : {}),

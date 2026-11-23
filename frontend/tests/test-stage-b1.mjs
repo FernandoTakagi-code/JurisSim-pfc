@@ -4,8 +4,8 @@ import vm from 'node:vm';
 import test from 'node:test';
 import ts from 'typescript';
 
-// Run the actual component/hooks with an in-memory hook host and controlled API.
-// No server, browser storage, database or network is used.
+// Executa o componente/hooks reais com um host de hooks em memória e uma API controlada.
+// Não usa servidor, armazenamento do navegador, banco nem rede.
 function host(file, name, request) {
   const slots = []; let cursor = 0, effects = [], dirty = false, output;
   const same = (a, b) => a && b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
@@ -102,7 +102,7 @@ for (const operation of ['create', 'edit', 'complete', 'ambiguous-write']) for (
     const trigger = () => operation === 'complete'
       ? nodes(app.value).find(n => n.type === 'button' && typeof n.props.onClick === 'function' && String(n.props.children).includes('Concluir')).props.onClick()
       : nodes(app.value).find(n => n.type === 'form').props.onSubmit({ preventDefault() {} });
-    const mutation = trigger(); trigger(); // Two synchronous submissions must not duplicate the write.
+    const mutation = trigger(); trigger(); // Dois envios síncronos não devem duplicar a gravação.
     summaryFails = refreshFails; write.resolve(); await mutation; await app.settle();
     assert.equal(calls.filter(c => c.method !== 'GET').length, 1);
     assert.equal(calls.filter(c => c.path === '/goals/dashboard').length, 2);

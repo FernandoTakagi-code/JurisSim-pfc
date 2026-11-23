@@ -1,5 +1,5 @@
-// --prepare is local only; --check reads metadata only. --apply requires a
-// separate explicit authorization and the exact reviewed local plan.
+// --prepare é apenas local; --check lê apenas metadados. --apply exige uma
+// autorização explícita separada e o plano local exato já revisado.
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -156,7 +156,7 @@ async function main() {
     activeDdlSessions: m.activeDdlSessions, advisoryLocks: m.advisoryLocks, dependencyTables: m.dependencies.length,
     permissionsVerified: true, browserRolesUnprivileged: true, conflicts: false, tls: tls.protocol }));
   if (mode !== '--apply') return;
-  // This branch must never be invoked without the user's separate execution approval.
+  // Este ramo nunca deve ser executado sem a aprovação de execução separada do usuário.
   const writable = { ...env, PGOPTIONS: '-c default_transaction_read_only=off -c lock_timeout=5000 -c statement_timeout=60000' };
   runSql(writable, sql);
   console.log(JSON.stringify({ status: 'sql_committed' }));

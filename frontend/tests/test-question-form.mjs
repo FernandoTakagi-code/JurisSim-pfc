@@ -1,4 +1,4 @@
-// Real React form, isolated fetch responses. Never connects to the shared API.
+// Formulário React real, respostas de fetch isoladas. Nunca se conecta à API compartilhada.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';

@@ -34,14 +34,14 @@ afterEach(() => {
 
 describe('PasswordRecoveryService.requestRecovery()', () => {
   it('deveGerarTokenEEnviarEmailComLinkQuandoContaPossuiSenha', async () => {
-    // Arrange
+    // Preparação
     const { repositorio, emailSender } = criarDependencias({ id: 'user-1', senhaHash: 'hash-bcrypt' });
     const service = new PasswordRecoveryService(repositorio as never, emailSender, APP_URL);
 
-    // Act
+    // Execução
     const resposta = await service.requestRecovery('ana@jurissim.local');
 
-    // Assert
+    // Verificação
     expect(resposta).toBe(RESPOSTA_NEUTRA);
     expect(repositorio.createToken).toHaveBeenCalledWith('user-1', expect.any(String), expect.any(Date), expect.any(Date));
     expect(emailSender.sendPasswordRecovery).toHaveBeenCalledTimes(1);
@@ -52,11 +52,11 @@ describe('PasswordRecoveryService.requestRecovery()', () => {
   });
 
   it('deveResponderDeFormaNeutraSemEnviarEmailQuandoEmailNaoExiste', async () => {
-    // Arrange
+    // Preparação
     const { repositorio, emailSender } = criarDependencias(null);
     const service = new PasswordRecoveryService(repositorio as never, emailSender, APP_URL);
 
-    // Act
+    // Execução
     const resposta = await service.requestRecovery('inexistente@jurissim.local');
 
     // Assert - mesma resposta para não revelar quais e-mails existem
@@ -70,23 +70,23 @@ describe('PasswordRecoveryService.requestRecovery()', () => {
     const { repositorio, emailSender } = criarDependencias({ id: 'user-2', senhaHash: GOOGLE_PASSWORD_SENTINEL });
     const service = new PasswordRecoveryService(repositorio as never, emailSender, APP_URL);
 
-    // Act
+    // Execução
     const resposta = await service.requestRecovery('google@jurissim.local');
 
-    // Assert
+    // Verificação
     expect(resposta).toBe(RESPOSTA_NEUTRA);
     expect(emailSender.sendPasswordRecovery).not.toHaveBeenCalled();
   });
 
   it('deveLancarApiError503QuandoEnvioDeEmailNaoEstaConfigurado', async () => {
-    // Arrange
+    // Preparação
     const { repositorio, emailSender } = criarDependencias({ id: 'user-1', senhaHash: 'hash-bcrypt' });
     const service = new PasswordRecoveryService(repositorio as never, { ...emailSender, isConfigured: false }, APP_URL);
 
-    // Act
+    // Execução
     const tentativa = service.requestRecovery('ana@jurissim.local');
 
-    // Assert
+    // Verificação
     await expect(tentativa).rejects.toBeInstanceOf(ApiError);
     await expect(tentativa).rejects.toMatchObject({
       statusCode: 503,
@@ -96,15 +96,15 @@ describe('PasswordRecoveryService.requestRecovery()', () => {
   });
 
   it('deveInvalidarOTokenQuandoOEnvioDoEmailFalha', async () => {
-    // Arrange
+    // Preparação
     const { repositorio, emailSender } = criarDependencias({ id: 'user-1', senhaHash: 'hash-bcrypt' });
     emailSender.sendPasswordRecovery.mockRejectedValue(new EmailDeliveryFailure('not_accepted','connect'));
     const service = new PasswordRecoveryService(repositorio as never, emailSender, APP_URL);
 
-    // Act
+    // Execução
     const resposta = await service.requestRecovery('ana@jurissim.local');
 
-    // Assert
+    // Verificação
     expect(resposta).toBe(RESPOSTA_NEUTRA);
     expect(repositorio.invalidateToken).toHaveBeenCalledWith('token-id-1', expect.any(Date));
   });
@@ -112,29 +112,29 @@ describe('PasswordRecoveryService.requestRecovery()', () => {
 
 describe('PasswordRecoveryService.resetPassword()', () => {
   it('deveRecusarQuandoSenhaEConfirmacaoNaoCoincidem', async () => {
-    // Arrange
+    // Preparação
     const { repositorio, emailSender } = criarDependencias(null);
     const service = new PasswordRecoveryService(repositorio as never, emailSender, APP_URL);
 
-    // Act
+    // Execução
     const tentativa = service.resetPassword('token-qualquer', 'nova-senha-1', 'nova-senha-2');
 
-    // Assert
+    // Verificação
     await expect(tentativa).rejects.toMatchObject({ statusCode: 400, message: 'As senhas não coincidem.' });
     expect(repositorio.getUsablePasswordHash).not.toHaveBeenCalled();
     expect(repositorio.consumeAndReset).not.toHaveBeenCalled();
   });
 
   it('deveRecusarTokenExpiradoOuJaUtilizado', async () => {
-    // Arrange
+    // Preparação
     const { repositorio, emailSender } = criarDependencias(null);
     repositorio.getUsablePasswordHash.mockResolvedValue(null);
     const service = new PasswordRecoveryService(repositorio as never, emailSender, APP_URL);
 
-    // Act
+    // Execução
     const tentativa = service.resetPassword('token-expirado', 'Nova-senha1!', 'Nova-senha1!');
 
-    // Assert
+    // Verificação
     await expect(tentativa).rejects.toMatchObject({ statusCode: 400, message: 'Link inválido, expirado ou já utilizado.' });
     expect(repositorio.consumeAndReset).not.toHaveBeenCalled();
   });

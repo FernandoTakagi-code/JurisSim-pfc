@@ -1,4 +1,4 @@
-// Real frontend + local API + disposable PostgreSQL. No window.fetch mocks.
+// Frontend real + API local + PostgreSQL descartável. Sem mocks de window.fetch.
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -93,7 +93,7 @@ try {
     await fill('input[name=email]', email); await fill('input[autocomplete=current-password]', original); await click('.auth-submit', 'Entrar como');
     await until('document.querySelector("[role=alert]")?.textContent.includes("inválidos")');
     await fill('input[autocomplete=current-password]', replacement);
-    // Enter exercises native form submission rather than an onClick-only login.
+    // O Enter exercita o envio nativo do formulário, e não um login apenas por onClick.
     await evaluate('document.querySelector("input[autocomplete=current-password]").focus()');
     const enterMarker = await markDocument();
     await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r', unmodifiedText: '\r' }); await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });

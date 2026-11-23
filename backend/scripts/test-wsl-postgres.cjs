@@ -1,8 +1,8 @@
-// Windows-to-WSL PostgreSQL integration runner. It never starts WSL, reads .env,
-// accepts arbitrary targets, deletes data, or logs a password/connection URL.
-// --check performs identity and empty-schema reads only. --apply is for a fresh
-// database. --inspect-recovery reads a narrowly validated P3018 state, while
-// --recover is the separately gated local recovery path.
+// Executor de integração com PostgreSQL do Windows para o WSL. Nunca inicia o WSL, lê .env,
+// aceita alvos arbitrários, exclui dados nem registra senha/URL de conexão em log.
+// --check faz apenas leituras de identidade e de schema vazio. --apply é para um banco
+// novo. --inspect-recovery lê um estado P3018 validado de forma restrita, enquanto
+// --recover é o caminho de recuperação local com liberação separada.
 const assert = require('node:assert/strict');
 const { spawn, spawnSync } = require('node:child_process');
 const { createHash, randomBytes } = require('node:crypto');
@@ -154,10 +154,10 @@ function migrationChecksum(migrationRoot, name) {
   return createHash('sha256').update(fs.readFileSync(path.join(migrationRoot, name, 'migration.sql'))).digest('hex');
 }
 
-// Pure validation for mocked unit tests. This deliberately accepts RLS enabled
-// on any/all target tables: those ALTER TABLE statements can persist before the
-// failed REVOKE, and rerunning ENABLE ROW LEVEL SECURITY is idempotent. Policies
-// and FORCE RLS are not accepted because they are not part of this migration.
+// Validação pura para testes unitários com mocks. Aceita de propósito RLS habilitado
+// em qualquer uma ou em todas as tabelas-alvo: essas instruções ALTER TABLE podem persistir
+// antes do REVOKE com falha, e repetir ENABLE ROW LEVEL SECURITY é idempotente. Policies
+// e FORCE RLS não são aceitas porque não fazem parte desta migração.
 function assertRecoveryState({ migrationNames, migrationRows, roleRows, rlsRows, migrationRoot = path.join(backend, 'prisma', 'migrations') }) {
   const failedIndex = migrationNames.indexOf(FAILED_MIGRATION);
   assert.ok(failedIndex > 0, `Expected migration ${FAILED_MIGRATION} in the local history.`);

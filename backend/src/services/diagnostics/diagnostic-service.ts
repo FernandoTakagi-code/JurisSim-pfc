@@ -15,8 +15,8 @@ export class DiagnosticService {
     const active = await this.repository.findActiveAttempt(studentId);
     if (active) return active;
     const questions = await this.repository.findQuestionsForDiagnostic(quantity);
-    // The transaction rechecks the active attempt before rejecting empty inventory:
-    // another request may have committed a valid attempt while selection ran.
+    // A transação reverifica a tentativa ativa antes de rejeitar um inventário vazio:
+    // outra requisição pode ter confirmado uma tentativa válida enquanto a seleção rodava.
     return this.repository.createAttempt(studentId, questions.map((question) => question.id));
   }
 
@@ -66,7 +66,7 @@ export class DiagnosticService {
 
     const finalizedAttempt = await this.repository.finalize(attemptId, studentId, current => {
       const fresh = analyzeDiagnostic(this.answeredQuestions(current));
-      // Never attach feedback for a different answer snapshot after a race.
+      // Nunca anexar feedback de outro snapshot de respostas após uma condição de corrida.
       if (textoEnriquecido && JSON.stringify(fresh.performances) === JSON.stringify(result.performances)) {
         fresh.trail.reason = textoEnriquecido; fresh.recommendation = textoEnriquecido;
       }

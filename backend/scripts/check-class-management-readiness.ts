@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import {prisma} from '../src/lib/prisma';
 
-// Read-only schema check. Never executes migrations or reads personal records.
+// Verificação do schema somente leitura. Nunca executa migrações nem lê registros pessoais.
 async function main(){
   const [state]=await prisma.$queryRaw<{lifecycle:boolean;activities:boolean}[]>`
     SELECT to_regclass('public."ClassLifecycle"') IS NOT NULL AS lifecycle,

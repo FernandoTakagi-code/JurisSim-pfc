@@ -50,8 +50,8 @@ function assess(output, mode) {
   let metadata;
   try { metadata = JSON.parse(metadataLine); } catch { return { status: 'failed', category: 'unexpected_diagnostic_response' }; }
   const versionCompatible = Number.isInteger(metadata.versionNum) && Math.floor(metadata.versionNum / 10000) === 17;
-  // Client-side libpq reports the encrypted leg, including through a pooler.
-  // PostgreSQL pg_stat_ssl is deliberately not used as an external TLS gate.
+  // O libpq do lado do cliente informa o trecho criptografado, inclusive através de um pooler.
+  // O pg_stat_ssl do PostgreSQL propositalmente não é usado como barreira externa de TLS.
   const protocol = String(output).match(/\bTLSv1\.[23]\b/)?.[0];
   const tlsConfirmed = Boolean(protocol);
   return {

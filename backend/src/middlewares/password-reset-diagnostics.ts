@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 
 type Diagnostic = { tipo: string; codigo?: string };
 
-// Fixed values only: never forward arbitrary error properties to the logger.
+// Apenas valores fixos: nunca repassar propriedades arbitrárias do erro ao logger.
 const allowedCodes = new Set([
   'P1000', 'P1001', 'P1002', 'P1008', 'P1010', 'P1011', 'P1013', 'P1017',
   'P2002', 'P2003', 'P2004', 'P2007', 'P2009', 'P2010', 'P2011', 'P2014',
@@ -33,7 +33,7 @@ function classify(error: unknown): Diagnostic {
     if (error instanceof SyntaxError) return { tipo: 'SyntaxError' };
     if (error instanceof Error) return { tipo: 'Error' };
   } catch {
-    // A malformed exception must not break the handler or expose its contents.
+    // Uma exceção malformada não deve quebrar o tratador nem expor seu conteúdo.
   }
   return { tipo: 'ErroNaoClassificado' };
 }
@@ -45,8 +45,8 @@ export type LocalDashboardErrorDiagnostic = {
   prismaCode?: string;
 };
 
-// Narrow, explicit opt-in for reproducing the two dashboard reads. Express
-// route templates are used so attempt IDs and query strings never enter logs.
+// Ativação restrita e explícita para reproduzir as duas leituras dos painéis. São usados
+// os templates de rota do Express para que IDs de tentativa e query strings nunca entrem nos logs.
 export function localDashboardErrorDiagnostic(error: unknown, request: Request): LocalDashboardErrorDiagnostic | undefined {
   if (process.env.NODE_ENV !== 'development' || process.env.LOCAL_DASHBOARD_ERROR_DIAGNOSTICS !== '1') return;
   if (!loopback.has(request.socket?.localAddress ?? '') || !loopback.has(request.socket?.remoteAddress ?? '')) return;
@@ -69,7 +69,7 @@ export function localDashboardErrorDiagnostic(error: unknown, request: Request):
   };
 }
 
-// Temporary opt-in. Nothing here connects to Prisma or reads private .env files.
+// Ativação temporária. Nada aqui se conecta ao Prisma nem lê arquivos .env privados.
 export function passwordResetDiagnostic(error: unknown, request: Request): Diagnostic | undefined {
   if (process.env.NODE_ENV !== 'development' || process.env.PASSWORD_RESET_DIAGNOSTICS !== '1') return;
   if (request.method !== 'POST' || request.path !== '/auth/password-reset') return;

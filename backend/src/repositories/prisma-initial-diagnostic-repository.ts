@@ -205,9 +205,9 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
   }
 
   async listEligibleInventory(): Promise<InitialDiagnosticCandidate[]> {
-    // The checked-in generated client can lag local schema work; this narrow
-    // delegate shape keeps the query contract explicit until prisma generate
-    // can complete in the Windows workspace.
+    // O client gerado versionado pode ficar atrás do trabalho local no schema; este formato
+    // restrito do delegate mantém o contrato da consulta explícito até que o prisma generate
+    // possa ser concluído no workspace do Windows.
     const where = this.pilotBatchId ? {
       publica: true, turmaId: null, origem: 'IA' as const, loteImportacaoId: this.pilotBatchId,
       disciplina: { in: [...INITIAL_DIAGNOSTIC_DISCIPLINES] },
@@ -245,10 +245,10 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
 
     try {
       return await this.db.$transaction(async tx => {
-        // The existing user row is the stable per-student lock even before a
-        // diagnostic exists. Read the winning identity only after acquiring it.
-        // ReadCommitted avoids unrelated students conflicting on an absent-key
-        // Serializable predicate while the unique identity remains the DB guard.
+        // A linha existente do usuário é o lock estável por aluno, mesmo antes de existir
+        // um diagnóstico. A identidade vencedora só é lida depois de obter o lock.
+        // O ReadCommitted evita que alunos sem relação entrem em conflito em um predicado
+        // Serializable de chave ausente, enquanto a identidade única continua sendo a proteção do banco.
         const owners = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "User" WHERE "id" = ${input.studentId} AND "deletedAt" IS NULL FOR UPDATE`;
         if (!owners.length) throw new ApiError(404, 'Aluno indisponível para iniciar o diagnóstico.');
         const existing = await tx.diagnosticoInicial.findUnique({
@@ -257,8 +257,8 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
         });
         if (existing) return { attempt: toAttempt(existing, input.studentId), created: false };
 
-        // All writes stay in the same transaction. Any identity or question
-        // link failure rolls back the Simulado as well, so no orphan survives.
+        // Todas as gravações ficam na mesma transação. Qualquer falha na identidade ou no
+        // vínculo das questões também reverte o Simulado, então nenhum órfão sobrevive.
         const simulado = await tx.simulado.create({
           data: { tipo: 'DIAGNOSTICO', alunoId: input.studentId },
           select: { id: true },
@@ -300,9 +300,9 @@ export class PrismaInitialDiagnosticRepository implements InitialDiagnosticRepos
     } catch (error) {
       if (!isPrismaConflict(error)) throw error;
 
-      // The failed transaction has already rolled back. Only return a winner
-      // when the unique initial identity actually exists; otherwise preserve
-      // the original conflict for diagnosis by the caller.
+      // A transação com falha já foi revertida. Só retorna um vencedor quando a
+      // identidade inicial única realmente existe; caso contrário, preserva o
+      // conflito original para diagnóstico por quem chamou.
       const winner = await this.findInitialAttempt(input.studentId);
       if (winner) return { attempt: winner, created: false };
       throw error;

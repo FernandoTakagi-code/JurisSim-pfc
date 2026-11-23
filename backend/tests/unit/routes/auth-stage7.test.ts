@@ -20,7 +20,7 @@ let server: Server, base: string, hash: string, clock = 100;
 const secret = 'auth-stage7-http-fixture-secret-over-32-characters';
 const acceptance = { accepted: true, ...versions };
 const body = { nome: 'Fixture', email: 'fixture@example.invalid', senha: 'Fixture-password1!', confirmacaoSenha: 'Fixture-password1!', acceptance };
-const account = (role = 'ALUNO') => ({ id: 'fixture', nome: 'Fixture', email: body.email, role, senhaHash: hash, sessionVersion: 0, deletedAt: null, emailVerifiedAt: new Date() });
+const account = (role = 'ALUNO') => ({ id: 'fixture', nome: 'Fixture', email: body.email, role, senhaHash: hash, sessionVersion: 0, deletedAt: null, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1' });
 const call = (path: string, data?: unknown, token?: string) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data ?? {}) });
 beforeAll(async () => { hash = await bcrypt.hash(body.senha, 4); });
 beforeEach(async () => {
@@ -39,7 +39,7 @@ describe('stage 7 authentication contracts', () => {
     expect((await call('/auth/register', { ...body, ...override })).status).toBe(400); expect(mocks.create).not.toHaveBeenCalled();
   });
   it('registers trimmed name/email, safe hash and allowed profile only', async () => {
-    const response = await call('/auth/register', { ...body, nome: ' Fixture ', email: ' fixture@example.invalid ', sessionVersion: 100, emailVerifiedAt: new Date() });
+    const response = await call('/auth/register', { ...body, nome: ' Fixture ', email: ' fixture@example.invalid ', sessionVersion: 100, emailVerifiedAt: new Date(), termsVersion: '2026-11-13.1', privacyVersion: '2026-11-22.1' });
     expect(response.status).toBe(201); expect(response.headers.get('cache-control')).toBe('no-store');
     expect(mocks.create.mock.calls[0][0]).toBe('Fixture'); expect(mocks.create.mock.calls[0][1]).toBe(body.email);
     expect(await bcrypt.compare(body.senha, mocks.create.mock.calls[0][2])).toBe(true); expect(mocks.create.mock.calls[0][3]).toMatchObject({ accepted: true, termsVersion: acceptance.termsVersion, privacyVersion: acceptance.privacyVersion });

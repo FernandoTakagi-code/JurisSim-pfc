@@ -1,7 +1,7 @@
 import type { RequestHandler } from 'express';
 import type { AuthenticatedRequest } from './auth-middleware';
 
-// Explicit process-only opt-in. Never enables privileges or changes production.
+// Ativação explícita apenas no processo. Nunca habilita privilégios nem altera a produção.
 export function localReadOnlyNavigationEnabled() {
   return process.env.LOCAL_READ_ONLY_NAVIGATION === 'true'
     && process.env.NODE_ENV === 'development'
@@ -18,26 +18,26 @@ export const localReadOnlyNavigation: RequestHandler = (request, response, next)
     }));
   }
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return next();
-  // Owner-authorized student training only. Its router still validates ALUNO,
-  // attempt ownership, eligible stock and immutable answers. Other modules
-  // remain read-only; this does not authorize agent-created real attempts.
+  // Apenas treino de aluno autorizado pelo proprietário. O roteador ainda valida ALUNO,
+  // a posse da tentativa, o estoque elegível e respostas imutáveis. Os demais módulos
+  // continuam somente leitura; isto não autoriza tentativas reais criadas por agentes.
   if (process.env.QUESTION_PRACTICE_OWNER_AUTHORIZATION_ENABLED === 'true') {
     const id='[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}';
     if ((request.method==='POST' && /^\/question-practice\/?$/i.test(request.path))
       || (request.method==='POST' && new RegExp(`^/question-practice/${id}/finalize$`,'i').test(request.path))
       || (request.method==='PUT' && new RegExp(`^/question-practice/${id}/answers/${id}$`,'i').test(request.path))) return next();
   }
-  // Explicit future opt-in for this capability only; its routes still require
-  // a verified ADMIN, version checks, evidence and an atomic audit record.
-  // All other administrative/academic mutations remain blocked locally.
+  // Ativação futura explícita apenas para esta capacidade; suas rotas ainda exigem
+  // um ADMIN verificado, verificação de versão, evidências e um registro de auditoria atômico.
+  // Todas as outras mutações administrativas/acadêmicas continuam bloqueadas localmente.
   if (process.env.QUESTION_EDITORIAL_WRITES_ENABLED === 'true') {
     const path = request.path;
     const id = '[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}';
     if ((request.method === 'PATCH' && new RegExp(`^/question-editorial/${id}/metadata$`, 'i').test(path))
       || (request.method === 'POST' && new RegExp(`^/question-editorial/${id}/(?:reviews/(?:legal|pedagogical)|release)$`, 'i').test(path))) return next();
   }
-  // Preserve normal authentication and the approved account/profile routes.
-  // Academic/admin operations require separate authorization in this session.
+  // Preserva a autenticação normal e as rotas aprovadas de conta/perfil.
+  // Operações acadêmicas/administrativas exigem autorização separada nesta sessão.
   if (!/^\/(institutions|turmas|avaliacoes|atividades|questoes|diagnostics|initial-diagnostic|question-practice|individual-exams|question-review|question-editorial|trilhas|goals)(\/|$)/i.test(request.path)) return next();
   response.setHeader('Cache-Control', 'no-store');
   response.status(403).json({ code: 'LOCAL_READ_ONLY_NAVIGATION', message: 'Esta execução local está autorizada somente para consulta. Operações de alteração exigem autorização específica.' });

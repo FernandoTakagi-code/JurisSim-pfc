@@ -13,7 +13,7 @@ export class QuestionImportService {
   ) {}
 
   async confirm(csv: string, administratorId: string) {
-    // The identifier must come from the authenticated server session, never a CSV/body role.
+    // O identificador deve vir da sessão autenticada no servidor, nunca de um papel informado no CSV/body.
     await this.authorizer.assertAdmin(administratorId);
     const preview = previewQuestionCsv(csv);
     const rejected = preview.rows.filter(row => row.status !== 'VALID');
@@ -41,7 +41,7 @@ export class QuestionImportService {
       };
     });
 
-    // Recheck current role immediately before the transaction as well as at confirmation entry.
+    // Reverifica o papel atual imediatamente antes da transação e também na entrada da confirmação.
     await this.authorizer.assertAdmin(administratorId);
     return this.repository.persistAtomically(administratorId, csv, records);
   }
