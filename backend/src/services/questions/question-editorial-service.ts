@@ -45,7 +45,7 @@ export class QuestionEditorialService {
   private async authorize(actor: Actor, write = false) {
     if (!administrationEnabled() || actor.role !== 'ADMIN') throw new ApiError(403, 'Revisão editorial exclusiva da administração habilitada.');
     const user = await this.db.user.findUnique({ where: { id: actor.userId }, select: { role: true, deletedAt: true, emailVerifiedAt: true, accountControl: { select: { suspended: true } } } });
-    if (!user || user.role !== 'ADMIN' || user.deletedAt || !user.emailVerifiedAt || user.accountControl?.suspended) throw new ApiError(403, 'Responsável editorial indisponível.');
+    if (user?.role !== 'ADMIN' || user.deletedAt || !user.emailVerifiedAt || user.accountControl?.suspended) throw new ApiError(403, 'Responsável editorial indisponível.');
     if (write && !editorialWritesEnabled()) throw new ApiError(503, 'Escritas editoriais não autorizadas neste ambiente.');
   }
   async availability(actor: Actor) { await this.authorize(actor); return { writesEnabled: editorialWritesEnabled() }; }
@@ -120,11 +120,11 @@ export class QuestionEditorialService {
       if (editorialIssues(q).length || !q.revisaoJuridicaEm || !q.revisorJuridicoId || !q.revisaoPedagogicaEm || !q.revisorPedagogicoId) throw new ApiError(409, 'Revisões jurídica e pedagógica válidas são obrigatórias.');
       for (const [kind, event] of Object.entries(events)) {
         const review = await tx.administrativeEvent.findFirst({ where: { resourceId: id, event }, orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }] });
-        let evidence; try { evidence = JSON.parse(review?.result ?? '{}'); } catch { evidence = {}; }
+        let evidence: { digest?: string; confirmed?: boolean }; try { evidence = JSON.parse(review?.result ?? '{}'); } catch { evidence = {}; }
         const expectedReviewer = kind === 'legal' ? q.revisorJuridicoId : q.revisorPedagogicoId;
         if (!review || review.actorId !== expectedReviewer || evidence.digest !== input.expectedDigest || evidence.confirmed !== true) throw new ApiError(409, 'As revisões precisam corresponder à versão atual e possuir auditoria.');
         const reviewer = await tx.user.findUnique({ where: { id: expectedReviewer }, select: { role: true, emailVerifiedAt: true, deletedAt: true, accountControl: { select: { suspended: true } } } });
-        if (!reviewer || reviewer.role !== 'ADMIN' || !reviewer.emailVerifiedAt || reviewer.deletedAt || reviewer.accountControl?.suspended) throw new ApiError(409, 'Responsável pela revisão indisponível.');
+        if (reviewer?.role !== 'ADMIN' || !reviewer.emailVerifiedAt || reviewer.deletedAt || reviewer.accountControl?.suspended) throw new ApiError(409, 'Responsável pela revisão indisponível.');
       }
       const releasedAt = new Date();
       if (!toEligibleCandidate({ ...q, publica: true, liberadaAcervoEm: releasedAt, liberadaAcervoPorId: actor.userId })) throw new ApiError(409, 'A questão não atende aos critérios de elegibilidade do acervo.');

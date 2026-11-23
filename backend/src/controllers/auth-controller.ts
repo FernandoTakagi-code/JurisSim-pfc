@@ -112,7 +112,7 @@ export class AuthController {
       emailVerification = isLocalEmailCaptureRequested()
         ? { status: 'captured', message: 'Conta criada. Entre e use “Reenviar e-mail de confirmação” para obter o link local.' }
         : { status: 'accepted', message: verification.message };
-    } catch (error) {
+    } catch (_error) {
       console.error('Não foi possível enviar a confirmação de e-mail após o cadastro.');
       emailVerification = {
         status: 'unavailable',

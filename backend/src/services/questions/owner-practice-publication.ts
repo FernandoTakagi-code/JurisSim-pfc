@@ -17,7 +17,7 @@ export async function publishOwnerPractice(db:PrismaClient, manifest:OwnerPracti
   return db.$transaction(async tx=>{
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('jurissim:owner-practice-release'))::text`;
     const actor=await tx.user.findUnique({where:{email},select:{id:true,role:true,emailVerifiedAt:true,deletedAt:true,accountControl:{select:{suspended:true}}}});
-    if(!actor||actor.role!=='ADMIN'||!actor.emailVerifiedAt||actor.deletedAt||actor.accountControl?.suspended)throw new ApiError(403,'A conta responsável deve ser ADMIN ativa e verificada.');
+    if(actor?.role!=='ADMIN'||!actor.emailVerifiedAt||actor.deletedAt||actor.accountControl?.suspended)throw new ApiError(403,'A conta responsável deve ser ADMIN ativa e verificada.');
     await tx.$queryRaw(Prisma.sql`SELECT id FROM "User" WHERE id=${actor.id} FOR UPDATE`);
     const ids=manifest.questions.map(q=>q.id);
     await tx.$queryRaw(Prisma.sql`SELECT id FROM "Questao" WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`);
@@ -46,7 +46,7 @@ export async function revokeOwnerPractice(db:PrismaClient,batchId:string,email:s
   return db.$transaction(async tx=>{
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('jurissim:owner-practice-release'))::text`;
     const actor=await tx.user.findUnique({where:{email},select:{id:true,role:true,emailVerifiedAt:true,deletedAt:true,accountControl:{select:{suspended:true}}}});
-    if(!actor||actor.role!=='ADMIN'||!actor.emailVerifiedAt||actor.deletedAt||actor.accountControl?.suspended)throw new ApiError(403,'ADMIN responsável indisponível.');
+    if(actor?.role!=='ADMIN'||!actor.emailVerifiedAt||actor.deletedAt||actor.accountControl?.suspended)throw new ApiError(403,'ADMIN responsável indisponível.');
     const events=await tx.administrativeEvent.findMany({where:{event:{in:[OWNER_PRACTICE_RELEASE,OWNER_PRACTICE_REVOKE]}},select:{event:true,resourceId:true,result:true}});
     const matching=events.flatMap(e=>{try{const d=JSON.parse(e.result);return d.policy===OWNER_PRACTICE_POLICY&&d.batchId===batchId?[e]:[];}catch{return [];}});
     const revoked=new Set(matching.filter(e=>e.event===OWNER_PRACTICE_REVOKE).map(e=>e.resourceId));
